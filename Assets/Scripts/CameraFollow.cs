@@ -12,11 +12,6 @@ public class CameraFollow : MonoBehaviour
     private float rotX = 0f; // Rotazione verticale (pitch)
     private float rotY = 0f; // Rotazione orizzontale (yaw)
 
-    void Start()
-    {
-        Cursor.lockState = CursorLockMode.Locked; // Blocca il cursore
-        Cursor.visible = false;
-    }
 
     void LateUpdate()
     {
