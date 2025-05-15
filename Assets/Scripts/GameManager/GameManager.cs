@@ -4,44 +4,67 @@ using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
+    public static GameManager Instance;
+
+    [Header("UI Menus")]
     public GameObject startMenu;
     public GameObject pauseMenu;
 
     private bool isPaused = false;
 
-    public Button resumeButton;
-    public Button quitButton;
+    // Checkpoint attuale
+    [HideInInspector]
+    public Transform currentCheckpoint;
 
-    void Start()
+    private void Awake()
     {
+        // Singleton pattern
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    private void Start()
+    {
+        // All'avvio il gioco è in pausa e si vede il menu iniziale
         Time.timeScale = 0f;
         startMenu.SetActive(true);
         pauseMenu.SetActive(false);
 
-        resumeButton.onClick.AddListener(ResumeGame);
-        quitButton.onClick.AddListener(ExitGame);
     }
 
-    void Update()
+    private void Update()
     {
-        // ESC apre il menu di pausa solo se non siamo nel menu di avvio e non è già in pausa
-        if (Input.GetKeyDown(KeyCode.Escape) && !startMenu.activeSelf && !isPaused)
+        // Tasto ESC apre il menu pausa solo se il gioco è già partito e non è in pausa
+        if (Input.GetKeyDown(KeyCode.Escape) && !startMenu.activeSelf)
         {
-            Debug.Log("Premuto ESC → Apri Pausa");
-            OpenPauseMenu();
+            if (!isPaused)
+            {
+                OpenPauseMenu();
+            }
+            else
+            {
+                ResumeGame();
+            }
         }
     }
 
     public void StartGame()
     {
-        Debug.Log("StartGame() chiamato");
         startMenu.SetActive(false);
         Time.timeScale = 1f;
+        isPaused = false;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        Debug.Log("Gioco iniziato");
     }
 
-    // Apre il menu di pausa
     private void OpenPauseMenu()
     {
         isPaused = true;
@@ -49,26 +72,33 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        Debug.Log("Menu pausa aperto");
     }
 
-    // Riprende il gioco
     public void ResumeGame()
     {
-        Debug.Log("ResumeGame() chiamato");
         isPaused = false;
         pauseMenu.SetActive(false);
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        Debug.Log("Gioco ripreso");
     }
 
     public void ExitGame()
     {
-        Debug.Log("ExitGame() chiamato");
-        #if UNITY_EDITOR
+        Debug.Log("Uscita dal gioco");
+#if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
-        #else
+#else
         Application.Quit();
-        #endif
+#endif
+    }
+
+    // Metodo per aggiornare il checkpoint corrente
+    public void SetCheckpoint(Transform checkpoint)
+    {
+        currentCheckpoint = checkpoint;
+        Debug.Log("Checkpoint aggiornato a: " + checkpoint.name);
     }
 }
