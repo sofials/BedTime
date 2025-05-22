@@ -9,7 +9,7 @@ public class EnemyAI : MonoBehaviour
 
     public LayerMask whatIsGround, whatIsPlayer;
 
-    public float health;
+    public float health= 100f;
 
     //Patroling
     public Vector3 walkPoint;
@@ -93,6 +93,7 @@ public class EnemyAI : MonoBehaviour
     public void TakeDamage(int damage)
     {
         health -= damage;
+        Debug.Log($"Enemy Health: {health}");
 
         if (health <= 0) Invoke(nameof(DestroyEnemy), 0.5f);
     }

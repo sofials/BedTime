@@ -26,9 +26,6 @@ public class ThirdPersonController : MonoBehaviour
     private bool isLanding = false;
     public float landingDistance = 0.5f;
 
-    [Header("Attack")]
-    public GameObject attackHitbox; // assegna da Inspector
-
 
     void Start()
     {
@@ -63,11 +60,6 @@ public class ThirdPersonController : MonoBehaviour
 
         bool isFreeFalling = !controller.isGrounded && velocity.y < 0f && !isLanding && !_animator.GetBool("Jump");
         _animator.SetBool("FreeFall", isFreeFalling);
-
-        if (Input.GetMouseButtonDown(0))
-        {
-            _animator.SetTrigger("Attack");
-        }
     }
 
     private void HandleMovement()
@@ -151,15 +143,5 @@ public class ThirdPersonController : MonoBehaviour
         _animator.SetBool("FreeFall", false);
 
         jumpCount = 0;
-    }
-
-    public void ActivateHitbox()
-    {
-       attackHitbox.SetActive(true);
-    }
-
-    public void DeactivateHitbox()
-    {
-       attackHitbox.SetActive(false);
     }
 }
