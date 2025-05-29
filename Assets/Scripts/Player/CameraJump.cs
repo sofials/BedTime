@@ -1,37 +1,35 @@
 using UnityEngine;
-using Unity.Cinemachine;
 
-[RequireComponent(typeof(CinemachineCamera))]
-public class SmoothOrbitRotation : MonoBehaviour
+public class FollowWithVerticalThreshold : MonoBehaviour
 {
-    public Transform target;
-    public float distance = 5f;
-    public float heightOffset = 1.5f;
-    public float rotationLerpSpeed = 5f;
+    public Transform target;            // Il personaggio
+    public float verticalThreshold = 2f;
+    public float followSpeed = 5f;
 
-    private Quaternion currentRotation;
+    private float currentY;
 
     void Start()
     {
         if (target != null)
-            currentRotation = Quaternion.Euler(0, target.eulerAngles.y, 0);
+            currentY = target.position.y;
+
+        // Assicura che il GameObject inizi alla stessa posizione del target
+        transform.position = new Vector3(target.position.x, currentY, target.position.z);
     }
 
     void LateUpdate()
     {
         if (target == null) return;
 
-        // Rotazione desiderata attorno al target
-        Quaternion targetRotation = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+        float targetY = target.position.y;
+        float deltaY = targetY - currentY;
 
-        // Interpolazione fluida
-        currentRotation = Quaternion.Slerp(currentRotation, targetRotation, Time.deltaTime * rotationLerpSpeed);
+        if (Mathf.Abs(deltaY) > verticalThreshold)
+        {
+            currentY = Mathf.Lerp(currentY, targetY, Time.deltaTime * followSpeed);
+        }
 
-        // Calcolo della posizione orbitale
-        Vector3 offset = currentRotation * new Vector3(0, 0, -distance);
-        Vector3 targetPosition = target.position + Vector3.up * heightOffset;
-
-        transform.position = targetPosition + offset;
-        transform.LookAt(targetPosition);
+        // Muove il proxy solo sull’asse Y
+        transform.position = new Vector3(target.position.x, currentY, target.position.z);
     }
 }
