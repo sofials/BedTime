@@ -75,8 +75,6 @@ public class CameraFollow : MonoBehaviour
 
     void Start()
     {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
 
         initialOffset = transform.position - target.position;
 
