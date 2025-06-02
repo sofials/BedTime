@@ -9,7 +9,7 @@ public class PlayerAttack : MonoBehaviour
 
     private void Start()
     {
-        animator = GetComponent<Animator>();
+        animator = GetComponentInChildren<Animator>();
         DeactivateHitbox();
         StopWindEffect();
     }
