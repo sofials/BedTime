@@ -1,35 +1,50 @@
 using UnityEngine;
+using Unity.Cinemachine;
 
-public class FollowWithVerticalThreshold : MonoBehaviour
+public class CameraJumpAdjust : MonoBehaviour
 {
-    public Transform target;            // Il personaggio
-    public float verticalThreshold = 2f;
-    public float followSpeed = 5f;
+    public CinemachineCamera cineCamera;
+    public Transform player;
+    public float jumpYOffset = 0.5f;
+    public float lerpSpeed = 2f;
 
-    private float currentY;
+    private Vector3 defaultOffset;
+    private Cinemachine3rdPersonFollow thirdPersonFollow;
 
     void Start()
     {
-        if (target != null)
-            currentY = target.position.y;
-
-        // Assicura che il GameObject inizi alla stessa posizione del target
-        transform.position = new Vector3(target.position.x, currentY, target.position.z);
+        // Assicurati che il componente Cinemachine3rdPersonFollow sia presente
+        thirdPersonFollow = cineCamera.GetComponentInChildren<Cinemachine3rdPersonFollow>();
+        if (thirdPersonFollow != null)
+        {
+            defaultOffset = thirdPersonFollow.ShoulderOffset;
+        }
+        else
+        {
+            Debug.LogError("Cinemachine3rdPersonFollow non trovato nel CinemachineCamera.");
+        }
     }
 
-    void LateUpdate()
+    void Update()
     {
-        if (target == null) return;
+        if (thirdPersonFollow == null) return;
 
-        float targetY = target.position.y;
-        float deltaY = targetY - currentY;
+        bool isJumping = !IsGrounded();
+        Vector3 targetOffset = defaultOffset;
 
-        if (Mathf.Abs(deltaY) > verticalThreshold)
-        {
-            currentY = Mathf.Lerp(currentY, targetY, Time.deltaTime * followSpeed);
-        }
+        if (isJumping)
+            targetOffset.y += jumpYOffset;
 
-        // Muove il proxy solo sull’asse Y
-        transform.position = new Vector3(target.position.x, currentY, target.position.z);
+        thirdPersonFollow.ShoulderOffset = Vector3.Lerp(
+            thirdPersonFollow.ShoulderOffset,
+            targetOffset,
+            Time.deltaTime * lerpSpeed
+        );
+    }
+
+    bool IsGrounded()
+    {
+        // Sostituisci con il tuo controllo effettivo!
+        return Physics.Raycast(player.position, Vector3.down, 0.2f);
     }
 }
