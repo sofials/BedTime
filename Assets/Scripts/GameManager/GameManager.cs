@@ -9,6 +9,7 @@ public class GameManager : MonoBehaviour
     [Header("UI Menus")]
     public GameObject startMenu;
     public GameObject pauseMenu;
+    public PlayerAttack playerAttack;
 
     private bool isPaused = false;
 
@@ -63,6 +64,8 @@ public class GameManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         Debug.Log("Gioco iniziato");
+
+        IgnorePlayerAttackClick(); 
     }
 
     private void OpenPauseMenu()
@@ -73,6 +76,8 @@ public class GameManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         Debug.Log("Menu pausa aperto");
+
+        IgnorePlayerAttackClick();
     }
 
     public void ResumeGame()
@@ -83,6 +88,8 @@ public class GameManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         Debug.Log("Gioco ripreso");
+
+        IgnorePlayerAttackClick();
     }
 
     public void ExitGame()
@@ -101,4 +108,17 @@ public class GameManager : MonoBehaviour
         currentCheckpoint = checkpoint;
         Debug.Log("Checkpoint aggiornato a: " + checkpoint.name);
     }
+    private void IgnorePlayerAttackClick()
+    {
+        if (playerAttack != null)
+        {
+          playerAttack.IgnoreNextClick();
+          Debug.Log("IgnoreNextClick chiamato");
+        }
+        else
+        {
+          Debug.LogWarning("playerAttack non assegnato!");
+        }
+    }
+ 
 }

@@ -4,11 +4,15 @@ using UnityEngine;
 public class ThirdPersonController : MonoBehaviour
 {
     [Header("Movement Settings")]
-    public float moveSpeed = 5f;
+    public float walkSpeed = 2f;
+    public float runSpeed = 5f;
     public float rotationSmoothTime = 0.1f;
 
     private Vector3 velocity;
     private float rotationVelocity;
+    private float smoothInputMagnitude;
+    public float smoothTime = 0.3f; // regola quanto “morbida” è la transizione (0.1–0.2 sono valori tipici)
+
 
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
@@ -68,22 +72,36 @@ public class ThirdPersonController : MonoBehaviour
         float vertical = Input.GetAxis("Vertical");
         Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
-        if (inputDirection.magnitude < 0.1f)
-        {
-            _animator.SetFloat("Speed", 0f);
+        // Qui calcoli la “grandezza” del movimento (0 = fermo, 1 = massimo)
+        float inputMagnitude = inputDirection.magnitude;
+
+        // Invece di usare inputMagnitude direttamente,
+        // lo “ammorbidisci” con SmoothDamp
+        smoothInputMagnitude = Mathf.Lerp(
+          smoothInputMagnitude,
+          inputMagnitude,
+          Time.deltaTime * 3f
+         );
+
+        // Animazione: usa il valore smussato!
+        _animator.SetFloat("Speed", smoothInputMagnitude, 0.1f, Time.deltaTime);
+
+        // Se non c’è input, fermati
+        if (inputMagnitude < 0.1f)
             return;
-        }
 
-        _animator.SetFloat("Speed", 1f);
-
+        // Calcola la rotazione verso la direzione desiderata
         float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
         float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
-
         transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
+        // Movimento fisico
         Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-        controller.Move(moveDirection.normalized * moveSpeed * Time.deltaTime);
+
+        float targetSpeed = smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed;
+        controller.Move(moveDirection.normalized * targetSpeed * Time.deltaTime);
     }
+
 
     private void HandleJump()
     {
