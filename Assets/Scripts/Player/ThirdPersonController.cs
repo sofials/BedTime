@@ -21,6 +21,11 @@ public class ThirdPersonController : MonoBehaviour
     private CharacterController controller;
     private Animator _animator;
 
+    [Header("Air Control Settings")]
+    public float airControlSpeed = 2f;           // velocità orizzontale in aria
+    public float airControlLerpSpeed = 2f;       // quanto velocemente risponde all’input
+    public float airRotationSmoothTime = 0.3f;   // rotazione in aria (opzionale)
+
     [Header("References")]
     public Transform cameraTransform;
 
@@ -70,6 +75,32 @@ public class ThirdPersonController : MonoBehaviour
 
         bool isFreeFalling = !controller.isGrounded && velocity.y < 0f && !isLanding && !_animator.GetBool("Jump");
         _animator.SetBool("FreeFall", isFreeFalling);
+
+        if (!controller.isGrounded)
+        {
+            float horizontal = Input.GetAxis("Horizontal");
+            float vertical = Input.GetAxis("Vertical");
+            Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+
+            // Se c'è input
+            if (inputDirection.magnitude >= 0.1f)
+            {
+                // Calcola la direzione rispetto alla camera
+                float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+                float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
+                transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+
+                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+
+                // Muoviti in aria!
+                Vector3 airMove = moveDir.normalized * airControlSpeed;
+                Vector3 horizontalAirVelocity = new Vector3(airMove.x, 0f, airMove.z);
+
+                // Applica “additivamente” solo la parte orizzontale
+                controller.Move(horizontalAirVelocity * Time.deltaTime);
+            }
+        }
+
     }
 
     private void UpdatePlatformVelocity()
@@ -134,6 +165,9 @@ public class ThirdPersonController : MonoBehaviour
         else
             velocity.y += gravity * Time.deltaTime;
     }
+
+    
+    
 
     private void CheckLanding()
     {
