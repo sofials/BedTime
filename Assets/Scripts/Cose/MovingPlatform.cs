@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class MovingPlatform : MonoBehaviour
 {
     public SplineContainer splineContainer;
-    public float speed = 1f;
+    public float speed = 10f;
     public bool pingPong = true;
     public int sampleResolution = 100;
 
@@ -18,6 +18,8 @@ public class MovingPlatform : MonoBehaviour
     private Vector3 lastPosition;
     private CharacterController playerController = null;
 
+    private float speedMultiplier = 1f; // <-- IMPORTANTE per lo slowdown
+
     void Start()
     {
         SampleSpline();
@@ -26,7 +28,8 @@ public class MovingPlatform : MonoBehaviour
 
     void Update()
     {
-        currentDistance += speed * direction * Time.deltaTime;
+        // Usa il moltiplicatore per permettere il rallentamento
+        currentDistance += speed * speedMultiplier * direction * Time.deltaTime;
 
         if (pingPong)
         {
@@ -53,7 +56,6 @@ public class MovingPlatform : MonoBehaviour
 
         if (playerController != null)
         {
-            // Muovi il player usando CharacterController.Move
             playerController.Move(deltaMovement);
         }
 
@@ -95,12 +97,18 @@ public class MovingPlatform : MonoBehaviour
                 float prevDist = cumulativeDistances[i - 1];
                 float nextDist = cumulativeDistances[i];
                 float segmentT = Mathf.InverseLerp(prevDist, nextDist, distance);
-
                 return Vector3.Lerp(sampledPoints[i - 1], sampledPoints[i], segmentT);
             }
         }
 
         return sampledPoints[sampledPoints.Count - 1];
+    }
+
+    // Metodo chiamato dallo slowdown power-up
+    public void SetSpeedMultiplier(float multiplier)
+    {
+        speedMultiplier = multiplier;
+        Debug.Log($"[MovingPlatform] {gameObject.name} speed multiplier = {multiplier}");
     }
 
     private void OnCollisionEnter(Collision collision)

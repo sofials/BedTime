@@ -4723,6 +4723,23 @@ MonoBehaviour:
   meshesToHide:
   - {fileID: 597095714}
   teleportCost: 40
+--- !u!114 &1281143049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1281143039}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7e264929f6f07649892e2b24ba2071d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  powerUpManager: {fileID: 1281143045}
+  slowdownRadius: 30
+  slowdownFactor: 0.5
+  powerCost: 40
+  duration: 5
 --- !u!1 &1298321020
 GameObject:
   m_ObjectHideFlags: 0
@@ -5068,7 +5085,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   splineContainer: {fileID: 316328492}
-  speed: 14
+  speed: 10
   pingPong: 1
   sampleResolution: 100
 --- !u!54 &1298321028
@@ -7662,6 +7679,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1389901058397390851, guid: ee54569c4751ed14ca5218dc6b316b19, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1281143047}
+    - targetCorrespondingSourceObject: {fileID: 1389901058397390851, guid: ee54569c4751ed14ca5218dc6b316b19, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1281143049}
   m_SourcePrefab: {fileID: 100100000, guid: ee54569c4751ed14ca5218dc6b316b19, type: 3}
 --- !u!1001 &6781585892780818616
 PrefabInstance:
