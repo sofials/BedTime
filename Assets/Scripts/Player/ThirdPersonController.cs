@@ -84,7 +84,7 @@ public class ThirdPersonController : MonoBehaviour
          );
 
         // Animazione: usa il valore smussato!
-        _animator.SetFloat("Speed", smoothInputMagnitude, 0.1f, Time.deltaTime);
+        _animator.SetFloat("Speed", smoothInputMagnitude, 0.03f, Time.deltaTime);
 
         // Se non c’è input, fermati
         if (inputMagnitude < 0.1f)
