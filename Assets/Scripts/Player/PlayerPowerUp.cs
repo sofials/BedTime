@@ -50,4 +50,22 @@ public class PlayerPowerUp : MonoBehaviour
         // Qui puoi attivare il potenziamento (ma la barra resta piena finché non la svuoti)
         // Se vuoi azzerarla manualmente, potresti aggiungere un tasto o un trigger separato.
     }
+
+    public bool HasEnoughPower(int amount)
+    {
+       return currentPower >= amount;
+    }  
+
+    public void SpendPower(int amount)
+    {
+       currentPower -= amount;
+       currentPower = Mathf.Clamp(currentPower, 0, maxPower);
+       powerUpSlider.value = currentPower;
+
+       if (currentPower < maxPower)
+       {
+          powerUpReady = false;
+       }
+    }
+
 }
