@@ -6,6 +6,7 @@ public class ThirdPersonController : MonoBehaviour
     [Header("Movement Settings")]
     public float walkSpeed = 2f;
     public float runSpeed = 5f;
+    public float sprintSpeed = 8f;
     public float rotationSmoothTime = 0.1f;
     private float rotationVelocity;
     private float smoothInputMagnitude;
@@ -22,9 +23,9 @@ public class ThirdPersonController : MonoBehaviour
     private Animator _animator;
 
     [Header("Air Control Settings")]
-    public float airControlSpeed = 2f;           // velocità orizzontale in aria
-    public float airControlLerpSpeed = 2f;       // quanto velocemente risponde all’input
-    public float airRotationSmoothTime = 0.3f;   // rotazione in aria (opzionale)
+    public float airControlSpeed = 2f;
+    public float airControlLerpSpeed = 2f;
+    public float airRotationSmoothTime = 0.3f;
 
     [Header("References")]
     public Transform cameraTransform;
@@ -36,7 +37,7 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 lastPlatformPosition = Vector3.zero;
     private Vector3 platformVelocity = Vector3.zero;
 
-    private Vector3 playerVelocity; // dichiarazione mancante
+    private Vector3 playerVelocity;
 
     void Start()
     {
@@ -52,15 +53,13 @@ public class ThirdPersonController : MonoBehaviour
         HandleMovement();
         HandleJump();
 
-        // Combina il movimento del player e della piattaforma
         Vector3 totalMove = playerVelocity + platformVelocity;
-        totalMove.y = velocity.y; // mantieni la componente verticale
+        totalMove.y = velocity.y;
 
         controller.Move(totalMove * Time.deltaTime);
 
         CheckLanding();
 
-        // Gestione animazioni e reset jumpCount
         if (controller.isGrounded)
         {
             if (!wasGroundedLastFrame)
@@ -82,25 +81,19 @@ public class ThirdPersonController : MonoBehaviour
             float vertical = Input.GetAxis("Vertical");
             Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
-            // Se c'è input
             if (inputDirection.magnitude >= 0.1f)
             {
-                // Calcola la direzione rispetto alla camera
                 float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
                 float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
                 transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
                 Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-
-                // Muoviti in aria!
                 Vector3 airMove = moveDir.normalized * airControlSpeed;
                 Vector3 horizontalAirVelocity = new Vector3(airMove.x, 0f, airMove.z);
 
-                // Applica “additivamente” solo la parte orizzontale
                 controller.Move(horizontalAirVelocity * Time.deltaTime);
             }
         }
-
     }
 
     private void UpdatePlatformVelocity()
@@ -124,12 +117,7 @@ public class ThirdPersonController : MonoBehaviour
 
         float inputMagnitude = inputDirection.magnitude;
 
-        smoothInputMagnitude = Mathf.Lerp(
-            smoothInputMagnitude,
-            inputMagnitude,
-            Time.deltaTime * 3f
-        );
-
+        smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 3f);
         _animator.SetFloat("Speed", smoothInputMagnitude, 0.03f, Time.deltaTime);
 
         if (inputMagnitude < 0.1f)
@@ -144,7 +132,20 @@ public class ThirdPersonController : MonoBehaviour
 
         Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
-        float targetSpeed = smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed;
+        float targetSpeed;
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            targetSpeed = sprintSpeed;
+        }
+        else if (smoothInputMagnitude < 0.5f)
+        {
+            targetSpeed = walkSpeed;
+        }
+        else
+        {
+            targetSpeed = runSpeed;
+        }
+
         playerVelocity = moveDirection.normalized * targetSpeed;
     }
 
@@ -165,9 +166,6 @@ public class ThirdPersonController : MonoBehaviour
         else
             velocity.y += gravity * Time.deltaTime;
     }
-
-    
-    
 
     private void CheckLanding()
     {
