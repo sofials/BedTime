@@ -37,7 +37,6 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 0f;
         startMenu.SetActive(true);
         pauseMenu.SetActive(false);
-
     }
 
     private void Update()
@@ -65,7 +64,7 @@ public class GameManager : MonoBehaviour
         Cursor.visible = false;
         Debug.Log("Gioco iniziato");
 
-        IgnorePlayerAttackClick(); 
+        IgnorePlayerAttackClick();
     }
 
     private void OpenPauseMenu()
@@ -108,17 +107,17 @@ public class GameManager : MonoBehaviour
         currentCheckpoint = checkpoint;
         Debug.Log("Checkpoint aggiornato a: " + checkpoint.name);
     }
+
     private void IgnorePlayerAttackClick()
     {
         if (playerAttack != null)
         {
-          playerAttack.IgnoreNextClick();
-          Debug.Log("IgnoreNextClick chiamato");
+            playerAttack.IgnoreNextClick();
+            Debug.Log("IgnoreNextClick chiamato");
         }
         else
         {
-          Debug.LogWarning("playerAttack non assegnato!");
+            Debug.LogWarning("playerAttack non assegnato!");
         }
     }
- 
 }

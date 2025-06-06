@@ -3,69 +3,88 @@ using UnityEngine.UI;
 
 public class PlayerPowerUp : MonoBehaviour
 {
-    [Header("Barra Power-Up")]
-    [SerializeField] private Slider powerUpSlider;
-    [SerializeField] private int maxPower = 100;
+    [Header("Power Settings")]
+    private float maxPower = 100f;
+    private float currentPower = 0f;
 
-    private int currentPower = 0;
-    private bool powerUpReady = false; // Flag per sapere se la barra è piena
+    [Header("UI")]
+    public Slider powerSlider;  // Cambiato da Image a Slider
 
-    private void Start()
+    [Header("Abilities")]
+    public AbilityBase platformAbility;
+    public AbilityBase SlowdownAbility;
+    public AbilityBase TeleportAbility;
+
+    void Start()
     {
-        powerUpSlider.maxValue = maxPower;
-        powerUpSlider.value = currentPower;
+        if (platformAbility != null) platformAbility.powerUpScript = this;
+        if (SlowdownAbility != null) SlowdownAbility.powerUpScript = this;
+        if (TeleportAbility != null) TeleportAbility.powerUpScript = this;
+
+        if (powerSlider != null)
+        {
+            powerSlider.maxValue = maxPower;
+            powerSlider.value = currentPower;
+        }
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F) && platformAbility != null)
+        {
+            platformAbility.TryActivate();
+        }
+        else if (Input.GetKeyDown(KeyCode.Q) && SlowdownAbility != null)
+        {
+            SlowdownAbility.TryActivate();
+        }
+        else if (Input.GetKeyDown(KeyCode.E) && TeleportAbility != null)
+        {
+            TeleportAbility.TryActivate();
+        }
+    }
+
+    public void SpendPower(float amount)
+    {
+        currentPower = Mathf.Max(0f, currentPower - amount);
+        UpdatePowerBar();
+
+        Debug.Log($"Energia consumata: {amount}. Rimasta: {currentPower}");
+    }
+
+    public bool HasEnoughPower(float amount)
+    {
+        return currentPower >= amount;
+    }
+
+    public void AddPower(float amount)
+    {
+        if (currentPower < maxPower)
+        {
+            currentPower += amount;
+            currentPower = Mathf.Min(currentPower, maxPower);
+            UpdatePowerBar();
+
+            Debug.Log($"Energia aumentata di {amount}. Attuale: {currentPower}");
+        }
+    }
+
+    public void UpdatePowerBar()
+    {
+        if (powerSlider != null)
+            powerSlider.value = currentPower;
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        Debug.Log("Entrato in contatto con: " + other.name);
-
-        if (powerUpReady) return; // Se il power-up è pronto, non aggiungere più potere
-
-        Gem gem = other.GetComponent<Gem>();
-        if (gem != null)
+        if (other.CompareTag("Gem"))
         {
-            AddPower(gem.GetGemValue());
-            gem.Collect();
+            Gem gem = other.GetComponent<Gem>();
+            if (gem != null)
+            {
+                AddPower(gem.GetGemValue());
+                gem.Collect();
+            }
         }
     }
-
-    private void AddPower(int amount)
-    {
-        currentPower += amount;
-        currentPower = Mathf.Clamp(currentPower, 0, maxPower);
-        powerUpSlider.value = currentPower;
-
-        if (currentPower >= maxPower)
-        {
-            currentPower = maxPower; // Assicuriamoci che non vada oltre
-            powerUpReady = true; // Blocca ulteriori incrementi
-            ActivatePowerUp();
-        }
-    }
-
-    private void ActivatePowerUp()
-    {
-        Debug.Log("Power-Up pronto! La barra è al massimo.");
-        // Qui puoi attivare il potenziamento (ma la barra resta piena finché non la svuoti)
-        // Se vuoi azzerarla manualmente, potresti aggiungere un tasto o un trigger separato.
-    }
-
-    public bool HasEnoughPower(int amount)
-    {
-       return currentPower >= amount;
-    }  
-
-    public void SpendPower(int amount)
-    {
-       currentPower -= amount;
-       currentPower = Mathf.Clamp(currentPower, 0, maxPower);
-       powerUpSlider.value = currentPower;
-
-       if (currentPower < maxPower)
-       {
-          powerUpReady = false;
-       }
-    }
-
 }

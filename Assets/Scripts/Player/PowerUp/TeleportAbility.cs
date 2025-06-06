@@ -1,122 +1,122 @@
 using UnityEngine;
 
-public class TeleportAbility : MonoBehaviour
+public class TeleportAbility : AbilityBase
 {
     [Header("Teletrasporto")]
     public GameObject telePointerPrefab;
     public LayerMask teleportableLayers;
     public SkinnedMeshRenderer[] meshesToHide;
-    public int teleportCost = 40;
 
-    private PlayerPowerUp playerPowerUp;
+    [Header("Controller")]
+    [Tooltip("Il GameObject che contiene il CharacterController da usare per il teletrasporto.")]
+    public GameObject controllerGameObject;
+
     private GameObject currentPointer;
-    private bool isAiming = false;
-
-    private void Start()
-    {
-        playerPowerUp = GetComponent<PlayerPowerUp>();
-        if (playerPowerUp == null)
-        {
-            Debug.LogError("TeleportAbility richiede lo script PlayerPowerUp sullo stesso oggetto.");
-        }
-    }
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.E))
-        {
-            if (!isAiming && playerPowerUp.HasEnoughPower(teleportCost))
-            {
-                StartAiming();
-            }
-            else if (isAiming)
-            {
-                CancelAiming();
-            }
-        }
+        if (!IsActive) return;
 
-        if (isAiming)
-        {
-            UpdatePointerPosition();
+        UpdatePointerPosition();
 
-            if (Input.GetMouseButtonDown(1)) // click destro
+        if (Input.GetMouseButtonDown(1)) // click destro per confermare il teletrasporto
+        {
+            if (powerUpScript.HasEnoughPower(powerCost))
             {
-                if (playerPowerUp.HasEnoughPower(teleportCost))
-                {
-                    TeleportToPointer();
-                    playerPowerUp.SpendPower(teleportCost);
-                }
-                else
-                {
-                    Debug.Log("Non hai abbastanza potere per il teletrasporto.");
-                    CancelAiming();
-                }
+                TeleportToPointer();
+                powerUpScript.SpendPower(powerCost);
             }
+            else
+            {
+                Debug.Log("Non hai abbastanza potere per il teletrasporto.");
+            }
+
+            Deactivate();
         }
     }
 
-    void StartAiming()
+    public override void Activate()
     {
-        isAiming = true;
+        IsActive = true;
         currentPointer = Instantiate(telePointerPrefab);
         SetVisible(false);
     }
 
-    void CancelAiming()
+    public override void Deactivate()
     {
-        isAiming = false;
-        if (currentPointer) Destroy(currentPointer);
+        if (!IsActive) return;
+
+        IsActive = false;
+
+        if (currentPointer)
+            Destroy(currentPointer);
+
         SetVisible(true);
+        powerUpScript.UpdatePowerBar();
+
+        Debug.Log("TeleportAbility disattivata.");
     }
 
-    void UpdatePointerPosition()
+    private void UpdatePointerPosition()
     {
-         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-         if (Physics.Raycast(ray, out RaycastHit hit, 500f, teleportableLayers))
-             {
-                currentPointer.SetActive(true);
-                currentPointer.transform.position = hit.point;
-                currentPointer.transform.rotation = Quaternion.LookRotation(hit.normal);
-             }
-         else
-         {
-                // Nessun punto valido: nascondi la freccia
-                currentPointer.SetActive(false);
-         }
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        if (Physics.Raycast(ray, out RaycastHit hit, 500f, teleportableLayers))
+        {
+            currentPointer.SetActive(true);
+
+            Vector3 adjustedPoint = hit.point;
+            adjustedPoint.y += 0.1f;
+
+            currentPointer.transform.position = adjustedPoint;
+            currentPointer.transform.rotation = Quaternion.LookRotation(hit.normal);
+
+            Debug.DrawRay(ray.origin, ray.direction * 500f, Color.green);
+            Debug.DrawRay(hit.point, hit.normal, Color.red);
+        }
+        else
+        {
+            currentPointer.SetActive(false);
+        }
     }
 
-    void TeleportToPointer()
-    {   
-        
-        if (!currentPointer.activeSelf)
+    private void TeleportToPointer()
+    {
+        if (currentPointer == null || !currentPointer.activeSelf)
         {
-              Debug.Log("Punto di teletrasporto non valido.");
-              return;
+            Debug.Log("Punto di teletrasporto non valido.");
+            return;
         }
 
-        // Ottieni posizione bersaglio
         Vector3 targetPosition = currentPointer.transform.position;
 
-        // Compensa l'altezza del CharacterController (per portare la base a terra)
-        CharacterController controller = GetComponent<CharacterController>();
-        if (controller != null)
+        if (controllerGameObject != null)
         {
-           targetPosition.y += controller.height / 2f;
+            CharacterController controller = controllerGameObject.GetComponent<CharacterController>();
+            if (controller != null)
+            {
+                targetPosition.y += controller.height / 2f;
+
+                controller.enabled = false;
+                controllerGameObject.transform.position = targetPosition;
+                controller.enabled = true;
+            }
+            else
+            {
+                Debug.LogWarning("Nessun CharacterController trovato nel GameObject assegnato.");
+            }
         }
-
-        // Applica il teletrasporto
-        controller.enabled = false; // disabilita momentaneamente per evitare problemi
-        transform.position = targetPosition;
-        controller.enabled = true;
-
-        CancelAiming();
+        else
+        {
+            Debug.LogWarning("Nessun GameObject controller assegnato.");
+        }
     }
 
-    void SetVisible(bool visible)
+    private void SetVisible(bool visible)
     {
         foreach (var mesh in meshesToHide)
         {
-            mesh.enabled = visible;
+            if (mesh != null)
+                mesh.enabled = visible;
         }
     }
 }

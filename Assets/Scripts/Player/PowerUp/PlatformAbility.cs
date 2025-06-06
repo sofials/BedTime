@@ -1,118 +1,97 @@
 using UnityEngine;
 
-public class PlatformAbility : MonoBehaviour
+public class PlatformAbility : AbilityBase
 {
-    [Header("Power Settings")]
-    public int powerCost = 40;
-    public PlayerPowerUp powerUpScript;
-
-    [Header("Placement")]
+    [Header("Platform Prefabs")]
     public GameObject platformPrefab;
-    public GameObject ghostPrefab;
-    private GameObject ghostInstance;
+    public GameObject ghostValidPrefab;
+    public GameObject ghostInvalidPrefab;
 
-    [Header("Layer Mask")]
+    [Header("Placement Settings")]
     public LayerMask obstacleLayers;
+    public float placementDistance = 3f;
+    public float extraOffset = 3f;
 
-    [Header("Offset Settings")]
-    public float extraOffset = 8f;
+    private GameObject ghostValidInstance;
+    private GameObject ghostInvalidInstance;
 
-    private Transform mainCamera;
-    private bool placing = false;
+    private bool isPlacing = false;
     private GameObject currentGround;
+    private Transform camTransform;
 
-    private void Start()
-    {
-        mainCamera = Camera.main.transform;
-    }
+    private bool lastPlacementValid = false;
 
-    private void Update()
+    public bool IsPlacing => isPlacing;
+
+    void Start()
     {
-        if (Input.GetKeyDown(KeyCode.F) && !placing && powerUpScript.HasEnoughPower(powerCost))
+        camTransform = Camera.main.transform;
+
+        if (ghostValidPrefab != null)
         {
-            TryStartPlacement();
+            ghostValidInstance = Instantiate(ghostValidPrefab);
+            ghostValidInstance.SetActive(false);
         }
 
-        if (placing)
+        if (ghostInvalidPrefab != null)
         {
-            bool valid = GetValidGhostPosition(out Vector3 validPosition);
-            if (valid)
-            {
-                ghostInstance.transform.position = validPosition;
-                ghostInstance.transform.rotation = Quaternion.identity;
-                if (!ghostInstance.activeSelf) ghostInstance.SetActive(true);
-            }
-            else
-            {
-                if (ghostInstance.activeSelf) ghostInstance.SetActive(false);
-            }
+            ghostInvalidInstance = Instantiate(ghostInvalidPrefab);
+            ghostInvalidInstance.SetActive(false);
+        }
 
-            if (Input.GetMouseButtonDown(1))
+        duration = null; // chiarisco esplicitamente che questa abilità non ha durata automatica
+    }
+
+    void Update()
+    {
+        if (IsActive)
+        {
+            UpdateGhostPosition();
+
+            if (Input.GetMouseButtonDown(1)) // Click destro per piazzare
             {
-                PlacePlatform();
+                TryPlacePlatform();
             }
         }
     }
 
-    void TryStartPlacement()
+    public override void Activate()
     {
-        if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, 3f, obstacleLayers))
+        if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, placementDistance, obstacleLayers))
         {
             currentGround = hit.collider.gameObject;
 
-            if (ghostInstance == null)
-                ghostInstance = Instantiate(ghostPrefab);
-
-            bool valid = GetValidGhostPosition(out Vector3 validPosition);
-            if (valid)
+            if (ghostValidInstance != null && ghostInvalidInstance != null)
             {
-                ghostInstance.transform.position = validPosition;
-                ghostInstance.transform.rotation = Quaternion.identity;
-                ghostInstance.SetActive(true);
-                placing = true;
+                ghostValidInstance.SetActive(true);
+                ghostInvalidInstance.SetActive(false);
+                isPlacing = true;
             }
-            else
-            {
-                ghostInstance.SetActive(false);
-                placing = false;
-            }
-        }
-    }
-
-    void PlacePlatform()
-    {
-        if (!ghostInstance || !ghostInstance.activeSelf)
-            return;
-
-        Collider ghostCollider = ghostInstance.GetComponent<Collider>();
-        Vector3 ghostSize = ghostCollider.bounds.size;
-
-        Collider[] overlaps = Physics.OverlapBox(ghostInstance.transform.position, ghostSize / 2f, Quaternion.identity, obstacleLayers);
-        if (overlaps.Length == 0)
-        {
-            Instantiate(platformPrefab, ghostInstance.transform.position, Quaternion.identity);
-            powerUpScript.SpendPower(powerCost);
         }
         else
         {
-            Debug.Log("Non puoi piazzare qui, spazio occupato.");
+            Debug.Log("Nessun terreno valido trovato per il piazzamento.");
+            Deactivate(); // annulla subito se non puoi piazzare
         }
-
-        placing = false;
-        ghostInstance.SetActive(false);
     }
 
-    bool GetValidGhostPosition(out Vector3 position)
+    public override void Deactivate()
     {
-        position = Vector3.zero;
-        if (!currentGround || !ghostInstance)
-            return false;
+        isPlacing = false;
+        IsActive = false;
 
-        Vector3 camForward = mainCamera.forward;
+        if (ghostValidInstance != null) ghostValidInstance.SetActive(false);
+        if (ghostInvalidInstance != null) ghostInvalidInstance.SetActive(false);
+    }
+
+    void UpdateGhostPosition()
+    {
+        if (currentGround == null || ghostValidInstance == null || ghostInvalidInstance == null) return;
+
+        Vector3 camForward = camTransform.forward;
         camForward.y = 0;
         camForward.Normalize();
 
-        // Direzione più vicina alla camera
         Vector3[] directions = {
             currentGround.transform.forward,
             -currentGround.transform.forward,
@@ -120,7 +99,7 @@ public class PlatformAbility : MonoBehaviour
             -currentGround.transform.right
         };
 
-        float maxDot = -Mathf.Infinity;
+        float maxDot = float.NegativeInfinity;
         Vector3 bestDir = Vector3.forward;
 
         foreach (var dir in directions)
@@ -134,29 +113,55 @@ public class PlatformAbility : MonoBehaviour
         }
 
         Collider groundCollider = currentGround.GetComponent<Collider>();
-        Collider ghostCollider = ghostInstance.GetComponent<Collider>();
-        if (!groundCollider || !ghostCollider)
-            return false;
+        Collider ghostCollider = ghostValidInstance.GetComponent<Collider>();
+
+        if (groundCollider == null || ghostCollider == null) return;
 
         Bounds groundBounds = groundCollider.bounds;
         Bounds ghostBounds = ghostCollider.bounds;
 
-        // Offset calcolato correttamente in base all’asse migliore
         Vector3 offset = bestDir.normalized * (
             Vector3.Project(groundBounds.extents, bestDir).magnitude +
             Vector3.Project(ghostBounds.extents, bestDir).magnitude +
             extraOffset
         );
 
-        Vector3 potentialPos = groundBounds.center + offset;
+        Vector3 targetPos = groundBounds.center + offset;
+        Vector3 boxSize = ghostBounds.extents;
 
-        Collider[] overlaps = Physics.OverlapBox(potentialPos, ghostBounds.extents, Quaternion.identity, obstacleLayers);
-        if (overlaps.Length == 0)
+        Collider[] overlaps = Physics.OverlapBox(targetPos, boxSize, Quaternion.identity, obstacleLayers);
+        bool isValid = overlaps.Length == 0;
+
+        if (isValid != lastPlacementValid)
         {
-            position = potentialPos;
-            return true;
+            ghostValidInstance.SetActive(isValid);
+            ghostInvalidInstance.SetActive(!isValid);
+            lastPlacementValid = isValid;
         }
 
-        return false;
+        ghostValidInstance.transform.position = targetPos;
+        ghostInvalidInstance.transform.position = targetPos;
+        ghostValidInstance.transform.rotation = Quaternion.identity;
+        ghostInvalidInstance.transform.rotation = Quaternion.identity;
+    }
+
+    void TryPlacePlatform()
+    {
+        if (!lastPlacementValid || ghostValidInstance == null) return;
+
+        Vector3 position = ghostValidInstance.transform.position;
+        Collider ghostCollider = ghostValidInstance.GetComponent<Collider>();
+        Vector3 ghostSize = ghostCollider.bounds.size;
+
+        Collider[] overlaps = Physics.OverlapBox(position, ghostSize / 2f, Quaternion.identity, obstacleLayers);
+        if (overlaps.Length == 0)
+        {
+            Instantiate(platformPrefab, position, Quaternion.identity);
+            Deactivate();  // disattivo l'abilità dopo il piazzamento
+        }
+        else
+        {
+            Debug.Log("Non puoi piazzare qui, spazio occupato.");
+        }
     }
 }
