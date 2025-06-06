@@ -108,7 +108,7 @@ public class MovingPlatform : MonoBehaviour
     public void SetSpeedMultiplier(float multiplier)
     {
         speedMultiplier = multiplier;
-        Debug.Log($"[MovingPlatform] {gameObject.name} speed multiplier = {multiplier}");
+        Debug.Log($"[MovingPlatform] {gameObject.name} speed multiplier impostato a {multiplier}");
     }
 
     private void OnCollisionEnter(Collision collision)

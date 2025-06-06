@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class PlayerPowerUp : MonoBehaviour
 {
@@ -11,15 +12,26 @@ public class PlayerPowerUp : MonoBehaviour
     public Slider powerSlider;  // Cambiato da Image a Slider
 
     [Header("Abilities")]
-    public AbilityBase platformAbility;
+    public AbilityBase PlatformAbility;
     public AbilityBase SlowdownAbility;
     public AbilityBase TeleportAbility;
 
+    private Dictionary<KeyCode, AbilityBase> abilityKeyMap;
+
     void Start()
     {
-        if (platformAbility != null) platformAbility.powerUpScript = this;
-        if (SlowdownAbility != null) SlowdownAbility.powerUpScript = this;
-        if (TeleportAbility != null) TeleportAbility.powerUpScript = this;
+        abilityKeyMap = new Dictionary<KeyCode, AbilityBase>()
+        {
+            { KeyCode.F, PlatformAbility },
+            { KeyCode.Q, SlowdownAbility },
+            { KeyCode.E, TeleportAbility }
+        };
+
+        foreach (var ability in abilityKeyMap.Values)
+        {
+            if (ability != null)
+                ability.powerUpScript = this;
+        }
 
         if (powerSlider != null)
         {
@@ -30,17 +42,22 @@ public class PlayerPowerUp : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F) && platformAbility != null)
+        foreach (var kvp in abilityKeyMap)
         {
-            platformAbility.TryActivate();
-        }
-        else if (Input.GetKeyDown(KeyCode.Q) && SlowdownAbility != null)
-        {
-            SlowdownAbility.TryActivate();
-        }
-        else if (Input.GetKeyDown(KeyCode.E) && TeleportAbility != null)
-        {
-            TeleportAbility.TryActivate();
+            KeyCode key = kvp.Key;
+            AbilityBase ability = kvp.Value;
+
+            if (ability == null) continue;
+
+            if (Input.GetKeyDown(key))
+            {
+                if (ability.IsActive)
+                    ability.Deactivate();
+                else
+                    ability.TryActivate();
+
+                break; // uscita dal ciclo dopo gestione input
+            }
         }
     }
 

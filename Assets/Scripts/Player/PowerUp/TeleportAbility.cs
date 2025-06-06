@@ -13,6 +13,11 @@ public class TeleportAbility : AbilityBase
 
     private GameObject currentPointer;
 
+    // Override del costo: 20
+    public override int powerCost => 20;
+
+    protected override bool HasFixedDuration => false;
+
     void Update()
     {
         if (!IsActive) return;

@@ -2578,16 +2578,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6341600b70d3fe418ffab36c9d42453, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  powerCost: 20
+  duration: 5
   powerUpScript: {fileID: 1281143045}
+  <IsActive>k__BackingField: 0
   platformPrefab: {fileID: 3063364047387676250, guid: f052de377000b5f40907a0d5321d1d78, type: 3}
-  ghostValidPrefab: {fileID: 5899461660554743012, guid: 1a858c8c596961e47b573aa90cbc41a3, type: 3}
-  ghostInvalidPrefab: {fileID: 2887991146568783436, guid: f3f9498c22daf344c8d16f9d9883d34f, type: 3}
-  obstacleLayers:
-    serializedVersion: 2
-    m_Bits: 128
-  placementDistance: 3
-  extraOffset: 2
+  ghostPrefab: {fileID: 5899461660554743012, guid: 1a858c8c596961e47b573aa90cbc41a3, type: 3}
+  invalidPrefab: {fileID: 2887991146568783436, guid: f3f9498c22daf344c8d16f9d9883d34f, type: 3}
+  playerTransform: {fileID: 1281143046}
+  currentGhost: {fileID: 0}
+  currentInvalid: {fileID: 0}
+  placementPosition: {x: 0, y: 0, z: 0}
+  isPlacementValid: 0
+  mainCamera: {fileID: 0}
+  groundLayer:
+    m_Bits: 0
 --- !u!4 &553849773
 Transform:
   m_ObjectHideFlags: 0
@@ -3227,7 +3231,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7e264929f6f07649892e2b24ba2071d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  powerCost: 20
+  duration: 5
   powerUpScript: {fileID: 1281143045}
   slowdownRadius: 10
   slowdownFactor: 0.5
@@ -3450,7 +3454,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: edcf5f97634296e4bbf7078e4b159da4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  powerCost: 20
+  duration: 5
   powerUpScript: {fileID: 1281143045}
   telePointerPrefab: {fileID: 919132149155446097, guid: eef142bb556f38746a86b39bdf98f1b8, type: 3}
   teleportableLayers:
@@ -3458,6 +3462,7 @@ MonoBehaviour:
     m_Bits: 128
   meshesToHide:
   - {fileID: 597095714}
+  controllerGameObject: {fileID: 1281143039}
 --- !u!1 &1105801219
 GameObject:
   m_ObjectHideFlags: 0
@@ -4010,12 +4015,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86b0afa5144305544b02021f111970cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxPower: 100
-  currentPower: 0
   powerSlider: {fileID: 389952063}
-  platformAbility: {fileID: 553849772}
-  slowDownAbility: {fileID: 867169993}
-  teleportAbility: {fileID: 1037775931}
+  PlatformAbility: {fileID: 0}
+  SlowdownAbility: {fileID: 867169993}
+  TeleportAbility: {fileID: 1037775931}
+--- !u!4 &1281143046 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1730010123415786169, guid: ee54569c4751ed14ca5218dc6b316b19, type: 3}
+  m_PrefabInstance: {fileID: 1415887465976990082}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1298321020
 GameObject:
   m_ObjectHideFlags: 0
@@ -4361,7 +4369,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   splineContainer: {fileID: 316328492}
-  speed: 10
+  speed: 15
   pingPong: 1
   sampleResolution: 100
 --- !u!54 &1298321028
@@ -5295,7 +5303,7 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
+  m_VertexColorAlwaysGammaSpace: 1
   m_AdditionalShaderChannelsFlag: 0
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -7287,6 +7295,14 @@ PrefabInstance:
     - target: {fileID: 5293669149267197828, guid: ee54569c4751ed14ca5218dc6b316b19, type: 3}
       propertyPath: m_Layer
       value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 7506936984912432719, guid: ee54569c4751ed14ca5218dc6b316b19, type: 3}
+      propertyPath: m_Height
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7506936984912432719, guid: ee54569c4751ed14ca5218dc6b316b19, type: 3}
+      propertyPath: m_Center.y
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

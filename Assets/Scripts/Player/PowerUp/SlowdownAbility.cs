@@ -3,95 +3,108 @@ using System.Collections.Generic;
 
 public class SlowdownAbility : AbilityBase
 {
-    [Header("Slowdown Settings")]
     public float slowdownRadius = 20f;
     public float slowdownFactor = 0.5f;
-
-    [Header("Durata Override")]
     public float customDuration = 10f;
+
+    // Override del costo di attivazione: 20
+    public override int powerCost => 20;
 
     private struct PlatformData
     {
-        public Rigidbody rb;
-        public Vector3 originalVelocity;
+        public MovingPlatform platform;
+        public float originalSpeedMultiplier;
     }
 
     private List<PlatformData> affectedPlatforms = new List<PlatformData>();
 
+    // Questa abilità ha durata fissa
+    protected override bool HasFixedDuration => true;
+
     void Awake()
     {
         duration = customDuration;
+        Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
     }
 
     public override void Activate()
     {
-        Camera cam = Camera.main;
-        if (cam == null)
-        {
-            Debug.LogWarning("[SlowdownAbility] Camera.main non trovata!");
-            return;
-        }
-
-        Collider[] colliders = Physics.OverlapSphere(transform.position, slowdownRadius);
+        Debug.Log("\n=== [SlowdownAbility] Activate() chiamato ===");
         affectedPlatforms.Clear();
+
+        Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
+
+        Debug.Log($"[SlowdownAbility] Numero di collider trovati nel raggio di {slowdownRadius}: {colliders.Length}");
 
         foreach (Collider col in colliders)
         {
-            GameObject obj = col.gameObject;
+            Debug.Log($"[SlowdownAbility] Controllo collider: {col.name}, Tag: {col.tag}");
 
-            if (obj.CompareTag("MovingPlatform"))
+            if (col.CompareTag("MovingPlatform"))
             {
-                Vector3 viewportPos = cam.WorldToViewportPoint(obj.transform.position);
-                bool isVisible = viewportPos.z > 0 &&
-                                 viewportPos.x >= 0 && viewportPos.x <= 1 &&
-                                 viewportPos.y >= 0 && viewportPos.y <= 1;
+                Debug.Log($"[SlowdownAbility] {col.name} ha il tag 'MovingPlatform'");
 
-                if (isVisible)
+                MovingPlatform mp = col.GetComponent<MovingPlatform>();
+                if (mp != null)
                 {
-                    Rigidbody rb = obj.GetComponent<Rigidbody>();
-                    if (rb != null)
-                    {
-                        affectedPlatforms.Add(new PlatformData
-                        {
-                            rb = rb,
-                            originalVelocity = rb.linearVelocity
-                        });
+                    Debug.Log($"[SlowdownAbility] {col.name} ha componente MovingPlatform");
 
-                        rb.linearVelocity = rb.linearVelocity * slowdownFactor;
-                    }
-                    else
+                    affectedPlatforms.Add(new PlatformData
                     {
-                        Debug.LogWarning("[SlowdownAbility] Oggetto con tag MovingPlatform senza Rigidbody.");
-                    }
+                        platform = mp,
+                        originalSpeedMultiplier = 1f // Puoi leggere il valore reale se vuoi
+                    });
+
+                    mp.SetSpeedMultiplier(slowdownFactor);
+                    Debug.Log($"[SlowdownAbility] Rallentata piattaforma {col.name} con fattore {slowdownFactor}");
                 }
+                else
+                {
+                    Debug.LogWarning($"[SlowdownAbility] {col.name} ha il tag corretto ma non ha componente MovingPlatform");
+                }
+            }
+            else
+            {
+                Debug.Log($"[SlowdownAbility] {col.name} ha un tag diverso: {col.tag}");
             }
         }
 
         if (affectedPlatforms.Count > 0)
         {
             Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme.");
+            powerUpScript.SpendPower(powerCost); // <-- Qui spendi il potere!
             IsActive = true;
         }
         else
         {
-            Debug.Log("[SlowdownAbility] Nessuna piattaforma trovata per rallentare.");
+            Debug.LogWarning("[SlowdownAbility] Nessuna piattaforma trovata da rallentare.");
             IsActive = false;
         }
+
+        Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
     }
 
     public override void Deactivate()
     {
+        Debug.Log("\n=== [SlowdownAbility] Deactivate() chiamato ===");
+
         foreach (var data in affectedPlatforms)
         {
-            if (data.rb != null)
+            if (data.platform != null)
             {
-                data.rb.linearVelocity = data.originalVelocity;
+                data.platform.SetSpeedMultiplier(1f);
+                Debug.Log($"[SlowdownAbility] Ripristinata velocità piattaforma: {data.platform.name}");
+            }
+            else
+            {
+                Debug.LogWarning("[SlowdownAbility] Una delle piattaforme è null durante il ripristino.");
             }
         }
 
         affectedPlatforms.Clear();
         IsActive = false;
 
-        Debug.Log("[SlowdownAbility] Slowdown terminato, velocità piattaforme ripristinate.");
+        Debug.Log("[SlowdownAbility] Slowdown disattivato e lista piattaforme svuotata.");
+        Debug.Log("=== [SlowdownAbility] Fine Deactivate() ===\n");
     }
 }
