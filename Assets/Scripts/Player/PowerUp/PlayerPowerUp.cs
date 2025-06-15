@@ -12,7 +12,7 @@ public class PlayerPowerUp : MonoBehaviour
     public Slider powerSlider;  // Cambiato da Image a Slider
 
     [Header("Abilities")]
-    public AbilityBase PlatformAbility;
+    public AbilityBase PlatformSpawnAbility;
     public AbilityBase SlowdownAbility;
     public AbilityBase TeleportAbility;
 
@@ -22,7 +22,7 @@ public class PlayerPowerUp : MonoBehaviour
     {
         abilityKeyMap = new Dictionary<KeyCode, AbilityBase>()
         {
-            { KeyCode.F, PlatformAbility },
+            { KeyCode.F, PlatformSpawnAbility },
             { KeyCode.Q, SlowdownAbility },
             { KeyCode.E, TeleportAbility }
         };
