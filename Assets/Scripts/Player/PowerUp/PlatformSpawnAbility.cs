@@ -10,14 +10,12 @@ public class PlatformSpawnAbility : AbilityBase
 
     private GameObject currentGhost;
     private Transform cameraTransform;
-    private Transform playerTransform;
 
     private bool placing = false;
 
     private void Start()
     {
         cameraTransform = Camera.main.transform;
-        playerTransform = GameObject.FindGameObjectWithTag("Player").transform;
     }
 
     public override void Activate()
@@ -27,13 +25,14 @@ public class PlatformSpawnAbility : AbilityBase
         Vector3 spawnPos;
         if (!TryGetSpawnPosition(out spawnPos))
         {
-            Debug.Log("Nessuna piattaforma sotto al player.");
+            Debug.Log("Nessuna piattaforma sotto la camera.");
             return;
         }
 
         currentGhost = Instantiate(ghostPrefab, spawnPos, Quaternion.identity);
         AlignGhostToCamera();
         placing = true;
+        IsActive = true;
     }
 
     public override void Deactivate()
@@ -49,10 +48,19 @@ public class PlatformSpawnAbility : AbilityBase
     {
         if (!placing || currentGhost == null) return;
 
-        // Ruota il ghost mentre si mira
-        AlignGhostToCamera();
+        // Aggiorna la posizione e rotazione del ghost in tempo reale
+        Vector3 spawnPos;
+        if (TryGetSpawnPosition(out spawnPos))
+        {
+            currentGhost.transform.position = spawnPos;
+            AlignGhostToCamera();
+        }
+        else
+        {
+            Debug.Log("Nessuna piattaforma sotto la camera (update).");
+        }
 
-        // Clic sinistro → prova a piazzare
+        // Clic sinistro per piazzare la piattaforma
         if (Input.GetMouseButtonDown(0))
         {
             if (CanPlacePlatform(currentGhost.transform.position))
@@ -70,17 +78,19 @@ public class PlatformSpawnAbility : AbilityBase
 
     private bool TryGetSpawnPosition(out Vector3 spawnPos)
     {
-        Vector3 origin = playerTransform.position + Vector3.up * 0.1f;
-        float maxDistance = 2f;
+        Vector3 origin = cameraTransform.position + Vector3.up * 0.1f;
+        float maxDistance = 3f;
 
-        if (Physics.SphereCast(origin, 0.3f, Vector3.down, out RaycastHit hit, maxDistance))
+        Debug.DrawRay(origin, Vector3.down * maxDistance, Color.red);
+
+        if (Physics.SphereCast(origin, 0.3f, Vector3.down, out RaycastHit hit, maxDistance, obstacleMask))
         {
             Vector3 forward = cameraTransform.forward;
             forward.y = 0;
             forward.Normalize();
 
             spawnPos = hit.point + forward * offsetDistance;
-            spawnPos.y = hit.point.y; // allineato in altezza con la piattaforma
+            spawnPos.y = hit.point.y; // allinea altezza piattaforma
             return true;
         }
 
