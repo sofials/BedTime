@@ -149,6 +149,24 @@ public class ThirdPersonController : MonoBehaviour
         playerVelocity = moveDirection.normalized * targetSpeed;
     }
 
+    /* private void HandleJump()
+     {
+         if (Input.GetButtonDown("Jump") && jumpCount < maxJumps)
+         {
+             _animator.SetBool("Jump", true);
+             if (jumpCount == 1)
+                 _animator.SetBool("DoubleJump", true);
+
+             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+             jumpCount++;
+         }
+
+         if (controller.isGrounded && velocity.y < 0)
+             velocity.y = -2f;
+         else
+             velocity.y += gravity * Time.deltaTime;
+     }*/
+
     private void HandleJump()
     {
         if (Input.GetButtonDown("Jump") && jumpCount < maxJumps)
@@ -161,11 +179,28 @@ public class ThirdPersonController : MonoBehaviour
             jumpCount++;
         }
 
-        if (controller.isGrounded && velocity.y < 0)
-            velocity.y = -2f;
+        // Mario-style falling and low jump logic
+        if (velocity.y < 0)
+        {
+            // Fall faster
+            velocity.y += gravity * 2.5f * Time.deltaTime;
+        }
+        else if (velocity.y > 0 && !Input.GetButton("Jump"))
+        {
+            // Low jump if button released early
+            velocity.y += gravity * 2f * Time.deltaTime;
+        }
         else
+        {
             velocity.y += gravity * Time.deltaTime;
+        }
+
+        if (controller.isGrounded && velocity.y < 0)
+        {
+            velocity.y = -2f;
+        }
     }
+
 
     private void CheckLanding()
     {
