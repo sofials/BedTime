@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Collections;
+
 
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
@@ -35,6 +37,9 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 platformVelocity = Vector3.zero;
 
     private Vector3 playerVelocity;
+    private Vector3 externalPush = Vector3.zero;
+    [SerializeField] private float pushRecoverySpeed = 3f;
+
 
     void Start()
     {
@@ -149,6 +154,12 @@ public class ThirdPersonController : MonoBehaviour
         float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / maxSpeed);
 
         _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
+        if (externalPush.magnitude > 0.1f)
+        {
+            controller.Move(externalPush * Time.deltaTime);
+            externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
+        }
+
     }
 
     private void HandleJump()
@@ -230,4 +241,34 @@ public class ThirdPersonController : MonoBehaviour
             }
         }
     }
+
+    public void ApplyKnockback(Vector3 direction, float force, float duration)
+    {
+        // Direzione del knockback in orizzontale (y = 0)
+        direction.y = 0;
+        direction.Normalize();
+
+        // Avvia una coroutine per gestire il knockback temporaneo
+        StartCoroutine(KnockbackCoroutine(direction, force, duration));
+    }
+
+    private IEnumerator KnockbackCoroutine(Vector3 direction, float force, float duration)
+    {
+        float timer = 0f;
+
+        while (timer < duration)
+        {
+            // Muove il player in direzione opposta per il knockback
+            controller.Move(direction * force * Time.deltaTime);
+
+            timer += Time.deltaTime;
+            yield return null;
+        }
+    }
+    public void ApplyExternalPush(Vector3 push)
+    {
+        externalPush = push;
+    }
+
+
 }
