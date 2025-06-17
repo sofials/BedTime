@@ -53,13 +53,11 @@ public class ThirdPersonController : MonoBehaviour
         Vector3 totalMove = playerVelocity + platformVelocity;
         totalMove.y = velocity.y;
         controller.Move(totalMove * Time.deltaTime);
-        bool isGrounded = controller.isGrounded;
 
-        // Imposta Animator
+        bool isGrounded = controller.isGrounded;
         _animator.SetBool("isGrounded", isGrounded);
 
-        // Reset animazioni salto quando atterra
-        if (controller.isGrounded && !wasGroundedLastFrame)
+        if (isGrounded && !wasGroundedLastFrame)
         {
             jumpCount = 0;
             _animator.SetBool("Jump", false);
@@ -67,10 +65,26 @@ public class ThirdPersonController : MonoBehaviour
         }
 
         wasGroundedLastFrame = isGrounded;
-        // Attiva animazione di caduta libera
-        bool isFalling = !isGrounded && velocity.y < -3f && !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump");
-        _animator.SetBool("isFalling", isFalling);
+        bool isFalling = false;
 
+        if (!isGrounded && velocity.y < -3f && !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump"))
+        {
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hit, 1.5f))
+            {
+                float groundAngle = Vector3.Angle(hit.normal, Vector3.up);
+                if (groundAngle > controller.slopeLimit + 5f)
+                {
+                    isFalling = true;
+                }
+            }
+            else
+            {
+                isFalling = true;
+            }
+        }
+
+        _animator.SetBool("isFalling", isFalling);
 
         if (!isGrounded)
         {
@@ -86,12 +100,9 @@ public class ThirdPersonController : MonoBehaviour
 
                 Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
                 Vector3 airMove = moveDir.normalized * airControlSpeed;
-
-       
                 playerVelocity += new Vector3(airMove.x, 0f, airMove.z);
             }
-}
-
+        }
     }
 
     private void UpdatePlatformVelocity()
@@ -109,56 +120,50 @@ public class ThirdPersonController : MonoBehaviour
 
     private void HandleMovement()
     {
-       float horizontal = Input.GetAxis("Horizontal");
-       float vertical = Input.GetAxis("Vertical");
-       Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+        Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
-       float inputMagnitude = inputDirection.magnitude;
-       smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 5f);
+        float inputMagnitude = inputDirection.magnitude;
+        smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 5f);
 
-       if (inputMagnitude < 0.1f)
-       {
-         playerVelocity = Vector3.zero;
-         // Imposta Speed a 0 in modo smoothed
-         _animator.SetFloat("Speed", 0f, 0.1f, Time.deltaTime);
-         return;
-       }
+        if (inputMagnitude < 0.1f)
+        {
+            playerVelocity = Vector3.zero;
+            _animator.SetFloat("Speed", 0f, 0.1f, Time.deltaTime);
+            return;
+        }
 
-       float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-       float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
-       transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+        float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+        float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
+        transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
-       Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+        Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
-       float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed :
-                        (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
+        float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed :
+                            (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
 
-       playerVelocity = moveDirection.normalized * targetSpeed;
+        playerVelocity = moveDirection.normalized * targetSpeed;
 
-       // Calcola la velocità normalizzata per il blend tree
-       float maxSpeed = sprintSpeed; // sprintSpeed è la massima velocità possibile
-       float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / maxSpeed);
+        float maxSpeed = sprintSpeed;
+        float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / maxSpeed);
 
-      _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
-}
-
-
+        _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
+    }
 
     private void HandleJump()
-    {   
+    {
         bool isGrounded = controller.isGrounded;
-        
+
         if (Input.GetButtonDown("Jump") && jumpCount < maxJumps)
         {
             if (jumpCount == 0)
             {
-                // Primo salto
                 _animator.SetBool("Jump", true);
                 _animator.SetBool("DoubleJump", false);
             }
             else if (jumpCount == 1)
             {
-                // Secondo salto (double jump)
                 _animator.SetBool("DoubleJump", true);
                 _animator.SetBool("Jump", false);
             }
@@ -166,7 +171,6 @@ public class ThirdPersonController : MonoBehaviour
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpCount++;
         }
-
 
         if (velocity.y < 0)
         {
@@ -204,7 +208,6 @@ public class ThirdPersonController : MonoBehaviour
 
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
-
         jumpCount = 0;
     }
 
