@@ -10,7 +10,6 @@ public class ThirdPersonController : MonoBehaviour
     public float rotationSmoothTime = 0.1f;
     private float rotationVelocity;
     private float smoothInputMagnitude;
-    public float smoothTime = 0.3f;
 
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
@@ -19,20 +18,18 @@ public class ThirdPersonController : MonoBehaviour
     private int jumpCount = 0;
     private Vector3 velocity;
 
+    [Header("Air Control Settings")]
+    public float airControlStrength = 0.5f;
+    public float airControlSpeed = 2f;
+    public float airRotationSmoothTime = 0.3f;
+
     private CharacterController controller;
     private Animator _animator;
-
-    [Header("Air Control Settings")]
-    public float airControlSpeed = 2f;
-    public float airControlLerpSpeed = 2f;
-    public float airRotationSmoothTime = 0.3f;
 
     [Header("References")]
     public Transform cameraTransform;
 
     private bool wasGroundedLastFrame;
-    private bool isLanding = false;
-    public float landingDistance = 0.5f;
     private Transform currentPlatform = null;
     private Vector3 lastPlatformPosition = Vector3.zero;
     private Vector3 platformVelocity = Vector3.zero;
@@ -55,27 +52,27 @@ public class ThirdPersonController : MonoBehaviour
 
         Vector3 totalMove = playerVelocity + platformVelocity;
         totalMove.y = velocity.y;
-
         controller.Move(totalMove * Time.deltaTime);
+        bool isGrounded = controller.isGrounded;
 
-        CheckLanding();
+        // Imposta Animator
+        _animator.SetBool("isGrounded", isGrounded);
 
-        if (controller.isGrounded)
+        // Reset animazioni salto quando atterra
+        if (controller.isGrounded && !wasGroundedLastFrame)
         {
-            if (!wasGroundedLastFrame)
-            {
-                jumpCount = 0;
-                _animator.SetBool("Jump", false);
-                _animator.SetBool("DoubleJump", false);
-            }
+            jumpCount = 0;
+            _animator.SetBool("Jump", false);
+            _animator.SetBool("DoubleJump", false);
         }
 
-        wasGroundedLastFrame = controller.isGrounded;
+        wasGroundedLastFrame = isGrounded;
+        // Attiva animazione di caduta libera
+        bool isFalling = !isGrounded && velocity.y < -3f && !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump");
+        _animator.SetBool("isFalling", isFalling);
 
-        bool isFreeFalling = !controller.isGrounded && velocity.y < 0f && !isLanding && !_animator.GetBool("Jump");
-        _animator.SetBool("FreeFall", isFreeFalling);
 
-        if (!controller.isGrounded)
+        if (!isGrounded)
         {
             float horizontal = Input.GetAxis("Horizontal");
             float vertical = Input.GetAxis("Vertical");
@@ -89,11 +86,12 @@ public class ThirdPersonController : MonoBehaviour
 
                 Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
                 Vector3 airMove = moveDir.normalized * airControlSpeed;
-                Vector3 horizontalAirVelocity = new Vector3(airMove.x, 0f, airMove.z);
 
-                controller.Move(horizontalAirVelocity * Time.deltaTime);
+       
+                playerVelocity += new Vector3(airMove.x, 0f, airMove.z);
             }
-        }
+}
+
     }
 
     private void UpdatePlatformVelocity()
@@ -111,83 +109,71 @@ public class ThirdPersonController : MonoBehaviour
 
     private void HandleMovement()
     {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
-        Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+       float horizontal = Input.GetAxis("Horizontal");
+       float vertical = Input.GetAxis("Vertical");
+       Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
-        float inputMagnitude = inputDirection.magnitude;
+       float inputMagnitude = inputDirection.magnitude;
+       smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 5f);
 
-        smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 3f);
-        _animator.SetFloat("Speed", smoothInputMagnitude, 0.03f, Time.deltaTime);
+       if (inputMagnitude < 0.1f)
+       {
+         playerVelocity = Vector3.zero;
+         // Imposta Speed a 0 in modo smoothed
+         _animator.SetFloat("Speed", 0f, 0.1f, Time.deltaTime);
+         return;
+       }
 
-        if (inputMagnitude < 0.1f)
-        {
-            playerVelocity = Vector3.zero;
-            return;
-        }
+       float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+       float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
+       transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
-        float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-        float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
-        transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+       Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
-        Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+       float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed :
+                        (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
 
-        float targetSpeed;
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            targetSpeed = sprintSpeed;
-        }
-        else if (smoothInputMagnitude < 0.5f)
-        {
-            targetSpeed = walkSpeed;
-        }
-        else
-        {
-            targetSpeed = runSpeed;
-        }
+       playerVelocity = moveDirection.normalized * targetSpeed;
 
-        playerVelocity = moveDirection.normalized * targetSpeed;
-    }
+       // Calcola la velocità normalizzata per il blend tree
+       float maxSpeed = sprintSpeed; // sprintSpeed è la massima velocità possibile
+       float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / maxSpeed);
 
-    /* private void HandleJump()
-     {
-         if (Input.GetButtonDown("Jump") && jumpCount < maxJumps)
-         {
-             _animator.SetBool("Jump", true);
-             if (jumpCount == 1)
-                 _animator.SetBool("DoubleJump", true);
+      _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
+}
 
-             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-             jumpCount++;
-         }
 
-         if (controller.isGrounded && velocity.y < 0)
-             velocity.y = -2f;
-         else
-             velocity.y += gravity * Time.deltaTime;
-     }*/
 
     private void HandleJump()
-    {
+    {   
+        bool isGrounded = controller.isGrounded;
+        
         if (Input.GetButtonDown("Jump") && jumpCount < maxJumps)
         {
-            _animator.SetBool("Jump", true);
-            if (jumpCount == 1)
+            if (jumpCount == 0)
+            {
+                // Primo salto
+                _animator.SetBool("Jump", true);
+                _animator.SetBool("DoubleJump", false);
+            }
+            else if (jumpCount == 1)
+            {
+                // Secondo salto (double jump)
                 _animator.SetBool("DoubleJump", true);
+                _animator.SetBool("Jump", false);
+            }
 
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpCount++;
         }
 
-        // Mario-style falling and low jump logic
+
         if (velocity.y < 0)
         {
-            // Fall faster
             velocity.y += gravity * 2.5f * Time.deltaTime;
         }
         else if (velocity.y > 0 && !Input.GetButton("Jump"))
         {
-            // Low jump if button released early
             velocity.y += gravity * 2f * Time.deltaTime;
         }
         else
@@ -198,28 +184,6 @@ public class ThirdPersonController : MonoBehaviour
         if (controller.isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
-        }
-    }
-
-
-    private void CheckLanding()
-    {
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, Vector3.down, out hit, landingDistance))
-        {
-            if (!isLanding)
-            {
-                isLanding = true;
-                _animator.SetBool("Landing", true);
-            }
-        }
-        else
-        {
-            if (isLanding)
-            {
-                isLanding = false;
-                _animator.SetBool("Landing", false);
-            }
         }
     }
 
@@ -240,8 +204,6 @@ public class ThirdPersonController : MonoBehaviour
 
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
-        _animator.SetBool("Landing", false);
-        _animator.SetBool("FreeFall", false);
 
         jumpCount = 0;
     }
