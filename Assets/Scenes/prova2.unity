@@ -2248,7 +2248,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
@@ -2276,8 +2276,8 @@ MonoBehaviour:
   walkPoint: {x: 0, y: 0, z: 0}
   walkPointRange: 5
   timeBetweenAttacks: 2
-  sightRange: 10
-  attackRange: 5
+  sightRange: 18
+  attackRange: 8
   playerInSightRange: 0
   playerInAttackRange: 0
 --- !u!195 &648405097
@@ -2302,6 +2302,29 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!136 &648405100
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 648405094}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 1
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &738276806
 GameObject:
   m_ObjectHideFlags: 0
@@ -2333,7 +2356,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   startMenu: {fileID: 1145329325}
   pauseMenu: {fileID: 2029357746}
-  playerAttack: {fileID: 0}
+  playerAttack: {fileID: 7740023881270631567}
   currentCheckpoint: {fileID: 0}
 --- !u!4 &738276808
 Transform:
@@ -5293,6 +5316,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: a736566565a0467eb2ba23a7007ba560, type: 3}
       insertIndex: -1
       addedObject: {fileID: 648405095}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: a736566565a0467eb2ba23a7007ba560, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 648405100}
   m_SourcePrefab: {fileID: 100100000, guid: a736566565a0467eb2ba23a7007ba560, type: 3}
 --- !u!43 &2102099460
 Mesh:
@@ -5524,9 +5550,29 @@ PrefabInstance:
       propertyPath: TeleportAbility
       value: 
       objectReference: {fileID: 1037775931}
+    - target: {fileID: 2870430278336039975, guid: 0c2bb83c90c07854982fd6a4ab3045fa, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.13
+      objectReference: {fileID: 0}
+    - target: {fileID: 2870430278336039975, guid: 0c2bb83c90c07854982fd6a4ab3045fa, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.02
+      objectReference: {fileID: 0}
     - target: {fileID: 5776157256444248910, guid: 0c2bb83c90c07854982fd6a4ab3045fa, type: 3}
       propertyPath: m_Name
       value: Luke
+      objectReference: {fileID: 0}
+    - target: {fileID: 8567497163033241981, guid: 0c2bb83c90c07854982fd6a4ab3045fa, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.07
+      objectReference: {fileID: 0}
+    - target: {fileID: 8567497163033241981, guid: 0c2bb83c90c07854982fd6a4ab3045fa, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8567497163033241981, guid: 0c2bb83c90c07854982fd6a4ab3045fa, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.09
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -5625,6 +5671,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86b0afa5144305544b02021f111970cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &7740023881270631567 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8970283584468417775, guid: 0c2bb83c90c07854982fd6a4ab3045fa, type: 3}
+  m_PrefabInstance: {fileID: 871998669954300503}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3344697787364450669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c060dc217d84cc439cdf0a00954cc41, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!4 &9170679370675687031 stripped

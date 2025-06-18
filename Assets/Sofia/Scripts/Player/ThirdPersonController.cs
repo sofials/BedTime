@@ -38,7 +38,7 @@ public class ThirdPersonController : MonoBehaviour
 
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
-    [SerializeField] private float pushRecoverySpeed = 3f;
+    [SerializeField] private float pushRecoverySpeed = 1f;
 
 
     void Start()
@@ -55,9 +55,13 @@ public class ThirdPersonController : MonoBehaviour
         HandleMovement();
         HandleJump();
 
-        Vector3 totalMove = playerVelocity + platformVelocity;
+        Vector3 totalMove = playerVelocity + externalPush + platformVelocity;
         totalMove.y = velocity.y;
         controller.Move(totalMove * Time.deltaTime);
+
+        // Decadimento progressivo della spinta
+        externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
+
 
         bool isGrounded = controller.isGrounded;
         _animator.SetBool("isGrounded", isGrounded);
@@ -154,11 +158,6 @@ public class ThirdPersonController : MonoBehaviour
         float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / maxSpeed);
 
         _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
-        if (externalPush.magnitude > 0.1f)
-        {
-            controller.Move(externalPush * Time.deltaTime);
-            externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
-        }
 
     }
 

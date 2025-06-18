@@ -124,9 +124,9 @@ public class EnemyAI : MonoBehaviour
         }
 
         Vector3 pushDir = (player.transform.position - transform.position).normalized;
-       float pushForce = 8f; // Aumenta questo valore se vuoi più forza
+        float pushForce = 12f; // Aumenta questo valore se vuoi più forza
 
-       player.GetComponent<ThirdPersonController>().ApplyExternalPush(pushDir * pushForce);
+        player.GetComponent<ThirdPersonController>().ApplyExternalPush(pushDir * pushForce);
 
     }
 
