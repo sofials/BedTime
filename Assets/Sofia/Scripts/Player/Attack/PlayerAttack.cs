@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 public class PlayerAttack : MonoBehaviour
 {
@@ -15,8 +16,15 @@ public class PlayerAttack : MonoBehaviour
     {
         controls = new PlayerControls();
 
-        // Collegamento all'input Attack
-        controls.Gameplay.Attack.performed += ctx => attackInput = true;
+        // Collegamento all'input Attack, con controllo UI
+        controls.Gameplay.Attack.performed += ctx =>
+        {
+            // Ignora il click se il puntatore è sopra la UI
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                return;
+
+            attackInput = true;
+        };
     }
 
     private void OnEnable()
@@ -43,16 +51,23 @@ public class PlayerAttack : MonoBehaviour
             return;
         }
 
+        // Blocca input se il gioco è in pausa
         if (Time.timeScale == 0f)
         {
             return;
         }
 
-        // Nuovo sistema di input
+        // Failsafe extra: ignora se il cursore è sulla UI
         if (attackInput)
         {
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            {
+                attackInput = false;
+                return;
+            }
+
             animator.SetTrigger("Attack");
-            attackInput = false;  // reset per il prossimo frame
+            attackInput = false;
         }
     }
 
