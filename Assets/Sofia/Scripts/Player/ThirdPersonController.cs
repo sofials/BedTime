@@ -46,7 +46,7 @@ public class ThirdPersonController : MonoBehaviour
     private Vector2 moveInput;
     private bool jumpInput;
     private bool isSprinting;
-
+    private bool isHoldingJump;
 
 
     void Start()
@@ -69,7 +69,17 @@ public class ThirdPersonController : MonoBehaviour
         controls.Gameplay.Sprint.performed += ctx => isSprinting = true;
         controls.Gameplay.Sprint.canceled += ctx => isSprinting = false;
 
-        controls.Gameplay.Jump.started += ctx => jumpInput = true;
+        controls.Gameplay.Jump.started += ctx =>
+        {
+            jumpInput = true;
+            isHoldingJump = true;
+        };
+
+        controls.Gameplay.Jump.canceled += ctx =>
+        {
+            isHoldingJump = false;
+        };
+
     }
 
     private void OnEnable()
@@ -223,16 +233,20 @@ public class ThirdPersonController : MonoBehaviour
 
         if (velocity.y < 0)
         {
+            // Discesa più veloce
             velocity.y += gravity * 2.5f * Time.deltaTime;
         }
-        else if (velocity.y > 0)
+        else if (velocity.y > 0 && !isHoldingJump)
         {
+            // Se hai rilasciato il tasto durante la salita: scendi prima (salto corto)
             velocity.y += gravity * 2f * Time.deltaTime;
         }
         else
         {
+            // Salita normale
             velocity.y += gravity * Time.deltaTime;
         }
+
 
         if (controller.isGrounded && velocity.y < 0)
         {
