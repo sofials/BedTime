@@ -1,5 +1,6 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
+using UnityEngine.InputSystem;
 
 
 [RequireComponent(typeof(CharacterController))]
@@ -40,14 +41,57 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 externalPush = Vector3.zero;
     [SerializeField] private float pushRecoverySpeed = 1f;
 
+    //Per usare Input Actions
+    private PlayerControls controls;
+    private Vector2 moveInput;
+    private bool jumpInput;
+    private bool isSprinting;
+    private bool isHoldingJump;
+
 
     void Start()
     {
+        controls = new PlayerControls();
         _animator = GetComponentInChildren<Animator>();
         controller = GetComponent<CharacterController>();
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
     }
+
+    //Input Actions
+    private void Awake()
+    {
+        controls = new PlayerControls();
+
+        controls.Gameplay.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
+        controls.Gameplay.Move.canceled += ctx => moveInput = Vector2.zero;
+
+        controls.Gameplay.Sprint.performed += ctx => isSprinting = true;
+        controls.Gameplay.Sprint.canceled += ctx => isSprinting = false;
+
+        controls.Gameplay.Jump.started += ctx =>
+        {
+            jumpInput = true;
+            isHoldingJump = true;
+        };
+
+        controls.Gameplay.Jump.canceled += ctx =>
+        {
+            isHoldingJump = false;
+        };
+
+    }
+
+    private void OnEnable()
+    {
+        controls.Gameplay.Enable();
+    }
+
+    private void OnDisable()
+    {
+        controls.Gameplay.Disable();
+    }
+
 
     void Update()
     {
@@ -97,8 +141,9 @@ public class ThirdPersonController : MonoBehaviour
 
         if (!isGrounded)
         {
-            float horizontal = Input.GetAxis("Horizontal");
-            float vertical = Input.GetAxis("Vertical");
+            float horizontal = moveInput.x;
+            float vertical = moveInput.y;
+
             Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
             if (inputDirection.magnitude >= 0.1f)
@@ -129,8 +174,9 @@ public class ThirdPersonController : MonoBehaviour
 
     private void HandleMovement()
     {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
+        float horizontal = moveInput.x;
+        float vertical = moveInput.y;
+
         Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
         float inputMagnitude = inputDirection.magnitude;
@@ -149,7 +195,8 @@ public class ThirdPersonController : MonoBehaviour
 
         Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
-        float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed :
+        // ✅ Usa il valore dallo sprint del controller
+        float targetSpeed = isSprinting ? sprintSpeed :
                             (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
 
         playerVelocity = moveDirection.normalized * targetSpeed;
@@ -158,14 +205,13 @@ public class ThirdPersonController : MonoBehaviour
         float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / maxSpeed);
 
         _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
-
     }
 
     private void HandleJump()
     {
         bool isGrounded = controller.isGrounded;
 
-        if (Input.GetButtonDown("Jump") && jumpCount < maxJumps)
+        if (jumpInput && jumpCount < maxJumps)
         {
             if (jumpCount == 0)
             {
@@ -180,20 +226,27 @@ public class ThirdPersonController : MonoBehaviour
 
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpCount++;
+
+            //Input Actions: questo resetta l'input dopo il salto
+            jumpInput = false;
         }
 
         if (velocity.y < 0)
         {
+            // Discesa più veloce
             velocity.y += gravity * 2.5f * Time.deltaTime;
         }
-        else if (velocity.y > 0 && !Input.GetButton("Jump"))
+        else if (velocity.y > 0 && !isHoldingJump)
         {
+            // Se hai rilasciato il tasto durante la salita: scendi prima (salto corto)
             velocity.y += gravity * 2f * Time.deltaTime;
         }
         else
         {
+            // Salita normale
             velocity.y += gravity * Time.deltaTime;
         }
+
 
         if (controller.isGrounded && velocity.y < 0)
         {

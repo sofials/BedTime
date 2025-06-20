@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using UnityEngine.InputSystem;
 
 public class PlayerPowerUp : MonoBehaviour
 {
@@ -18,21 +19,10 @@ public class PlayerPowerUp : MonoBehaviour
 
     private Dictionary<KeyCode, AbilityBase> abilityKeyMap;
 
+    private PlayerControls controls;
+
     void Start()
     {
-        abilityKeyMap = new Dictionary<KeyCode, AbilityBase>()
-        {
-            { KeyCode.F, PlatformSpawnerForwardAbility },
-            { KeyCode.Q, SlowdownAbility },
-            { KeyCode.E, TeleportAbility }
-        };
-
-        foreach (var ability in abilityKeyMap.Values)
-        {
-            if (ability != null)
-                ability.powerUpScript = this;
-        }
-
         if (powerSlider != null)
         {
             powerSlider.maxValue = maxPower;
@@ -40,25 +30,32 @@ public class PlayerPowerUp : MonoBehaviour
         }
     }
 
+    private void Awake()
+    {
+        controls = new PlayerControls();
+
+        controls.Gameplay.Create.performed += ctx => HandleAbility(PlatformSpawnerForwardAbility);
+        controls.Gameplay.Time.performed += ctx => HandleAbility(SlowdownAbility);
+        controls.Gameplay.Teleport.performed += ctx => HandleAbility(TeleportAbility);
+
+    }
+
+    private void OnEnable() => controls.Gameplay.Enable();
+    private void OnDisable() => controls.Gameplay.Disable();
+
+    private void HandleAbility(AbilityBase ability)
+    {
+        if (ability == null) return;
+
+        if (ability.IsActive)
+            ability.Deactivate();
+        else
+            ability.TryActivate();
+    }
+
+
     void Update()
     {
-        foreach (var kvp in abilityKeyMap)
-        {
-            KeyCode key = kvp.Key;
-            AbilityBase ability = kvp.Value;
-
-            if (ability == null) continue;
-
-            if (Input.GetKeyDown(key))
-            {
-                if (ability.IsActive)
-                    ability.Deactivate();
-                else
-                    ability.TryActivate();
-
-                break; // uscita dal ciclo dopo gestione input
-            }
-        }
     }
 
     public void SpendPower(float amount)

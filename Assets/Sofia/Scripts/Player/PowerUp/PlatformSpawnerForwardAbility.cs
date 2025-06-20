@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlatformSpawnerForwardAbility : AbilityBase
 {
@@ -22,9 +23,19 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private float rotationSmoothSpeed = 15f;
     private float updateAngleThreshold = 10f;
 
+    private PlayerControls controls;
+    private bool confirmPressed;
+
     private void Start()
     {
         cameraTransform = Camera.main.transform;
+    }
+
+    private void Awake()
+    {
+        controls = new PlayerControls();
+        controls.Gameplay.Confirm.performed += ctx => confirmPressed = true;
+        controls.Enable(); // da disattivare eventualmente se vuoi OnEnable/OnDisable
     }
 
     public override void Activate()
@@ -68,8 +79,9 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         currentGhost.transform.position = Vector3.SmoothDamp(currentGhost.transform.position, targetPos, ref currentGhostVelocity, 0.1f);
         currentGhost.transform.rotation = Quaternion.Slerp(currentGhost.transform.rotation, targetRotation, Time.deltaTime * rotationSmoothSpeed);
 
-        if (Input.GetMouseButtonDown(1))
+        if (confirmPressed)
         {
+            confirmPressed = false;
             if (!powerUpScript.HasEnoughPower(powerCost))
             {
                 Debug.Log("Energia insufficiente!");
