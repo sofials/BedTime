@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using UnityEngine.InputSystem;
 public class TeleportAbility : AbilityBase
 {
     [Header("Teletrasporto")]
@@ -18,14 +18,19 @@ public class TeleportAbility : AbilityBase
 
     protected override bool HasFixedDuration => false;
 
+    private PlayerControls controls;
+    private bool confirmPressed;
+
+
     void Update()
     {
         if (!IsActive) return;
 
         UpdatePointerPosition();
 
-        if (Input.GetMouseButtonDown(1)) // click destro per confermare il teletrasporto
+        if (confirmPressed) // click destro per confermare il teletrasporto
         {
+            confirmPressed = false;
             if (powerUpScript.HasEnoughPower(powerCost))
             {
                 TeleportToPointer();
@@ -40,6 +45,14 @@ public class TeleportAbility : AbilityBase
         }
     }
 
+    private void Awake()
+    {
+        controls = new PlayerControls();
+
+        controls.Gameplay.Confirm.performed += ctx => confirmPressed = true;
+
+        controls.Enable();
+    }
     public override void Activate()
     {
         IsActive = true;
