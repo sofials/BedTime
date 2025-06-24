@@ -38,7 +38,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Mushroom_Attack03Angry
+      name: attack
       takeName: Take 001
       internalID: 1827226128182048838
       firstFrame: 0
@@ -49,7 +49,7 @@ ModelImporter:
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
-      loopTime: 1
+      loopTime: 0
       loopBlend: 0
       loopBlendOrientation: 0
       loopBlendPositionY: 0
@@ -62,17 +62,10 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.49606296
-        functionName: PushPlayer
+      - time: 0.5129053
+        functionName: OnAttackHit
         data: 
-        objectReferenceParameter: {fileID: 11500000, guid: 4e56f1ea55631244f888312f9629dc81, type: 3}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.4973822
-        functionName: EnableHitbox
-        data: 
-        objectReferenceParameter: {fileID: 11500000, guid: 4e56f1ea55631244f888312f9629dc81, type: 3}
+        objectReferenceParameter: {fileID: 11500000, guid: 8c08e2ef0d3e9204abf42d27fb95e36f, type: 3}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
@@ -143,7 +136,7 @@ ModelImporter:
     hasTranslationDoF: 0
     hasExtraRoot: 0
     skeletonHasParents: 1
-  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: a736566565a0467eb2ba23a7007ba560, type: 3}
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: c0a0375e97cb4250b0cc67ccda1cd64b, type: 3}
   autoGenerateAvatarMappingIfUnspecified: 1
   animationType: 2
   humanoidOversampling: 1

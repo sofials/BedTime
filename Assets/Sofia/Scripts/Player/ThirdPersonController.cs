@@ -148,41 +148,8 @@ public class ThirdPersonController : MonoBehaviour
 
         wasGroundedLastFrame = isGrounded;
 
-        bool isFalling = false;
-        if (!isGrounded && velocity.y < -3f && !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump"))
-        {
-            if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 1.5f))
-            {
-                float groundAngle = Vector3.Angle(hit.normal, Vector3.up);
-                if (groundAngle > controller.slopeLimit + 5f)
-                    isFalling = true;
-            }
-            else
-            {
-                isFalling = true;
-            }
-        }
-
-        _animator.SetBool("isFalling", isFalling);
-
-        if (!isGrounded)
-        {
-            float horizontal = moveInput.x;
-            float vertical = moveInput.y;
-
-            Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
-
-            if (inputDirection.magnitude >= 0.1f)
-            {
-                float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-                float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
-                transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
-
-                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-                Vector3 airMove = moveDir.normalized * airControlSpeed;
-                playerVelocity += new Vector3(airMove.x, 0f, airMove.z);
-            }
-        }
+        HandleFalling();
+        HandleAirControl();
     }
 
     private void UpdatePlatformVelocity()
@@ -269,6 +236,50 @@ public class ThirdPersonController : MonoBehaviour
         if (controller.isGrounded && velocity.y < 0)
             velocity.y = -2f;
     }
+    
+    
+    private void HandleFalling()
+    {
+        bool isGrounded = controller.isGrounded;
+        bool isFalling = false;
+
+        if (!isGrounded && velocity.y < -3f && !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump"))
+        {
+            if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 1.5f))
+            {
+                float groundAngle = Vector3.Angle(hit.normal, Vector3.up);
+                if (groundAngle > controller.slopeLimit + 5f)
+                    isFalling = true;
+            }
+            else
+            {
+                isFalling = true;
+            }
+        }
+
+        _animator.SetBool("isFalling", isFalling);
+    }
+    private void HandleAirControl()
+    {
+        if (!controller.isGrounded)
+        {
+            float horizontal = moveInput.x;
+            float vertical = moveInput.y;
+
+            Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+
+            if (inputDirection.magnitude >= 0.1f)
+            {
+                float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+                float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
+                transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+
+                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+                Vector3 airMove = moveDir.normalized * airControlSpeed;
+                playerVelocity += new Vector3(airMove.x, 0f, airMove.z);
+            }
+        }
+    }
 
     public void Respawn()
     {
@@ -305,30 +316,28 @@ public class ThirdPersonController : MonoBehaviour
             }
         }
     }
-
-    // Metodo corretto per sommare spinte esterne
+     // Metodo chiamato dalla Hurtbox per applicare spinta esterna
     public void ApplyExternalPush(Vector3 push)
-{
-    push.y = 0f;
-    instantPush = push;
-    applyInstantPush = true;
-    Debug.Log($"ApplyExternalPush istantanea con: {push}");
-}
-
+    {
+        push.y = 0f;
+        instantPush = push;
+        applyInstantPush = true;
+        Debug.Log($"ApplyExternalPush istantanea con: {push}");
+    }
 
     // Metodo per stordire il player e bloccare input/movimento
-    public void Stun(float duration)
+     public void Stun(float duration)
     {
         isStunned = true;
         stunDuration = duration;
-        // Rimosso _animator.SetTrigger("Hit");
         playerVelocity = Vector3.zero;
         moveInput = Vector2.zero;
     }
+     // Metodo per attivare animazione "Hit"
     public void PlayHitAnimation()
-{
-    if (_animator != null)
-        _animator.SetTrigger("Hit");
-}
+    {
+        if (_animator != null)
+            _animator.SetTrigger("Hit");
+    }
 
 }
