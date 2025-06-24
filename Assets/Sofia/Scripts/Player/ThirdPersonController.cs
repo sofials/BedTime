@@ -2,7 +2,6 @@
 using System.Collections;
 using UnityEngine.InputSystem;
 
-
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
@@ -39,26 +38,24 @@ public class ThirdPersonController : MonoBehaviour
 
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
-    [SerializeField] private float pushRecoverySpeed = 1f;
 
-    //Per usare Input Actions
+    [SerializeField] private float pushRecoverySpeed = 0.5f; // più lento = spinta visibile
+
+    private Vector3 instantPush = Vector3.zero;
+    private bool applyInstantPush = false;
+
+
+    // STUN
+    private bool isStunned = false;
+    private float stunDuration = 0f;
+
+    // Input Actions
     private PlayerControls controls;
     private Vector2 moveInput;
     private bool jumpInput;
     private bool isSprinting;
     private bool isHoldingJump;
 
-
-    void Start()
-    {
-        controls = new PlayerControls();
-        _animator = GetComponentInChildren<Animator>();
-        controller = GetComponent<CharacterController>();
-        if (cameraTransform == null && Camera.main != null)
-            cameraTransform = Camera.main.transform;
-    }
-
-    //Input Actions
     private void Awake()
     {
         controls = new PlayerControls();
@@ -79,7 +76,15 @@ public class ThirdPersonController : MonoBehaviour
         {
             isHoldingJump = false;
         };
+    }
 
+    private void Start()
+    {
+        _animator = GetComponentInChildren<Animator>();
+        controller = GetComponent<CharacterController>();
+
+        if (cameraTransform == null && Camera.main != null)
+            cameraTransform = Camera.main.transform;
     }
 
     private void OnEnable()
@@ -92,20 +97,44 @@ public class ThirdPersonController : MonoBehaviour
         controls.Gameplay.Disable();
     }
 
-
-    void Update()
+    private void Update()
     {
+        // Aggiorna durata stun
+        if (isStunned)
+        {
+            stunDuration -= Time.deltaTime;
+            if (stunDuration <= 0f)
+            {
+                isStunned = false;
+                stunDuration = 0f;
+            }
+        }
+
+        if (isStunned)
+        {
+            // Mentre stordito blocca input e movimento ma lascia decadere la spinta
+            externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
+            controller.Move(externalPush * Time.deltaTime);
+            _animator.SetFloat("Speed", 0f);
+            return;
+        }
+
         UpdatePlatformVelocity();
         HandleMovement();
         HandleJump();
 
-        Vector3 totalMove = playerVelocity + externalPush + platformVelocity;
+        Vector3 totalMove = playerVelocity + platformVelocity + externalPush;
         totalMove.y = velocity.y;
+        if (applyInstantPush)
+        {
+           totalMove += instantPush;
+           applyInstantPush = false;
+           instantPush = Vector3.zero;
+        }
         controller.Move(totalMove * Time.deltaTime);
 
-        // Decadimento progressivo della spinta
+        // Decadimento lento della spinta
         externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
-
 
         bool isGrounded = controller.isGrounded;
         _animator.SetBool("isGrounded", isGrounded);
@@ -118,18 +147,15 @@ public class ThirdPersonController : MonoBehaviour
         }
 
         wasGroundedLastFrame = isGrounded;
-        bool isFalling = false;
 
+        bool isFalling = false;
         if (!isGrounded && velocity.y < -3f && !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump"))
         {
-            RaycastHit hit;
-            if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hit, 1.5f))
+            if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 1.5f))
             {
                 float groundAngle = Vector3.Angle(hit.normal, Vector3.up);
                 if (groundAngle > controller.slopeLimit + 5f)
-                {
                     isFalling = true;
-                }
             }
             else
             {
@@ -178,7 +204,6 @@ public class ThirdPersonController : MonoBehaviour
         float vertical = moveInput.y;
 
         Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
-
         float inputMagnitude = inputDirection.magnitude;
         smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 5f);
 
@@ -195,7 +220,6 @@ public class ThirdPersonController : MonoBehaviour
 
         Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
-        // ✅ Usa il valore dallo sprint del controller
         float targetSpeed = isSprinting ? sprintSpeed :
                             (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
 
@@ -226,45 +250,33 @@ public class ThirdPersonController : MonoBehaviour
 
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpCount++;
-
-            //Input Actions: questo resetta l'input dopo il salto
             jumpInput = false;
         }
 
         if (velocity.y < 0)
         {
-            // Discesa più veloce
             velocity.y += gravity * 2.5f * Time.deltaTime;
         }
         else if (velocity.y > 0 && !isHoldingJump)
         {
-            // Se hai rilasciato il tasto durante la salita: scendi prima (salto corto)
             velocity.y += gravity * 2f * Time.deltaTime;
         }
         else
         {
-            // Salita normale
             velocity.y += gravity * Time.deltaTime;
         }
 
-
         if (controller.isGrounded && velocity.y < 0)
-        {
             velocity.y = -2f;
-        }
     }
 
     public void Respawn()
     {
         controller.enabled = false;
         if (GameManager.Instance.currentCheckpoint != null)
-        {
             transform.position = GameManager.Instance.currentCheckpoint.position;
-        }
         else
-        {
             Debug.LogWarning("Nessun checkpoint impostato! Respawn nella posizione iniziale.");
-        }
 
         velocity = Vector3.zero;
         controller.enabled = true;
@@ -294,33 +306,29 @@ public class ThirdPersonController : MonoBehaviour
         }
     }
 
-    public void ApplyKnockback(Vector3 direction, float force, float duration)
-    {
-        // Direzione del knockback in orizzontale (y = 0)
-        direction.y = 0;
-        direction.Normalize();
-
-        // Avvia una coroutine per gestire il knockback temporaneo
-        StartCoroutine(KnockbackCoroutine(direction, force, duration));
-    }
-
-    private IEnumerator KnockbackCoroutine(Vector3 direction, float force, float duration)
-    {
-        float timer = 0f;
-
-        while (timer < duration)
-        {
-            // Muove il player in direzione opposta per il knockback
-            controller.Move(direction * force * Time.deltaTime);
-
-            timer += Time.deltaTime;
-            yield return null;
-        }
-    }
+    // Metodo corretto per sommare spinte esterne
     public void ApplyExternalPush(Vector3 push)
-    {
-        externalPush = push;
-    }
+{
+    push.y = 0f;
+    instantPush = push;
+    applyInstantPush = true;
+    Debug.Log($"ApplyExternalPush istantanea con: {push}");
+}
 
+
+    // Metodo per stordire il player e bloccare input/movimento
+    public void Stun(float duration)
+    {
+        isStunned = true;
+        stunDuration = duration;
+        // Rimosso _animator.SetTrigger("Hit");
+        playerVelocity = Vector3.zero;
+        moveInput = Vector2.zero;
+    }
+    public void PlayHitAnimation()
+{
+    if (_animator != null)
+        _animator.SetTrigger("Hit");
+}
 
 }

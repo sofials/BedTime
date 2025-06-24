@@ -10,7 +10,8 @@ public class PlayerPowerUp : MonoBehaviour
     private float currentPower = 0f;
 
     [Header("UI")]
-    public Slider powerSlider;  // Cambiato da Image a Slider
+    public Slider powerSlider;
+    public GameObject powerUI; // Contenitore della UI
 
     [Header("Abilities")]
     public AbilityBase PlatformSpawnerForwardAbility;
@@ -18,8 +19,16 @@ public class PlayerPowerUp : MonoBehaviour
     public AbilityBase TeleportAbility;
 
     private Dictionary<KeyCode, AbilityBase> abilityKeyMap;
-
     private PlayerControls controls;
+
+    void Awake()
+    {
+        controls = new PlayerControls();
+
+        controls.Gameplay.Create.performed += ctx => HandleAbility(PlatformSpawnerForwardAbility);
+        controls.Gameplay.Time.performed += ctx => HandleAbility(SlowdownAbility);
+        controls.Gameplay.Teleport.performed += ctx => HandleAbility(TeleportAbility);
+    }
 
     void Start()
     {
@@ -28,16 +37,11 @@ public class PlayerPowerUp : MonoBehaviour
             powerSlider.maxValue = maxPower;
             powerSlider.value = currentPower;
         }
-    }
 
-    private void Awake()
-    {
-        controls = new PlayerControls();
-
-        controls.Gameplay.Create.performed += ctx => HandleAbility(PlatformSpawnerForwardAbility);
-        controls.Gameplay.Time.performed += ctx => HandleAbility(SlowdownAbility);
-        controls.Gameplay.Teleport.performed += ctx => HandleAbility(TeleportAbility);
-
+        if (powerUI != null)
+        {
+            powerUI.SetActive(false); // Nascondi la UI all'avvio
+        }
     }
 
     private void OnEnable() => controls.Gameplay.Enable();
@@ -53,16 +57,10 @@ public class PlayerPowerUp : MonoBehaviour
             ability.TryActivate();
     }
 
-
-    void Update()
-    {
-    }
-
     public void SpendPower(float amount)
     {
         currentPower = Mathf.Max(0f, currentPower - amount);
         UpdatePowerBar();
-
         Debug.Log($"Energia consumata: {amount}. Rimasta: {currentPower}");
     }
 
@@ -78,7 +76,6 @@ public class PlayerPowerUp : MonoBehaviour
             currentPower += amount;
             currentPower = Mathf.Min(currentPower, maxPower);
             UpdatePowerBar();
-
             Debug.Log($"Energia aumentata di {amount}. Attuale: {currentPower}");
         }
     }

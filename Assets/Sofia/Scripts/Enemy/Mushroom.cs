@@ -1,11 +1,8 @@
 using UnityEngine;
+using System.Collections;
 
 public class Mushroom : EnemyAI
 {
-    [Header("Mushroom Specific")]
-    [Tooltip("Forza della spinta applicata al player")]
-    public float pushForce = 12f;
-
     protected override void Awake()
     {
         base.Awake();
@@ -15,6 +12,7 @@ public class Mushroom : EnemyAI
         maxHealth = 80f;
         timeBetweenAttacks = 1.5f;
         dizzyDuration = 1.8f;
+        pushForce = 50f; // Forza spinta specifica per Mushroom
 
         currentHealth = maxHealth;
 
@@ -24,33 +22,14 @@ public class Mushroom : EnemyAI
 
     protected override void AttackPlayer()
     {
-        // Se morto, non fa nulla
-        if (isDead || isDizzy) return;
+        // Logica attacco Mushroom:
+        // Es. danno al player, effetti, spinta ecc.
 
-        // Ferma il movimento durante l'attacco
-        if (agent != null)
-            agent.SetDestination(transform.position);
+        Debug.Log("Mushroom attacca il player!");
 
-        transform.LookAt(player);
+        // Qui puoi chiamare PushPlayer se vuoi applicare la spinta
+        PushPlayer();
 
-        if (!alreadyAttacked)
-        {
-            Debug.Log("Mushroom attacks the player!");
-
-            alreadyAttacked = true;
-
-            ThirdPersonController playerController = player.GetComponent<ThirdPersonController>();
-            if (playerController != null)
-            {
-                Vector3 knockbackDir = (player.position - transform.position).normalized;
-                playerController.ApplyKnockback(knockbackDir, 5f, 0.2f);
-            }
-
-            Invoke(nameof(ResetAttack), timeBetweenAttacks);
-        }
-
-        // Applica la spinta
-        Vector3 pushDir = (player.position - transform.position).normalized;
-        player.GetComponent<ThirdPersonController>()?.ApplyExternalPush(pushDir * pushForce);
+        // Altre logiche di attacco specifiche qui
     }
 }

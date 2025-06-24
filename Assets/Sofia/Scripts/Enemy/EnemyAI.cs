@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using System.Collections;
 
 public abstract class EnemyAI : MonoBehaviour
 {
@@ -31,20 +32,29 @@ public abstract class EnemyAI : MonoBehaviour
     protected bool isDead = false;
 
     [Tooltip("Durata stimata dell'animazione di morte in secondi")]
-    public float dieAnimationDuration = 0f;  // 25 frame a 30fps
+    public float dieAnimationDuration = 0f;
 
     [Tooltip("Secondi da aspettare dopo l'animazione di morte prima di distruggere l'oggetto")]
     public float delayBeforeDestroy = 5f;
 
+    [Header("Attack Push Settings")]
+    [Tooltip("Forza della spinta applicata al player")]
+    public float pushForce = 50f;
+
+    public bool isAttacking = false;  // <-- qui la variabile per segnalare l'attacco
+    public GameObject beingHitBox;
+
     protected virtual void Awake()
     {
-        player = GameObject.Find("Player").transform;
+        if (player == null)
+            player = GameObject.Find("Player")?.transform;
+
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
 
         currentHealth = maxHealth;
 
-        if(agent != null)
+        if (agent != null)
             agent.speed = moveSpeed;
 
         currentAnimTrigger = "Idle";
@@ -55,7 +65,6 @@ public abstract class EnemyAI : MonoBehaviour
     {
         if (isDead)
         {
-            // Disabilita ogni azione se è morto
             if (agent != null && !agent.isStopped)
                 agent.isStopped = true;
             return;
@@ -87,14 +96,36 @@ public abstract class EnemyAI : MonoBehaviour
         }
         else if (playerInAttackRange && playerInSightRange)
         {
-            SetAnimation("Attack");
-            AttackPlayer();
+            if (!alreadyAttacked)
+                StartCoroutine(AttackCoroutine());
         }
 
         if (!agent.hasPath && !alreadyAttacked && currentAnimTrigger != "Idle")
         {
             SetAnimation("Idle");
         }
+    }
+
+    private IEnumerator AttackCoroutine()
+    {
+        alreadyAttacked = true;
+        isAttacking = true;  // attacco iniziato
+
+        if (agent != null)
+            agent.isStopped = true;
+
+        SetAnimation("Attack");
+        AttackPlayer();
+
+        yield return new WaitForSeconds(timeBetweenAttacks);
+
+        alreadyAttacked = false;
+        isAttacking = false; // attacco finito
+
+        if (agent != null)
+            agent.isStopped = false;
+
+        SetAnimation("Idle");
     }
 
     protected virtual void Patroling()
@@ -117,16 +148,17 @@ public abstract class EnemyAI : MonoBehaviour
 
         walkPoint = new Vector3(transform.position.x + randomX, transform.position.y, transform.position.z + randomZ);
 
-        if (Physics.Raycast(walkPoint, -transform.up, 2f, whatIsGround))
+        if (Physics.Raycast(walkPoint, Vector3.down, 2f, whatIsGround))
             walkPointSet = true;
     }
 
     protected virtual void ChasePlayer()
     {
-        if(agent != null)
+        if (agent != null && player != null)
             agent.SetDestination(player.position);
     }
 
+    // Metodo astratto, da implementare nelle classi derivate
     protected abstract void AttackPlayer();
 
     protected void ResetAttack()
@@ -140,6 +172,9 @@ public abstract class EnemyAI : MonoBehaviour
 
         currentHealth -= damage;
         Debug.Log($"Enemy Health: {currentHealth}");
+
+        if (animator != null)
+            animator.ResetTrigger("Attack");
 
         if (currentHealth <= 0)
         {
@@ -159,7 +194,7 @@ public abstract class EnemyAI : MonoBehaviour
         isDizzy = true;
         SetAnimation("Dizzy");
 
-        if(agent != null)
+        if (agent != null)
             agent.isStopped = true;
 
         Invoke(nameof(StopDizzy), dizzyDuration);
@@ -172,33 +207,31 @@ public abstract class EnemyAI : MonoBehaviour
         if (!isDead)
             SetAnimation("Idle");
 
-        if(agent != null)
+        if (agent != null)
             agent.isStopped = false;
     }
 
     protected void PlayDieAnimation()
     {
-       isDead = true;
+        isDead = true;
 
-       if(agent != null)
-       {
-         agent.isStopped = true;
-         agent.ResetPath();
-       }
+        if (agent != null)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
+        }
 
-       animator.ResetTrigger("Idle");
-       animator.ResetTrigger("Walk");
-       animator.ResetTrigger("Attack");
-       animator.ResetTrigger("Dizzy");
-       animator.ResetTrigger("Die");
+        animator.ResetTrigger("Idle");
+        animator.ResetTrigger("Walk");
+        animator.ResetTrigger("Attack");
+        animator.ResetTrigger("Dizzy");
+        animator.ResetTrigger("Die");
 
-       Debug.Log("Trigger Die impostato"); // ⬅ AGGIUNGI QUESTO
-       animator.SetTrigger("Die");
-       currentAnimTrigger = "Die";
+        animator.SetTrigger("Die");
+        currentAnimTrigger = "Die";
 
-       Invoke(nameof(DestroyEnemy), dieAnimationDuration + delayBeforeDestroy);
+        Invoke(nameof(DestroyEnemy), dieAnimationDuration + delayBeforeDestroy);
     }
-
 
     protected void DestroyEnemy()
     {
@@ -207,18 +240,31 @@ public abstract class EnemyAI : MonoBehaviour
 
     protected void SetAnimation(string triggerName)
     {
-       if (currentAnimTrigger == triggerName || isDead) return;
+        if (currentAnimTrigger == triggerName || isDead) return;
 
-       animator.ResetTrigger("Idle");
-       animator.ResetTrigger("Walk");
-       animator.ResetTrigger("Attack");
-       animator.ResetTrigger("Dizzy");
+        animator.ResetTrigger("Idle");
+        animator.ResetTrigger("Walk");
+        animator.ResetTrigger("Attack");
+        animator.ResetTrigger("Dizzy");
 
-       // NON resettare Die se è morto
-       animator.SetTrigger(triggerName);
-       currentAnimTrigger = triggerName;
+        animator.SetTrigger(triggerName);
+        currentAnimTrigger = triggerName;
     }
 
+    public void PushPlayer()
+    {
+        Debug.Log("PushPlayer called!");
+        if (player == null || isDead || isDizzy) return;
+
+        ThirdPersonController playerController = player.GetComponent<ThirdPersonController>();
+        if (playerController != null)
+        {
+            Vector3 pushDir = (player.position - transform.position).normalized;
+            Debug.DrawRay(player.position, pushDir * pushForce, Color.red, 2f);
+            Debug.Log($"Applying push: {pushDir * pushForce}");
+            playerController.ApplyExternalPush(pushDir * pushForce);
+        }
+    }
 
     private void OnDrawGizmosSelected()
     {
@@ -227,4 +273,7 @@ public abstract class EnemyAI : MonoBehaviour
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, sightRange);
     }
+    public void EnableHitbox() => beingHitBox.SetActive(true);
+    public void DisableHitbox() => beingHitBox.SetActive(false);
+
 }

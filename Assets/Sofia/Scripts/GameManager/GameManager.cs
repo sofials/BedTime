@@ -13,13 +13,11 @@ public class GameManager : MonoBehaviour
 
     private bool isPaused = false;
 
-    // Checkpoint attuale
     [HideInInspector]
     public Transform currentCheckpoint;
 
     private void Awake()
     {
-        // Singleton pattern
         if (Instance == null)
         {
             Instance = this;
@@ -33,25 +31,26 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        // All'avvio il gioco è in pausa e si vede il menu iniziale
         Time.timeScale = 0f;
         startMenu.SetActive(true);
         pauseMenu.SetActive(false);
+
+        // Nascondi barra del potere inizialmente
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        {
+            if (powerUp.powerUI != null)
+                powerUp.powerUI.SetActive(false);
+        }
     }
 
     private void Update()
     {
-        // Tasto ESC apre il menu pausa solo se il gioco è già partito e non è in pausa
         if (Input.GetKeyDown(KeyCode.Escape) && !startMenu.activeSelf)
         {
             if (!isPaused)
-            {
                 OpenPauseMenu();
-            }
             else
-            {
                 ResumeGame();
-            }
         }
     }
 
@@ -63,6 +62,13 @@ public class GameManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         Debug.Log("Gioco iniziato");
+
+        // Mostra barra del potere
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        {
+            if (powerUp.powerUI != null)
+                powerUp.powerUI.SetActive(true);
+        }
 
         IgnorePlayerAttackClick();
     }
@@ -101,7 +107,6 @@ public class GameManager : MonoBehaviour
 #endif
     }
 
-    // Metodo per aggiornare il checkpoint corrente
     public void SetCheckpoint(Transform checkpoint)
     {
         currentCheckpoint = checkpoint;
