@@ -13,6 +13,7 @@ public class ThirdPersonController : MonoBehaviour
     private float rotationVelocity;
     private float smoothInputMagnitude;
 
+
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
     public float gravity = -9.81f;
@@ -24,6 +25,9 @@ public class ThirdPersonController : MonoBehaviour
     public float airControlStrength = 0.5f;
     public float airControlSpeed = 2f;
     public float airRotationSmoothTime = 0.3f;
+    [Header("Player Stats")]
+    public float maxHealth = 100f;
+    public float currentHealth;
 
     private CharacterController controller;
     private Animator _animator;
@@ -43,11 +47,6 @@ public class ThirdPersonController : MonoBehaviour
 
     private Vector3 instantPush = Vector3.zero;
     private bool applyInstantPush = false;
-
-
-    // STUN
-    private bool isStunned = false;
-    private float stunDuration = 0f;
 
     // Input Actions
     private PlayerControls controls;
@@ -85,6 +84,8 @@ public class ThirdPersonController : MonoBehaviour
 
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
+        // Inizializza la vita
+        currentHealth = maxHealth;
     }
 
     private void OnEnable()
@@ -97,28 +98,28 @@ public class ThirdPersonController : MonoBehaviour
         controls.Gameplay.Disable();
     }
 
+
+    public void TakeDamage(float amount)
+{
+    currentHealth -= amount;
+    Debug.Log($"Player colpito! Danno ricevuto: {amount} | Vita attuale: {currentHealth}");
+
+    if (currentHealth <= 0)
+    {
+        currentHealth = 0;
+
+        Die();
+    }
+    // Puoi aggiungere qui effetti visivi, suoni, ecc.
+}
+    private void Die()
+    {
+        // Logica di morte (disabilita controlli, animazione, ecc.)
+        Debug.Log("Player morto!");
+    }
+
     private void Update()
     {
-        // Aggiorna durata stun
-        if (isStunned)
-        {
-            stunDuration -= Time.deltaTime;
-            if (stunDuration <= 0f)
-            {
-                isStunned = false;
-                stunDuration = 0f;
-            }
-        }
-
-        if (isStunned)
-        {
-            // Mentre stordito blocca input e movimento ma lascia decadere la spinta
-            externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
-            controller.Move(externalPush * Time.deltaTime);
-            _animator.SetFloat("Speed", 0f);
-            return;
-        }
-
         UpdatePlatformVelocity();
         HandleMovement();
         HandleJump();
@@ -127,9 +128,9 @@ public class ThirdPersonController : MonoBehaviour
         totalMove.y = velocity.y;
         if (applyInstantPush)
         {
-           totalMove += instantPush;
-           applyInstantPush = false;
-           instantPush = Vector3.zero;
+            totalMove += instantPush;
+            applyInstantPush = false;
+            instantPush = Vector3.zero;
         }
         controller.Move(totalMove * Time.deltaTime);
 
@@ -236,8 +237,8 @@ public class ThirdPersonController : MonoBehaviour
         if (controller.isGrounded && velocity.y < 0)
             velocity.y = -2f;
     }
-    
-    
+
+
     private void HandleFalling()
     {
         bool isGrounded = controller.isGrounded;
@@ -316,28 +317,8 @@ public class ThirdPersonController : MonoBehaviour
             }
         }
     }
-     // Metodo chiamato dalla Hurtbox per applicare spinta esterna
-    public void ApplyExternalPush(Vector3 push)
-    {
-        push.y = 0f;
-        instantPush = push;
-        applyInstantPush = true;
-        Debug.Log($"ApplyExternalPush istantanea con: {push}");
-    }
-
-    // Metodo per stordire il player e bloccare input/movimento
-     public void Stun(float duration)
-    {
-        isStunned = true;
-        stunDuration = duration;
-        playerVelocity = Vector3.zero;
-        moveInput = Vector2.zero;
-    }
-     // Metodo per attivare animazione "Hit"
-    public void PlayHitAnimation()
-    {
-        if (_animator != null)
-            _animator.SetTrigger("Hit");
-    }
-
+    public void ApplyExternalPush(Vector3 force)
+{
+    externalPush += force;
+}
 }
