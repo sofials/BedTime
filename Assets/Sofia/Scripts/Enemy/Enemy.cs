@@ -18,6 +18,8 @@ public class Enemy : MonoBehaviour
 
     public float pushForce = 8f;
     public float damage = 25f; // opzionale
+    public float maxHealth = 100f;
+    public float currentHealth;
 
     private int currentWaypoint = 0;
     private float waitTimer;
@@ -39,6 +41,8 @@ public class Enemy : MonoBehaviour
         waitTimer = waitTimeAtPoint;
         rotateTimer = rotateTime;
         agent.speed = walkSpeed;
+
+        currentHealth = maxHealth; // Inizializza la vita del nemico
 
         if (waypoints != null && waypoints.Length > 0)
             agent.SetDestination(waypoints[currentWaypoint].position);
@@ -241,5 +245,25 @@ public class Enemy : MonoBehaviour
             hurtbox.OnHit(pushDir, pushForce, damage); // Passa anche il danno!
         }
     }
+}
+
+// Metodo per ricevere danno
+public void TakeDamage(float amount)
+{
+    currentHealth -= amount;
+    Debug.Log($"Nemico colpito! Danno ricevuto: {amount} | Vita attuale: {currentHealth}");
+
+    if (currentHealth <= 0)
+    {
+        currentHealth = 0;
+        Die();
+    }
+}
+
+private void Die()
+{
+    Debug.Log("Nemico morto!");
+    // Qui puoi aggiungere animazione di morte, drop, ecc.
+    Destroy(gameObject);
 }
 }

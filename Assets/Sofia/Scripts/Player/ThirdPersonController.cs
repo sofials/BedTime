@@ -110,11 +110,9 @@ public class ThirdPersonController : MonoBehaviour
 
         Die();
     }
-    // Puoi aggiungere qui effetti visivi, suoni, ecc.
 }
     private void Die()
     {
-        // Logica di morte (disabilita controlli, animazione, ecc.)
         Debug.Log("Player morto!");
     }
 
