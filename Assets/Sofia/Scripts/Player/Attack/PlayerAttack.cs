@@ -63,6 +63,33 @@ public class PlayerAttack : MonoBehaviour
             attackInput = false;
         }
     }
+    public void IgnoreNextClick()
+    {
+        ignoreFrames = 2;
+    }
+    public void EnableHitbox()
+{
+    if (attackHitbox != null)
+    {
+        var collider = attackHitbox.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.enabled = true;
+            Debug.Log("Hitbox abilitata");
+        }
+    }
+}
 
-    public void IgnoreNextClick() => ignoreFrames = 2;
+public void DisableHitbox()
+{
+    if (attackHitbox != null)
+    {
+        var collider = attackHitbox.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.enabled = false;
+            Debug.Log("Hitbox disabilitata");
+        }
+    }
+}
 }

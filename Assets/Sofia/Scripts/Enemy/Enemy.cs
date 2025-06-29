@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using System.Collections;
 
 public class Enemy : MonoBehaviour
 {
@@ -17,10 +18,12 @@ public class Enemy : MonoBehaviour
     public Transform[] waypoints;
 
     public float pushForce = 8f;
-    public float damage = 25f; // opzionale
+    public float damage = 25f;
     public float maxHealth = 100f;
     public float currentHealth;
+
     public bool isDizzy = false;
+    public float dizzyDuration = 2.5f;
 
     private int currentWaypoint = 0;
     private float waitTimer;
@@ -30,8 +33,8 @@ public class Enemy : MonoBehaviour
     private bool playerVisible;
     private bool isPatrolling = true;
     private bool caughtPlayer = false;
-
     private bool isAttacking = false;
+
     private Animator animator;
 
     void Start()
@@ -42,7 +45,6 @@ public class Enemy : MonoBehaviour
         waitTimer = waitTimeAtPoint;
         rotateTimer = rotateTime;
         agent.speed = walkSpeed;
-
         currentHealth = maxHealth;
 
         if (waypoints != null && waypoints.Length > 0)
@@ -51,6 +53,9 @@ public class Enemy : MonoBehaviour
 
     void Update()
     {
+        if (isDizzy)
+            return;
+
         UpdatePlayerVisibility();
 
         if (playerVisible && !caughtPlayer)
@@ -61,28 +66,82 @@ public class Enemy : MonoBehaviour
         else
         {
             if (!isPatrolling)
-            {
                 ResetToPatrol();
-            }
+
             Patrol();
         }
+    }
 
-        if (isDizzy)
-            return;
+    private void InterruptAttack()
+    {
+        if (isAttacking)
+        {
+            Debug.Log("[Enemy] Interrompo attacco.");
+            isAttacking = false;
+            if (animator != null)
+                animator.SetBool("isAttacking", false);
+        }
     }
 
     public void StartDizzy()
     {
+        if (isDizzy)
+        {
+            Debug.Log("[Enemy] StartDizzy chiamato ma già in Dizzy");
+            return;
+        }
+
+        Debug.Log("[Enemy] Nemico entra in stato Dizzy");
         isDizzy = true;
+
+        InterruptAttack();
+
+        if (animator != null)
+            animator.SetTrigger("Dizzy");
+
         if (agent != null)
             agent.isStopped = true;
+
+        StartCoroutine(DizzyTimer());
+    }
+
+    private IEnumerator DizzyTimer()
+    {
+        yield return new WaitForSeconds(dizzyDuration);
+        EndDizzy();
     }
 
     public void EndDizzy()
     {
+        Debug.Log("Nemico esce dallo stato Dizzy");
         isDizzy = false;
+
         if (agent != null)
             agent.isStopped = false;
+
+        if (player != null)
+        {
+            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+            if (distanceToPlayer <= attackRange)
+            {
+                Debug.Log("Player ancora nel range d'attacco dopo dizzy: riprendo attacco.");
+                isAttacking = true;
+                if (animator != null)
+                    animator.SetBool("isAttacking", true);
+                agent.isStopped = true;
+                return;
+            }
+
+            if (distanceToPlayer <= viewRadius)
+            {
+                Debug.Log("Riprendo inseguimento dopo dizzy");
+                isPatrolling = false;
+                return;
+            }
+        }
+
+        ResetToPatrol();
     }
 
     void UpdatePlayerVisibility()
@@ -141,13 +200,7 @@ public class Enemy : MonoBehaviour
         }
         else
         {
-            if (isAttacking)
-            {
-                Debug.Log("Esco dal range d'attacco, interrompo attacco");
-                isAttacking = false;
-                if (animator != null)
-                    animator.SetBool("isAttacking", false);
-            }
+            InterruptAttack();
         }
 
         agent.isStopped = false;
@@ -264,22 +317,34 @@ public class Enemy : MonoBehaviour
 
     public void TakeDamage(float amount)
     {
-        Debug.Log($"TakeDamage chiamato. Danno ricevuto: {amount}");
+        Debug.Log($"[Enemy] TakeDamage chiamato. Danno ricevuto: {amount}");
 
         currentHealth -= amount;
-        Debug.Log($"Vita aggiornata: {currentHealth}");
+        Debug.Log($"[Enemy] Vita aggiornata: {currentHealth}");
+
+        StartDizzy();
 
         if (currentHealth <= 0)
         {
             currentHealth = 0;
-            Debug.Log("Nemico morto, chiamo Die()");
-            Die();
+            Debug.Log("[Enemy] Nemico morto, setto trigger Die");
+            if (animator != null)
+                animator.SetTrigger("Die"); // Attiva animazione morte
+            // La distruzione avverrà tramite Animation Event o Coroutine (vedi sotto)
         }
     }
 
-    private void Die()
+    // Metodo da chiamare tramite Animation Event alla fine dell'animazione di morte
+    public void DestroyAfterDeath()
     {
-        Debug.Log("Nemico morto!");
+        Debug.Log("[Enemy] DestroyAfterDeath chiamato: attendo 5 secondi prima di distruggere GameObject.");
+        StartCoroutine(DestroyAfterDelayCoroutine());
+    }
+
+    private IEnumerator DestroyAfterDelayCoroutine()
+    {
+        yield return new WaitForSeconds(5f);
+        Debug.Log("[Enemy] Distruzione effettiva del GameObject dopo 5 secondi.");
         Destroy(gameObject);
     }
 }
