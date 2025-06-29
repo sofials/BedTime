@@ -5,7 +5,9 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
+    [Header("UI Effect")]
     public PlayerUI playerUI;
+    public UIEffectHandler attackEffectUI;
 
     [Header("Movement Settings")]
     public float walkSpeed = 2f;
@@ -105,18 +107,23 @@ public class ThirdPersonController : MonoBehaviour
 
 
     public void TakeDamage(float amount)
-{
-    currentHealth -= amount;
-    playerUI.UpdateHealth(currentHealth);
-    Debug.Log($"Player colpito! Danno ricevuto: {amount} | Vita attuale: {currentHealth}");
-
-    if (currentHealth <= 0)
     {
-        currentHealth = 0;
+        currentHealth -= amount;
+        playerUI.UpdateHealth(currentHealth);
+        Debug.Log($"Player colpito! Danno ricevuto: {amount} | Vita attuale: {currentHealth}");
 
-        Die();
+        if (attackEffectUI != null)
+        {
+            attackEffectUI.PulseIcon();
+        }
+
+        if (currentHealth <= 0)
+        {
+            currentHealth = 0;
+            Die();
+        }
     }
-}
+
     private void Die()
     {
         Debug.Log("Player morto!");
