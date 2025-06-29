@@ -20,6 +20,7 @@ public class Enemy : MonoBehaviour
     public float damage = 25f; // opzionale
     public float maxHealth = 100f;
     public float currentHealth;
+    public bool isDizzy = false;
 
     private int currentWaypoint = 0;
     private float waitTimer;
@@ -42,7 +43,7 @@ public class Enemy : MonoBehaviour
         rotateTimer = rotateTime;
         agent.speed = walkSpeed;
 
-        currentHealth = maxHealth; // Inizializza la vita del nemico
+        currentHealth = maxHealth;
 
         if (waypoints != null && waypoints.Length > 0)
             agent.SetDestination(waypoints[currentWaypoint].position);
@@ -65,6 +66,23 @@ public class Enemy : MonoBehaviour
             }
             Patrol();
         }
+
+        if (isDizzy)
+            return;
+    }
+
+    public void StartDizzy()
+    {
+        isDizzy = true;
+        if (agent != null)
+            agent.isStopped = true;
+    }
+
+    public void EndDizzy()
+    {
+        isDizzy = false;
+        if (agent != null)
+            agent.isStopped = false;
     }
 
     void UpdatePlayerVisibility()
@@ -108,7 +126,6 @@ public class Enemy : MonoBehaviour
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
-        // Gestione attacco
         if (distanceToPlayer <= attackRange)
         {
             if (!isAttacking)
@@ -133,7 +150,6 @@ public class Enemy : MonoBehaviour
             }
         }
 
-        // Inseguimento normale
         agent.isStopped = false;
         agent.speed = runSpeed;
         agent.SetDestination(player.position);
@@ -226,44 +242,44 @@ public class Enemy : MonoBehaviour
         agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
-    // Da chiamare tramite Animation Event nell'attacco
     public void EnemyAttackHitbox()
-{
-    Collider[] hits = Physics.OverlapBox(
-        transform.position + transform.forward * (attackRange * 0.5f),
-        new Vector3(1f, 1f, 1f),
-        transform.rotation,
-        LayerMask.GetMask("PlayerHurtbox")
-    );
-
-    foreach (var hit in hits)
     {
-        var hurtbox = hit.GetComponent<HurtBox>();
-        if (hurtbox != null)
+        Collider[] hits = Physics.OverlapBox(
+            transform.position + transform.forward * (attackRange * 0.5f),
+            new Vector3(1f, 1f, 1f),
+            transform.rotation,
+            LayerMask.GetMask("PlayerHurtbox")
+        );
+
+        foreach (var hit in hits)
         {
-            Vector3 pushDir = (hurtbox.transform.position - transform.position).normalized;
-            hurtbox.OnHit(pushDir, pushForce, damage); // Passa anche il danno!
+            var hurtbox = hit.GetComponent<HurtBox>();
+            if (hurtbox != null)
+            {
+                Vector3 pushDir = (hurtbox.transform.position - transform.position).normalized;
+                hurtbox.OnHit(pushDir, pushForce, damage);
+            }
         }
     }
-}
 
-// Metodo per ricevere danno
-public void TakeDamage(float amount)
-{
-    currentHealth -= amount;
-    Debug.Log($"Nemico colpito! Danno ricevuto: {amount} | Vita attuale: {currentHealth}");
-
-    if (currentHealth <= 0)
+    public void TakeDamage(float amount)
     {
-        currentHealth = 0;
-        Die();
-    }
-}
+        Debug.Log($"TakeDamage chiamato. Danno ricevuto: {amount}");
 
-private void Die()
-{
-    Debug.Log("Nemico morto!");
-    // Qui puoi aggiungere animazione di morte, drop, ecc.
-    Destroy(gameObject);
-}
+        currentHealth -= amount;
+        Debug.Log($"Vita aggiornata: {currentHealth}");
+
+        if (currentHealth <= 0)
+        {
+            currentHealth = 0;
+            Debug.Log("Nemico morto, chiamo Die()");
+            Die();
+        }
+    }
+
+    private void Die()
+    {
+        Debug.Log("Nemico morto!");
+        Destroy(gameObject);
+    }
 }
