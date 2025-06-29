@@ -1,17 +1,17 @@
 using UnityEngine;
-using UnityEngine.UI;
-using System.Collections.Generic;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 public class PlayerPowerUp : MonoBehaviour
 {
+    public PlayerUI playerUI;
+
     [Header("Power Settings")]
-    private float maxPower = 100f;
+    private float maxPower = 300f;
     private float currentPower = 0f;
 
     [Header("UI")]
-    public Slider powerSlider;
-    public GameObject powerUI; // Contenitore della UI
+    public GameObject powerUI;
 
     [Header("Abilities")]
     public AbilityBase PlatformSpawnerForwardAbility;
@@ -32,16 +32,14 @@ public class PlayerPowerUp : MonoBehaviour
 
     void Start()
     {
-        if (powerSlider != null)
-        {
-            powerSlider.maxValue = maxPower;
-            powerSlider.value = currentPower;
-        }
-
         if (powerUI != null)
         {
-            powerUI.SetActive(false); // Nascondi la UI all'avvio
+            powerUI.SetActive(false);
         }
+
+        Debug.Log("[PlayerPowerUp] Start: Imposto max power e aggiorno UI");
+        playerUI.SetMaxValues(100f, maxPower);
+        playerUI.UpdatePower(currentPower);
     }
 
     private void OnEnable() => controls.Gameplay.Enable();
@@ -59,42 +57,46 @@ public class PlayerPowerUp : MonoBehaviour
 
     public void SpendPower(float amount)
     {
+        Debug.Log($"[PlayerPowerUp] SpendPower chiamato con amount: {amount}");
         currentPower = Mathf.Max(0f, currentPower - amount);
-        UpdatePowerBar();
-        Debug.Log($"Energia consumata: {amount}. Rimasta: {currentPower}");
+        Debug.Log($"[PlayerPowerUp] Energia consumata: {amount}. Rimasta: {currentPower}");
+        playerUI.UpdatePower(currentPower);
     }
 
-    public bool HasEnoughPower(float amount)
-    {
-        return currentPower >= amount;
-    }
+    public bool HasEnoughPower(float amount) => currentPower >= amount;
 
     public void AddPower(float amount)
     {
+        Debug.Log($"[PlayerPowerUp] AddPower chiamato con amount: {amount}");
         if (currentPower < maxPower)
         {
             currentPower += amount;
             currentPower = Mathf.Min(currentPower, maxPower);
-            UpdatePowerBar();
-            Debug.Log($"Energia aumentata di {amount}. Attuale: {currentPower}");
+            Debug.Log($"[PlayerPowerUp] Energia aumentata di {amount}. Attuale: {currentPower}");
         }
-    }
-
-    public void UpdatePowerBar()
-    {
-        if (powerSlider != null)
-            powerSlider.value = currentPower;
+        else
+        {
+            Debug.Log("[PlayerPowerUp] Power già al massimo");
+        }
+        playerUI.UpdatePower(currentPower);
     }
 
     private void OnTriggerEnter(Collider other)
     {
+        Debug.Log($"[PlayerPowerUp] OnTriggerEnter con: {other.name} tag: {other.tag}");
+
         if (other.CompareTag("Gem"))
         {
             Gem gem = other.GetComponent<Gem>();
             if (gem != null)
             {
+                Debug.Log("[PlayerPowerUp] Gemma trovata, aggiungo energia");
                 AddPower(gem.GetGemValue());
                 gem.Collect();
+            }
+            else
+            {
+                Debug.LogWarning("[PlayerPowerUp] Oggetto con tag Gem ma senza componente Gem");
             }
         }
     }
