@@ -1,30 +1,57 @@
 using UnityEngine;
-using System.Collections.Generic;
 
-public class AttackHitbox : MonoBehaviour
+public class AttackHitBox : MonoBehaviour
 {
-    [Tooltip("Danno inflitto ai nemici colpiti")]
-    public int damage = 25;
+    [SerializeField] private Collider hitboxCollider;
 
-    private HashSet<Collider> alreadyHit = new(); // Evita colpi multipli
-
-    private void OnEnable()
+    void Awake()
     {
-        alreadyHit.Clear(); // Pulisce ogni volta che viene riattivata
+        if (hitboxCollider == null)
+            hitboxCollider = GetComponent<Collider>();
+
+        if (hitboxCollider != null)
+            hitboxCollider.enabled = false;
+    }
+
+    public void EnableHitbox()
+    {
+        if (hitboxCollider != null)
+        {
+            hitboxCollider.enabled = true;
+            Debug.Log("Hitbox abilitata");
+        }
+    }
+
+    public void DisableHitbox()
+    {
+        if (hitboxCollider != null)
+        {
+            hitboxCollider.enabled = false;
+            Debug.Log("Hitbox disabilitata");
+        }
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (alreadyHit.Contains(other)) return;
+        Debug.Log("Hitbox triggerata con: " + other.name);
 
-        // Cerca un Enemy nello stesso oggetto o nei suoi genitori (es. armature o collider secondari)
-        Enemy enemy = other.GetComponentInParent<Enemy>();
+        Enemy enemy = other.GetComponent<Enemy>();
         if (enemy != null)
         {
-            Vector3 direction = (enemy.transform.position - transform.position).normalized;
-            enemy.TakeDamage(damage, direction);
-            alreadyHit.Add(other);
-            Debug.Log($"✅ Nemico colpito: {enemy.name}");
+            Debug.Log("Nemico colpito direttamente. Applico danno.");
+            enemy.TakeDamage(25f);
+
+            // Setta il trigger Dizzy sull'animator del nemico
+            Animator enemyAnim = enemy.GetComponentInChildren<Animator>();
+            if (enemyAnim != null)
+            {
+                enemyAnim.SetTrigger("Dizzy");
+                Debug.Log("Trigger Dizzy settato sull'animator del nemico!");
+            }
+        }
+        else
+        {
+            Debug.Log("Collider non è un Enemy.");
         }
     }
 }

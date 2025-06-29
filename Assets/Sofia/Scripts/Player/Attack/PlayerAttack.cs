@@ -40,7 +40,6 @@ public class PlayerAttack : MonoBehaviour
     private void Start()
     {
         animator = GetComponentInChildren<Animator>();
-        DeactivateHitbox();
     }
 
     private void Update()
@@ -74,17 +73,5 @@ public class PlayerAttack : MonoBehaviour
     public void IgnoreNextClick()
     {
         ignoreFrames = 2;
-    }
-
-    public void ActivateHitbox()
-    {
-        attackHitbox.SetActive(true);
-        Debug.Log("Hitbox ATTIVA");
-    }
-
-    public void DeactivateHitbox()
-    {
-        attackHitbox.SetActive(false);
-        Debug.Log("Hitbox DISATTIVATA");
     }
 }
