@@ -9,17 +9,17 @@ public class PlayerAttack : MonoBehaviour
 
     private PlayerControls controls;
     private bool attackInput;
-
     private int ignoreFrames = 0;
+
+    [Header("UI Effect per l'attacco")]
+    public UIEffectHandler attackIconEffect;
 
     private void Awake()
     {
         controls = new PlayerControls();
 
-        // Collegamento all'input Attack, con controllo UI
         controls.Gameplay.Attack.performed += ctx =>
         {
-            // Ignora il click se il puntatore è sopra la UI
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
 
@@ -27,15 +27,8 @@ public class PlayerAttack : MonoBehaviour
         };
     }
 
-    private void OnEnable()
-    {
-        controls.Gameplay.Enable();
-    }
-
-    private void OnDisable()
-    {
-        controls.Gameplay.Disable();
-    }
+    private void OnEnable() => controls.Gameplay.Enable();
+    private void OnDisable() => controls.Gameplay.Disable();
 
     private void Start()
     {
@@ -50,13 +43,9 @@ public class PlayerAttack : MonoBehaviour
             return;
         }
 
-        // Blocca input se il gioco è in pausa
         if (Time.timeScale == 0f)
-        {
             return;
-        }
 
-        // Failsafe extra: ignora se il cursore è sulla UI
         if (attackInput)
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -66,12 +55,14 @@ public class PlayerAttack : MonoBehaviour
             }
 
             animator.SetTrigger("Attack");
+
+            // 👇 Mostra l'effetto visivo se l'icona è assegnata
+            if (attackIconEffect != null)
+                attackIconEffect.PulseIcon();
+
             attackInput = false;
         }
     }
 
-    public void IgnoreNextClick()
-    {
-        ignoreFrames = 2;
-    }
+    public void IgnoreNextClick() => ignoreFrames = 2;
 }

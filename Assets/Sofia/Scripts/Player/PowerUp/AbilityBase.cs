@@ -4,15 +4,15 @@ public abstract class AbilityBase : MonoBehaviour
 {
     [Header("Ability Settings")]
     public float duration = 5f;
-
-    // Proprietà virtuale per il costo di energia (power cost)
     public virtual int powerCost => 20;
 
     public PlayerPowerUp powerUpScript;
 
+    [Header("UI Effect (assegnare l'icona)")]
+    public UIEffectHandler effectIcon;
+
     public bool IsActive { get; protected set; } = false;
 
-    // Override this in derived classes to disable auto-deactivation
     protected virtual bool HasFixedDuration => false;
 
     public virtual bool CanActivate()
@@ -23,9 +23,13 @@ public abstract class AbilityBase : MonoBehaviour
     public virtual void TryActivate()
     {
         if (CanActivate())
-        {   
+        {
             Activate();
             IsActive = true;
+
+            // Mostra effetto sull'icona UI
+            if (effectIcon != null)
+                effectIcon.PulseIcon();
 
             if (HasFixedDuration)
                 Invoke(nameof(Deactivate), duration);
