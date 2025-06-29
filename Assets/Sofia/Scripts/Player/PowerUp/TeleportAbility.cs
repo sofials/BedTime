@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+
 public class TeleportAbility : AbilityBase
 {
     [Header("Teletrasporto")]
@@ -21,7 +22,6 @@ public class TeleportAbility : AbilityBase
     private PlayerControls controls;
     private bool confirmPressed;
 
-
     void Update()
     {
         if (!IsActive) return;
@@ -31,10 +31,11 @@ public class TeleportAbility : AbilityBase
         if (confirmPressed) // click destro per confermare il teletrasporto
         {
             confirmPressed = false;
+
             if (powerUpScript.HasEnoughPower(powerCost))
             {
                 TeleportToPointer();
-                powerUpScript.SpendPower(powerCost);
+                powerUpScript.SpendPower(powerCost); // Questo aggiorna anche la barra tramite PlayerUI
             }
             else
             {
@@ -48,11 +49,10 @@ public class TeleportAbility : AbilityBase
     private void Awake()
     {
         controls = new PlayerControls();
-
         controls.Gameplay.Confirm.performed += ctx => confirmPressed = true;
-
         controls.Enable();
     }
+
     public override void Activate()
     {
         IsActive = true;
@@ -70,7 +70,6 @@ public class TeleportAbility : AbilityBase
             Destroy(currentPointer);
 
         SetVisible(true);
-        powerUpScript.UpdatePowerBar();
 
         Debug.Log("TeleportAbility disattivata.");
     }

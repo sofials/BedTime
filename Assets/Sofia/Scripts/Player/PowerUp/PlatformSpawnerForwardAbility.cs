@@ -9,6 +9,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     public float verticalOffset = 0f;
     public float checkRadius = 0.4f;
     public LayerMask obstacleMask;
+
     public override int powerCost => 10;
 
     public Transform footTarget;
@@ -35,7 +36,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     {
         controls = new PlayerControls();
         controls.Gameplay.Confirm.performed += ctx => confirmPressed = true;
-        controls.Enable(); // da disattivare eventualmente se vuoi OnEnable/OnDisable
+        controls.Enable();
     }
 
     public override void Activate()
@@ -82,6 +83,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         if (confirmPressed)
         {
             confirmPressed = false;
+
             if (!powerUpScript.HasEnoughPower(powerCost))
             {
                 Debug.Log("Energia insufficiente!");

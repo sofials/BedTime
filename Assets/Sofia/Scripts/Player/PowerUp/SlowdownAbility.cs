@@ -52,7 +52,7 @@ public class SlowdownAbility : AbilityBase
                     affectedPlatforms.Add(new PlatformData
                     {
                         platform = mp,
-                        originalSpeedMultiplier = 1f // Puoi leggere il valore reale se vuoi
+                        originalSpeedMultiplier = 1f // Se hai un metodo GetSpeedMultiplier(), puoi usarlo qui
                     });
 
                     mp.SetSpeedMultiplier(slowdownFactor);
@@ -72,7 +72,7 @@ public class SlowdownAbility : AbilityBase
         if (affectedPlatforms.Count > 0)
         {
             Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme.");
-            powerUpScript.SpendPower(powerCost); // <-- Qui spendi il potere!
+            powerUpScript.SpendPower(powerCost); // ✅ Questo aggiorna anche la barra tramite PlayerUI
             IsActive = true;
         }
         else

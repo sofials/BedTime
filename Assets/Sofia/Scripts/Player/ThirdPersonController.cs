@@ -5,6 +5,8 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
+    public PlayerUI playerUI;
+
     [Header("Movement Settings")]
     public float walkSpeed = 2f;
     public float runSpeed = 5f;
@@ -86,6 +88,9 @@ public class ThirdPersonController : MonoBehaviour
             cameraTransform = Camera.main.transform;
         // Inizializza la vita
         currentHealth = maxHealth;
+
+        playerUI.SetMaxValues(maxHealth, 100f);
+        playerUI.UpdateHealth(currentHealth);
     }
 
     private void OnEnable()
@@ -102,6 +107,7 @@ public class ThirdPersonController : MonoBehaviour
     public void TakeDamage(float amount)
 {
     currentHealth -= amount;
+    playerUI.UpdateHealth(currentHealth);
     Debug.Log($"Player colpito! Danno ricevuto: {amount} | Vita attuale: {currentHealth}");
 
     if (currentHealth <= 0)
