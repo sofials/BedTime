@@ -25,6 +25,7 @@ public class SlowdownAbility : AbilityBase
     {
         duration = customDuration;
         Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
+        effectIconIndex = 3;
     }
 
     public override void Activate()

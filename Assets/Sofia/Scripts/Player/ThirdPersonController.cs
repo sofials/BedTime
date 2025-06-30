@@ -32,6 +32,9 @@ public class ThirdPersonController : MonoBehaviour
     [Header("Player Stats")]
     public float maxHealth = 100f;
     public float currentHealth;
+    public float CurrentHealth => currentHealth;
+    public float MaxHealth => maxHealth;
+
 
     private CharacterController controller;
     private Animator _animator;
@@ -47,7 +50,7 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
 
-    [SerializeField] private float pushRecoverySpeed = 0.5f; // più lento = spinta visibile
+    [SerializeField] private float pushRecoverySpeed = 0.5f;
 
     private Vector3 instantPush = Vector3.zero;
     private bool applyInstantPush = false;
@@ -91,7 +94,6 @@ public class ThirdPersonController : MonoBehaviour
         // Inizializza la vita
         currentHealth = maxHealth;
 
-        playerUI.SetMaxValues(maxHealth, 100f);
         playerUI.UpdateHealth(currentHealth);
     }
 

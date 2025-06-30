@@ -8,8 +8,8 @@ public abstract class AbilityBase : MonoBehaviour
 
     public PlayerPowerUp powerUpScript;
 
-    [Header("UI Effect (assegnare l'icona)")]
-    public UIEffectHandler effectIcon;
+    [Header("UI Effect")]
+    public int effectIconIndex;
 
     public bool IsActive { get; protected set; } = false;
 
@@ -27,9 +27,9 @@ public abstract class AbilityBase : MonoBehaviour
             Activate();
             IsActive = true;
 
-            // Mostra effetto sull'icona UI
-            if (effectIcon != null)
-                effectIcon.PulseIcon();
+            // Mostra effetto sull’icona UI
+            if (PlayerUI.Instance != null)
+                PlayerUI.Instance.PulseIconAt(effectIconIndex);
 
             if (HasFixedDuration)
                 Invoke(nameof(Deactivate), duration);
