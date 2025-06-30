@@ -3280,7 +3280,7 @@ MonoBehaviour:
   currentHealth: 0
   isDizzy: 0
   dizzyDuration: 2.5
-  stunParticles: {fileID: 336269716}
+  stunParticles: {fileID: 1782594908}
   deathParticles: {fileID: 1932646078}
   stunEffectEndOffset: 0.3
   mushroomRenderer: {fileID: 3578092503565091923}
@@ -3612,6 +3612,7 @@ MonoBehaviour:
   meshesToHide:
   - {fileID: 203623811890537710}
   controllerGameObject: {fileID: 8409962646355197356}
+  teleportStartVFX: {fileID: 0}
 --- !u!1 &1075622341
 GameObject:
   m_ObjectHideFlags: 0
@@ -6111,6 +6112,16 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1779154369}
   m_CullTransparentMesh: 1
+--- !u!4 &1782594906 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4827959125012898817, guid: b6d3e2e4b8df2964eb3dfce561902f3e, type: 3}
+  m_PrefabInstance: {fileID: 783735374}
+  m_PrefabAsset: {fileID: 0}
+--- !u!198 &1782594908 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 3862086795158682616, guid: b6d3e2e4b8df2964eb3dfce561902f3e, type: 3}
+  m_PrefabInstance: {fileID: 783735374}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1800281314
 GameObject:
   m_ObjectHideFlags: 0
@@ -8493,7 +8504,7 @@ Transform:
   - {fileID: 1682134974868826674}
   - {fileID: 6609432294379280479}
   - {fileID: 1932646080}
-  - {fileID: 336269714}
+  - {fileID: 1782594906}
   m_Father: {fileID: 7172364141166997126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3163158088953826533
@@ -10334,11 +10345,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   attackHitbox: {fileID: 375232686}
-  attackHitboxCollider: {fileID: 0}
-  attackIconEffect: {fileID: 270540024}
+  attackHitboxCollider: {fileID: 375232689}
+  attackIconKeyboard: {fileID: 1315066391}
+  attackIconController: {fileID: 270540024}
   punchTrail: {fileID: 1418762910}
   isAttacking: 0
   attackDuration: 0.3
+  attackCooldown: 1
 --- !u!1 &8099596680240585688
 GameObject:
   m_ObjectHideFlags: 0
