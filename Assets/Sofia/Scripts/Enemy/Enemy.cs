@@ -17,13 +17,17 @@ public class Enemy : MonoBehaviour
     public LayerMask obstacleMask;
     public Transform[] waypoints;
 
-    public float pushForce = 8f;
+    public float pushForce = 20f;
     public float damage = 25f;
     public float maxHealth = 100f;
     public float currentHealth;
 
     public bool isDizzy = false;
     public float dizzyDuration = 2.5f;
+
+    [Header("VFX")]
+    public ParticleSystem stunParticles;
+    public ParticleSystem deathParticles; // <-- aggiungi questo
 
     private int currentWaypoint = 0;
     private float waitTimer;
@@ -34,6 +38,7 @@ public class Enemy : MonoBehaviour
     private bool isPatrolling = true;
     private bool caughtPlayer = false;
     private bool isAttacking = false;
+    private bool isDead = false; // aggiungi questa variabile
 
     private Animator animator;
 
@@ -53,6 +58,9 @@ public class Enemy : MonoBehaviour
 
     void Update()
     {
+        if (isDead)
+            return; // Blocca tutta la logica se il nemico è morto
+
         if (isDizzy)
             return;
 
@@ -102,12 +110,28 @@ public class Enemy : MonoBehaviour
         if (agent != null)
             agent.isStopped = true;
 
+        // ATTIVA PARTICLE SYSTEM
+        if (stunParticles != null)
+            stunParticles.Play();
+
         StartCoroutine(DizzyTimer());
     }
 
+    [SerializeField] private float stunEffectEndOffset = 0.3f; // tempo prima della fine del dizzy per fermare l'effetto
+
     private IEnumerator DizzyTimer()
     {
-        yield return new WaitForSeconds(dizzyDuration);
+        // Ferma la stun VFX poco prima della fine del dizzy
+        if (stunParticles != null)
+        {
+            yield return new WaitForSeconds(dizzyDuration - stunEffectEndOffset);
+            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            yield return new WaitForSeconds(stunEffectEndOffset);
+        }
+        else
+        {
+            yield return new WaitForSeconds(dizzyDuration);
+        }
         EndDizzy();
     }
 
@@ -115,6 +139,10 @@ public class Enemy : MonoBehaviour
     {
         Debug.Log("Nemico esce dallo stato Dizzy");
         isDizzy = false;
+
+        // FERMA E PULISCI PARTICLE SYSTEM
+        if (stunParticles != null)
+            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
         if (agent != null)
             agent.isStopped = false;
@@ -306,17 +334,26 @@ public class Enemy : MonoBehaviour
 
         foreach (var hit in hits)
         {
-            var hurtbox = hit.GetComponent<HurtBox>();
-            if (hurtbox != null)
+            if (hit.gameObject.CompareTag("PlayerHurtbox"))
             {
-                Vector3 pushDir = (hurtbox.transform.position - transform.position).normalized;
-                hurtbox.OnHit(pushDir, pushForce, damage);
+                var hurtbox = hit.GetComponent<HurtBox>();
+                if (hurtbox != null)
+                {
+                    Vector3 pushDir = (hurtbox.transform.position - transform.position).normalized;
+                    hurtbox.OnHit(pushDir, pushForce, damage);
+                }
             }
         }
     }
 
     public void TakeDamage(float amount)
     {
+        if (isDead)
+        {
+            Debug.Log("[Enemy] Colpito ma già morto, ignoro il danno.");
+            return;
+        }
+
         Debug.Log($"[Enemy] TakeDamage chiamato. Danno ricevuto: {amount}");
 
         currentHealth -= amount;
@@ -327,10 +364,18 @@ public class Enemy : MonoBehaviour
         if (currentHealth <= 0)
         {
             currentHealth = 0;
+            isDead = true;
             Debug.Log("[Enemy] Nemico morto, setto trigger Die");
             if (animator != null)
                 animator.SetTrigger("Die"); // Attiva animazione morte
-            // La distruzione avverrà tramite Animation Event o Coroutine (vedi sotto)
+
+            // FERMA IL NAVMESHAGENT
+            if (agent != null)
+            {
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+            }
+            // La distruzione avverrà tramite Animation Event o Coroutine
         }
     }
 
@@ -341,10 +386,24 @@ public class Enemy : MonoBehaviour
         StartCoroutine(DestroyAfterDelayCoroutine());
     }
 
+    public Renderer mushroomRenderer; // Assegna il renderer del modello in Inspector
+
     private IEnumerator DestroyAfterDelayCoroutine()
     {
-        yield return new WaitForSeconds(5f);
-        Debug.Log("[Enemy] Distruzione effettiva del GameObject dopo 5 secondi.");
+        float deathEffectOffset = 1.2f; // tempo in secondi in cui l'esplosione copre il funghetto
+        float waitTime = 2.5f - deathEffectOffset; // tempo dopo animazione morte prima dell'esplosione
+
+        if (waitTime > 0)
+            yield return new WaitForSeconds(waitTime);
+
+        if (deathParticles != null)
+            deathParticles.Play();
+
+        if (mushroomRenderer != null)
+            mushroomRenderer.enabled = false;
+
+        yield return new WaitForSeconds(deathEffectOffset);
+
         Destroy(gameObject);
     }
 }

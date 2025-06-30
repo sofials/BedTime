@@ -50,7 +50,7 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
 
-    [SerializeField] private float pushRecoverySpeed = 0.5f;
+    [SerializeField] private float pushRecoverySpeed = 0.2f; // più lento = spinta visibile
 
     private Vector3 instantPush = Vector3.zero;
     private bool applyInstantPush = false;
@@ -331,7 +331,8 @@ public class ThirdPersonController : MonoBehaviour
         }
     }
     public void ApplyExternalPush(Vector3 force)
-{
-    externalPush += force;
-}
+    {
+        externalPush += force;
+    Debug.Log($"[Player] Spinta applicata: {force}, externalPush ora: {externalPush}");
+    }
 }
