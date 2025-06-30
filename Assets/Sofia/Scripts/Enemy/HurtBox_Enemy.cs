@@ -2,12 +2,12 @@ using UnityEngine;
 
 public class HurtBox_Enemy : MonoBehaviour
 {
-    public Enemy enemy;
+    public EnemyBase enemy; // Cambiato da Enemy a EnemyBase
 
     private void Awake()
     {
         if (enemy == null)
-            enemy = GetComponentInParent<Enemy>();
+            enemy = GetComponentInParent<EnemyBase>();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -21,12 +21,12 @@ public class HurtBox_Enemy : MonoBehaviour
             var playerAttack = other.GetComponentInParent<PlayerAttack>();
             if (playerAttack != null && playerAttack.isAttacking && enemy != null)
             {
-                Debug.Log("[HurtBox_Enemy] Attacco del giocatore rilevato, chiamo TakeDamage su Enemy");
+                Debug.Log("[HurtBox_Enemy] Attacco del giocatore rilevato, chiamo TakeDamage su EnemyBase");
                 enemy.TakeDamage(25f);
             }
             else
             {
-                Debug.Log("[HurtBox_Enemy] Nessun attacco del giocatore rilevato o Enemy è NULL!");
+                Debug.Log("[HurtBox_Enemy] Nessun attacco del giocatore rilevato o EnemyBase è NULL!");
             }
         }
         else

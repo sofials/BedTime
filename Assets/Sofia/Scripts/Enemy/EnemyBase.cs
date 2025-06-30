@@ -2,47 +2,54 @@ using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
 
-public class Enemy : MonoBehaviour
+public class EnemyBase : MonoBehaviour
 {
+    [Header("Movement & Patrol")]
     public NavMeshAgent agent;
     public float waitTimeAtPoint = 4f;
     public float rotateTime = 2f;
     public float walkSpeed = 6f;
     public float runSpeed = 9f;
+    public Transform[] waypoints;
 
+    [Header("Vision & Attack")]
     public float viewRadius = 15f;
     public float viewAngle = 90f;
     public float attackRange = 2f;
     public LayerMask playerMask;
     public LayerMask obstacleMask;
-    public Transform[] waypoints;
-
     public float pushForce = 20f;
     public float damage = 25f;
+
+    [Header("Health")]
     public float maxHealth = 100f;
     public float currentHealth;
 
+    [Header("Status")]
     public bool isDizzy = false;
     public float dizzyDuration = 2.5f;
+    [SerializeField] private float stunEffectEndOffset = 0.3f;
 
     [Header("VFX")]
     public ParticleSystem stunParticles;
-    public ParticleSystem deathParticles; // <-- aggiungi questo
+    public ParticleSystem deathParticles;
 
-    private int currentWaypoint = 0;
-    private float waitTimer;
-    private float rotateTimer;
+    [Header("Model")]
+    public Renderer Renderer; // Assegna il renderer del modello in Inspector
 
-    private Transform player;
-    private bool playerVisible;
-    private bool isPatrolling = true;
-    private bool caughtPlayer = false;
-    private bool isAttacking = false;
-    private bool isDead = false; // aggiungi questa variabile
+    // Internal state
+    protected int currentWaypoint = 0;
+    protected float waitTimer;
+    protected float rotateTimer;
+    protected Transform player;
+    protected bool playerVisible;
+    protected bool isPatrolling = true;
+    protected bool caughtPlayer = false;
+    protected bool isAttacking = false;
+    protected bool isDead = false;
+    protected Animator animator;
 
-    private Animator animator;
-
-    void Start()
+    protected virtual void Start()
     {
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
@@ -56,13 +63,10 @@ public class Enemy : MonoBehaviour
             agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
-    void Update()
+    protected virtual void Update()
     {
-        if (isDead)
-            return; // Blocca tutta la logica se il nemico è morto
-
-        if (isDizzy)
-            return;
+        if (isDead) return;
+        if (isDizzy) return;
 
         UpdatePlayerVisibility();
 
@@ -80,28 +84,21 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    private void InterruptAttack()
+    protected void InterruptAttack()
     {
         if (isAttacking)
         {
-            Debug.Log("[Enemy] Interrompo attacco.");
             isAttacking = false;
             if (animator != null)
                 animator.SetBool("isAttacking", false);
         }
     }
 
-    public void StartDizzy()
+    public virtual void StartDizzy()
     {
-        if (isDizzy)
-        {
-            Debug.Log("[Enemy] StartDizzy chiamato ma già in Dizzy");
-            return;
-        }
+        if (isDizzy) return;
 
-        Debug.Log("[Enemy] Nemico entra in stato Dizzy");
         isDizzy = true;
-
         InterruptAttack();
 
         if (animator != null)
@@ -110,18 +107,14 @@ public class Enemy : MonoBehaviour
         if (agent != null)
             agent.isStopped = true;
 
-        // ATTIVA PARTICLE SYSTEM
         if (stunParticles != null)
             stunParticles.Play();
 
         StartCoroutine(DizzyTimer());
     }
 
-    [SerializeField] private float stunEffectEndOffset = 0.3f; // tempo prima della fine del dizzy per fermare l'effetto
-
     private IEnumerator DizzyTimer()
     {
-        // Ferma la stun VFX poco prima della fine del dizzy
         if (stunParticles != null)
         {
             yield return new WaitForSeconds(dizzyDuration - stunEffectEndOffset);
@@ -135,12 +128,10 @@ public class Enemy : MonoBehaviour
         EndDizzy();
     }
 
-    public void EndDizzy()
+    public virtual void EndDizzy()
     {
-        Debug.Log("Nemico esce dallo stato Dizzy");
         isDizzy = false;
 
-        // FERMA E PULISCI PARTICLE SYSTEM
         if (stunParticles != null)
             stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
@@ -153,7 +144,6 @@ public class Enemy : MonoBehaviour
 
             if (distanceToPlayer <= attackRange)
             {
-                Debug.Log("Player ancora nel range d'attacco dopo dizzy: riprendo attacco.");
                 isAttacking = true;
                 if (animator != null)
                     animator.SetBool("isAttacking", true);
@@ -163,7 +153,6 @@ public class Enemy : MonoBehaviour
 
             if (distanceToPlayer <= viewRadius)
             {
-                Debug.Log("Riprendo inseguimento dopo dizzy");
                 isPatrolling = false;
                 return;
             }
@@ -172,7 +161,7 @@ public class Enemy : MonoBehaviour
         ResetToPatrol();
     }
 
-    void UpdatePlayerVisibility()
+    protected void UpdatePlayerVisibility()
     {
         playerVisible = false;
         Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
@@ -187,29 +176,20 @@ public class Enemy : MonoBehaviour
                 {
                     playerVisible = true;
                     player = hit.transform;
-                    Debug.Log("Player avvistato: " + player.name);
                     return;
                 }
             }
         }
 
         if (player != null && Vector3.Distance(transform.position, player.position) <= attackRange)
-        {
-            Debug.Log("Player fuori vista ma ancora nel range d'attacco, mantengo target.");
             return;
-        }
 
-        Debug.Log("Player perso, azzero target.");
         player = null;
     }
 
-    void ChasePlayer()
+    protected void ChasePlayer()
     {
-        if (player == null)
-        {
-            Debug.Log("ChasePlayer chiamato ma player è null.");
-            return;
-        }
+        if (player == null) return;
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
@@ -217,7 +197,6 @@ public class Enemy : MonoBehaviour
         {
             if (!isAttacking)
             {
-                Debug.Log("Inizio attacco");
                 isAttacking = true;
                 if (animator != null)
                     animator.SetBool("isAttacking", true);
@@ -234,18 +213,15 @@ public class Enemy : MonoBehaviour
         agent.isStopped = false;
         agent.speed = runSpeed;
         agent.SetDestination(player.position);
-        Debug.Log("Inseguimento: imposto destinazione su player");
 
         if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
         {
             if (waitTimer <= 0f && distanceToPlayer >= 6f)
             {
-                Debug.Log("Attesa completata e distanza > 6: torno in pattuglia");
                 ResetToPatrol();
             }
             else
             {
-                Debug.Log("Fermo e attendo: tempo rimanente " + waitTimer);
                 agent.isStopped = true;
                 waitTimer -= Time.deltaTime;
             }
@@ -256,7 +232,7 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    void Patrol()
+    protected void Patrol()
     {
         agent.speed = walkSpeed;
 
@@ -279,15 +255,15 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    void GoToNextWaypoint()
+    protected void GoToNextWaypoint()
     {
+        if (waypoints == null || waypoints.Length == 0) return;
         currentWaypoint = (currentWaypoint + 1) % waypoints.Length;
         agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
-    void ResetToPatrol()
+    protected void ResetToPatrol()
     {
-        Debug.Log("Reset in pattuglia");
         isPatrolling = true;
         agent.isStopped = false;
         waitTimer = waitTimeAtPoint;
@@ -302,7 +278,7 @@ public class Enemy : MonoBehaviour
         agent.speed = walkSpeed;
     }
 
-    void FindClosestWaypoint()
+    protected void FindClosestWaypoint()
     {
         if (waypoints == null || waypoints.Length == 0) return;
 
@@ -323,7 +299,7 @@ public class Enemy : MonoBehaviour
         agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
-    public void EnemyAttackHitbox()
+    public virtual void EnemyAttackHitbox()
     {
         Collider[] hits = Physics.OverlapBox(
             transform.position + transform.forward * (attackRange * 0.5f),
@@ -346,30 +322,20 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    public void TakeDamage(float amount)
+    public virtual void TakeDamage(float amount)
     {
-        if (isDead)
-        {
-            Debug.Log("[Enemy] Colpito ma già morto, ignoro il danno.");
-            return;
-        }
-
-        Debug.Log($"[Enemy] TakeDamage chiamato. Danno ricevuto: {amount}");
+        if (isDead) return;
 
         currentHealth -= amount;
-        Debug.Log($"[Enemy] Vita aggiornata: {currentHealth}");
-
         StartDizzy();
 
         if (currentHealth <= 0)
         {
             currentHealth = 0;
             isDead = true;
-            Debug.Log("[Enemy] Nemico morto, setto trigger Die");
             if (animator != null)
-                animator.SetTrigger("Die"); // Attiva animazione morte
+                animator.SetTrigger("Die");
 
-            // FERMA IL NAVMESHAGENT
             if (agent != null)
             {
                 agent.isStopped = true;
@@ -380,18 +346,15 @@ public class Enemy : MonoBehaviour
     }
 
     // Metodo da chiamare tramite Animation Event alla fine dell'animazione di morte
-    public void DestroyAfterDeath()
+    public virtual void DestroyAfterDeath()
     {
-        Debug.Log("[Enemy] DestroyAfterDeath chiamato: attendo 5 secondi prima di distruggere GameObject.");
         StartCoroutine(DestroyAfterDelayCoroutine());
     }
 
-    public Renderer Renderer; // Assegna il renderer del modello in Inspector
-
     private IEnumerator DestroyAfterDelayCoroutine()
     {
-        float deathEffectOffset = 1.2f; // tempo in secondi in cui l'esplosione copre il funghetto
-        float waitTime = 2.5f - deathEffectOffset; // tempo dopo animazione morte prima dell'esplosione
+        float deathEffectOffset = 1.2f;
+        float waitTime = 2.5f - deathEffectOffset;
 
         if (waitTime > 0)
             yield return new WaitForSeconds(waitTime);
