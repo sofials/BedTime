@@ -12,11 +12,11 @@ public class TeleportAbility : AbilityBase
     [Tooltip("Il GameObject che contiene il CharacterController da usare per il teletrasporto.")]
     public GameObject controllerGameObject;
 
+    [Header("VFX")]
+    public ParticleSystem teleportStartVFX; // effetto quando attivi il teletrasporto
+
     private GameObject currentPointer;
-
-    // Override del costo: 20
     public override int powerCost => 20;
-
     protected override bool HasFixedDuration => false;
 
     private PlayerControls controls;
@@ -58,6 +58,10 @@ public class TeleportAbility : AbilityBase
         IsActive = true;
         currentPointer = Instantiate(telePointerPrefab);
         SetVisible(false);
+
+        // Effetto visivo all'attivazione (partenza)
+        if (teleportStartVFX != null)
+            teleportStartVFX.Play();
     }
 
     public override void Deactivate()
@@ -70,6 +74,10 @@ public class TeleportAbility : AbilityBase
             Destroy(currentPointer);
 
         SetVisible(true);
+
+        // Ferma e pulisci l'effetto visivo
+        if (teleportStartVFX != null)
+            teleportStartVFX.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
         Debug.Log("TeleportAbility disattivata.");
     }

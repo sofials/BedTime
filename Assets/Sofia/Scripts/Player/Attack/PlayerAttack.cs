@@ -21,6 +21,8 @@ public class PlayerAttack : MonoBehaviour
     public bool isAttacking = false;
     [SerializeField] private float attackDuration = 0.3f; // Durata in secondi dell'attacco
     private float attackTimer = 0f;
+    [SerializeField] private float attackCooldown = 1f; // Tempo minimo tra un attacco e l'altro
+    private float lastAttackTime = -999f;
 
     private void Awake()
     {
@@ -58,7 +60,7 @@ public class PlayerAttack : MonoBehaviour
         if (Time.timeScale == 0f)
             return;
 
-        // Gestione attacco
+        // Gestione attacco con cooldown
         if (attackInput)
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -67,12 +69,17 @@ public class PlayerAttack : MonoBehaviour
                 return;
             }
 
-            animator.SetTrigger("Attack");
-            if (attackIconEffect != null)
-                attackIconEffect.PulseIcon();
+            // Cooldown: puoi attaccare solo se è passato abbastanza tempo dall'ultimo attacco
+            if (Time.time >= lastAttackTime + attackCooldown)
+            {
+                animator.SetTrigger("Attack");
+                if (attackIconEffect != null)
+                    attackIconEffect.PulseIcon();
 
-            isAttacking = true;
-            attackTimer = attackDuration;
+                isAttacking = true;
+                attackTimer = attackDuration;
+                lastAttackTime = Time.time; // aggiorna il tempo dell'ultimo attacco
+            }
             attackInput = false;
         }
 
