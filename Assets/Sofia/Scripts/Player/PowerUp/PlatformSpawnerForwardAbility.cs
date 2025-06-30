@@ -37,6 +37,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         controls = new PlayerControls();
         controls.Gameplay.Confirm.performed += ctx => confirmPressed = true;
         controls.Enable();
+        effectIconIndex = 1;
     }
 
     public override void Activate()

@@ -7,8 +7,12 @@ public class PlayerPowerUp : MonoBehaviour
     public PlayerUI playerUI;
 
     [Header("Power Settings")]
-    private float maxPower = 300f;
-    private float currentPower = 0f;
+    public float maxPower = 300f;
+    public float currentPower = 0f;
+
+    public float CurrentPower => currentPower;
+    public float MaxPower => maxPower;
+
 
     [Header("UI")]
     public GameObject powerUI;
