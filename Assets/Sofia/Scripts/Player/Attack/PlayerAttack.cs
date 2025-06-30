@@ -14,7 +14,14 @@ public class PlayerAttack : MonoBehaviour
     private int ignoreFrames = 0;
 
     [Header("UI Effect per l'attacco")]
-    public UIEffectHandler attackIconEffect;
+    public UIEffectHandler attackIconKeyboard;
+    public UIEffectHandler attackIconController;
+
+    private UIEffectHandler currentEffectIcon =>
+        Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame
+            ? attackIconController
+            : attackIconKeyboard;
+
     [Header("Scia del pugno")]
     public TrailRenderer punchTrail;
 
@@ -69,12 +76,12 @@ public class PlayerAttack : MonoBehaviour
                 return;
             }
 
-            // Cooldown: puoi attaccare solo se è passato abbastanza tempo dall'ultimo attacco
             if (Time.time >= lastAttackTime + attackCooldown)
             {
                 animator.SetTrigger("Attack");
-                if (attackIconEffect != null)
-                    attackIconEffect.PulseIcon();
+
+                if (currentEffectIcon != null)
+                    currentEffectIcon.PulseIcon();
 
                 isAttacking = true;
                 attackTimer = attackDuration;

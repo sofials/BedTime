@@ -32,6 +32,9 @@ public class ThirdPersonController : MonoBehaviour
     [Header("Player Stats")]
     public float maxHealth = 100f;
     public float currentHealth;
+    public float CurrentHealth => currentHealth;
+    public float MaxHealth => maxHealth;
+
 
     private CharacterController controller;
     private Animator _animator;
@@ -91,7 +94,6 @@ public class ThirdPersonController : MonoBehaviour
         // Inizializza la vita
         currentHealth = maxHealth;
 
-        playerUI.SetMaxValues(maxHealth, 100f);
         playerUI.UpdateHealth(currentHealth);
     }
 
