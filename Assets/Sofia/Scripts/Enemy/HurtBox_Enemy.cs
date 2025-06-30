@@ -14,19 +14,19 @@ public class HurtBox_Enemy : MonoBehaviour
     {
         Debug.Log("[HurtBox_Enemy] TriggerEnter con: " + other.name);
 
-        // Filtra per layer: solo la hitbox del player
-        if (other.gameObject.layer == LayerMask.NameToLayer("PlayerAttackHitbox"))
+        // Controlla anche il layer
+        if (other.gameObject.layer == LayerMask.NameToLayer("PlayerAttackHitbox") &&
+            other.CompareTag("PlayerAttackHitbox"))
         {
-            Debug.Log("[HurtBox_Enemy] Layer corretto rilevato (PlayerAttackHitbox)");
-            AttackHitBox playerHitbox = other.GetComponent<AttackHitBox>();
-            if (playerHitbox != null && enemy != null)
+            var playerAttack = other.GetComponentInParent<PlayerAttack>();
+            if (playerAttack != null && playerAttack.isAttacking && enemy != null)
             {
-                Debug.Log("[HurtBox_Enemy] AttackHitBox rilevata, chiamo TakeDamage su Enemy");
+                Debug.Log("[HurtBox_Enemy] Attacco del giocatore rilevato, chiamo TakeDamage su Enemy");
                 enemy.TakeDamage(25f);
             }
             else
             {
-                Debug.LogWarning("[HurtBox_Enemy] Enemy reference o AttackHitBox è NULL!");
+                Debug.Log("[HurtBox_Enemy] Nessun attacco del giocatore rilevato o Enemy è NULL!");
             }
         }
         else
