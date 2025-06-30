@@ -386,7 +386,7 @@ public class Enemy : MonoBehaviour
         StartCoroutine(DestroyAfterDelayCoroutine());
     }
 
-    public Renderer mushroomRenderer; // Assegna il renderer del modello in Inspector
+    public Renderer Renderer; // Assegna il renderer del modello in Inspector
 
     private IEnumerator DestroyAfterDelayCoroutine()
     {
@@ -399,8 +399,8 @@ public class Enemy : MonoBehaviour
         if (deathParticles != null)
             deathParticles.Play();
 
-        if (mushroomRenderer != null)
-            mushroomRenderer.enabled = false;
+        if (Renderer != null)
+            Renderer.enabled = false;
 
         yield return new WaitForSeconds(deathEffectOffset);
 
