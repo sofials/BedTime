@@ -27,6 +27,7 @@ public class Enemy : MonoBehaviour
 
     [Header("VFX")]
     public ParticleSystem stunParticles;
+    public ParticleSystem deathParticles; // <-- aggiungi questo
 
     private int currentWaypoint = 0;
     private float waitTimer;
@@ -385,10 +386,24 @@ public class Enemy : MonoBehaviour
         StartCoroutine(DestroyAfterDelayCoroutine());
     }
 
+    public Renderer mushroomRenderer; // Assegna il renderer del modello in Inspector
+
     private IEnumerator DestroyAfterDelayCoroutine()
     {
-        yield return new WaitForSeconds(5f);
-        Debug.Log("[Enemy] Distruzione effettiva del GameObject dopo 5 secondi.");
+        float deathEffectOffset = 1.2f; // tempo in secondi in cui l'esplosione copre il funghetto
+        float waitTime = 2.5f - deathEffectOffset; // tempo dopo animazione morte prima dell'esplosione
+
+        if (waitTime > 0)
+            yield return new WaitForSeconds(waitTime);
+
+        if (deathParticles != null)
+            deathParticles.Play();
+
+        if (mushroomRenderer != null)
+            mushroomRenderer.enabled = false;
+
+        yield return new WaitForSeconds(deathEffectOffset);
+
         Destroy(gameObject);
     }
 }
