@@ -75,6 +75,25 @@ public class PlayerUI : MonoBehaviour
         Debug.Log($"[PlayerUI] Layout attivo: {(useGamepad ? "Gamepad" : "Keyboard")}");
     }
 
+    public void UpdateAbilityIconState(int index, bool canActivate)
+    {
+        if (useGamepad)
+        {
+            if (controllerEffectIcons != null && index >= 0 && index < controllerEffectIcons.Length && controllerEffectIcons[index] != null)
+            {
+                controllerEffectIcons[index].SetGrayscale(!canActivate);
+            }
+        }
+        else
+        {
+            if (keyboardEffectIcons != null && index >= 0 && index < keyboardEffectIcons.Length && keyboardEffectIcons[index] != null)
+            {
+                keyboardEffectIcons[index].SetGrayscale(!canActivate);
+            }
+        }
+    }
+
+
     public void PulseIconAt(int index)
     {
         if (useGamepad)

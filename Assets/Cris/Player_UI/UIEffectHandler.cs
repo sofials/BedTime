@@ -4,39 +4,54 @@ using System.Collections;
 
 public class UIEffectHandler : MonoBehaviour
 {
-    public Image icon;
-    public float pulseScale = 1.2f;
-    public float pulseDuration = 0.2f;
+    private Image image;
+    private Coroutine pulseCoroutine;
 
-    private Vector3 originalScale;
-
-    void Awake()
+    private void Awake()
     {
-        if (icon == null)
-            icon = GetComponent<Image>();
-
-        originalScale = icon.rectTransform.localScale;
+        image = GetComponent<Image>();
     }
 
     public void PulseIcon()
     {
-        StopAllCoroutines();
-        StartCoroutine(DoPulse());
+        if (!gameObject.activeInHierarchy) return;
+
+        if (pulseCoroutine != null)
+            StopCoroutine(pulseCoroutine);
+
+        pulseCoroutine = StartCoroutine(PulseRoutine());
     }
 
-    private IEnumerator DoPulse()
+    private IEnumerator PulseRoutine()
     {
-        RectTransform rt = icon.rectTransform;
-        rt.localScale = originalScale * pulseScale;
+        float duration = 0.3f;
+        float time = 0f;
+        Vector3 originalScale = transform.localScale;
+        Vector3 targetScale = originalScale * 1.2f;
 
-        float elapsed = 0f;
-        while (elapsed < pulseDuration)
+        while (time < duration)
         {
-            rt.localScale = Vector3.Lerp(rt.localScale, originalScale, elapsed / pulseDuration);
-            elapsed += Time.deltaTime;
+            time += Time.deltaTime;
+            transform.localScale = Vector3.Lerp(originalScale, targetScale, time / duration);
             yield return null;
         }
 
-        rt.localScale = originalScale;
+        time = 0f;
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            transform.localScale = Vector3.Lerp(targetScale, originalScale, time / duration);
+            yield return null;
+        }
+
+        transform.localScale = originalScale;
     }
+    public void SetGrayscale(bool isGray)
+    {
+        if (image != null)
+        {
+            image.color = isGray ? Color.gray : Color.white;
+        }
+    }
+
 }

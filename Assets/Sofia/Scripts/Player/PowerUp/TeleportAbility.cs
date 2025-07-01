@@ -16,7 +16,7 @@ public class TeleportAbility : AbilityBase
     public ParticleSystem teleportStartVFX; // effetto quando attivi il teletrasporto
 
     private GameObject currentPointer;
-    public override int powerCost => 20;
+    public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
     private PlayerControls controls;
