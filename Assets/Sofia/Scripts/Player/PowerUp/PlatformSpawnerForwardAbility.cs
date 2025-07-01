@@ -10,7 +10,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     public float checkRadius = 0.4f;
     public LayerMask obstacleMask;
 
-    public override int powerCost => 10;
+    public override int powerCost => 35;
 
     public Transform footTarget;
 

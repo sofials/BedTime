@@ -20,6 +20,15 @@ public abstract class AbilityBase : MonoBehaviour
         return !IsActive && powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
     }
 
+    private void Update()
+    {
+        if (PlayerUI.Instance != null)
+        {
+            bool canUse = CanActivate();
+            PlayerUI.Instance.UpdateAbilityIconState(effectIconIndex, canUse);
+        }
+    }
+
     public virtual void TryActivate()
     {
         if (CanActivate())
