@@ -333,6 +333,6 @@ public class ThirdPersonController : MonoBehaviour
     public void ApplyExternalPush(Vector3 force)
     {
         externalPush += force;
-    Debug.Log($"[Player] Spinta applicata: {force}, externalPush ora: {externalPush}");
+        Debug.Log($"[Player] Spinta applicata: {force}, externalPush ora: {externalPush}");
     }
 }
