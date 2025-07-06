@@ -53,7 +53,7 @@ public class SlowdownAbility : AbilityBase
                     affectedPlatforms.Add(new PlatformData
                     {
                         platform = mp,
-                        originalSpeedMultiplier = 1f // Se hai un metodo GetSpeedMultiplier(), puoi usarlo qui
+                        originalSpeedMultiplier = 1f
                     });
 
                     mp.SetSpeedMultiplier(slowdownFactor);
@@ -64,6 +64,22 @@ public class SlowdownAbility : AbilityBase
                     Debug.LogWarning($"[SlowdownAbility] {col.name} ha il tag corretto ma non ha componente MovingPlatform");
                 }
             }
+
+            if (col.CompareTag("RotatingObject"))
+            {
+                Debug.Log($"[SlowdownAbility] {col.name} ha il tag 'RotatingObject'");
+
+                RotatingObject ro = col.GetComponent<RotatingObject>();
+                if (ro != null)
+                {
+                    Debug.Log($"[SlowdownAbility] {col.name} ha componente RotatingObject");
+
+                    ro.SetSpeedMultiplier(slowdownFactor);
+                    Debug.Log($"[SlowdownAbility] Rallentato oggetto rotante {col.name} con fattore {slowdownFactor}");
+                }
+            }
+
+
             else
             {
                 Debug.Log($"[SlowdownAbility] {col.name} ha un tag diverso: {col.tag}");
