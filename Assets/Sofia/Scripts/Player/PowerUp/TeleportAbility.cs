@@ -13,56 +13,63 @@ public class TeleportAbility : AbilityBase
     public GameObject controllerGameObject;
 
     [Header("VFX")]
-    public ParticleSystem teleportStartVFX; // effetto quando attivi il teletrasporto
+    public ParticleSystem teleportStartVFX;
 
-    private GameObject currentPointer;
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
+    private GameObject currentPointer;
     private PlayerControls controls;
     private bool confirmPressed;
 
-    void Update()
-    {
-        if (!IsActive) return;
-
-        UpdatePointerPosition();
-
-        if (confirmPressed) // click destro per confermare il teletrasporto
-        {
-            confirmPressed = false;
-
-            if (powerUpScript.HasEnoughPower(powerCost))
-            {
-                TeleportToPointer();
-                powerUpScript.SpendPower(powerCost); // Questo aggiorna anche la barra tramite PlayerUI
-            }
-            else
-            {
-                Debug.Log("Non hai abbastanza potere per il teletrasporto.");
-            }
-
-            Deactivate();
-        }
-    }
+    /* --------- INITIALISATION --------- */
 
     private void Awake()
     {
         controls = new PlayerControls();
-        controls.Gameplay.Confirm.performed += ctx => confirmPressed = true;
+        controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
-        effectIconIndex = 2;
+
+        effectIconIndex = 2;          // slot dell’icona
     }
+
+    /* --------- MAIN LOOP --------- */
+
+    protected override void Update()  // ← ora è override!
+    {
+        base.Update();                // mantiene l’icona aggiornata
+
+        if (!IsActive) return;
+
+        UpdatePointerPosition();
+
+        if (confirmPressed)
+        {
+            confirmPressed = false;
+
+            if (!powerUpScript.HasEnoughPower(powerCost))
+            {
+                Debug.Log("Non hai abbastanza potere per il teletrasporto.");
+                return;
+            }
+
+            TeleportToPointer();
+            powerUpScript.SpendPower(powerCost);
+            Deactivate();
+        }
+    }
+
+    /* --------- PUBLIC API --------- */
 
     public override void Activate()
     {
+        if (IsActive) return;
+
         IsActive = true;
         currentPointer = Instantiate(telePointerPrefab);
         SetVisible(false);
 
-        // Effetto visivo all'attivazione (partenza)
-        if (teleportStartVFX != null)
-            teleportStartVFX.Play();
+        if (teleportStartVFX) teleportStartVFX.Play();
     }
 
     public override void Deactivate()
@@ -71,33 +78,26 @@ public class TeleportAbility : AbilityBase
 
         IsActive = false;
 
-        if (currentPointer)
-            Destroy(currentPointer);
-
+        if (currentPointer) Destroy(currentPointer);
         SetVisible(true);
 
-        // Ferma e pulisci l'effetto visivo
-        if (teleportStartVFX != null)
-            teleportStartVFX.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-        Debug.Log("TeleportAbility disattivata.");
+        if (teleportStartVFX) teleportStartVFX.Stop(true,
+            ParticleSystemStopBehavior.StopEmittingAndClear);
     }
+
+    /* --------- INTERNAL --------- */
 
     private void UpdatePointerPosition()
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit, 500f, teleportableLayers))
+
+        if (Physics.Raycast(ray, out var hit, 500f, teleportableLayers))
         {
             currentPointer.SetActive(true);
 
-            Vector3 adjustedPoint = hit.point;
-            adjustedPoint.y += 0.1f;
-
-            currentPointer.transform.position = adjustedPoint;
-            currentPointer.transform.rotation = Quaternion.LookRotation(hit.normal);
-
-            Debug.DrawRay(ray.origin, ray.direction * 500f, Color.green);
-            Debug.DrawRay(hit.point, hit.normal, Color.red);
+            Vector3 p = hit.point; p.y += 0.1f;
+            currentPointer.transform.SetPositionAndRotation(
+                p, Quaternion.LookRotation(hit.normal));
         }
         else
         {
@@ -113,36 +113,25 @@ public class TeleportAbility : AbilityBase
             return;
         }
 
-        Vector3 targetPosition = currentPointer.transform.position;
+        Vector3 target = currentPointer.transform.position;
 
-        if (controllerGameObject != null)
+        if (controllerGameObject &&
+            controllerGameObject.TryGetComponent(out CharacterController cc))
         {
-            CharacterController controller = controllerGameObject.GetComponent<CharacterController>();
-            if (controller != null)
-            {
-                targetPosition.y += controller.height / 2f;
+            target.y += cc.height * 0.5f;
 
-                controller.enabled = false;
-                controllerGameObject.transform.position = targetPosition;
-                controller.enabled = true;
-            }
-            else
-            {
-                Debug.LogWarning("Nessun CharacterController trovato nel GameObject assegnato.");
-            }
+            cc.enabled = false;
+            controllerGameObject.transform.position = target;
+            cc.enabled = true;
         }
         else
         {
-            Debug.LogWarning("Nessun GameObject controller assegnato.");
+            Debug.LogWarning("CharacterController non trovato.");
         }
     }
 
     private void SetVisible(bool visible)
     {
-        foreach (var mesh in meshesToHide)
-        {
-            if (mesh != null)
-                mesh.enabled = visible;
-        }
+        foreach (var m in meshesToHide) if (m) m.enabled = visible;
     }
 }

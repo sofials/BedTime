@@ -2,56 +2,82 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 
+[RequireComponent(typeof(Image))]
 public class UIEffectHandler : MonoBehaviour
 {
-    private Image image;
-    private Coroutine pulseCoroutine;
+    [Header("Pulse")]
+    [SerializeField] float pulseFactor  = 1.2f;
+    [SerializeField] float pulseTime    = 0.3f;
+    [SerializeField] int   pulseLoops   = 1;
 
-    private void Awake()
+    Image image;
+    Coroutine pulseCoroutine;
+    Vector3 baseScale;
+
+    void Awake()
     {
-        image = GetComponent<Image>();
+        image     = GetComponent<Image>();
+        baseScale = transform.localScale;
     }
+
+    void OnEnable()       => transform.localScale = baseScale;
+    void OnDisable()      => StopPulse();
+
+    /* =========== PUBLIC API =========== */
 
     public void PulseIcon()
     {
-        if (!gameObject.activeInHierarchy) return;
+        // se non è attivo oppure già in corso: esco
+        if (!isActiveAndEnabled) return;
 
-        if (pulseCoroutine != null)
-            StopCoroutine(pulseCoroutine);
-
+        StopPulse();
         pulseCoroutine = StartCoroutine(PulseRoutine());
     }
 
-    private IEnumerator PulseRoutine()
+    public void SetGrayscale(bool gray)
     {
-        float duration = 0.3f;
-        float time = 0f;
-        Vector3 originalScale = transform.localScale;
-        Vector3 targetScale = originalScale * 1.2f;
-
-        while (time < duration)
-        {
-            time += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(originalScale, targetScale, time / duration);
-            yield return null;
-        }
-
-        time = 0f;
-        while (time < duration)
-        {
-            time += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(targetScale, originalScale, time / duration);
-            yield return null;
-        }
-
-        transform.localScale = originalScale;
+        if (image) image.color = gray ? Color.gray : Color.white;
     }
-    public void SetGrayscale(bool isGray)
+
+    /* =========== PRIVATE ============== */
+
+    void StopPulse()
     {
-        if (image != null)
+        if (pulseCoroutine != null)
         {
-            image.color = isGray ? Color.gray : Color.white;
+            StopCoroutine(pulseCoroutine);
+            pulseCoroutine = null;
+            transform.localScale = baseScale;
         }
     }
 
+    IEnumerator PulseRoutine()
+    {
+        Vector3 target = baseScale * pulseFactor;
+        float   half   = pulseTime * 0.5f;
+
+        for (int loop = 0; loop < pulseLoops; loop++)
+        {
+            // zoom‑in
+            float t = 0f;
+            while (t < half)
+            {
+                t += Time.unscaledDeltaTime;
+                transform.localScale = Vector3.Lerp(baseScale, target, t / half);
+                yield return null;
+            }
+
+            // zoom‑out
+            t = 0f;
+            while (t < half)
+            {
+                t += Time.unscaledDeltaTime;
+                transform.localScale = Vector3.Lerp(target, baseScale, t / half);
+                yield return null;
+            }
+        }
+
+        transform.localScale = baseScale;
+        pulseCoroutine = null;
+    }
 }

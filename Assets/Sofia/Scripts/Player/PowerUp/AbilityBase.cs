@@ -20,7 +20,7 @@ public abstract class AbilityBase : MonoBehaviour
         return !IsActive && powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
     }
 
-    private void Update()
+    protected virtual void Update()
     {
         if (PlayerUI.Instance != null)
         {
