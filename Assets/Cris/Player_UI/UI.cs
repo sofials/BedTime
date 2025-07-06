@@ -36,7 +36,6 @@ public class PlayerUI : MonoBehaviour
         Instance = this;
     }
 
-
     private void OnEnable()
     {
         InputSystem.onActionChange += OnInputActionChange;
@@ -48,11 +47,7 @@ public class PlayerUI : MonoBehaviour
         InputSystem.onActionChange -= OnInputActionChange;
     }
 
-    private void Update()
-    {
-        UpdateHealth(playerController.currentHealth);
-        UpdatePower(playerPowerUp.currentPower);
-    }
+    // RIMOSSO l'Update che aggiornava continuamente health e power
 
     private void OnInputActionChange(object obj, InputActionChange change)
     {
@@ -93,7 +88,6 @@ public class PlayerUI : MonoBehaviour
         }
     }
 
-
     public void PulseIconAt(int index)
     {
         if (useGamepad)
@@ -120,33 +114,46 @@ public class PlayerUI : MonoBehaviour
             return;
         }
 
-        float fillAmount = playerController.CurrentHealth / playerController.MaxHealth;
+        float fillAmount = currentHealth / playerController.MaxHealth;
         healthFill.fillAmount = fillAmount;
     }
 
     public void UpdatePower(float currentPower)
+{
+    if (powerFill == null || playerPowerUp == null)
     {
-        if (powerFill == null || playerPowerUp == null)
-        {
-            Debug.LogWarning("[PlayerUI] powerFill o playerPowerUp non assegnato!");
-            return;
-        }
-
-        float fillAmount = playerPowerUp.CurrentPower / playerPowerUp.MaxPower;
-        powerFill.fillAmount = fillAmount;
+        Debug.LogWarning("[PlayerUI] powerFill o playerPowerUp non assegnato!");
+        return;
     }
+
+    float fillAmount = currentPower / playerPowerUp.MaxPower;
+
+    // Clamp fillAmount tra 0 e 1
+    fillAmount = Mathf.Clamp(fillAmount, 0f, 1f);
+
+    // Se vuoi evitare barra invisibile quando power > 0, puoi usare questa soglia molto bassa:
+    if (currentPower > 0f && fillAmount < 0.01f)
+    {
+        fillAmount = 0.01f;
+    }
+
+    powerFill.fillAmount = fillAmount;
+
+    Debug.Log($"[PlayerUI] currentPower: {currentPower}, maxPower: {playerPowerUp.MaxPower}, fillAmount: {fillAmount}");
+}
+
 
     public void SetMaxValues(float maxHealth, float maxPower)
     {
         if (playerController != null)
         {
             playerController.maxHealth = maxHealth;
-            UpdateHealth(playerController.CurrentHealth);
+            UpdateHealth(playerController.currentHealth);
         }
         if (playerPowerUp != null)
         {
             playerPowerUp.maxPower = maxPower;
-            UpdatePower(playerPowerUp.CurrentPower);
+            UpdatePower(playerPowerUp.currentPower);
         }
     }
 }

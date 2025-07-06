@@ -335,4 +335,12 @@ public class ThirdPersonController : MonoBehaviour
         externalPush += force;
         Debug.Log($"[Player] Spinta applicata: {force}, externalPush ora: {externalPush}");
     }
+    public void Heal(float amount)
+{
+    currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
+    playerUI.UpdateHealth(currentHealth);
+    Debug.Log($"Player curato di {amount}. Vita attuale: {currentHealth}");
+}
+
+
 }

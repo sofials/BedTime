@@ -5,7 +5,7 @@ using UnityEngine;
 public class Gem : MonoBehaviour
 {
     [Header("Gameplay")]
-    [SerializeField] private int   gemValue    = 5;
+    [SerializeField] private int gemValue = 10;
     [SerializeField] private float respawnSec  = 10f;
 
     // Cache per efficienza

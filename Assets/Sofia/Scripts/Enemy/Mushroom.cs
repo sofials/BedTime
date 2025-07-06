@@ -72,33 +72,39 @@ public class Mushroom : MonoBehaviour
     }
 
     private void Update()
-{
-    UpdatePlayerVisibility();
-
-    if (isDead)
     {
-        // Blocca tutto se morto
-        agent.isStopped = true;
-        agent.ResetPath();
-        return;
+        UpdatePlayerVisibility();
+
+        if (isDead)
+        {
+            StopAgentSafely();
+            return;
+        }
+
+        if (isDizzy) return;
+
+        if (playerVisible && !caughtPlayer)
+        {
+            isPatrolling = false;
+            ChasePlayer();
+        }
+        else
+        {
+            if (!isPatrolling)
+                ResetToPatrol();
+
+            Patrol();
+        }
     }
 
-    if (isDizzy) return;
-
-    if (playerVisible && !caughtPlayer)
+    private void StopAgentSafely()
     {
-        isPatrolling = false;
-        ChasePlayer();
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
+        }
     }
-    else
-    {
-        if (!isPatrolling)
-            ResetToPatrol();
-
-        Patrol();
-    }
-}
-
 
     private void InterruptAttack()
     {
@@ -117,10 +123,7 @@ public class Mushroom : MonoBehaviour
         isDizzy = true;
         InterruptAttack();
 
-        if (animator != null)
-            animator.SetTrigger("Dizzy");
-
-        if (agent != null)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             agent.isStopped = true;
 
         if (stunParticles != null)
@@ -152,7 +155,7 @@ public class Mushroom : MonoBehaviour
         if (stunParticles != null)
             stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
-        if (agent != null)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             agent.isStopped = false;
 
         if (player != null)
@@ -164,7 +167,8 @@ public class Mushroom : MonoBehaviour
                 isAttacking = true;
                 if (animator != null)
                     animator.SetBool("isAttacking", true);
-                agent.isStopped = true;
+                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                    agent.isStopped = true;
                 return;
             }
 
@@ -179,42 +183,41 @@ public class Mushroom : MonoBehaviour
     }
 
     private void UpdatePlayerVisibility()
-{
-    // Se è morto, resetta tutto e ritorna
-    if (isDead)
     {
-        playerVisible = false;
-        player = null;
-        return;
-    }
-
-    playerVisible = false;
-    Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
-
-    foreach (var hit in hits)
-    {
-        Vector3 dir = (hit.transform.position - transform.position).normalized;
-        if (Vector3.Angle(transform.forward, dir) < viewAngle / 2)
+        if (isDead)
         {
-            float dist = Vector3.Distance(transform.position, hit.transform.position);
-            if (!Physics.Raycast(transform.position, dir, dist, obstacleMask))
+            playerVisible = false;
+            player = null;
+            return;
+        }
+
+        playerVisible = false;
+        Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
+
+        foreach (var hit in hits)
+        {
+            Vector3 dir = (hit.transform.position - transform.position).normalized;
+            if (Vector3.Angle(transform.forward, dir) < viewAngle / 2)
             {
-                playerVisible = true;
-                player = hit.transform;
-                return;
+                float dist = Vector3.Distance(transform.position, hit.transform.position);
+                if (!Physics.Raycast(transform.position, dir, dist, obstacleMask))
+                {
+                    playerVisible = true;
+                    player = hit.transform;
+                    return;
+                }
             }
         }
+
+        if (player != null && Vector3.Distance(transform.position, player.position) <= attackRange)
+            return;
+
+        player = null;
     }
-
-    if (player != null && Vector3.Distance(transform.position, player.position) <= attackRange)
-        return;
-
-    player = null;
-}
 
     private void ChasePlayer()
     {
-        if (isDead) return;  // Blocca inseguimento se morto
+        if (isDead) return;
         if (player == null) return;
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
@@ -228,7 +231,8 @@ public class Mushroom : MonoBehaviour
                     animator.SetBool("isAttacking", true);
             }
 
-            agent.isStopped = true;
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                agent.isStopped = true;
             return;
         }
         else
@@ -236,9 +240,12 @@ public class Mushroom : MonoBehaviour
             InterruptAttack();
         }
 
-        agent.isStopped = false;
-        agent.speed = runSpeed;
-        agent.SetDestination(player.position);
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = false;
+            agent.speed = runSpeed;
+            agent.SetDestination(player.position);
+        }
 
         if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
         {
@@ -248,7 +255,8 @@ public class Mushroom : MonoBehaviour
             }
             else
             {
-                agent.isStopped = true;
+                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                    agent.isStopped = true;
                 waitTimer -= Time.deltaTime;
             }
         }
@@ -260,26 +268,29 @@ public class Mushroom : MonoBehaviour
 
     private void Patrol()
     {
-        if (isDead) return; // Blocca movimento se morto
+        if (isDead) return;
 
-        agent.speed = walkSpeed;
-
-        if (!agent.hasPath || agent.remainingDistance < agent.stoppingDistance + 0.1f)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
-            if (waitTimer <= 0f)
+            agent.speed = walkSpeed;
+
+            if (!agent.hasPath || agent.remainingDistance < agent.stoppingDistance + 0.1f)
             {
-                GoToNextWaypoint();
-                waitTimer = waitTimeAtPoint;
+                if (waitTimer <= 0f)
+                {
+                    GoToNextWaypoint();
+                    waitTimer = waitTimeAtPoint;
+                }
+                else
+                {
+                    agent.isStopped = true;
+                    waitTimer -= Time.deltaTime;
+                }
             }
             else
             {
-                agent.isStopped = true;
-                waitTimer -= Time.deltaTime;
+                agent.isStopped = false;
             }
-        }
-        else
-        {
-            agent.isStopped = false;
         }
     }
 
@@ -287,13 +298,16 @@ public class Mushroom : MonoBehaviour
     {
         if (waypoints == null || waypoints.Length == 0) return;
         currentWaypoint = (currentWaypoint + 1) % waypoints.Length;
-        agent.SetDestination(waypoints[currentWaypoint].position);
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
     private void ResetToPatrol()
     {
         isPatrolling = true;
-        agent.isStopped = false;
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.isStopped = false;
+
         waitTimer = waitTimeAtPoint;
         rotateTimer = rotateTime;
         caughtPlayer = false;
@@ -303,7 +317,9 @@ public class Mushroom : MonoBehaviour
             animator.SetBool("isAttacking", false);
 
         FindClosestWaypoint();
-        agent.speed = walkSpeed;
+
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.speed = walkSpeed;
     }
 
     private void FindClosestWaypoint()
@@ -324,12 +340,13 @@ public class Mushroom : MonoBehaviour
         }
 
         currentWaypoint = closest;
-        agent.SetDestination(waypoints[currentWaypoint].position);
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
     public void EnemyAttackHitbox()
     {
-        if (isDead) return;  // Blocca la spinta se nemico è morto
+        if (isDead) return;
 
         Collider[] hits = Physics.OverlapBox(
             transform.position + transform.forward * (attackRange * 0.5f),
@@ -353,36 +370,48 @@ public class Mushroom : MonoBehaviour
     }
 
     public void TakeDamage(float amount)
-{
-    if (isDead) return;
-
-    currentHealth -= amount;
-    InterruptAttack();
-    StartDizzy();
-
-    if (currentHealth <= 0f)
     {
-        currentHealth = 0f;
-        isDead = true;
+        if (isDead) return;
 
-        // Reset variabili
-        playerVisible = false;
-        player = null;
-        isPatrolling = false;
-        caughtPlayer = false;
-        isAttacking = false;
+        currentHealth -= amount;
+        InterruptAttack();
 
-        if (animator != null)
-            animator.SetTrigger("Die");
+        animator?.SetTrigger("GetHit");
 
-        if (agent != null)
+        if (currentHealth <= 0f)
         {
-            agent.isStopped = true;
-            agent.ResetPath();
-            agent.enabled = false; // DISABILITO L'AGENTE
+            currentHealth = 0f;
+            isDead = true;
+
+            playerVisible = false;
+            player = null;
+            isPatrolling = false;
+            caughtPlayer = false;
+            isAttacking = false;
+
+            // Setta trigger Die DOPO GetHit
+            animator?.SetTrigger("Die");
+
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                agent.isStopped = true;
+                agent.ResetPath();
+                agent.enabled = false;
+            }
+            else if (agent != null)
+            {
+                agent.enabled = false;
+            }
+
+            // NON far partire dizzy quando muore
+            return;
         }
+
+        // Se ancora vivo, setta trigger Dizzy DOPO GetHit
+        animator?.SetTrigger("Dizzy");
+
+        StartDizzy();
     }
-}
 
     // Metodo chiamato tramite Animation Event alla fine animazione morte
     public void DestroyAfterDeath()
@@ -393,15 +422,14 @@ public class Mushroom : MonoBehaviour
 
     private IEnumerator DestroyAfterDeathSequence()
     {
-        yield return new WaitForSeconds(2f); // attesa animazione morte
+        yield return new WaitForSeconds(2f);
 
         if (deathEffectController != null)
-            deathEffectController.PlayDeathEffect(); // parte esplosione
+            deathEffectController.PlayDeathEffect();
 
         if (Renderer != null)
-            Renderer.enabled = false; // disabilita mesh subito all'esplosione
+            Renderer.enabled = false;
 
-        // Aspetta che l'effetto particellare termini
         if (deathEffectController != null)
         {
             ParticleSystem ps = deathEffectController.GetComponent<ParticleSystem>();
@@ -412,9 +440,11 @@ public class Mushroom : MonoBehaviour
         }
         else
         {
-            yield return new WaitForSeconds(1.5f); // fallback
+            yield return new WaitForSeconds(1.5f);
         }
 
-        Destroy(gameObject); // distruggi tutto
+        GemManager.Instance?.SpawnLifeGem(transform.position);
+
+        Destroy(gameObject);
     }
 }

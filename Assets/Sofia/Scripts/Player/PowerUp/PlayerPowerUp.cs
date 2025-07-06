@@ -7,7 +7,7 @@ public class PlayerPowerUp : MonoBehaviour
     public PlayerUI playerUI;
 
     [Header("Power Settings")]
-    public float maxPower = 300f;
+    public float maxPower = 100f;
     public float currentPower = 0f;
 
     public float CurrentPower => currentPower;
@@ -70,20 +70,20 @@ public class PlayerPowerUp : MonoBehaviour
     public bool HasEnoughPower(float amount) => currentPower >= amount;
 
     public void AddPower(float amount)
+{
+    Debug.Log($"[PlayerPowerUp] AddPower chiamato con amount: {amount}");
+    if (currentPower < maxPower)
     {
-        Debug.Log($"[PlayerPowerUp] AddPower chiamato con amount: {amount}");
-        if (currentPower < maxPower)
-        {
-            currentPower += amount;
-            currentPower = Mathf.Min(currentPower, maxPower);
-            Debug.Log($"[PlayerPowerUp] Energia aumentata di {amount}. Attuale: {currentPower}");
-        }
-        else
-        {
-            Debug.Log("[PlayerPowerUp] Power già al massimo");
-        }
-        playerUI.UpdatePower(currentPower);
+        currentPower += amount;
+        currentPower = Mathf.Min(currentPower, maxPower);
+        Debug.Log($"[PlayerPowerUp] Energia aumentata di {amount}. Attuale: {currentPower}");
     }
+    else
+    {
+        Debug.Log("[PlayerPowerUp] Power giÃ  al massimo");
+    }
+    playerUI.UpdatePower(currentPower); // aggiorna la UI subito
+}
 
     private void OnTriggerEnter(Collider other)
     {
