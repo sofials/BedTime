@@ -14,45 +14,33 @@ public class GemSpawnerSpline : MonoBehaviour
 
     private void Start()
     {
-        Debug.Log("[GemSpawnerSpline] Start chiamato");
         SpawnGemsAlongSplines();
     }
 
     private void SpawnGemsAlongSplines()
     {
         if (splineContainers == null || splineContainers.Length == 0)
-        {
-            Debug.LogWarning("[GemSpawnerSpline] Nessun splineContainer assegnato!");
             return;
-        }
         if (gemPrefab == null)
-        {
-            Debug.LogWarning("[GemSpawnerSpline] gemPrefab NON assegnato!");
             return;
-        }
         if (gemCount <= 0)
-        {
-            Debug.LogWarning("[GemSpawnerSpline] gemCount <= 0!");
             return;
-        }
 
         foreach (var splineContainer in splineContainers)
         {
             if (splineContainer == null)
-            {
-                Debug.LogWarning("[GemSpawnerSpline] Uno degli splineContainer è null, salto.");
                 continue;
-            }
 
             Spline spline = splineContainer.Spline;
 
             for (int i = 0; i < gemCount; i++)
             {
                 float t = (float)i / (gemCount - 1);
-                Vector3 position = spline.EvaluatePosition(t);
+                Vector3 localPos = spline.EvaluatePosition(t);
+                Vector3 worldPos = splineContainer.transform.TransformPoint(localPos);
 
                 Quaternion rotation = Quaternion.Euler(-90f, 0f, 0f);
-                Instantiate(gemPrefab, position, rotation);
+                Instantiate(gemPrefab, worldPos, rotation);
             }
         }
     }
