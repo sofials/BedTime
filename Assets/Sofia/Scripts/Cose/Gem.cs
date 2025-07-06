@@ -1,19 +1,56 @@
+using System.Collections;
 using UnityEngine;
 
+[RequireComponent(typeof(Collider))]
 public class Gem : MonoBehaviour
 {
-    [SerializeField] private int gemValue = 5; // Valore della gemma
+    [Header("Gameplay")]
+    [SerializeField] private int   gemValue    = 5;
+    [SerializeField] private float respawnSec  = 10f;
 
-    // Metodo per ottenere il valore della gemma
-    public int GetGemValue()
+    // Cache per efficienza
+    private Collider  _coll;
+    private Renderer[] _renderers;
+
+    private void Awake()
     {
-        return gemValue;
+        _coll       = GetComponent<Collider>();
+        _coll.isTrigger = true;           // Assicuriamoci che sia trigger
+        _renderers  = GetComponentsInChildren<Renderer>(includeInactive: true);
     }
 
-    // Metodo per distruggere la gemma quando viene raccolta
+    private void OnTriggerEnter(Collider other)
+    {
+        if (!other.CompareTag("Player")) return;
+
+        // ➜ Qui puoi aggiungere punteggio, suoni, particelle, ecc.
+        Collect();
+    }
+
+    public int GetGemValue() => gemValue;
+
     public void Collect()
     {
-        // Puoi aggiungere effetti qui (particelle, suoni...)
-        Destroy(gameObject);
+        // Disattiviamo visivamente e collisioni
+        SetActiveVisual(false);
+        _coll.enabled = false;
+
+        // Avviamo il timer di respawn
+        StartCoroutine(RespawnCoroutine());
+    }
+
+    private IEnumerator RespawnCoroutine()
+    {
+        yield return new WaitForSeconds(respawnSec);
+
+        // Riabilitiamo
+        _coll.enabled = true;
+        SetActiveVisual(true);
+    }
+
+    private void SetActiveVisual(bool state)
+    {
+        foreach (var r in _renderers)
+            r.enabled = state;
     }
 }
