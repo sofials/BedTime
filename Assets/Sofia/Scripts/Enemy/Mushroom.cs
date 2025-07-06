@@ -32,10 +32,12 @@ public class Mushroom : MonoBehaviour
 
     [Header("VFX")]
     public ParticleSystem stunParticles;
-    public ParticleSystem deathParticles;
 
     [Header("Model")]
-    public Renderer Renderer; // Assegna il renderer del modello in Inspector
+    public Renderer Renderer;
+
+    [Header("Death Effect Controller")]
+    public DeathEffectController deathEffectController;
 
     // Internal state
     private int currentWaypoint = 0;
@@ -54,6 +56,9 @@ public class Mushroom : MonoBehaviour
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
 
+        if (stunParticles != null)
+            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
         waitTimer = waitTimeAtPoint;
         rotateTimer = rotateTime;
         agent.speed = walkSpeed;
@@ -61,28 +66,39 @@ public class Mushroom : MonoBehaviour
 
         if (waypoints != null && waypoints.Length > 0)
             agent.SetDestination(waypoints[currentWaypoint].position);
+
+        if (deathEffectController != null)
+            deathEffectController.StopDeathEffect();
     }
 
     private void Update()
+{
+    UpdatePlayerVisibility();
+
+    if (isDead)
     {
-        if (isDead) return;
-        if (isDizzy) return;
-
-        UpdatePlayerVisibility();
-
-        if (playerVisible && !caughtPlayer)
-        {
-            isPatrolling = false;
-            ChasePlayer();
-        }
-        else
-        {
-            if (!isPatrolling)
-                ResetToPatrol();
-
-            Patrol();
-        }
+        // Blocca tutto se morto
+        agent.isStopped = true;
+        agent.ResetPath();
+        return;
     }
+
+    if (isDizzy) return;
+
+    if (playerVisible && !caughtPlayer)
+    {
+        isPatrolling = false;
+        ChasePlayer();
+    }
+    else
+    {
+        if (!isPatrolling)
+            ResetToPatrol();
+
+        Patrol();
+    }
+}
+
 
     private void InterruptAttack()
     {
@@ -125,6 +141,7 @@ public class Mushroom : MonoBehaviour
         {
             yield return new WaitForSeconds(dizzyDuration);
         }
+
         EndDizzy();
     }
 
@@ -162,33 +179,42 @@ public class Mushroom : MonoBehaviour
     }
 
     private void UpdatePlayerVisibility()
+{
+    // Se è morto, resetta tutto e ritorna
+    if (isDead)
     {
         playerVisible = false;
-        Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
+        player = null;
+        return;
+    }
 
-        foreach (var hit in hits)
+    playerVisible = false;
+    Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
+
+    foreach (var hit in hits)
+    {
+        Vector3 dir = (hit.transform.position - transform.position).normalized;
+        if (Vector3.Angle(transform.forward, dir) < viewAngle / 2)
         {
-            Vector3 dir = (hit.transform.position - transform.position).normalized;
-            if (Vector3.Angle(transform.forward, dir) < viewAngle / 2)
+            float dist = Vector3.Distance(transform.position, hit.transform.position);
+            if (!Physics.Raycast(transform.position, dir, dist, obstacleMask))
             {
-                float dist = Vector3.Distance(transform.position, hit.transform.position);
-                if (!Physics.Raycast(transform.position, dir, dist, obstacleMask))
-                {
-                    playerVisible = true;
-                    player = hit.transform;
-                    return;
-                }
+                playerVisible = true;
+                player = hit.transform;
+                return;
             }
         }
-
-        if (player != null && Vector3.Distance(transform.position, player.position) <= attackRange)
-            return;
-
-        player = null;
     }
+
+    if (player != null && Vector3.Distance(transform.position, player.position) <= attackRange)
+        return;
+
+    player = null;
+}
 
     private void ChasePlayer()
     {
+        if (isDead) return;  // Blocca inseguimento se morto
         if (player == null) return;
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
@@ -234,6 +260,8 @@ public class Mushroom : MonoBehaviour
 
     private void Patrol()
     {
+        if (isDead) return; // Blocca movimento se morto
+
         agent.speed = walkSpeed;
 
         if (!agent.hasPath || agent.remainingDistance < agent.stoppingDistance + 0.1f)
@@ -301,6 +329,8 @@ public class Mushroom : MonoBehaviour
 
     public void EnemyAttackHitbox()
     {
+        if (isDead) return;  // Blocca la spinta se nemico è morto
+
         Collider[] hits = Physics.OverlapBox(
             transform.position + transform.forward * (attackRange * 0.5f),
             new Vector3(1f, 1f, 1f),
@@ -326,20 +356,21 @@ public class Mushroom : MonoBehaviour
 {
     if (isDead) return;
 
-    // Riduci la vita
     currentHealth -= amount;
-
-    // 1️⃣ Interrompi subito l’attacco in corso (se stava colpendo)
     InterruptAttack();
-
-    // 2️⃣ Avvia lo stato di stordimento (gestisce VFX, stop NavMesh, ecc.)
     StartDizzy();
 
-    // 3️⃣ Controllo morte
     if (currentHealth <= 0f)
     {
         currentHealth = 0f;
         isDead = true;
+
+        // Reset variabili
+        playerVisible = false;
+        player = null;
+        isPatrolling = false;
+        caughtPlayer = false;
+        isAttacking = false;
 
         if (animator != null)
             animator.SetTrigger("Die");
@@ -347,34 +378,43 @@ public class Mushroom : MonoBehaviour
         if (agent != null)
         {
             agent.isStopped = true;
-            agent.velocity = Vector3.zero;
+            agent.ResetPath();
+            agent.enabled = false; // DISABILITO L'AGENTE
         }
-        // La distruzione del GameObject avverrà con Animation Event/coroutine
     }
 }
 
-    // Metodo da chiamare tramite Animation Event alla fine dell'animazione di morte
+    // Metodo chiamato tramite Animation Event alla fine animazione morte
     public void DestroyAfterDeath()
     {
-        StartCoroutine(DestroyAfterDelayCoroutine());
+        if (!isDead) return;
+        StartCoroutine(DestroyAfterDeathSequence());
     }
 
-    private IEnumerator DestroyAfterDelayCoroutine()
+    private IEnumerator DestroyAfterDeathSequence()
     {
-        float deathEffectOffset = 1.2f;
-        float waitTime = 2.5f - deathEffectOffset;
+        yield return new WaitForSeconds(2f); // attesa animazione morte
 
-        if (waitTime > 0)
-            yield return new WaitForSeconds(waitTime);
-
-        if (deathParticles != null)
-            deathParticles.Play();
+        if (deathEffectController != null)
+            deathEffectController.PlayDeathEffect(); // parte esplosione
 
         if (Renderer != null)
-            Renderer.enabled = false;
+            Renderer.enabled = false; // disabilita mesh subito all'esplosione
 
-        yield return new WaitForSeconds(deathEffectOffset);
+        // Aspetta che l'effetto particellare termini
+        if (deathEffectController != null)
+        {
+            ParticleSystem ps = deathEffectController.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                yield return new WaitUntil(() => !ps.isPlaying);
+            }
+        }
+        else
+        {
+            yield return new WaitForSeconds(1.5f); // fallback
+        }
 
-        Destroy(gameObject);
+        Destroy(gameObject); // distruggi tutto
     }
 }
