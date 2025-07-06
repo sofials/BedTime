@@ -5,7 +5,6 @@ using UnityEngine.EventSystems;
 public class PlayerAttack : MonoBehaviour
 {
     public GameObject attackHitbox;
-    [Header("Collider della hitbox da assegnare nell'Inspector")]
     public Collider attackHitboxCollider;
 
     private Animator animator;
@@ -13,7 +12,6 @@ public class PlayerAttack : MonoBehaviour
     private bool attackInput;
     private int ignoreFrames = 0;
 
-    [Header("UI Effect per l'attacco")]
     public UIEffectHandler attackIconKeyboard;
     public UIEffectHandler attackIconController;
 
@@ -22,20 +20,22 @@ public class PlayerAttack : MonoBehaviour
             ? attackIconController
             : attackIconKeyboard;
 
-    [Header("Scia del pugno")]
     public TrailRenderer punchTrail;
 
     public bool isAttacking = false;
-    [SerializeField] private float attackDuration = 0.3f; // Durata in secondi dell'attacco
+    [SerializeField] private float attackDuration = 0.3f;
     private float attackTimer = 0f;
-    [SerializeField] private float attackCooldown = 1f; // Tempo minimo tra un attacco e l'altro
+    [SerializeField] private float attackCooldown = 1f;
     private float lastAttackTime = -999f;
+
+    // Nuova variabile: attackId incrementato ogni attacco
+    private int attackId = 0;
+    public int AttackId => attackId;
 
     private void Awake()
     {
         controls = new PlayerControls();
 
-        // Se non assegnato da Inspector, prova a trovarlo tra i figli
         if (attackHitboxCollider == null && attackHitbox != null)
             attackHitboxCollider = attackHitbox.GetComponent<Collider>();
 
@@ -67,7 +67,6 @@ public class PlayerAttack : MonoBehaviour
         if (Time.timeScale == 0f)
             return;
 
-        // Gestione attacco con cooldown
         if (attackInput)
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -85,12 +84,13 @@ public class PlayerAttack : MonoBehaviour
 
                 isAttacking = true;
                 attackTimer = attackDuration;
-                lastAttackTime = Time.time; // aggiorna il tempo dell'ultimo attacco
+                lastAttackTime = Time.time;
+
+                attackId++; // Incrementa ID attacco per segnalare nuovo swing
             }
             attackInput = false;
         }
 
-        // Timer per la durata dell'attacco
         if (isAttacking)
         {
             attackTimer -= Time.deltaTime;
@@ -100,10 +100,12 @@ public class PlayerAttack : MonoBehaviour
             }
         }
     }
+
     public void IgnoreNextClick()
     {
         ignoreFrames = 2;
     }
+
     public void EnablePunchTrail()
     {
         if (punchTrail != null)
@@ -121,5 +123,4 @@ public class PlayerAttack : MonoBehaviour
             Debug.Log("PunchTrail disabilitata");
         }
     }
-
 }

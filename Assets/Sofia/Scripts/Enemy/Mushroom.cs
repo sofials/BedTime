@@ -323,27 +323,35 @@ public class Mushroom : MonoBehaviour
     }
 
     public void TakeDamage(float amount)
+{
+    if (isDead) return;
+
+    // Riduci la vita
+    currentHealth -= amount;
+
+    // 1️⃣ Interrompi subito l’attacco in corso (se stava colpendo)
+    InterruptAttack();
+
+    // 2️⃣ Avvia lo stato di stordimento (gestisce VFX, stop NavMesh, ecc.)
+    StartDizzy();
+
+    // 3️⃣ Controllo morte
+    if (currentHealth <= 0f)
     {
-        if (isDead) return;
+        currentHealth = 0f;
+        isDead = true;
 
-        currentHealth -= amount;
-        StartDizzy();
+        if (animator != null)
+            animator.SetTrigger("Die");
 
-        if (currentHealth <= 0)
+        if (agent != null)
         {
-            currentHealth = 0;
-            isDead = true;
-            if (animator != null)
-                animator.SetTrigger("Die");
-
-            if (agent != null)
-            {
-                agent.isStopped = true;
-                agent.velocity = Vector3.zero;
-            }
-            // La distruzione avverrà tramite Animation Event o Coroutine
+            agent.isStopped = true;
+            agent.velocity = Vector3.zero;
         }
+        // La distruzione del GameObject avverrà con Animation Event/coroutine
     }
+}
 
     // Metodo da chiamare tramite Animation Event alla fine dell'animazione di morte
     public void DestroyAfterDeath()
