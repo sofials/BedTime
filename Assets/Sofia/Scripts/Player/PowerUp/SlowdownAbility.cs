@@ -17,6 +17,7 @@ public class SlowdownAbility : AbilityBase
     }
 
     private List<PlatformData> affectedPlatforms = new List<PlatformData>();
+    private List<RotatingObject> affectedRotators = new List<RotatingObject>();
 
     // Questa abilità ha durata fissa
     protected override bool HasFixedDuration => true;
@@ -53,7 +54,7 @@ public class SlowdownAbility : AbilityBase
                     affectedPlatforms.Add(new PlatformData
                     {
                         platform = mp,
-                        originalSpeedMultiplier = 1f // Se hai un metodo GetSpeedMultiplier(), puoi usarlo qui
+                        originalSpeedMultiplier = 1f
                     });
 
                     mp.SetSpeedMultiplier(slowdownFactor);
@@ -62,6 +63,25 @@ public class SlowdownAbility : AbilityBase
                 else
                 {
                     Debug.LogWarning($"[SlowdownAbility] {col.name} ha il tag corretto ma non ha componente MovingPlatform");
+                }
+            }
+
+            else if (col.CompareTag("RotatingPlatform")) // Cambia "RotatingObject" in "RotatingPlatform" per coerenza col tag
+            {
+                Debug.Log($"[SlowdownAbility] {col.name} ha il tag 'RotatingPlatform'");
+
+                RotatingObject ro = col.GetComponent<RotatingObject>();
+                if (ro != null)
+                {
+                    Debug.Log($"[SlowdownAbility] {col.name} ha componente RotatingObject");
+
+                    affectedRotators.Add(ro); // Memorizza il rotatore per ripristinarlo dopo
+                    ro.SetSpeedMultiplier(slowdownFactor);
+                    Debug.Log($"[SlowdownAbility] Rallentato oggetto rotante {col.name} con fattore {slowdownFactor}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[SlowdownAbility] {col.name} ha il tag corretto ma non ha componente RotatingObject");
                 }
             }
             else
@@ -102,7 +122,21 @@ public class SlowdownAbility : AbilityBase
             }
         }
 
+        foreach (var rotator in affectedRotators)
+        {
+            if (rotator != null)
+            {
+                rotator.SetSpeedMultiplier(1f);
+                Debug.Log($"[SlowdownAbility] Ripristinata velocità rotazione oggetto: {rotator.name}");
+            }
+            else
+            {
+                Debug.LogWarning("[SlowdownAbility] Un rotatore è null durante il ripristino.");
+            }
+        }
+
         affectedPlatforms.Clear();
+        affectedRotators.Clear();
         IsActive = false;
 
         Debug.Log("[SlowdownAbility] Slowdown disattivato e lista piattaforme svuotata.");

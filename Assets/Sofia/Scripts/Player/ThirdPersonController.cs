@@ -17,7 +17,6 @@ public class ThirdPersonController : MonoBehaviour
     private float rotationVelocity;
     private float smoothInputMagnitude;
 
-
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
     public float gravity = -9.81f;
@@ -29,12 +28,12 @@ public class ThirdPersonController : MonoBehaviour
     public float airControlStrength = 0.5f;
     public float airControlSpeed = 2f;
     public float airRotationSmoothTime = 0.3f;
+
     [Header("Player Stats")]
     public float maxHealth = 100f;
     public float currentHealth;
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
-
 
     private CharacterController controller;
     private Animator _animator;
@@ -45,17 +44,16 @@ public class ThirdPersonController : MonoBehaviour
     private bool wasGroundedLastFrame;
     private Transform currentPlatform = null;
     private Vector3 lastPlatformPosition = Vector3.zero;
-    private Vector3 platformVelocity = Vector3.zero;
+    private Vector3 platformDeltaPosition = Vector3.zero;
+
+    private Quaternion lastPlatformRotation = Quaternion.identity;
+    private Quaternion platformDeltaRotation = Quaternion.identity;
 
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
 
-    [SerializeField] private float pushRecoverySpeed = 0.2f; // più lento = spinta visibile
+    [SerializeField] private float pushRecoverySpeed = 0.2f;
 
-    private Vector3 instantPush = Vector3.zero;
-    private bool applyInstantPush = false;
-
-    // Input Actions
     private PlayerControls controls;
     private Vector2 moveInput;
     private bool jumpInput;
@@ -91,9 +89,8 @@ public class ThirdPersonController : MonoBehaviour
 
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
-        // Inizializza la vita
-        currentHealth = maxHealth;
 
+        currentHealth = maxHealth;
         playerUI.UpdateHealth(currentHealth);
     }
 
@@ -106,7 +103,6 @@ public class ThirdPersonController : MonoBehaviour
     {
         controls.Gameplay.Disable();
     }
-
 
     public void TakeDamage(float amount)
     {
@@ -134,20 +130,32 @@ public class ThirdPersonController : MonoBehaviour
     private void Update()
     {
         UpdatePlatformVelocity();
+
         HandleMovement();
         HandleJump();
 
-        Vector3 totalMove = playerVelocity + platformVelocity + externalPush;
-        totalMove.y = velocity.y;
-        if (applyInstantPush)
+        // Applica prima il movimento della piattaforma
+        if (currentPlatform != null)
         {
-            totalMove += instantPush;
-            applyInstantPush = false;
-            instantPush = Vector3.zero;
+            controller.Move(platformDeltaPosition);
+            // Applica la rotazione solo se c'è una differenza
+            if (platformDeltaRotation != Quaternion.identity)
+            {
+                // Ruota il player attorno al pivot della piattaforma
+                transform.rotation = platformDeltaRotation * transform.rotation;
+            }
+            // Aggiusta la velocity.y quando si è sulla piattaforma
+            if (controller.isGrounded)
+            {
+                velocity.y = Mathf.Max(platformDeltaPosition.y, velocity.y);
+            }
         }
+
+        Vector3 totalMove = playerVelocity + externalPush;
+        totalMove.y = velocity.y;
+
         controller.Move(totalMove * Time.deltaTime);
 
-        // Decadimento lento della spinta
         externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
 
         bool isGrounded = controller.isGrounded;
@@ -170,12 +178,14 @@ public class ThirdPersonController : MonoBehaviour
     {
         if (currentPlatform != null)
         {
-            platformVelocity = (currentPlatform.position - lastPlatformPosition) / Time.deltaTime;
+            platformDeltaPosition = currentPlatform.position - lastPlatformPosition;
+            platformDeltaRotation = currentPlatform.rotation * Quaternion.Inverse(lastPlatformRotation);
             lastPlatformPosition = currentPlatform.position;
+            lastPlatformRotation = currentPlatform.rotation;
         }
         else
         {
-            platformVelocity = Vector3.zero;
+            platformDeltaPosition = Vector3.zero;
         }
     }
 
@@ -232,6 +242,11 @@ public class ThirdPersonController : MonoBehaviour
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpCount++;
             jumpInput = false;
+
+            // Stacca il player dalla piattaforma al salto
+            currentPlatform = null;
+            platformDeltaPosition = Vector3.zero;
+            platformDeltaRotation = Quaternion.identity;
         }
 
         if (velocity.y < 0)
@@ -250,7 +265,6 @@ public class ThirdPersonController : MonoBehaviour
         if (controller.isGrounded && velocity.y < 0)
             velocity.y = -2f;
     }
-
 
     private void HandleFalling()
     {
@@ -273,6 +287,7 @@ public class ThirdPersonController : MonoBehaviour
 
         _animator.SetBool("isFalling", isFalling);
     }
+
     private void HandleAirControl()
     {
         if (!controller.isGrounded)
@@ -313,12 +328,13 @@ public class ThirdPersonController : MonoBehaviour
 
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        if (hit.collider.CompareTag("MovingPlatform"))
+        if (hit.collider.CompareTag("MovingPlatform") || hit.collider.CompareTag("RotatingPlatform"))
         {
             if (currentPlatform != hit.collider.transform)
             {
                 currentPlatform = hit.collider.transform;
                 lastPlatformPosition = currentPlatform.position;
+                lastPlatformRotation = currentPlatform.rotation;
             }
         }
         else
@@ -326,10 +342,12 @@ public class ThirdPersonController : MonoBehaviour
             if (currentPlatform != null && hit.collider.transform != currentPlatform)
             {
                 currentPlatform = null;
-                platformVelocity = Vector3.zero;
+                platformDeltaPosition = Vector3.zero;
+                platformDeltaRotation = Quaternion.identity;
             }
         }
     }
+
     public void ApplyExternalPush(Vector3 force)
     {
         externalPush += force;
