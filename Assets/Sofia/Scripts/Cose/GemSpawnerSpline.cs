@@ -6,40 +6,54 @@ public class GemSpawnerSpline : MonoBehaviour
     [Header("Prefab della Gemma")]
     [SerializeField] private GameObject gemPrefab;
 
-    [Header("Spline da seguire")]
-    [SerializeField] private SplineContainer splineContainer;
+    [Header("Spline da seguire (puoi assegnarne più di una)")]
+    [SerializeField] private SplineContainer[] splineContainers;
 
-    [Header("Numero di Gemme")]
+    [Header("Numero di Gemme per Spline")]
     [SerializeField] private int gemCount = 20;
 
     private void Start()
     {
-        SpawnGemsAlongSpline();
+        Debug.Log("[GemSpawnerSpline] Start chiamato");
+        SpawnGemsAlongSplines();
     }
 
-    private void SpawnGemsAlongSpline()
+    private void SpawnGemsAlongSplines()
     {
-        if (splineContainer == null || gemPrefab == null || gemCount <= 0)
+        if (splineContainers == null || splineContainers.Length == 0)
         {
-            Debug.LogWarning("Spline, prefab o gem count non settati correttamente.");
+            Debug.LogWarning("[GemSpawnerSpline] Nessun splineContainer assegnato!");
+            return;
+        }
+        if (gemPrefab == null)
+        {
+            Debug.LogWarning("[GemSpawnerSpline] gemPrefab NON assegnato!");
+            return;
+        }
+        if (gemCount <= 0)
+        {
+            Debug.LogWarning("[GemSpawnerSpline] gemCount <= 0!");
             return;
         }
 
-        Spline spline = splineContainer.Spline;
-
-        for (int i = 0; i < gemCount; i++)
+        foreach (var splineContainer in splineContainers)
         {
-            // Calcola la posizione "t" lungo la spline (da 0 a 1)
-            float t = (float)i / (gemCount - 1);
+            if (splineContainer == null)
+            {
+                Debug.LogWarning("[GemSpawnerSpline] Uno degli splineContainer è null, salto.");
+                continue;
+            }
 
-            // Ottieni la posizione sulla spline
-            Vector3 position = spline.EvaluatePosition(t);
+            Spline spline = splineContainer.Spline;
 
-            // Crea la rotazione desiderata (-90° lungo X)
-            Quaternion rotation = Quaternion.Euler(-90f, 0f, 0f);
+            for (int i = 0; i < gemCount; i++)
+            {
+                float t = (float)i / (gemCount - 1);
+                Vector3 position = spline.EvaluatePosition(t);
 
-            // Instanzia la gemma in questa posizione e rotazione
-            Instantiate(gemPrefab, position, rotation);
+                Quaternion rotation = Quaternion.Euler(-90f, 0f, 0f);
+                Instantiate(gemPrefab, position, rotation);
+            }
         }
     }
 }
