@@ -32,10 +32,12 @@ public class Slime : MonoBehaviour
 
     [Header("VFX")]
     public ParticleSystem stunParticles;
-    public ParticleSystem deathParticles;
 
     [Header("Model")]
-    public Renderer Renderer; // Assegna il renderer del modello in Inspector
+    public Renderer Renderer;
+
+    [Header("Death Effect Controller")]
+    public DeathEffectController deathEffectController;
 
     // Internal state
     private int currentWaypoint = 0;
@@ -54,6 +56,9 @@ public class Slime : MonoBehaviour
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
 
+        if (stunParticles != null)
+            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
         waitTimer = waitTimeAtPoint;
         rotateTimer = rotateTime;
         agent.speed = walkSpeed;
@@ -61,14 +66,22 @@ public class Slime : MonoBehaviour
 
         if (waypoints != null && waypoints.Length > 0)
             agent.SetDestination(waypoints[currentWaypoint].position);
+
+        if (deathEffectController != null)
+            deathEffectController.StopDeathEffect();
     }
 
     private void Update()
     {
-        if (isDead) return;
-        if (isDizzy) return;
-
         UpdatePlayerVisibility();
+
+        if (isDead)
+        {
+            StopAgentSafely();
+            return;
+        }
+
+        if (isDizzy) return;
 
         if (playerVisible && !caughtPlayer)
         {
@@ -81,6 +94,15 @@ public class Slime : MonoBehaviour
                 ResetToPatrol();
 
             Patrol();
+        }
+    }
+
+    private void StopAgentSafely()
+    {
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
         }
     }
 
@@ -101,10 +123,7 @@ public class Slime : MonoBehaviour
         isDizzy = true;
         InterruptAttack();
 
-        if (animator != null)
-            animator.SetTrigger("Dizzy");
-
-        if (agent != null)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             agent.isStopped = true;
 
         if (stunParticles != null)
@@ -125,6 +144,7 @@ public class Slime : MonoBehaviour
         {
             yield return new WaitForSeconds(dizzyDuration);
         }
+
         EndDizzy();
     }
 
@@ -135,7 +155,7 @@ public class Slime : MonoBehaviour
         if (stunParticles != null)
             stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
-        if (agent != null)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             agent.isStopped = false;
 
         if (player != null)
@@ -147,7 +167,8 @@ public class Slime : MonoBehaviour
                 isAttacking = true;
                 if (animator != null)
                     animator.SetBool("isAttacking", true);
-                agent.isStopped = true;
+                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                    agent.isStopped = true;
                 return;
             }
 
@@ -163,6 +184,13 @@ public class Slime : MonoBehaviour
 
     private void UpdatePlayerVisibility()
     {
+        if (isDead)
+        {
+            playerVisible = false;
+            player = null;
+            return;
+        }
+
         playerVisible = false;
         Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
 
@@ -189,6 +217,7 @@ public class Slime : MonoBehaviour
 
     private void ChasePlayer()
     {
+        if (isDead) return;
         if (player == null) return;
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
@@ -202,7 +231,8 @@ public class Slime : MonoBehaviour
                     animator.SetBool("isAttacking", true);
             }
 
-            agent.isStopped = true;
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                agent.isStopped = true;
             return;
         }
         else
@@ -210,9 +240,12 @@ public class Slime : MonoBehaviour
             InterruptAttack();
         }
 
-        agent.isStopped = false;
-        agent.speed = runSpeed;
-        agent.SetDestination(player.position);
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = false;
+            agent.speed = runSpeed;
+            agent.SetDestination(player.position);
+        }
 
         if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
         {
@@ -222,7 +255,8 @@ public class Slime : MonoBehaviour
             }
             else
             {
-                agent.isStopped = true;
+                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                    agent.isStopped = true;
                 waitTimer -= Time.deltaTime;
             }
         }
@@ -234,24 +268,29 @@ public class Slime : MonoBehaviour
 
     private void Patrol()
     {
-        agent.speed = walkSpeed;
+        if (isDead) return;
 
-        if (!agent.hasPath || agent.remainingDistance < agent.stoppingDistance + 0.1f)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
-            if (waitTimer <= 0f)
+            agent.speed = walkSpeed;
+
+            if (!agent.hasPath || agent.remainingDistance < agent.stoppingDistance + 0.1f)
             {
-                GoToNextWaypoint();
-                waitTimer = waitTimeAtPoint;
+                if (waitTimer <= 0f)
+                {
+                    GoToNextWaypoint();
+                    waitTimer = waitTimeAtPoint;
+                }
+                else
+                {
+                    agent.isStopped = true;
+                    waitTimer -= Time.deltaTime;
+                }
             }
             else
             {
-                agent.isStopped = true;
-                waitTimer -= Time.deltaTime;
+                agent.isStopped = false;
             }
-        }
-        else
-        {
-            agent.isStopped = false;
         }
     }
 
@@ -259,13 +298,16 @@ public class Slime : MonoBehaviour
     {
         if (waypoints == null || waypoints.Length == 0) return;
         currentWaypoint = (currentWaypoint + 1) % waypoints.Length;
-        agent.SetDestination(waypoints[currentWaypoint].position);
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
     private void ResetToPatrol()
     {
         isPatrolling = true;
-        agent.isStopped = false;
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.isStopped = false;
+
         waitTimer = waitTimeAtPoint;
         rotateTimer = rotateTime;
         caughtPlayer = false;
@@ -275,7 +317,9 @@ public class Slime : MonoBehaviour
             animator.SetBool("isAttacking", false);
 
         FindClosestWaypoint();
-        agent.speed = walkSpeed;
+
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.speed = walkSpeed;
     }
 
     private void FindClosestWaypoint()
@@ -296,11 +340,14 @@ public class Slime : MonoBehaviour
         }
 
         currentWaypoint = closest;
-        agent.SetDestination(waypoints[currentWaypoint].position);
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
     public void EnemyAttackHitbox()
     {
+        if (isDead) return;
+
         Collider[] hits = Physics.OverlapBox(
             transform.position + transform.forward * (attackRange * 0.5f),
             new Vector3(1f, 1f, 1f),
@@ -327,45 +374,76 @@ public class Slime : MonoBehaviour
         if (isDead) return;
 
         currentHealth -= amount;
-        StartDizzy();
+        InterruptAttack();
 
-        if (currentHealth <= 0)
+        animator?.SetTrigger("GetHit");
+
+        if (currentHealth <= 0f)
         {
-            currentHealth = 0;
+            currentHealth = 0f;
             isDead = true;
-            if (animator != null)
-                animator.SetTrigger("Die");
 
-            if (agent != null)
+            playerVisible = false;
+            player = null;
+            isPatrolling = false;
+            caughtPlayer = false;
+            isAttacking = false;
+
+            // Setta trigger Die DOPO GetHit
+            animator?.SetTrigger("Die");
+
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             {
                 agent.isStopped = true;
-                agent.velocity = Vector3.zero;
+                agent.ResetPath();
+                agent.enabled = false;
             }
-            // La distruzione avverrà tramite Animation Event o Coroutine
+            else if (agent != null)
+            {
+                agent.enabled = false;
+            }
+
+            // NON far partire dizzy quando muore
+            return;
         }
+
+        // Se ancora vivo, setta trigger Dizzy DOPO GetHit
+        animator?.SetTrigger("Dizzy");
+
+        StartDizzy();
     }
 
-    // Metodo da chiamare tramite Animation Event alla fine dell'animazione di morte
+    // Metodo chiamato tramite Animation Event alla fine animazione morte
     public void DestroyAfterDeath()
     {
-        StartCoroutine(DestroyAfterDelayCoroutine());
+        if (!isDead) return;
+        StartCoroutine(DestroyAfterDeathSequence());
     }
 
-    private IEnumerator DestroyAfterDelayCoroutine()
+    private IEnumerator DestroyAfterDeathSequence()
     {
-        float deathEffectOffset = 1.2f;
-        float waitTime = 2.5f - deathEffectOffset;
+        yield return new WaitForSeconds(2f);
 
-        if (waitTime > 0)
-            yield return new WaitForSeconds(waitTime);
-
-        if (deathParticles != null)
-            deathParticles.Play();
+        if (deathEffectController != null)
+            deathEffectController.PlayDeathEffect();
 
         if (Renderer != null)
             Renderer.enabled = false;
 
-        yield return new WaitForSeconds(deathEffectOffset);
+        if (deathEffectController != null)
+        {
+            ParticleSystem ps = deathEffectController.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                yield return new WaitUntil(() => !ps.isPlaying);
+            }
+        }
+        else
+        {
+            yield return new WaitForSeconds(1.5f);
+        }
+
+        GemManager.Instance?.SpawnLifeGem(transform.position);
 
         Destroy(gameObject);
     }
