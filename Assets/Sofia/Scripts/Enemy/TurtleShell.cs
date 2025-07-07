@@ -218,7 +218,7 @@ public class TurtleShell : MonoBehaviour
             if (hurtbox == null) continue;
 
             Vector3 pushDir = (hurtbox.transform.position - transform.position).normalized;
-            hurtbox.OnHit(pushDir, pushForce, 0f);  // solo knockback
+            hurtbox.OnHit(pushDir, pushForce, 5f);  // solo knockback
         }
     }
 
