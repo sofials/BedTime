@@ -8,7 +8,7 @@ public class SlowdownAbility : AbilityBase
     public float customDuration = 10f;
 
     // Override del costo di attivazione: 20
-    public override int powerCost => 10;
+    public override int powerCost => 20;
 
     private struct PlatformData
     {
