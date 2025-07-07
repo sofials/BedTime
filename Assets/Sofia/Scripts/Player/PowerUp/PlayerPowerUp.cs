@@ -50,14 +50,24 @@ public class PlayerPowerUp : MonoBehaviour
     private void OnDisable() => controls.Gameplay.Disable();
 
     private void HandleAbility(AbilityBase ability)
-    {
-        if (ability == null) return;
+{
+    if (ability == null) return;
 
+    if (ability is SlowdownAbility)
+    {
+        if (!ability.IsActive)
+            ability.TryActivate();
+        else
+            Debug.Log("[PlayerPowerUp] Slowdown già attivo, niente toggle off.");
+    }
+    else
+    {
         if (ability.IsActive)
             ability.Deactivate();
         else
             ability.TryActivate();
     }
+}
 
     public void SpendPower(float amount)
     {
