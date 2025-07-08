@@ -12,9 +12,6 @@ public class TeleportAbility : AbilityBase
     [Tooltip("Il GameObject che contiene il CharacterController da usare per il teletrasporto.")]
     public GameObject controllerGameObject;
 
-    [Header("VFX")]
-    public ParticleSystem teleportStartVFX;
-
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
@@ -30,14 +27,14 @@ public class TeleportAbility : AbilityBase
         controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
 
-        effectIconIndex = 2;          // slot dell’icona
+        effectIconIndex = 2; // slot dell’icona
     }
 
     /* --------- MAIN LOOP --------- */
 
-    protected override void Update()  // ← ora è override!
+    protected override void Update()
     {
-        base.Update();                // mantiene l’icona aggiornata
+        base.Update();
 
         if (!IsActive) return;
 
@@ -68,8 +65,6 @@ public class TeleportAbility : AbilityBase
         IsActive = true;
         currentPointer = Instantiate(telePointerPrefab);
         SetVisible(false);
-
-        if (teleportStartVFX) teleportStartVFX.Play();
     }
 
     public override void Deactivate()
@@ -80,9 +75,6 @@ public class TeleportAbility : AbilityBase
 
         if (currentPointer) Destroy(currentPointer);
         SetVisible(true);
-
-        if (teleportStartVFX) teleportStartVFX.Stop(true,
-            ParticleSystemStopBehavior.StopEmittingAndClear);
     }
 
     /* --------- INTERNAL --------- */

@@ -2,45 +2,68 @@ using UnityEngine;
 
 public class HurtBox_TurtleShell : MonoBehaviour
 {
-    public float reflectDamage = 5f;      // Danno riflesso visibile in Inspector
-
-    [Tooltip("Assegna qui la HurtBox del player da Inspector")]
-    public HurtBox playerHurtBox;         // Riferimento assegnato da Inspector
+    public float reflectDamage = 5f;
+    public HurtBox playerHurtBox;
 
     private int lastAttackId = -1;
+    private TurtleShell turtleShell;
 
-    private void OnTriggerEnter(Collider other) => ReflectAttack(other);
-    private void OnTriggerStay(Collider other)  => ReflectAttack(other);
-
-    private void ReflectAttack(Collider other)
+    private void Awake()
     {
+        turtleShell = GetComponentInParent<TurtleShell>();
+        if (turtleShell == null)
+            Debug.LogWarning("TurtleShell script non trovato nel genitore!");
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        TryReflectAttack(other);
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        TryReflectAttack(other);
+    }
+
+    private void TryReflectAttack(Collider other)
+    {
+        // Verifica tag hurtbox
         if (!CompareTag("TurtleShellHurtbox"))
             return;
 
+        // Verifica layer e tag attacco player
         if (other.gameObject.layer != LayerMask.NameToLayer("PlayerAttackHitbox") ||
             !other.CompareTag("PlayerAttackHitbox"))
             return;
 
+        // Verifica che attacco player sia attivo
         var playerAttack = other.GetComponentInParent<PlayerAttack>();
         if (playerAttack == null || !playerAttack.isAttacking)
             return;
 
+        // Evita riflessioni multiple dallo stesso attacco
         if (playerAttack.AttackId == lastAttackId)
             return;
-
         lastAttackId = playerAttack.AttackId;
 
-        // Usa la HurtBox assegnata da Inspector per infliggere danno
-        if (playerHurtBox != null)
+        if (turtleShell != null && turtleShell.isSlow)
         {
-            Debug.Log("Infliggo danno riflesso al player");
-            playerHurtBox.OnHit(Vector3.zero, 0f, reflectDamage);
+            // TurtleShell prende danno reale quando slow
+            turtleShell.TakeDamage(reflectDamage);
         }
         else
         {
-            Debug.LogWarning("HurtBox player non assegnata!");
-        }
+            // Riflette danno al player
+            if (playerHurtBox != null)
+            {
+                playerHurtBox.OnHit(Vector3.zero, 0f, reflectDamage);
+            }
+            else
+            {
+                Debug.LogWarning("HurtBox player non assegnata!");
+            }
 
-        GetComponentInParent<Animator>()?.SetTrigger("GetHit");
+            turtleShell.GetComponent<Animator>()?.SetTrigger("GetHit");
+        }
     }
 }

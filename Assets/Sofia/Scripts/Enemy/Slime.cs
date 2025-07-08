@@ -37,7 +37,7 @@ public class Slime : MonoBehaviour
     public Renderer Renderer;
 
     [Header("Death Effect Controller")]
-    public DeathEffectController deathEffectController;
+    public CFXR_EffectController deathEffectController;
 
     // Internal state
     private int currentWaypoint = 0;
@@ -68,7 +68,7 @@ public class Slime : MonoBehaviour
             agent.SetDestination(waypoints[currentWaypoint].position);
 
         if (deathEffectController != null)
-            deathEffectController.StopDeathEffect();
+            deathEffectController.StopEffect();
     }
 
     private void Update()
@@ -425,7 +425,7 @@ public class Slime : MonoBehaviour
         yield return new WaitForSeconds(2f);
 
         if (deathEffectController != null)
-            deathEffectController.PlayDeathEffect();
+            deathEffectController.PlayEffect();
 
         if (Renderer != null)
             Renderer.enabled = false;

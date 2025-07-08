@@ -4,53 +4,56 @@ using System.Collections;
 
 public class TurtleShell : MonoBehaviour
 {
-    /*────────────────────  Movement & Patrol  ────────────────────*/
     [Header("Movement & Patrol")]
     public NavMeshAgent agent;
     public float waitTimeAtPoint = 3f;
-    public float rotateTime      = 2f;
-    public float walkSpeed       = 4f;
-    public float runSpeed        = 6f;
+    public float rotateTime = 2f;
+    public float walkSpeed = 4f;
+    public float runSpeed = 6f;
     public Transform[] waypoints;
 
-    /*─────────────────────  Vision & Attack  ─────────────────────*/
     [Header("Vision & Attack")]
-    public float viewRadius  = 10f;
-    public float viewAngle   = 90f;
+    public float viewRadius = 10f;
+    public float viewAngle = 90f;
     public float attackRange = 2f;
     public LayerMask playerMask;
     public LayerMask obstacleMask;
-    public float pushForce   = 60f;   // spinta quando LUI attacca
-    public float reflectDamage = 5f;  // danno al player quando LO colpisce
+    public float pushForce = 60f;
 
-    /*───────────────────────  Internal  ──────────────────────────*/
-    private int    currentWaypoint     = 0;
-    private float  waitTimer;
-    private float  rotateTimer;
+    [Header("Slowdown Settings")]
+    public bool isSlow = false;
+    public float slowFactor = 0.5f;
+
+    [Header("Attack Settings")]
+    public float attackDamage = 10f;
+    public float attackCooldown = 1.5f;
+
+    private int currentWaypoint = 0;
+    private float waitTimer;
     private Transform player;
-    private bool   playerVisible       = false;
-    private bool   isPatrolling        = true;
-    private bool   isAttacking         = false;
-
+    private bool playerVisible = false;
+    private bool isPatrolling = true;
+    private bool isAttacking = false;
+    private float attackTimer = 0f;
     private Animator animator;
 
-    /*──────────────────────────  Start  ──────────────────────────*/
-    private void Start()
+    private void Awake()
     {
-        agent     = GetComponent<NavMeshAgent>();
-        animator  = GetComponent<Animator>();
-
-        waitTimer   = waitTimeAtPoint;
-        rotateTimer = rotateTime;
-        agent.speed = walkSpeed;
-
-        if (waypoints != null && waypoints.Length > 0)
-            agent.SetDestination(waypoints[currentWaypoint].position);
+        agent = GetComponent<NavMeshAgent>();
+        animator = GetComponent<Animator>();
     }
 
-    /*────────────────────────── Update ───────────────────────────*/
+    private void Start()
+    {
+        waitTimer = waitTimeAtPoint;
+        if (waypoints != null && waypoints.Length > 0)
+            agent.SetDestination(waypoints[currentWaypoint].position);
+        agent.speed = walkSpeed;
+    }
+
     private void Update()
     {
+        attackTimer -= Time.deltaTime;
         UpdatePlayerVisibility();
 
         if (playerVisible)
@@ -62,71 +65,110 @@ public class TurtleShell : MonoBehaviour
         {
             if (!isPatrolling)
                 ResetToPatrol();
-
             Patrol();
         }
     }
 
-    /*────────────────── Vision / Targeting helpers ───────────────*/
     private void UpdatePlayerVisibility()
     {
         playerVisible = false;
         Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
-
         foreach (var hit in hits)
         {
             Vector3 dir = (hit.transform.position - transform.position).normalized;
-
-            if (Vector3.Angle(transform.forward, dir) < viewAngle / 2)
+            if (Vector3.Angle(transform.forward, dir) < viewAngle / 2f)
             {
                 float dist = Vector3.Distance(transform.position, hit.transform.position);
                 if (!Physics.Raycast(transform.position, dir, dist, obstacleMask))
                 {
-                    player        = hit.transform;
+                    player = hit.transform;
                     playerVisible = true;
                     return;
                 }
             }
         }
-
         player = null;
     }
 
-    /*────────────────────── Behaviour  ───────────────────────────*/
     private void ChasePlayer()
     {
         if (player == null) return;
 
-        float distance = Vector3.Distance(transform.position, player.position);
+        RotateTowards(player.position);
+        float dist = Vector3.Distance(transform.position, player.position);
 
-        RotateTowards(player.position); // ← rotazione verso il player
-
-        if (distance <= attackRange)
+        if (dist <= attackRange)
         {
-            if (!isAttacking)
+            if (attackTimer <= 0f)
             {
-                isAttacking = true;
-                animator.SetBool("isAttacking", true);
-                if (agent.isActiveAndEnabled && agent.isOnNavMesh)
-                    agent.isStopped = true;
+                // Rimuovo qui l'infliggi danno diretto
+                // Lo facciamo invece tramite Animation Event
+                // InflictDamageToPlayer();
+                attackTimer = attackCooldown;
             }
-            return; // fermo ad attaccare
+
+            if (!isSlow)
+            {
+                if (!isAttacking)
+                {
+                    isAttacking = true;
+                    animator.SetBool("isAttacking", true);
+                    agent.isStopped = true;
+                }
+            }
+            else
+            {
+                // Slow: segue lentamente E infligge danno (ma senza animazione attacco)
+                if (isAttacking)
+                {
+                    isAttacking = false;
+                    animator.SetBool("isAttacking", false);
+                }
+                agent.isStopped = false;
+                agent.speed = walkSpeed * slowFactor;
+                agent.SetDestination(player.position);
+                // Danno già inflitto via attackTimer sopra
+            }
+            return;
         }
 
-        isAttacking = false;
-        animator.SetBool("isAttacking", false);
-
-        if (agent.isActiveAndEnabled && agent.isOnNavMesh)
+        // Fuori raggio attacco
+        if (isAttacking)
         {
-            agent.isStopped = false;
-            agent.speed     = runSpeed;
-            agent.SetDestination(player.position);
+            isAttacking = false;
+            animator.SetBool("isAttacking", false);
+        }
+
+        agent.isStopped = false;
+        agent.speed = isSlow ? walkSpeed * slowFactor : runSpeed;
+        agent.SetDestination(player.position);
+    }
+
+    // Questo metodo è chiamato dall'Animation Event "EnemyAttackHitbox"
+    public void EnemyAttackHitbox()
+    {
+        InflictDamageToPlayer();
+    }
+
+    private void InflictDamageToPlayer()
+    {
+        if (player == null) return;
+
+        HurtBox playerHurtBox = player.GetComponentInChildren<HurtBox>();
+        if (playerHurtBox != null)
+        {
+            Vector3 pushDir = (player.position - transform.position).normalized;
+            playerHurtBox.OnHit(pushDir, pushForce, attackDamage);
+        }
+        else
+        {
+            Debug.LogWarning("Player hurtbox non trovata!");
         }
     }
 
     private void Patrol()
     {
-        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
+        if (!agent.isOnNavMesh) return;
 
         agent.speed = walkSpeed;
 
@@ -140,7 +182,7 @@ public class TurtleShell : MonoBehaviour
             else
             {
                 agent.isStopped = true;
-                waitTimer      -= Time.deltaTime;
+                waitTimer -= Time.deltaTime;
             }
         }
         else
@@ -158,84 +200,66 @@ public class TurtleShell : MonoBehaviour
 
     private void ResetToPatrol()
     {
-        isPatrolling  = true;
-        isAttacking   = false;
-        waitTimer     = waitTimeAtPoint;
-        rotateTimer   = rotateTime;
-
+        isPatrolling = true;
+        isAttacking = false;
+        waitTimer = waitTimeAtPoint;
         animator.SetBool("isAttacking", false);
-
-        if (agent.isActiveAndEnabled && agent.isOnNavMesh)
-        {
-            agent.isStopped = false;
-            agent.speed     = walkSpeed;
-        }
-
+        agent.isStopped = false;
+        agent.speed = walkSpeed;
         FindClosestWaypoint();
     }
 
     private void FindClosestWaypoint()
     {
         if (waypoints == null || waypoints.Length == 0) return;
-
-        float minDist = Mathf.Infinity;
-        int   closest = 0;
-
+        float minDist = float.MaxValue;
         for (int i = 0; i < waypoints.Length; i++)
         {
             float dist = Vector3.Distance(transform.position, waypoints[i].position);
             if (dist < minDist)
             {
                 minDist = dist;
-                closest = i;
+                currentWaypoint = i;
             }
         }
-
-        currentWaypoint = closest;
         agent.SetDestination(waypoints[currentWaypoint].position);
     }
 
-    /*────────────────────── Combat Logic ─────────────────────────*/
-    /// <summary>
-    /// Chiamato via Animation Event nell’attacco: spinge di 60, nessun danno.
-    /// </summary>
-    public void EnemyAttackHitbox()
+    public void SetSlow(bool slow)
     {
-        if (!isAttacking) return;
+        isSlow = slow;
+        animator.SetBool("isSlow", slow);
+        if (isSlow)
+            agent.speed = walkSpeed * slowFactor;
+        else
+            agent.speed = walkSpeed;
+    }
 
-        Collider[] hits = Physics.OverlapBox(
-            transform.position + transform.forward * (attackRange * 0.5f),
-            new Vector3(1f, 1f, 1f),
-            transform.rotation,
-            LayerMask.GetMask("PlayerHurtbox")
-        );
-
-        foreach (var hit in hits)
+    public void TakeDamage(float damage)
+    {
+        if (isSlow)
         {
-            if (!hit.CompareTag("PlayerHurtbox")) continue;
-
-            var hurtbox = hit.GetComponent<HurtBox>();
-            if (hurtbox == null) continue;
-
-            Vector3 pushDir = (hurtbox.transform.position - transform.position).normalized;
-            hurtbox.OnHit(pushDir, pushForce, 0f);  // solo knockback
+            animator.SetTrigger("GetHitReal");
+            StartCoroutine(DieAfterHit());
+        }
+        else
+        {
+            animator.SetTrigger("GetHit");
         }
     }
 
-    /// <summary>
-    /// Invulnerabile: gioca solo l’animazione di difesa.
-    /// (Il danno di riflesso viene gestito da HurtBox_TurtleShell)
-    /// </summary>
-    public void TakeDamage(float _) => animator?.SetTrigger("GetHit");
-
-    /*────────────────────── Utility ──────────────────────────────*/
-    private void RotateTowards(Vector3 targetPosition)
+    private IEnumerator DieAfterHit()
     {
-        Vector3 direction = (targetPosition - transform.position).normalized;
-        direction.y = 0; // no rotazione verticale
-        if (direction == Vector3.zero) return;
+        yield return new WaitForSeconds(animator.GetCurrentAnimatorStateInfo(0).length + 0.1f);
+        Destroy(gameObject);
+    }
 
-        Quaternion lookRotation = Quaternion.LookRotation(direction);
-        transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 5f);
+    private void RotateTowards(Vector3 target)
+    {
+        Vector3 dir = (target - transform.position).normalized;
+        dir.y = 0;
+        if (dir == Vector3.zero) return;
+        Quaternion look = Quaternion.LookRotation(dir);
+        transform.rotation = Quaternion.Slerp(transform.rotation, look, Time.deltaTime * 5f);
     }
 }

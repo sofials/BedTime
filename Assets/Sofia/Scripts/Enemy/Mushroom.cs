@@ -37,7 +37,8 @@ public class Mushroom : MonoBehaviour
     public Renderer Renderer;
 
     [Header("Death Effect Controller")]
-    public DeathEffectController deathEffectController;
+    public CFXR_EffectController deathEffectController;
+
 
     // Internal state
     private int currentWaypoint = 0;
@@ -67,8 +68,9 @@ public class Mushroom : MonoBehaviour
         if (waypoints != null && waypoints.Length > 0)
             agent.SetDestination(waypoints[currentWaypoint].position);
 
-        if (deathEffectController != null)
-            deathEffectController.StopDeathEffect();
+       if (deathEffectController != null)
+          deathEffectController.StopEffect();
+
     }
 
     private void Update()
@@ -424,8 +426,9 @@ public class Mushroom : MonoBehaviour
     {
         yield return new WaitForSeconds(2f);
 
-        if (deathEffectController != null)
-            deathEffectController.PlayDeathEffect();
+       if (deathEffectController != null)
+          deathEffectController.PlayEffect();
+
 
         if (Renderer != null)
             Renderer.enabled = false;

@@ -21,6 +21,10 @@ public class PlayerAttack : MonoBehaviour
             : attackIconKeyboard;
 
     public TrailRenderer punchTrail;
+    // AGGIUNGI
+    public CFXR_EffectController punchImpactFX;   // prefab con il ParticleSystem
+    private bool hitConfirmedThisSwing = false;  // reset ad ogni swing
+
 
     public bool isAttacking = false;
     [SerializeField] private float attackDuration = 0.3f;
@@ -123,4 +127,25 @@ public class PlayerAttack : MonoBehaviour
             Debug.Log("PunchTrail disabilitata");
         }
     }
+    public void RegisterSuccessfulHit()
+    {
+       hitConfirmedThisSwing = true;
+    }
+// 1) Evento all’inizio del frame di contatto
+   public void EnablePunchFX()
+   {
+       if (punchImpactFX != null && hitConfirmedThisSwing)
+       {
+           punchImpactFX.PlayEffect();
+           hitConfirmedThisSwing = false;       // consumato per questo swing
+       }
+   }
+
+   // 2) Evento di fine colpo (stesso frame in cui disabiliti il punchTrail)
+   public void DisablePunchFX()
+   {
+       if (punchImpactFX != null)
+          punchImpactFX.StopEffect();
+   }
+
 }

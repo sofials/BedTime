@@ -28,6 +28,7 @@ public class HurtBox_Enemy : MonoBehaviour
 
                 lastAttackId = playerAttack.AttackId;
 
+                // Cerca un componente con metodo TakeDamage
                 var allComponents = GetComponentsInParent<MonoBehaviour>();
                 foreach (var comp in allComponents)
                 {
@@ -36,6 +37,10 @@ public class HurtBox_Enemy : MonoBehaviour
                     {
                         method.Invoke(comp, new object[] { 25f });
                         Debug.Log("Enemy colpito da PlayerAttack");
+
+                        // Notifica al PlayerAttack che il colpo è andato a segno
+                        playerAttack.RegisterSuccessfulHit();
+
                         break;
                     }
                 }
