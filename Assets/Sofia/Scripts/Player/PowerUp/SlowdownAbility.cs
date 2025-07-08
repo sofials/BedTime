@@ -106,10 +106,15 @@ public class SlowdownAbility : AbilityBase
                 TurtleShell ts = col.GetComponentInParent<TurtleShell>();
                 if (ts != null && !affectedTurtleShells.Contains(ts))
                 {
-                    ts.slowFactor = slowdownFactor; // opzionale
-                    ts.SetSlow(true);
-                    affectedTurtleShells.Add(ts);
-                    Debug.Log($"→ TurtleShell {ts.name} rallentata.");
+                   if (!ts.isSlow) // evita di chiamare più volte SetSlow(true)
+                      {
+                             Debug.Log($"SetSlow(true) chiamato su {ts.name}");
+                             ts.slowFactor = slowdownFactor; // opzionale
+                             ts.SetSlow(true);
+                             affectedTurtleShells.Add(ts);
+                             Debug.Log($"→ TurtleShell {ts.name} rallentata.");
+                      }
+
                 }
             }
         }
