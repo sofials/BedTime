@@ -2,36 +2,49 @@ using UnityEngine;
 
 public class HurtBox_Enemy : MonoBehaviour
 {
-    public EnemyBase enemy; // Cambiato da Enemy a EnemyBase
-
-    private void Awake()
-    {
-        if (enemy == null)
-            enemy = GetComponentInParent<EnemyBase>();
-    }
+    private int lastAttackId = -1;
 
     private void OnTriggerEnter(Collider other)
     {
-        Debug.Log("[HurtBox_Enemy] TriggerEnter con: " + other.name);
+        TryApplyDamage(other);
+    }
 
-        // Controlla anche il layer
+    private void OnTriggerStay(Collider other)
+    {
+        TryApplyDamage(other);
+    }
+
+    private void TryApplyDamage(Collider other)
+    {
         if (other.gameObject.layer == LayerMask.NameToLayer("PlayerAttackHitbox") &&
             other.CompareTag("PlayerAttackHitbox"))
         {
             var playerAttack = other.GetComponentInParent<PlayerAttack>();
-            if (playerAttack != null && playerAttack.isAttacking && enemy != null)
+            if (playerAttack != null && playerAttack.isAttacking)
             {
-                Debug.Log("[HurtBox_Enemy] Attacco del giocatore rilevato, chiamo TakeDamage su EnemyBase");
-                enemy.TakeDamage(25f);
+                // Ignora se è lo stesso attacco già contato
+                if (playerAttack.AttackId == lastAttackId)
+                    return;
+
+                lastAttackId = playerAttack.AttackId;
+
+                // Cerca un componente con metodo TakeDamage
+                var allComponents = GetComponentsInParent<MonoBehaviour>();
+                foreach (var comp in allComponents)
+                {
+                    var method = comp.GetType().GetMethod("TakeDamage");
+                    if (method != null)
+                    {
+                        method.Invoke(comp, new object[] { 25f });
+                        Debug.Log("Enemy colpito da PlayerAttack");
+
+                        // Notifica al PlayerAttack che il colpo è andato a segno
+                        playerAttack.RegisterSuccessfulHit();
+
+                        break;
+                    }
+                }
             }
-            else
-            {
-                Debug.Log("[HurtBox_Enemy] Nessun attacco del giocatore rilevato o EnemyBase è NULL!");
-            }
-        }
-        else
-        {
-            Debug.Log("[HurtBox_Enemy] Collider NON è sul layer PlayerAttackHitbox");
         }
     }
 }

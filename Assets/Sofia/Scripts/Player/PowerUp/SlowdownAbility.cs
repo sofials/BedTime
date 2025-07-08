@@ -1,14 +1,16 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 public class SlowdownAbility : AbilityBase
 {
+    [Header("Slowdown Settings")]
     public float slowdownRadius = 20f;
     public float slowdownFactor = 0.5f;
     public float customDuration = 10f;
 
-    // Override del costo di attivazione: 20
     public override int powerCost => 20;
+    protected override bool HasFixedDuration => true;
 
     private struct PlatformData
     {
@@ -16,72 +18,114 @@ public class SlowdownAbility : AbilityBase
         public float originalSpeedMultiplier;
     }
 
-    private List<PlatformData> affectedPlatforms = new List<PlatformData>();
+    private List<PlatformData> affectedPlatforms = new();
+    private List<RotatingObject> affectedRotators = new();
+    private List<TurtleShell> affectedTurtleShells = new();
 
-    // Questa abilità ha durata fissa
-    protected override bool HasFixedDuration => true;
+    private Coroutine deactivateCoroutine;
 
-    void Awake()
+    private void Awake()
     {
         duration = customDuration;
         Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
         effectIconIndex = 3;
     }
 
+    public override void TryActivate()
+    {
+        if (!CanActivate())
+        {
+            Debug.Log("Impossibile attivare l'abilità.");
+            return;
+        }
+
+        if (IsActive)
+        {
+            Debug.Log("[SlowdownAbility] Abilità già attiva – ignoro.");
+            return;
+        }
+
+        Activate();
+        IsActive = true;
+
+        PlayerUI.Instance?.PulseIconAt(effectIconIndex);
+
+        if (HasFixedDuration)
+        {
+            if (deactivateCoroutine != null)
+                StopCoroutine(deactivateCoroutine);
+
+            deactivateCoroutine = StartCoroutine(DeactivateAfterDuration());
+        }
+    }
+
+    private IEnumerator DeactivateAfterDuration()
+    {
+        yield return new WaitForSeconds(duration);
+        Deactivate();
+        deactivateCoroutine = null;
+    }
+
     public override void Activate()
     {
         Debug.Log("\n=== [SlowdownAbility] Activate() chiamato ===");
+
         affectedPlatforms.Clear();
+        affectedRotators.Clear();
+        affectedTurtleShells.Clear();
 
         Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
-
-        Debug.Log($"[SlowdownAbility] Numero di collider trovati nel raggio di {slowdownRadius}: {colliders.Length}");
+        Debug.Log($"[SlowdownAbility] Collider trovati: {colliders.Length}");
 
         foreach (Collider col in colliders)
         {
-            Debug.Log($"[SlowdownAbility] Controllo collider: {col.name}, Tag: {col.tag}");
-
             if (col.CompareTag("MovingPlatform"))
             {
-                Debug.Log($"[SlowdownAbility] {col.name} ha il tag 'MovingPlatform'");
-
-                MovingPlatform mp = col.GetComponent<MovingPlatform>();
-                if (mp != null)
+                if (col.TryGetComponent(out MovingPlatform mp))
                 {
-                    Debug.Log($"[SlowdownAbility] {col.name} ha componente MovingPlatform");
-
                     affectedPlatforms.Add(new PlatformData
                     {
                         platform = mp,
-                        originalSpeedMultiplier = 1f // Se hai un metodo GetSpeedMultiplier(), puoi usarlo qui
+                        originalSpeedMultiplier = 1f
                     });
-
                     mp.SetSpeedMultiplier(slowdownFactor);
-                    Debug.Log($"[SlowdownAbility] Rallentata piattaforma {col.name} con fattore {slowdownFactor}");
-                }
-                else
-                {
-                    Debug.LogWarning($"[SlowdownAbility] {col.name} ha il tag corretto ma non ha componente MovingPlatform");
+                    Debug.Log($"→ MovingPlatform {col.name} rallentata.");
                 }
             }
-            else
+            else if (col.CompareTag("RotatingPlatform"))
             {
-                Debug.Log($"[SlowdownAbility] {col.name} ha un tag diverso: {col.tag}");
+                if (col.TryGetComponent(out RotatingObject ro))
+                {
+                    affectedRotators.Add(ro);
+                    ro.SetSpeedMultiplier(slowdownFactor);
+                    Debug.Log($"→ RotatingPlatform {col.name} rallentata.");
+                }
+            }
+            else if (col.CompareTag("TurtleShellHurtbox"))
+            {
+                TurtleShell ts = col.GetComponentInParent<TurtleShell>();
+                if (ts != null && !affectedTurtleShells.Contains(ts))
+                {
+                    ts.slowFactor = slowdownFactor; // opzionale
+                    ts.SetSlow(true);
+                    affectedTurtleShells.Add(ts);
+                    Debug.Log($"→ TurtleShell {ts.name} rallentata.");
+                }
             }
         }
 
-        if (affectedPlatforms.Count > 0)
+        if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0)
         {
-            Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme.");
-            powerUpScript.SpendPower(powerCost); // ✅ Questo aggiorna anche la barra tramite PlayerUI
-            IsActive = true;
-        }
-        else
-        {
-            Debug.LogWarning("[SlowdownAbility] Nessuna piattaforma trovata da rallentare.");
+            Debug.LogWarning("[SlowdownAbility] Nessun oggetto da rallentare trovato.");
             IsActive = false;
+            return;
         }
 
+        powerUpScript.SpendPower(powerCost);
+        Debug.Log($"[SlowdownAbility] Slowdown attivato su " +
+                  $"{affectedPlatforms.Count} piattaforme, " +
+                  $"{affectedRotators.Count} rotatori, " +
+                  $"{affectedTurtleShells.Count} TurtleShell.");
         Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
     }
 
@@ -93,19 +137,35 @@ public class SlowdownAbility : AbilityBase
         {
             if (data.platform != null)
             {
-                data.platform.SetSpeedMultiplier(1f);
-                Debug.Log($"[SlowdownAbility] Ripristinata velocità piattaforma: {data.platform.name}");
+                data.platform.SetSpeedMultiplier(data.originalSpeedMultiplier);
+                Debug.Log($"Ripristinata MovingPlatform: {data.platform.name}");
             }
-            else
+        }
+
+        foreach (var ro in affectedRotators)
+        {
+            if (ro != null)
             {
-                Debug.LogWarning("[SlowdownAbility] Una delle piattaforme è null durante il ripristino.");
+                ro.SetSpeedMultiplier(1f);
+                Debug.Log($"Ripristinato RotatingPlatform: {ro.name}");
+            }
+        }
+
+        foreach (var ts in affectedTurtleShells)
+        {
+            if (ts != null)
+            {
+                ts.SetSlow(false);
+                Debug.Log($"Ripristinata TurtleShell: {ts.name}");
             }
         }
 
         affectedPlatforms.Clear();
+        affectedRotators.Clear();
+        affectedTurtleShells.Clear();
         IsActive = false;
 
-        Debug.Log("[SlowdownAbility] Slowdown disattivato e lista piattaforme svuotata.");
+        Debug.Log("[SlowdownAbility] Slowdown disattivato.");
         Debug.Log("=== [SlowdownAbility] Fine Deactivate() ===\n");
     }
 }
