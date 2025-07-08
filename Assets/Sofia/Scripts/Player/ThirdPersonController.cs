@@ -1,41 +1,46 @@
 ﻿using UnityEngine;
-using System.Collections;
 using UnityEngine.InputSystem;
+using CartoonFX;
 
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
+    /*────────────────────  UI  ────────────────────*/
     [Header("UI Effect")]
     public PlayerUI playerUI;
     public UIEffectHandler attackEffectUI;
 
+    /*─────────────────  Movement  ─────────────────*/
     [Header("Movement Settings")]
-    public float walkSpeed = 2f;
-    public float runSpeed = 5f;
+    public float walkSpeed   = 2f;
+    public float runSpeed    = 5f;
     public float sprintSpeed = 8f;
     public float rotationSmoothTime = 0.1f;
     private float rotationVelocity;
     private float smoothInputMagnitude;
 
-
+    /*────────────────────  Jump  ───────────────────*/
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
-    public float gravity = -9.81f;
-    public int maxJumps = 2;
-    private int jumpCount = 0;
+    public float gravity    = -9.81f;
+    public int   maxJumps   = 2;
+    private int   jumpCount = 0;
     private Vector3 velocity;
 
+    /*───────────────  Air‑control  ───────────────*/
     [Header("Air Control Settings")]
     public float airControlStrength = 0.5f;
-    public float airControlSpeed = 2f;
+    public float airControlSpeed    = 2f;
     public float airRotationSmoothTime = 0.3f;
+
+    /*─────────────────  Stats  ───────────────────*/
     [Header("Player Stats")]
     public float maxHealth = 100f;
     public float currentHealth;
     public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
+    public float MaxHealth    => maxHealth;
 
-
+    /*─────────────────  Internals  ───────────────*/
     private CharacterController controller;
     private Animator _animator;
 
@@ -43,296 +48,266 @@ public class ThirdPersonController : MonoBehaviour
     public Transform cameraTransform;
 
     private bool wasGroundedLastFrame;
-    private Transform currentPlatform = null;
-    private Vector3 lastPlatformPosition = Vector3.zero;
-    private Vector3 platformVelocity = Vector3.zero;
+    private Transform currentPlatform  = null;
+    private Vector3   lastPlatformPos  = Vector3.zero;
+    private Quaternion lastPlatformRot = Quaternion.identity;
+    private Vector3 platformDeltaPos   = Vector3.zero;
+    private Quaternion platformDeltaRot = Quaternion.identity;
 
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
 
-    [SerializeField] private float pushRecoverySpeed = 0.2f; // più lento = spinta visibile
+    [SerializeField] private float pushRecoverySpeed = 0.2f;
 
-    private Vector3 instantPush = Vector3.zero;
-    private bool applyInstantPush = false;
-
-    // Input Actions
     private PlayerControls controls;
     private Vector2 moveInput;
     private bool jumpInput;
     private bool isSprinting;
     private bool isHoldingJump;
 
+    /*───────────────  Sprint FX  ───────────────*/
+    [Header("Sprint Effect (assign CFXR_EffectController)")]
+    public CFXR_EffectController sprintFX;
+    private bool sprintFXActive = false;
+
+    /*─────────────────  Awake  ───────────────────*/
     private void Awake()
     {
         controls = new PlayerControls();
 
-        controls.Gameplay.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
-        controls.Gameplay.Move.canceled += ctx => moveInput = Vector2.zero;
+        controls.Gameplay.Move.performed +=  ctx => moveInput = ctx.ReadValue<Vector2>();
+        controls.Gameplay.Move.canceled  +=  ctx => moveInput = Vector2.zero;
 
         controls.Gameplay.Sprint.performed += ctx => isSprinting = true;
-        controls.Gameplay.Sprint.canceled += ctx => isSprinting = false;
+        controls.Gameplay.Sprint.canceled  += ctx => isSprinting = false;
 
-        controls.Gameplay.Jump.started += ctx =>
-        {
-            jumpInput = true;
-            isHoldingJump = true;
-        };
-
-        controls.Gameplay.Jump.canceled += ctx =>
-        {
-            isHoldingJump = false;
-        };
+        controls.Gameplay.Jump.started  += ctx => { jumpInput = true;  isHoldingJump = true;  };
+        controls.Gameplay.Jump.canceled += ctx => { isHoldingJump = false;                     };
     }
 
+    /*─────────────────  Start  ───────────────────*/
     private void Start()
     {
-        _animator = GetComponentInChildren<Animator>();
+        _animator  = GetComponentInChildren<Animator>();
         controller = GetComponent<CharacterController>();
 
-        if (cameraTransform == null && Camera.main != null)
-            cameraTransform = Camera.main.transform;
-        // Inizializza la vita
+        if (cameraTransform == null && Camera.main) cameraTransform = Camera.main.transform;
+
         currentHealth = maxHealth;
-
         playerUI.UpdateHealth(currentHealth);
+
+        /* Assicuriamoci che il VFX sia spento all'avvio */
+        if (sprintFX) sprintFX.StopEffect();
     }
 
-    private void OnEnable()
-    {
-        controls.Gameplay.Enable();
-    }
-
+    private void OnEnable()  => controls.Gameplay.Enable();
     private void OnDisable()
     {
         controls.Gameplay.Disable();
+        if (sprintFX) sprintFX.StopEffect();
+        sprintFXActive = false;
     }
 
-
-    public void TakeDamage(float amount)
-    {
-        currentHealth -= amount;
-        playerUI.UpdateHealth(currentHealth);
-        Debug.Log($"Player colpito! Danno ricevuto: {amount} | Vita attuale: {currentHealth}");
-
-        if (attackEffectUI != null)
-        {
-            attackEffectUI.PulseIcon();
-        }
-
-        if (currentHealth <= 0)
-        {
-            currentHealth = 0;
-            Die();
-        }
-    }
-
-    private void Die()
-    {
-        Debug.Log("Player morto!");
-    }
-
+    /*──────────────────  Update  ──────────────────*/
     private void Update()
     {
         UpdatePlatformVelocity();
         HandleMovement();
         HandleJump();
 
-        Vector3 totalMove = playerVelocity + platformVelocity + externalPush;
-        totalMove.y = velocity.y;
-        if (applyInstantPush)
+        // movimento relativo a eventuale piattaforma
+        if (currentPlatform != null)
         {
-            totalMove += instantPush;
-            applyInstantPush = false;
-            instantPush = Vector3.zero;
+            controller.Move(platformDeltaPos);
+            if (platformDeltaRot != Quaternion.identity)
+                transform.rotation = platformDeltaRot * transform.rotation;
+
+            if (controller.isGrounded)
+                velocity.y = Mathf.Max(platformDeltaPos.y, velocity.y);
         }
+
+        Vector3 totalMove = playerVelocity + externalPush;
+        totalMove.y = velocity.y;
         controller.Move(totalMove * Time.deltaTime);
 
-        // Decadimento lento della spinta
         externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
 
-        bool isGrounded = controller.isGrounded;
-        _animator.SetBool("isGrounded", isGrounded);
+        bool grounded = controller.isGrounded;
+        _animator.SetBool("isGrounded", grounded);
 
-        if (isGrounded && !wasGroundedLastFrame)
+        if (grounded && !wasGroundedLastFrame)
         {
             jumpCount = 0;
             _animator.SetBool("Jump", false);
             _animator.SetBool("DoubleJump", false);
         }
-
-        wasGroundedLastFrame = isGrounded;
+        wasGroundedLastFrame = grounded;
 
         HandleFalling();
         HandleAirControl();
+        HandleSprintFX();
     }
 
+    /*──────────────  Sprint VFX  ──────────────*/
+    private void HandleSprintFX()
+{
+    if (sprintFX == null) return;
+
+    bool isMoving = playerVelocity.magnitude > 0.1f;
+    bool shouldShow = isSprinting && controller.isGrounded && isMoving;
+
+    if (shouldShow && !sprintFXActive)
+    {
+        sprintFX.PlayEffect();
+        sprintFXActive = true;
+    }
+    else if (!shouldShow && sprintFXActive)
+    {
+        sprintFX.StopEffect();
+        sprintFXActive = false;
+    }
+}
+
+    /*─────────────  Movement helpers  ───────────*/
     private void UpdatePlatformVelocity()
     {
-        if (currentPlatform != null)
+        if (currentPlatform)
         {
-            platformVelocity = (currentPlatform.position - lastPlatformPosition) / Time.deltaTime;
-            lastPlatformPosition = currentPlatform.position;
+            platformDeltaPos = currentPlatform.position - lastPlatformPos;
+            platformDeltaRot = currentPlatform.rotation * Quaternion.Inverse(lastPlatformRot);
+            lastPlatformPos  = currentPlatform.position;
+            lastPlatformRot  = currentPlatform.rotation;
         }
-        else
-        {
-            platformVelocity = Vector3.zero;
-        }
+        else platformDeltaPos = Vector3.zero;
     }
 
     private void HandleMovement()
     {
-        float horizontal = moveInput.x;
-        float vertical = moveInput.y;
+        float h = moveInput.x;
+        float v = moveInput.y;
 
-        Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
-        float inputMagnitude = inputDirection.magnitude;
-        smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 5f);
+        Vector3 inputDir = new Vector3(h, 0f, v).normalized;
+        float inputMag   = inputDir.magnitude;
+        smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMag, Time.deltaTime * 5f);
 
-        if (inputMagnitude < 0.1f)
+        if (inputMag < 0.1f)
         {
             playerVelocity = Vector3.zero;
             _animator.SetFloat("Speed", 0f, 0.1f, Time.deltaTime);
             return;
         }
 
-        float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+        float targetAngle = Mathf.Atan2(inputDir.x, inputDir.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
         float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
         transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
-        Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+        Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+        float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
 
-        float targetSpeed = isSprinting ? sprintSpeed :
-                            (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
-
-        playerVelocity = moveDirection.normalized * targetSpeed;
-
-        float maxSpeed = sprintSpeed;
-        float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / maxSpeed);
-
+        playerVelocity = moveDir.normalized * targetSpeed;
+        float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / sprintSpeed);
         _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
     }
 
+    /*──────────────  Jump & fall  ──────────────*/
     private void HandleJump()
     {
-        bool isGrounded = controller.isGrounded;
+        bool grounded = controller.isGrounded;
 
         if (jumpInput && jumpCount < maxJumps)
         {
-            if (jumpCount == 0)
-            {
-                _animator.SetBool("Jump", true);
-                _animator.SetBool("DoubleJump", false);
-            }
-            else if (jumpCount == 1)
-            {
-                _animator.SetBool("DoubleJump", true);
-                _animator.SetBool("Jump", false);
-            }
+            if (jumpCount == 0)   _animator.SetBool("Jump", true);
+            else                  _animator.SetBool("DoubleJump", true);
 
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpCount++;
             jumpInput = false;
+
+            currentPlatform = null;
         }
 
-        if (velocity.y < 0)
-        {
-            velocity.y += gravity * 2.5f * Time.deltaTime;
-        }
-        else if (velocity.y > 0 && !isHoldingJump)
-        {
-            velocity.y += gravity * 2f * Time.deltaTime;
-        }
-        else
-        {
-            velocity.y += gravity * Time.deltaTime;
-        }
+        if (velocity.y < 0)                                  velocity.y += gravity * 2.5f * Time.deltaTime;
+        else if (velocity.y > 0 && !isHoldingJump)           velocity.y += gravity * 2f   * Time.deltaTime;
+        else                                                 velocity.y += gravity         * Time.deltaTime;
 
-        if (controller.isGrounded && velocity.y < 0)
-            velocity.y = -2f;
+        if (grounded && velocity.y < 0) velocity.y = -2f;
     }
-
 
     private void HandleFalling()
     {
-        bool isGrounded = controller.isGrounded;
-        bool isFalling = false;
+        bool grounded = controller.isGrounded;
+        bool falling = !grounded && velocity.y < -3f &&
+                       !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump");
 
-        if (!isGrounded && velocity.y < -3f && !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump"))
-        {
-            if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 1.5f))
-            {
-                float groundAngle = Vector3.Angle(hit.normal, Vector3.up);
-                if (groundAngle > controller.slopeLimit + 5f)
-                    isFalling = true;
-            }
-            else
-            {
-                isFalling = true;
-            }
-        }
-
-        _animator.SetBool("isFalling", isFalling);
+        _animator.SetBool("isFalling", falling);
     }
+
     private void HandleAirControl()
     {
-        if (!controller.isGrounded)
-        {
-            float horizontal = moveInput.x;
-            float vertical = moveInput.y;
+        if (controller.isGrounded) return;
 
-            Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+        Vector3 inputDir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
+        if (inputDir.magnitude < 0.1f) return;
 
-            if (inputDirection.magnitude >= 0.1f)
-            {
-                float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-                float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
-                transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+        float targetAngle = Mathf.Atan2(inputDir.x, inputDir.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+        float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
+        transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
-                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-                Vector3 airMove = moveDir.normalized * airControlSpeed;
-                playerVelocity += new Vector3(airMove.x, 0f, airMove.z);
-            }
-        }
+        Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+        playerVelocity += new Vector3(moveDir.x, 0f, moveDir.z) * airControlSpeed;
     }
 
+    /*──────────────  Misc  ──────────────*/
     public void Respawn()
     {
         controller.enabled = false;
-        if (GameManager.Instance.currentCheckpoint != null)
-            transform.position = GameManager.Instance.currentCheckpoint.position;
-        else
-            Debug.LogWarning("Nessun checkpoint impostato! Respawn nella posizione iniziale.");
+        transform.position = GameManager.Instance.currentCheckpoint ?
+                             GameManager.Instance.currentCheckpoint.position :
+                             transform.position;
 
         velocity = Vector3.zero;
         controller.enabled = true;
 
+        _animator.ResetTrigger("Jump");
+        _animator.ResetTrigger("DoubleJump");
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
         jumpCount = 0;
+
+        if (sprintFX) sprintFX.StopEffect();
+        sprintFXActive = false;
     }
 
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        if (hit.collider.CompareTag("MovingPlatform"))
+        if (hit.collider.CompareTag("MovingPlatform") || hit.collider.CompareTag("RotatingPlatform"))
         {
             if (currentPlatform != hit.collider.transform)
             {
                 currentPlatform = hit.collider.transform;
-                lastPlatformPosition = currentPlatform.position;
+                lastPlatformPos = currentPlatform.position;
+                lastPlatformRot = currentPlatform.rotation;
             }
         }
-        else
+        else if (currentPlatform && hit.collider.transform != currentPlatform)
         {
-            if (currentPlatform != null && hit.collider.transform != currentPlatform)
-            {
-                currentPlatform = null;
-                platformVelocity = Vector3.zero;
-            }
+            currentPlatform = null;
         }
     }
-    public void ApplyExternalPush(Vector3 force)
+
+    public void ApplyExternalPush(Vector3 force) => externalPush += force;
+
+    public void Heal(float amount)
     {
-        externalPush += force;
-    Debug.Log($"[Player] Spinta applicata: {force}, externalPush ora: {externalPush}");
+        currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
+        playerUI.UpdateHealth(currentHealth);
+    }
+
+    public void TakeDamage(float amount)
+    {
+        currentHealth -= amount;
+        playerUI.UpdateHealth(currentHealth);
+        attackEffectUI?.PulseIcon();
+        if (currentHealth <= 0) currentHealth = 0;
     }
 }

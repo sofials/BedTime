@@ -20,6 +20,11 @@ public class MovingPlatform : MonoBehaviour
 
     private float speedMultiplier = 1f; // <-- IMPORTANTE per lo slowdown
 
+    private Vector3 deltaMovement; // <-- Salviamo il movimento della piattaforma (per il player)
+
+    // Esportiamo il deltaMovement per il player
+    public Vector3 DeltaMovement => deltaMovement;
+
     void Start()
     {
         SampleSpline();
@@ -50,14 +55,9 @@ public class MovingPlatform : MonoBehaviour
         }
 
         Vector3 newPosition = GetPositionAtDistance(currentDistance);
-        Vector3 deltaMovement = newPosition - lastPosition;
+        deltaMovement = newPosition - lastPosition;
 
         transform.position = newPosition;
-
-        if (playerController != null)
-        {
-            playerController.Move(deltaMovement);
-        }
 
         lastPosition = newPosition;
     }
