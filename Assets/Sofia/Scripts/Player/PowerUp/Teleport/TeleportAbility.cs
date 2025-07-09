@@ -24,6 +24,7 @@ public class TeleportAbility : AbilityBase
     private bool confirmPressed;
 
     private Vector3 teleportPosition;
+    private bool canUpdatePointer = false;
 
     private void Awake()
     {
@@ -53,7 +54,7 @@ public class TeleportAbility : AbilityBase
     {
         base.Update();
 
-        if (!IsActive) return;
+        if (!IsActive || !canUpdatePointer) return;
 
         UpdatePointerPosition();
 
@@ -112,6 +113,15 @@ public class TeleportAbility : AbilityBase
 
         var controller = controllerGameObject.GetComponent<ThirdPersonController>();
         if (controller != null) controller.IsMovementLocked = true;
+
+        canUpdatePointer = false;
+        StartCoroutine(EnablePointerUpdateNextFrame());
+    }
+
+    private IEnumerator EnablePointerUpdateNextFrame()
+    {
+        yield return null; // aspetta un frame
+        canUpdatePointer = true;
     }
 
     public override void Deactivate()
@@ -134,6 +144,7 @@ public class TeleportAbility : AbilityBase
         if (controller != null) controller.IsMovementLocked = false;
 
         IsActive = false;
+        canUpdatePointer = false;
     }
 
     private void UpdatePointerPosition()
@@ -181,25 +192,23 @@ public class TeleportAbility : AbilityBase
             Debug.LogWarning("CharacterController non trovato.");
         }
 
-        // Distruggi il puntatore
         if (currentPointer)
         {
             Destroy(currentPointer);
             currentPointer = null;
         }
 
-        // Effetto cloud PRIMA che il player appaia
         if (teleportEffectController != null)
         {
             teleportEffectController.gameObject.SetActive(true);
             teleportEffectController.PlayEffect();
         }
 
-        yield return new WaitForSeconds(1f); // Tempo per vedere l'effetto prima del player
+        yield return new WaitForSeconds(0.5f);
 
-        SetVisible(true); // Il player appare
+        SetVisible(true);
 
-        yield return new WaitForSeconds(0.3f); // Tempo finale per chiudere effetto
+        yield return new WaitForSeconds(0.3f);
 
         if (teleportEffectController != null)
         {
