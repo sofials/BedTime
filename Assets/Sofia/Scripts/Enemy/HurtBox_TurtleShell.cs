@@ -27,29 +27,27 @@ public class HurtBox_TurtleShell : MonoBehaviour
 
     private void TryReflectAttack(Collider other)
     {
-        // Verifica tag hurtbox
-        if (!CompareTag("TurtleShellHurtbox"))
-            return;
-
-        // Verifica layer e tag attacco player
         if (other.gameObject.layer != LayerMask.NameToLayer("PlayerAttackHitbox") ||
             !other.CompareTag("PlayerAttackHitbox"))
             return;
 
-        // Verifica che attacco player sia attivo
         var playerAttack = other.GetComponentInParent<PlayerAttack>();
         if (playerAttack == null || !playerAttack.isAttacking)
             return;
 
-        // Evita riflessioni multiple dallo stesso attacco
         if (playerAttack.AttackId == lastAttackId)
             return;
+
         lastAttackId = playerAttack.AttackId;
 
-        if (turtleShell != null && turtleShell.isSlow)
+        if (turtleShell == null) return;
+
+        // Registra colpo per abilitare effetti punch
+        playerAttack.RegisterSuccessfulHit();
+
+        if (turtleShell.isSlow)
         {
-            // TurtleShell prende danno reale quando slow
-            turtleShell.TakeDamage(reflectDamage);
+            turtleShell.TakeDamage(5f); // infligge 5 danni durante slow
         }
         else
         {
