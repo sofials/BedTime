@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using System.Collections;
 using CartoonFX;
+using System.Collections;
 
 public class TeleportAbility : AbilityBase
 {
@@ -22,7 +22,8 @@ public class TeleportAbility : AbilityBase
     private GameObject currentPointer;
     private PlayerControls controls;
     private bool confirmPressed;
-    private Coroutine currentRoutine;
+
+    private Vector3 teleportPosition;
 
     private void Awake()
     {
@@ -67,11 +68,7 @@ public class TeleportAbility : AbilityBase
             }
 
             powerUpScript.SpendPower(powerCost);
-
-            if (currentRoutine != null)
-                StopCoroutine(currentRoutine);
-
-            currentRoutine = StartCoroutine(TeleportRoutine(0.5f));
+            StartCoroutine(ConfirmTeleportRoutine());
         }
     }
 
@@ -79,26 +76,7 @@ public class TeleportAbility : AbilityBase
     {
         if (IsActive)
         {
-            if (currentRoutine != null)
-            {
-                StopCoroutine(currentRoutine);
-                currentRoutine = null;
-            }
             Deactivate();
-
-            // Ripristina alpha e surface opaque per sicurezza
-            var mats = GetAllMaterials();
-            foreach (var mat in mats)
-            {
-                if (mat.HasProperty("_Color"))
-                {
-                    Color c = mat.color;
-                    c.a = 1f;
-                    mat.color = c;
-                    FadeHelper.SetMaterialSurfaceType(mat, false);
-                }
-            }
-            SetVisible(true);
         }
         else if (CanActivate())
         {
@@ -119,25 +97,25 @@ public class TeleportAbility : AbilityBase
 
     public override void Activate()
     {
-        currentPointer = Instantiate(telePointerPrefab);
-        var mats = GetAllMaterials();
-        currentRoutine = StartCoroutine(FadeOutAndPlayEffect(mats, 0.5f));
+        Vector3 playerPos = controllerGameObject.transform.position;
+        Quaternion playerRot = controllerGameObject.transform.rotation;
+
+        currentPointer = Instantiate(telePointerPrefab, playerPos, playerRot);
+
+        SetVisible(false);
+
+        if (teleportEffectController != null)
+        {
+            teleportEffectController.gameObject.SetActive(true);
+            teleportEffectController.PlayEffect();
+        }
+
+        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
+        if (controller != null) controller.IsMovementLocked = true;
     }
 
     public override void Deactivate()
     {
-        if (currentRoutine != null)
-        {
-            StopCoroutine(currentRoutine);
-            currentRoutine = null;
-        }
-
-        if (teleportEffectController != null)
-        {
-            teleportEffectController.StopEffect();
-            teleportEffectController.gameObject.SetActive(false);
-        }
-
         if (currentPointer)
         {
             Destroy(currentPointer);
@@ -145,17 +123,15 @@ public class TeleportAbility : AbilityBase
         }
 
         SetVisible(true);
-        var mats = GetAllMaterials();
-        foreach (var mat in mats)
+
+        if (teleportEffectController != null)
         {
-            if (mat.HasProperty("_Color"))
-            {
-                Color c = mat.color;
-                c.a = 1f;
-                mat.color = c;
-            }
-            FadeHelper.SetMaterialSurfaceType(mat, false);
+            teleportEffectController.StopEffect();
+            teleportEffectController.gameObject.SetActive(false);
         }
+
+        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
+        if (controller != null) controller.IsMovementLocked = false;
 
         IsActive = false;
     }
@@ -169,8 +145,10 @@ public class TeleportAbility : AbilityBase
             if (currentPointer != null)
             {
                 currentPointer.SetActive(true);
-                Vector3 p = hit.point; p.y += 0.1f;
-                currentPointer.transform.SetPositionAndRotation(p, Quaternion.LookRotation(hit.normal));
+                teleportPosition = hit.point;
+
+                Vector3 forward = Vector3.ProjectOnPlane(Camera.main.transform.forward, Vector3.up);
+                currentPointer.transform.SetPositionAndRotation(teleportPosition, Quaternion.LookRotation(forward));
             }
         }
         else
@@ -180,20 +158,7 @@ public class TeleportAbility : AbilityBase
         }
     }
 
-    private IEnumerator FadeOutAndPlayEffect(Material[] mats, float duration)
-    {
-        // Usa la versione aggiornata con forzatura refresh renderers
-        yield return StartCoroutine(FadeHelper.FadeMaterialsAlpha(mats, 1f, 0f, duration, meshesToHide));
-        SetVisible(false);
-
-        if (teleportEffectController != null)
-        {
-            teleportEffectController.gameObject.SetActive(true);
-            teleportEffectController.PlayEffect();
-        }
-    }
-
-    private IEnumerator TeleportRoutine(float fadeDuration)
+    private IEnumerator ConfirmTeleportRoutine()
     {
         if (currentPointer == null || !currentPointer.activeSelf)
         {
@@ -202,17 +167,9 @@ public class TeleportAbility : AbilityBase
             yield break;
         }
 
-        var mats = GetAllMaterials();
-
-        if (teleportEffectController != null)
-        {
-            teleportEffectController.StopEffect();
-            teleportEffectController.gameObject.SetActive(false);
-        }
-
         if (controllerGameObject && controllerGameObject.TryGetComponent(out CharacterController cc))
         {
-            Vector3 target = currentPointer.transform.position;
+            Vector3 target = teleportPosition;
             target.y += cc.height * 0.5f;
 
             cc.enabled = false;
@@ -224,24 +181,25 @@ public class TeleportAbility : AbilityBase
             Debug.LogWarning("CharacterController non trovato.");
         }
 
-        // Prepara materiali per il fade in (alpha = 0 e surface trasparente)
-        PrepareFadeIn(mats);
+        // Distruggi il puntatore
+        if (currentPointer)
+        {
+            Destroy(currentPointer);
+            currentPointer = null;
+        }
 
-        // Mostra mesh trasparente subito (ma senza fade ancora)
-        SetVisible(true);
-
+        // Effetto cloud PRIMA che il player appaia
         if (teleportEffectController != null)
         {
             teleportEffectController.gameObject.SetActive(true);
             teleportEffectController.PlayEffect();
         }
 
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(1f); // Tempo per vedere l'effetto prima del player
 
-        // Ora esegui il fade in del player con versione sincronizzata
-        yield return StartCoroutine(FadeHelper.FadeMaterialsAlpha(mats, 0f, 1f, fadeDuration, meshesToHide));
+        SetVisible(true); // Il player appare
 
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.3f); // Tempo finale per chiudere effetto
 
         if (teleportEffectController != null)
         {
@@ -250,31 +208,6 @@ public class TeleportAbility : AbilityBase
         }
 
         Deactivate();
-    }
-
-    private void PrepareFadeIn(Material[] mats)
-    {
-        foreach (var mat in mats)
-        {
-            FadeHelper.SetMaterialSurfaceType(mat, true);
-            if (mat.HasProperty("_Color"))
-            {
-                Color c = mat.color;
-                c.a = 0f;
-                mat.color = c;
-            }
-        }
-    }
-
-    private Material[] GetAllMaterials()
-    {
-        var mats = new System.Collections.Generic.List<Material>();
-        foreach (var smr in meshesToHide)
-        {
-            if (smr != null)
-                mats.AddRange(smr.materials);
-        }
-        return mats.ToArray();
     }
 
     private void SetVisible(bool visible)

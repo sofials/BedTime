@@ -70,6 +70,23 @@ public class ThirdPersonController : MonoBehaviour
     public CFXR_EffectController sprintFX;
     private bool sprintFXActive = false;
 
+    /*─────────────  Movement Lock  ─────────────*/
+    private bool isMovementLocked = false;
+    public bool IsMovementLocked
+    {
+        get => isMovementLocked;
+        set
+        {
+            isMovementLocked = value;
+            if (isMovementLocked)
+            {
+                moveInput = Vector2.zero;
+                playerVelocity = Vector3.zero;
+                _animator.SetFloat("Speed", 0f);
+            }
+        }
+    }
+
     /*─────────────────  Awake  ───────────────────*/
     private void Awake()
     {
@@ -96,7 +113,6 @@ public class ThirdPersonController : MonoBehaviour
         currentHealth = maxHealth;
         playerUI.UpdateHealth(currentHealth);
 
-        /* Assicuriamoci che il VFX sia spento all'avvio */
         if (sprintFX) sprintFX.StopEffect();
     }
 
@@ -115,7 +131,6 @@ public class ThirdPersonController : MonoBehaviour
         HandleMovement();
         HandleJump();
 
-        // movimento relativo a eventuale piattaforma
         if (currentPlatform != null)
         {
             controller.Move(platformDeltaPos);
@@ -148,27 +163,25 @@ public class ThirdPersonController : MonoBehaviour
         HandleSprintFX();
     }
 
-    /*──────────────  Sprint VFX  ──────────────*/
     private void HandleSprintFX()
-{
-    if (sprintFX == null) return;
-
-    bool isMoving = playerVelocity.magnitude > 0.1f;
-    bool shouldShow = isSprinting && controller.isGrounded && isMoving;
-
-    if (shouldShow && !sprintFXActive)
     {
-        sprintFX.PlayEffect();
-        sprintFXActive = true;
-    }
-    else if (!shouldShow && sprintFXActive)
-    {
-        sprintFX.StopEffect();
-        sprintFXActive = false;
-    }
-}
+        if (sprintFX == null) return;
 
-    /*─────────────  Movement helpers  ───────────*/
+        bool isMoving = playerVelocity.magnitude > 0.1f;
+        bool shouldShow = isSprinting && controller.isGrounded && isMoving;
+
+        if (shouldShow && !sprintFXActive)
+        {
+            sprintFX.PlayEffect();
+            sprintFXActive = true;
+        }
+        else if (!shouldShow && sprintFXActive)
+        {
+            sprintFX.StopEffect();
+            sprintFXActive = false;
+        }
+    }
+
     private void UpdatePlatformVelocity()
     {
         if (currentPlatform)
@@ -183,11 +196,18 @@ public class ThirdPersonController : MonoBehaviour
 
     private void HandleMovement()
     {
+        if (IsMovementLocked)
+        {
+            playerVelocity = Vector3.zero;
+            _animator.SetFloat("Speed", 0f, 0.1f, Time.deltaTime);
+            return;
+        }
+
         float h = moveInput.x;
         float v = moveInput.y;
 
         Vector3 inputDir = new Vector3(h, 0f, v).normalized;
-        float inputMag   = inputDir.magnitude;
+        float inputMag = inputDir.magnitude;
         smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMag, Time.deltaTime * 5f);
 
         if (inputMag < 0.1f)
@@ -209,12 +229,11 @@ public class ThirdPersonController : MonoBehaviour
         _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
     }
 
-    /*──────────────  Jump & fall  ──────────────*/
     private void HandleJump()
     {
         bool grounded = controller.isGrounded;
 
-        if (jumpInput && jumpCount < maxJumps)
+        if (jumpInput && jumpCount < maxJumps && !IsMovementLocked)
         {
             if (jumpCount == 0)   _animator.SetBool("Jump", true);
             else                  _animator.SetBool("DoubleJump", true);
@@ -245,6 +264,7 @@ public class ThirdPersonController : MonoBehaviour
     private void HandleAirControl()
     {
         if (controller.isGrounded) return;
+        if (IsMovementLocked) return;
 
         Vector3 inputDir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
         if (inputDir.magnitude < 0.1f) return;
@@ -257,7 +277,6 @@ public class ThirdPersonController : MonoBehaviour
         playerVelocity += new Vector3(moveDir.x, 0f, moveDir.z) * airControlSpeed;
     }
 
-    /*──────────────  Misc  ──────────────*/
     public void Respawn()
     {
         controller.enabled = false;
