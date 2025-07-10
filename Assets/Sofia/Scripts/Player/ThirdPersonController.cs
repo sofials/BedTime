@@ -299,7 +299,7 @@ public class ThirdPersonController : MonoBehaviour
 
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        if (hit.collider.CompareTag("MovingPlatform") || hit.collider.CompareTag("RotatingPlatform"))
+        if (hit.collider.CompareTag("MovingPlatform") || hit.collider.CompareTag("RotatingPlatform")||hit.collider.CompareTag("RaftPlatform"))
         {
             if (currentPlatform != hit.collider.transform)
             {
