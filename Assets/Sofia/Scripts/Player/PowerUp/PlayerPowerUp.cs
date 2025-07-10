@@ -13,7 +13,6 @@ public class PlayerPowerUp : MonoBehaviour
     public float CurrentPower => currentPower;
     public float MaxPower => maxPower;
 
-
     [Header("UI")]
     public GameObject powerUI;
 
@@ -25,6 +24,12 @@ public class PlayerPowerUp : MonoBehaviour
     private Dictionary<KeyCode, AbilityBase> abilityKeyMap;
     private PlayerControls controls;
 
+    [Header("References")]
+    public Animator playerAnimator;
+
+    [Header("Effects")]
+    public CFXR_EffectController slowdownEffectFX;
+
     void Awake()
     {
         controls = new PlayerControls();
@@ -32,6 +37,9 @@ public class PlayerPowerUp : MonoBehaviour
         controls.Gameplay.Create.performed += ctx => HandleAbility(PlatformSpawnerForwardAbility);
         controls.Gameplay.Time.performed += ctx => HandleAbility(SlowdownAbility);
         controls.Gameplay.Teleport.performed += ctx => HandleAbility(TeleportAbility);
+
+        if (playerAnimator == null)
+            playerAnimator = GetComponent<Animator>();
     }
 
     void Start()
@@ -50,24 +58,24 @@ public class PlayerPowerUp : MonoBehaviour
     private void OnDisable() => controls.Gameplay.Disable();
 
     private void HandleAbility(AbilityBase ability)
-{
-    if (ability == null) return;
+    {
+        if (ability == null) return;
 
-    if (ability is SlowdownAbility)
-    {
-        if (!ability.IsActive)
-            ability.TryActivate();
+        if (ability is SlowdownAbility)
+        {
+            if (!ability.IsActive)
+                ability.TryActivate();
+            else
+                Debug.Log("[PlayerPowerUp] Slowdown già attivo, niente toggle off.");
+        }
         else
-            Debug.Log("[PlayerPowerUp] Slowdown già attivo, niente toggle off.");
+        {
+            if (ability.IsActive)
+                ability.Deactivate();
+            else
+                ability.TryActivate();
+        }
     }
-    else
-    {
-        if (ability.IsActive)
-            ability.Deactivate();
-        else
-            ability.TryActivate();
-    }
-}
 
     public void SpendPower(float amount)
     {
@@ -80,20 +88,20 @@ public class PlayerPowerUp : MonoBehaviour
     public bool HasEnoughPower(float amount) => currentPower >= amount;
 
     public void AddPower(float amount)
-{
-    Debug.Log($"[PlayerPowerUp] AddPower chiamato con amount: {amount}");
-    if (currentPower < maxPower)
     {
-        currentPower += amount;
-        currentPower = Mathf.Min(currentPower, maxPower);
-        Debug.Log($"[PlayerPowerUp] Energia aumentata di {amount}. Attuale: {currentPower}");
+        Debug.Log($"[PlayerPowerUp] AddPower chiamato con amount: {amount}");
+        if (currentPower < maxPower)
+        {
+            currentPower += amount;
+            currentPower = Mathf.Min(currentPower, maxPower);
+            Debug.Log($"[PlayerPowerUp] Energia aumentata di {amount}. Attuale: {currentPower}");
+        }
+        else
+        {
+            Debug.Log("[PlayerPowerUp] Power già al massimo");
+        }
+        playerUI.UpdatePower(currentPower); // aggiorna la UI subito
     }
-    else
-    {
-        Debug.Log("[PlayerPowerUp] Power già al massimo");
-    }
-    playerUI.UpdatePower(currentPower); // aggiorna la UI subito
-}
 
     private void OnTriggerEnter(Collider other)
     {

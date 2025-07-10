@@ -1,4 +1,4 @@
-using UnityEngine;
+using UnityEngine; 
 using System.Collections;
 using System.Collections.Generic;
 
@@ -103,6 +103,23 @@ public class SlowdownAbility : AbilityBase
             return;
         }
 
+        // Qui avvii il trigger animazione solo se ci sono oggetti validi!
+        if (powerUpScript.playerAnimator != null)
+        {
+            powerUpScript.playerAnimator.SetTrigger("SlowdownEffect");
+            if (powerUpScript.slowdownEffectFX != null)
+            {
+                powerUpScript.slowdownEffectFX.PlayEffect();
+                Debug.Log("[SlowdownAbility] Effetto slowdown avviato.");
+            }
+
+            Debug.Log("[SlowdownAbility] Trigger SlowdownEffect animazione inviato.");
+        }
+        else
+        {
+            Debug.LogWarning("[SlowdownAbility] playerAnimator non assegnato in PlayerPowerUp!");
+        }
+
         powerUpScript.SpendPower(powerCost);
 
         Debug.Log($"[SlowdownAbility] Slowdown attivato su " +
@@ -149,6 +166,13 @@ public class SlowdownAbility : AbilityBase
                 ts.SetSlow(false);
                 Debug.Log($"Ripristinata TurtleShell: {ts.name}");
             }
+        }
+
+        // Stop effetto particle quando l'abilità finisce
+        if (powerUpScript.slowdownEffectFX != null)
+        {
+            powerUpScript.slowdownEffectFX.StopEffect();
+            Debug.Log("[SlowdownAbility] Effetto slowdown stoppato.");
         }
 
         affectedPlatforms.Clear();
