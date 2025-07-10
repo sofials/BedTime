@@ -15,9 +15,18 @@ public abstract class AbilityBase : MonoBehaviour
 
     protected virtual bool HasFixedDuration => false;
 
-    public virtual bool CanActivate()
+    [Header("Audio")]
+    public AudioClip activationSound;
+    private AudioSource audioSource;
+
+    protected virtual void Awake()
     {
-        return !IsActive && powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
+        // Aggiunge un AudioSource se non già presente
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
+
+        audioSource.playOnAwake = false;
     }
 
     protected virtual void Update()
@@ -29,12 +38,23 @@ public abstract class AbilityBase : MonoBehaviour
         }
     }
 
+    public virtual bool CanActivate()
+    {
+        return !IsActive && powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
+    }
+
     public virtual void TryActivate()
     {
         if (CanActivate())
         {
             Activate();
             IsActive = true;
+
+            // 🎵 Riproduce l'audio di attivazione
+            if (activationSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(activationSound);
+            }
 
             // Mostra effetto sull’icona UI
             if (PlayerUI.Instance != null)

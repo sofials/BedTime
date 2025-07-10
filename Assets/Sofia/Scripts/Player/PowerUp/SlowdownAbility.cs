@@ -26,37 +26,21 @@ public class SlowdownAbility : AbilityBase
 
     private void Awake()
     {
+        base.Awake(); // inizializza AudioSource
         duration = customDuration;
-        Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
         effectIconIndex = 3;
+        Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
     }
 
     public override void TryActivate()
     {
-        if (!CanActivate())
-        {
-            Debug.Log("Impossibile attivare l'abilità.");
-            return;
-        }
-
         if (IsActive)
         {
             Debug.Log("[SlowdownAbility] Abilità già attiva – ignoro.");
             return;
         }
 
-        Activate();
-        IsActive = true;
-
-        PlayerUI.Instance?.PulseIconAt(effectIconIndex);
-
-        if (HasFixedDuration)
-        {
-            if (deactivateCoroutine != null)
-                StopCoroutine(deactivateCoroutine);
-
-            deactivateCoroutine = StartCoroutine(DeactivateAfterDuration());
-        }
+        base.TryActivate(); // ✅ include audio, UI, e gestione durata
     }
 
     private IEnumerator DeactivateAfterDuration()
@@ -79,42 +63,35 @@ public class SlowdownAbility : AbilityBase
 
         foreach (Collider col in colliders)
         {
-            if (col.CompareTag("MovingPlatform"))
+            if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
             {
-                if (col.TryGetComponent(out MovingPlatform mp))
+                affectedPlatforms.Add(new PlatformData
                 {
-                    affectedPlatforms.Add(new PlatformData
-                    {
-                        platform = mp,
-                        originalSpeedMultiplier = 1f
-                    });
-                    mp.SetSpeedMultiplier(slowdownFactor);
-                    Debug.Log($"→ MovingPlatform {col.name} rallentata.");
-                }
+                    platform = mp,
+                    originalSpeedMultiplier = 1f
+                });
+                mp.SetSpeedMultiplier(slowdownFactor);
+                Debug.Log($"→ MovingPlatform {col.name} rallentata.");
             }
-            else if (col.CompareTag("RotatingPlatform"))
+            else if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
             {
-                if (col.TryGetComponent(out RotatingObject ro))
-                {
-                    affectedRotators.Add(ro);
-                    ro.SetSpeedMultiplier(slowdownFactor);
-                    Debug.Log($"→ RotatingPlatform {col.name} rallentata.");
-                }
+                affectedRotators.Add(ro);
+                ro.SetSpeedMultiplier(slowdownFactor);
+                Debug.Log($"→ RotatingPlatform {col.name} rallentata.");
             }
             else if (col.CompareTag("TurtleShellHurtbox"))
             {
                 TurtleShell ts = col.GetComponentInParent<TurtleShell>();
                 if (ts != null && !affectedTurtleShells.Contains(ts))
                 {
-                   if (!ts.isSlow) // evita di chiamare più volte SetSlow(true)
-                      {
-                             Debug.Log($"SetSlow(true) chiamato su {ts.name}");
-                             ts.slowFactor = slowdownFactor; // opzionale
-                             ts.SetSlow(true);
-                             affectedTurtleShells.Add(ts);
-                             Debug.Log($"→ TurtleShell {ts.name} rallentata.");
-                      }
-
+                    if (!ts.isSlow)
+                    {
+                        Debug.Log($"SetSlow(true) chiamato su {ts.name}");
+                        ts.slowFactor = slowdownFactor;
+                        ts.SetSlow(true);
+                        affectedTurtleShells.Add(ts);
+                        Debug.Log($"→ TurtleShell {ts.name} rallentata.");
+                    }
                 }
             }
         }
@@ -127,11 +104,20 @@ public class SlowdownAbility : AbilityBase
         }
 
         powerUpScript.SpendPower(powerCost);
+
         Debug.Log($"[SlowdownAbility] Slowdown attivato su " +
                   $"{affectedPlatforms.Count} piattaforme, " +
                   $"{affectedRotators.Count} rotatori, " +
                   $"{affectedTurtleShells.Count} TurtleShell.");
         Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
+
+        if (HasFixedDuration)
+        {
+            if (deactivateCoroutine != null)
+                StopCoroutine(deactivateCoroutine);
+
+            deactivateCoroutine = StartCoroutine(DeactivateAfterDuration());
+        }
     }
 
     public override void Deactivate()

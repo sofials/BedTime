@@ -28,6 +28,7 @@ public class TeleportAbility : AbilityBase
 
     private void Awake()
     {
+        base.Awake(); // ✅ Essenziale per inizializzare l'audio da AbilityBase
         controls = new PlayerControls();
         controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
@@ -81,14 +82,8 @@ public class TeleportAbility : AbilityBase
         }
         else if (CanActivate())
         {
-            Activate();
-            IsActive = true;
-
-            if (PlayerUI.Instance != null)
-                PlayerUI.Instance.PulseIconAt(effectIconIndex);
-
-            if (HasFixedDuration)
-                Invoke(nameof(Deactivate), duration);
+            // Fa partire tutto il sistema base, incluso audio
+            base.TryActivate();
         }
         else
         {
