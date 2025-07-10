@@ -43,28 +43,31 @@ public class SlowdownAbility : AbilityBase
         base.TryActivate();
     }
 
-   private IEnumerator DeactivateAfterDuration()
-{
-    float blinkDuration = 1.5f;
-
-    // Aspetta la durata totale meno il tempo di lampeggio
-    yield return new WaitForSeconds(duration - blinkDuration);
-
-    // Inizia il lampeggio su tutte le piattaforme interessate
-    foreach (var data in affectedPlatforms)
+    private IEnumerator DeactivateAfterDuration()
     {
-        if (data.platform != null)
-            data.platform.StartBlinkingOverlay(blinkDuration);
+        float blinkDuration = 1.5f;
+
+        yield return new WaitForSeconds(duration - blinkDuration);
+
+        // Blinking MovingPlatform
+        foreach (var data in affectedPlatforms)
+        {
+            if (data.platform != null)
+                data.platform.StartBlinkingOverlay(blinkDuration);
+        }
+
+        // Blinking RotatingPlatform
+        foreach (var ro in affectedRotators)
+        {
+            if (ro != null)
+                ro.StartBlinkingOverlay(blinkDuration);
+        }
+
+        yield return new WaitForSeconds(blinkDuration);
+
+        Deactivate();
+        deactivateCoroutine = null;
     }
-
-    // Aspetta che finisca il lampeggio
-    yield return new WaitForSeconds(blinkDuration);
-
-    // Disattiva l'abilità
-    Deactivate();
-    deactivateCoroutine = null;
-}
-
 
     public override void Activate()
     {
@@ -95,7 +98,9 @@ public class SlowdownAbility : AbilityBase
             {
                 affectedRotators.Add(ro);
                 ro.SetSpeedMultiplier(slowdownFactor);
-                Debug.Log($"→ RotatingPlatform {col.name} rallentata.");
+                ro.SetOverlayActive(true);
+                ro.PlaySlowdownEffect(1f);
+                Debug.Log($"→ RotatingPlatform {col.name} rallentata, patina e effetto attivati.");
             }
             else if (col.CompareTag("TurtleShellHurtbox"))
             {
@@ -159,7 +164,8 @@ public class SlowdownAbility : AbilityBase
             if (ro != null)
             {
                 ro.SetSpeedMultiplier(1f);
-                Debug.Log($"Ripristinato RotatingPlatform: {ro.name}");
+                ro.SetOverlayActive(false);
+                Debug.Log($"Ripristinato RotatingPlatform e patina disattivata: {ro.name}");
             }
         }
 

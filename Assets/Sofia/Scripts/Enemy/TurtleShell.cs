@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
+using System.Collections.Generic;
 
 public class TurtleShell : MonoBehaviour
 {
@@ -36,6 +37,8 @@ public class TurtleShell : MonoBehaviour
     [Header("VFX")]
     public Renderer Renderer;
     public CFXR_EffectController deathEffectController;
+    [SerializeField] private Material patinaMaterial;
+    [SerializeField] private CFXR_EffectController slowdownEffect;
 
     private bool isDead = false;
     private bool isStunned = false;
@@ -49,6 +52,8 @@ public class TurtleShell : MonoBehaviour
     private bool isAttacking = false;
     private float attackTimer = 0f;
     private Animator animator;
+
+    private bool patinaActive = false;
 
     private void Awake()
     {
@@ -67,6 +72,9 @@ public class TurtleShell : MonoBehaviour
 
         if (deathEffectController != null)
             deathEffectController.StopEffect();
+
+        if (slowdownEffect != null)
+            slowdownEffect.gameObject.SetActive(false);
     }
 
     private void Update()
@@ -261,8 +269,82 @@ public class TurtleShell : MonoBehaviour
         agent.speed = slow ? walkSpeed * slowFactor : walkSpeed;
         animator.SetBool("isSlow", slow);
 
+        if (slow)
+        {
+            SetOverlayActive(true);
+            PlaySlowdownEffect(1f);
+        }
+        else
+        {
+            SetOverlayActive(false);
+        }
+
         if (!slow)
             hasBeenHitWhileSlow = false;
+    }
+
+    public void StartBlinkingOverlay(float duration)
+    {
+        if (Renderer == null || patinaMaterial == null) return;
+        StartCoroutine(BlinkOverlay(duration));
+    }
+
+    private IEnumerator BlinkOverlay(float duration)
+    {
+        float elapsed = 0f;
+        float blinkRate = 0.2f;
+        bool state = true;
+
+        while (elapsed < duration)
+        {
+            SetOverlayActive(state);
+            state = !state;
+            yield return new WaitForSeconds(blinkRate);
+            elapsed += blinkRate;
+        }
+
+        SetOverlayActive(false);
+    }
+
+    public void SetOverlayActive(bool active)
+    {
+        if (Renderer == null || patinaMaterial == null) return;
+
+        var materials = new List<Material>(Renderer.sharedMaterials);
+
+        if (active && !patinaActive)
+        {
+            if (!materials.Contains(patinaMaterial))
+            {
+                materials.Add(patinaMaterial);
+                Renderer.materials = materials.ToArray();
+                patinaActive = true;
+            }
+        }
+        else if (!active && patinaActive)
+        {
+            materials.Remove(patinaMaterial);
+            Renderer.materials = materials.ToArray();
+            patinaActive = false;
+        }
+    }
+
+    public void PlaySlowdownEffect(float duration = 1f)
+    {
+        if (slowdownEffect == null) return;
+
+        StartCoroutine(PlayEffectRoutine(duration));
+    }
+
+    private IEnumerator PlayEffectRoutine(float duration)
+    {
+        slowdownEffect.gameObject.SetActive(true);
+        slowdownEffect.PlayEffect();
+
+        yield return new WaitForSeconds(duration);
+
+        slowdownEffect.StopEffect();
+        slowdownEffect.gameObject.SetActive(false);
     }
 
     public void TakeDamage(float damage)
@@ -278,7 +360,7 @@ public class TurtleShell : MonoBehaviour
 
                 SetSlow(false);
                 agent.isStopped = true;
-                isStunned = true; // blocco completo fino alla morte
+                isStunned = true;
             }
             return;
         }
@@ -297,14 +379,14 @@ public class TurtleShell : MonoBehaviour
     private IEnumerator HandleDeath()
     {
         agent.isStopped = true;
-        yield return null; // L’animazione "Die" parte da AnimationEvent dentro GetHitReal
+        yield return null;
     }
 
     public void TriggerDie()
     {
         if (isDead) return;
         isDead = true;
-        isStunned = true; // continua il blocco fino alla distruzione
+        isStunned = true;
         agent.isStopped = true;
         animator.SetTrigger("Die");
     }
