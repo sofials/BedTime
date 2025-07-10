@@ -27,9 +27,6 @@ public class PlayerPowerUp : MonoBehaviour
     [Header("References")]
     public Animator playerAnimator;
 
-    [Header("Effects")]
-    public CFXR_EffectController slowdownEffectFX;
-
     void Awake()
     {
         controls = new PlayerControls();

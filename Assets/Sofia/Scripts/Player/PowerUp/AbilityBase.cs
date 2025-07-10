@@ -17,11 +17,10 @@ public abstract class AbilityBase : MonoBehaviour
 
     [Header("Audio")]
     public AudioClip activationSound;
-    private AudioSource audioSource;
+    private AudioSource audioSource;  // privato
 
     protected virtual void Awake()
     {
-        // Aggiunge un AudioSource se non già presente
         audioSource = GetComponent<AudioSource>();
         if (audioSource == null)
             audioSource = gameObject.AddComponent<AudioSource>();
@@ -50,18 +49,15 @@ public abstract class AbilityBase : MonoBehaviour
             Activate();
             IsActive = true;
 
-            // 🎵 Riproduce l'audio di attivazione
             if (activationSound != null && audioSource != null)
             {
                 audioSource.PlayOneShot(activationSound);
             }
 
-            // Mostra effetto sull’icona UI
             if (PlayerUI.Instance != null)
                 PlayerUI.Instance.PulseIconAt(effectIconIndex);
 
-            if (HasFixedDuration)
-                Invoke(nameof(Deactivate), duration);
+            // Nota: Non fare Invoke qui, lascia gestire la durata a subclassi
         }
         else
         {

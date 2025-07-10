@@ -1,4 +1,4 @@
-using UnityEngine; 
+using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -24,9 +24,9 @@ public class SlowdownAbility : AbilityBase
 
     private Coroutine deactivateCoroutine;
 
-    private void Awake()
+    protected override void Awake()
     {
-        base.Awake(); // inizializza AudioSource
+        base.Awake();
         duration = customDuration;
         effectIconIndex = 3;
         Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
@@ -36,19 +36,35 @@ public class SlowdownAbility : AbilityBase
     {
         if (IsActive)
         {
-            Debug.Log("[SlowdownAbility] Abilità già attiva – ignoro.");
+            Debug.Log("[SlowdownAbility] Abilità già attiva – ignoro attivazione.");
             return;
         }
 
-        base.TryActivate(); // ✅ include audio, UI, e gestione durata
+        base.TryActivate();
     }
 
-    private IEnumerator DeactivateAfterDuration()
+   private IEnumerator DeactivateAfterDuration()
+{
+    float blinkDuration = 1.5f;
+
+    // Aspetta la durata totale meno il tempo di lampeggio
+    yield return new WaitForSeconds(duration - blinkDuration);
+
+    // Inizia il lampeggio su tutte le piattaforme interessate
+    foreach (var data in affectedPlatforms)
     {
-        yield return new WaitForSeconds(duration);
-        Deactivate();
-        deactivateCoroutine = null;
+        if (data.platform != null)
+            data.platform.StartBlinkingOverlay(blinkDuration);
     }
+
+    // Aspetta che finisca il lampeggio
+    yield return new WaitForSeconds(blinkDuration);
+
+    // Disattiva l'abilità
+    Deactivate();
+    deactivateCoroutine = null;
+}
+
 
     public override void Activate()
     {
@@ -71,7 +87,9 @@ public class SlowdownAbility : AbilityBase
                     originalSpeedMultiplier = 1f
                 });
                 mp.SetSpeedMultiplier(slowdownFactor);
-                Debug.Log($"→ MovingPlatform {col.name} rallentata.");
+                mp.SetOverlayActive(true);
+                mp.PlaySlowdownEffect(1f);
+                Debug.Log($"→ MovingPlatform {col.name} rallentata, patina e effetto attivati.");
             }
             else if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
             {
@@ -82,16 +100,12 @@ public class SlowdownAbility : AbilityBase
             else if (col.CompareTag("TurtleShellHurtbox"))
             {
                 TurtleShell ts = col.GetComponentInParent<TurtleShell>();
-                if (ts != null && !affectedTurtleShells.Contains(ts))
+                if (ts != null && !affectedTurtleShells.Contains(ts) && !ts.isSlow)
                 {
-                    if (!ts.isSlow)
-                    {
-                        Debug.Log($"SetSlow(true) chiamato su {ts.name}");
-                        ts.slowFactor = slowdownFactor;
-                        ts.SetSlow(true);
-                        affectedTurtleShells.Add(ts);
-                        Debug.Log($"→ TurtleShell {ts.name} rallentata.");
-                    }
+                    ts.slowFactor = slowdownFactor;
+                    ts.SetSlow(true);
+                    affectedTurtleShells.Add(ts);
+                    Debug.Log($"→ TurtleShell {ts.name} rallentata.");
                 }
             }
         }
@@ -103,16 +117,9 @@ public class SlowdownAbility : AbilityBase
             return;
         }
 
-        // Qui avvii il trigger animazione solo se ci sono oggetti validi!
         if (powerUpScript.playerAnimator != null)
         {
             powerUpScript.playerAnimator.SetTrigger("SlowdownEffect");
-            if (powerUpScript.slowdownEffectFX != null)
-            {
-                powerUpScript.slowdownEffectFX.PlayEffect();
-                Debug.Log("[SlowdownAbility] Effetto slowdown avviato.");
-            }
-
             Debug.Log("[SlowdownAbility] Trigger SlowdownEffect animazione inviato.");
         }
         else
@@ -120,12 +127,8 @@ public class SlowdownAbility : AbilityBase
             Debug.LogWarning("[SlowdownAbility] playerAnimator non assegnato in PlayerPowerUp!");
         }
 
-        powerUpScript.SpendPower(powerCost);
-
-        Debug.Log($"[SlowdownAbility] Slowdown attivato su " +
-                  $"{affectedPlatforms.Count} piattaforme, " +
-                  $"{affectedRotators.Count} rotatori, " +
-                  $"{affectedTurtleShells.Count} TurtleShell.");
+        Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme, " +
+                  $"{affectedRotators.Count} rotatori, {affectedTurtleShells.Count} TurtleShell.");
         Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
 
         if (HasFixedDuration)
@@ -146,7 +149,8 @@ public class SlowdownAbility : AbilityBase
             if (data.platform != null)
             {
                 data.platform.SetSpeedMultiplier(data.originalSpeedMultiplier);
-                Debug.Log($"Ripristinata MovingPlatform: {data.platform.name}");
+                data.platform.SetOverlayActive(false);
+                Debug.Log($"Ripristinata MovingPlatform e patina disattivata: {data.platform.name}");
             }
         }
 
@@ -168,16 +172,10 @@ public class SlowdownAbility : AbilityBase
             }
         }
 
-        // Stop effetto particle quando l'abilità finisce
-        if (powerUpScript.slowdownEffectFX != null)
-        {
-            powerUpScript.slowdownEffectFX.StopEffect();
-            Debug.Log("[SlowdownAbility] Effetto slowdown stoppato.");
-        }
-
         affectedPlatforms.Clear();
         affectedRotators.Clear();
         affectedTurtleShells.Clear();
+
         IsActive = false;
 
         Debug.Log("[SlowdownAbility] Slowdown disattivato.");
