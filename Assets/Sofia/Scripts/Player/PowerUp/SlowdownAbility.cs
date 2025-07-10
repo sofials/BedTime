@@ -39,7 +39,6 @@ public class SlowdownAbility : AbilityBase
             Debug.Log("[SlowdownAbility] Abilità già attiva – ignoro attivazione.");
             return;
         }
-
         base.TryActivate();
     }
 
@@ -49,18 +48,20 @@ public class SlowdownAbility : AbilityBase
 
         yield return new WaitForSeconds(duration - blinkDuration);
 
-        // Blinking MovingPlatform
         foreach (var data in affectedPlatforms)
         {
             if (data.platform != null)
                 data.platform.StartBlinkingOverlay(blinkDuration);
         }
-
-        // Blinking RotatingPlatform
         foreach (var ro in affectedRotators)
         {
             if (ro != null)
                 ro.StartBlinkingOverlay(blinkDuration);
+        }
+        foreach (var ts in affectedTurtleShells)
+        {
+            if (ts != null)
+                ts.StartBlinkingOverlay(blinkDuration);
         }
 
         yield return new WaitForSeconds(blinkDuration);
@@ -109,6 +110,9 @@ public class SlowdownAbility : AbilityBase
                 {
                     ts.slowFactor = slowdownFactor;
                     ts.SetSlow(true);
+                    ts.SetOverlayActive(true);
+                    ts.PlaySlowdownEffect(1f);
+                    ts.activeSlowdownAbility = this; // collega la slowdown
                     affectedTurtleShells.Add(ts);
                     Debug.Log($"→ TurtleShell {ts.name} rallentata.");
                 }
@@ -122,14 +126,14 @@ public class SlowdownAbility : AbilityBase
             return;
         }
 
-        if (powerUpScript.playerAnimator != null)
+        // NON attivare animazione qui, la fa PlayerPowerUp tramite trigger
+        if (powerUpScript.playerAnimator == null)
         {
-            powerUpScript.playerAnimator.SetTrigger("SlowdownEffect");
-            Debug.Log("[SlowdownAbility] Trigger SlowdownEffect animazione inviato.");
+            Debug.LogWarning("[SlowdownAbility] playerAnimator non assegnato in PlayerPowerUp!");
         }
         else
         {
-            Debug.LogWarning("[SlowdownAbility] playerAnimator non assegnato in PlayerPowerUp!");
+            Debug.Log("[SlowdownAbility] Attivazione effetto slowdown senza animazione diretta qui.");
         }
 
         Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme, " +
@@ -174,7 +178,9 @@ public class SlowdownAbility : AbilityBase
             if (ts != null)
             {
                 ts.SetSlow(false);
-                Debug.Log($"Ripristinata TurtleShell: {ts.name}");
+                ts.SetOverlayActive(false);
+                ts.activeSlowdownAbility = null; // pulizia riferimento
+                Debug.Log($"Ripristinata TurtleShell e patina disattivata: {ts.name}");
             }
         }
 
