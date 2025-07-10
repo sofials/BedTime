@@ -33,11 +33,12 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     private void Awake()
     {
+        base.Awake(); // ✅ importante per AudioSource
         controls = new PlayerControls();
         controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
 
-        effectIconIndex = 1;      // slot icona dedicato
+        effectIconIndex = 1; // slot icona dedicato
     }
 
     private void Start()
@@ -47,9 +48,9 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     /* ---------- MAIN LOOP ---------- */
 
-    protected override void Update()        // ← override, non più private!
+    protected override void Update()
     {
-        base.Update();                      // ← mantiene il feedback grigio/bianco
+        base.Update(); // mantiene aggiornamenti UI
 
         if (!placing || currentGhost == null) return;
 
@@ -94,11 +95,28 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     /* ---------- PUBLIC API ---------- */
 
+    public override void TryActivate()
+    {
+        if (IsActive)
+        {
+            Deactivate();
+        }
+        else if (CanActivate())
+        {
+            base.TryActivate(); // ✅ usa logica di base (con audio incluso)
+        }
+        else
+        {
+            Debug.Log("Impossibile attivare lo spawn piattaforma.");
+        }
+    }
+
     public override void Activate()
     {
         if (placing || currentGhost) return;
 
-        placing = true; IsActive = true;
+        placing = true;
+        IsActive = true;
 
         lastForwardDirection = GetCameraForwardFlat();
         Vector3 spawnPos     = GetSpawnPosition(lastForwardDirection);
@@ -120,7 +138,8 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     private Vector3 GetCameraForwardFlat()
     {
-        Vector3 f = cameraTransform.forward; f.y = 0f;
+        Vector3 f = cameraTransform.forward;
+        f.y = 0f;
         return f.normalized;
     }
 
