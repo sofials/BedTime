@@ -16,6 +16,10 @@ public class TeleportAbility : AbilityBase
     [Header("Effect FX")]
     public CFXR_EffectController teleportEffectController;
 
+    [Header("Audio")]
+    public AudioClip teleportConfirmSound;  // Audio specifico per conferma teletrasporto
+    private AudioSource teleportConfirmAudioSource;
+
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
@@ -28,11 +32,17 @@ public class TeleportAbility : AbilityBase
 
     private void Awake()
     {
-        base.Awake(); // ✅ Essenziale per inizializzare l'audio da AbilityBase
+        base.Awake(); // Essenziale per inizializzare audio di AbilityBase
+
         controls = new PlayerControls();
         controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
+
         effectIconIndex = 2;
+
+        // Setup AudioSource per suono conferma teletrasporto
+        teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
+        teleportConfirmAudioSource.playOnAwake = false;
     }
 
     private void Start()
@@ -70,6 +80,13 @@ public class TeleportAbility : AbilityBase
             }
 
             powerUpScript.SpendPower(powerCost);
+
+            // Esegui audio conferma
+            if (teleportConfirmSound != null)
+            {
+                teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
+            }
+
             StartCoroutine(ConfirmTeleportRoutine());
         }
     }
@@ -82,7 +99,6 @@ public class TeleportAbility : AbilityBase
         }
         else if (CanActivate())
         {
-            // Fa partire tutto il sistema base, incluso audio
             base.TryActivate();
         }
         else

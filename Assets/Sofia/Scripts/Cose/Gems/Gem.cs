@@ -6,24 +6,33 @@ public class Gem : MonoBehaviour
 {
     [Header("Gameplay")]
     [SerializeField] private int gemValue = 10;
-    [SerializeField] private float respawnSec  = 10f;
+    [SerializeField] private float respawnSec = 10f;
 
-    // Cache per efficienza
-    private Collider  _coll;
+    [Header("Audio")]
+    [SerializeField] private AudioClip collectSound;  // Clip da assegnare in Inspector
+    private AudioSource audioSource;
+
+    private Collider _coll;
     private Renderer[] _renderers;
 
     private void Awake()
     {
-        _coll       = GetComponent<Collider>();
-        _coll.isTrigger = true;           // Assicuriamoci che sia trigger
-        _renderers  = GetComponentsInChildren<Renderer>(includeInactive: true);
+        _coll = GetComponent<Collider>();
+        _coll.isTrigger = true;
+        _renderers = GetComponentsInChildren<Renderer>(includeInactive: true);
+
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
     }
 
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
 
-        // ➜ Qui puoi aggiungere punteggio, suoni, particelle, ecc.
         Collect();
     }
 
@@ -31,11 +40,15 @@ public class Gem : MonoBehaviour
 
     public void Collect()
     {
-        // Disattiviamo visivamente e collisioni
+        // Riproduci audio raccolta
+        if (collectSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(collectSound);
+        }
+
         SetActiveVisual(false);
         _coll.enabled = false;
 
-        // Avviamo il timer di respawn
         StartCoroutine(RespawnCoroutine());
     }
 
@@ -43,7 +56,6 @@ public class Gem : MonoBehaviour
     {
         yield return new WaitForSeconds(respawnSec);
 
-        // Riabilitiamo
         _coll.enabled = true;
         SetActiveVisual(true);
     }
