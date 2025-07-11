@@ -10,8 +10,11 @@ public class SlowdownAbility : AbilityBase
     public float customDuration = 10f;
 
     [Header("Audio")]
-    public AudioClip effectAudioClip;  // audio specifico per effetto visivo
-    private AudioSource effectAudioSource;  // audio source dedicato
+    public AudioClip effectAudioClip;
+    private AudioSource effectAudioSource;
+
+    [Header("NPC Village da bloccare")]
+    public Npc_village[] npcsToSlow;
 
     public override int powerCost => 20;
     protected override bool HasFixedDuration => true;
@@ -33,9 +36,7 @@ public class SlowdownAbility : AbilityBase
         base.Awake();
         duration = customDuration;
         effectIconIndex = 3;
-        Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
 
-        // Setup audio source per effetto visivo
         effectAudioSource = gameObject.AddComponent<AudioSource>();
         effectAudioSource.playOnAwake = false;
         effectAudioSource.clip = effectAudioClip;
@@ -98,7 +99,7 @@ public class SlowdownAbility : AbilityBase
                 mp.SetSpeedMultiplier(slowdownFactor);
                 mp.SetOverlayActive(true);
                 mp.PlaySlowdownEffect(1f);
-                Debug.Log($"→ MovingPlatform {col.name} rallentata, patina e effetto attivati.");
+                Debug.Log($"→ MovingPlatform {col.name} rallentata.");
             }
             else if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
             {
@@ -106,7 +107,7 @@ public class SlowdownAbility : AbilityBase
                 ro.SetSpeedMultiplier(slowdownFactor);
                 ro.SetOverlayActive(true);
                 ro.PlaySlowdownEffect(1f);
-                Debug.Log($"→ RotatingPlatform {col.name} rallentata, patina e effetto attivati.");
+                Debug.Log($"→ RotatingPlatform {col.name} rallentata.");
             }
             else if (col.CompareTag("TurtleShellHurtbox"))
             {
@@ -122,6 +123,33 @@ public class SlowdownAbility : AbilityBase
                     Debug.Log($"→ TurtleShell {ts.name} rallentata.");
                 }
             }
+            else if (col.CompareTag("Wall_Village"))
+            {
+                Debug.Log("[SlowdownAbility] Wall_Village colpito: " + col.name);
+
+                // Blocca gli NPC assegnati da inspector (solo slow = true)
+                foreach (Npc_village npc in npcsToSlow)
+                {
+                    if (npc != null)
+                    {
+                        npc.SetSlow(true);
+                        Debug.Log($"→ NPC {npc.name} bloccato (Slow=true).");
+                    }
+                }
+
+                // Distruggi il muro e il suo genitore (se esiste)
+                Transform wallTransform = col.transform;
+                if (wallTransform.parent != null)
+                {
+                    Destroy(wallTransform.parent.gameObject);
+                    Debug.Log($"→ Distrutto parent: {wallTransform.parent.name}");
+                }
+                else
+                {
+                    Destroy(wallTransform.gameObject);
+                    Debug.Log($"→ Distrutto muro: {wallTransform.name}");
+                }
+            }
         }
 
         if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0)
@@ -131,15 +159,10 @@ public class SlowdownAbility : AbilityBase
             return;
         }
 
-        // Qui facciamo partire l'audio dell'effetto visivo
         if (effectAudioSource != null && effectAudioClip != null)
         {
             effectAudioSource.Play();
             Debug.Log("[SlowdownAbility] Audio effetto slowdown riprodotto.");
-        }
-        else
-        {
-            Debug.LogWarning("[SlowdownAbility] effectAudioSource o effectAudioClip non assegnato.");
         }
 
         Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme, " +
@@ -165,7 +188,7 @@ public class SlowdownAbility : AbilityBase
             {
                 data.platform.SetSpeedMultiplier(data.originalSpeedMultiplier);
                 data.platform.SetOverlayActive(false);
-                Debug.Log($"Ripristinata MovingPlatform e patina disattivata: {data.platform.name}");
+                Debug.Log($"→ Ripristinata MovingPlatform: {data.platform.name}");
             }
         }
 
@@ -175,7 +198,7 @@ public class SlowdownAbility : AbilityBase
             {
                 ro.SetSpeedMultiplier(1f);
                 ro.SetOverlayActive(false);
-                Debug.Log($"Ripristinato RotatingPlatform e patina disattivata: {ro.name}");
+                Debug.Log($"→ Ripristinato RotatingPlatform: {ro.name}");
             }
         }
 
@@ -186,9 +209,11 @@ public class SlowdownAbility : AbilityBase
                 ts.SetSlow(false);
                 ts.SetOverlayActive(false);
                 ts.activeSlowdownAbility = null;
-                Debug.Log($"Ripristinata TurtleShell e patina disattivata: {ts.name}");
+                Debug.Log($"→ Ripristinata TurtleShell: {ts.name}");
             }
         }
+
+        // Non sbloccare mai gli NPC!
 
         affectedPlatforms.Clear();
         affectedRotators.Clear();
