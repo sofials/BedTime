@@ -211,52 +211,65 @@ public class ThirdPersonController : MonoBehaviour
         transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
         Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-        float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
 
+        // ✅ Proietta il movimento sulla pendenza
+        moveDir = Vector3.ProjectOnPlane(moveDir, GetGroundNormal());
+
+        float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
         playerVelocity = moveDir.normalized * targetSpeed;
+
         float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / sprintSpeed);
         _animator.SetFloat("Speed", speedNormalized, 0.1f, Time.deltaTime);
     }
 
     private void HandleJump()
+    {
+        bool grounded = controller.isGrounded;
+
+        if (jumpInput && jumpCount < maxJumps && !IsMovementLocked)
+        {
+            if (jumpCount == 0)
+                _animator.SetBool("Jump", true);
+            else
+                _animator.SetBool("DoubleJump", true);
+
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            jumpCount++;
+            jumpInput = false;
+
+            currentPlatform = null;
+        }
+
+        // Se siamo in aria e stiamo iniziando a cadere, disattiva double jump
+        if (velocity.y < 0 && _animator.GetBool("DoubleJump"))
+        {
+            _animator.SetBool("DoubleJump", false);
+        }
+
+        if (velocity.y < 0) velocity.y += gravity * 2.5f * Time.deltaTime;
+        else if (velocity.y > 0 && !isHoldingJump) velocity.y += gravity * 2f * Time.deltaTime;
+        else velocity.y += gravity * Time.deltaTime;
+
+        if (grounded && velocity.y < 0) velocity.y = -2f;
+    }
+
+   private void HandleFalling()
 {
     bool grounded = controller.isGrounded;
 
-    if (jumpInput && jumpCount < maxJumps && !IsMovementLocked)
-    {
-        if (jumpCount == 0)
-            _animator.SetBool("Jump", true);
-        else
-            _animator.SetBool("DoubleJump", true);
+    // Se non sei grounded, stai scendendo, e sei lontano dal terreno → sei davvero in caduta
+    bool isTrulyFalling = !grounded && velocity.y < -5f && !IsNearGroundBelow();
 
-        velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-        jumpCount++;
-        jumpInput = false;
-
-        currentPlatform = null;
-    }
-
-    // Se siamo in aria e stiamo iniziando a cadere, disattiva double jump
-    if (velocity.y < 0 && _animator.GetBool("DoubleJump"))
-    {
-        _animator.SetBool("DoubleJump", false);
-    }
-
-    if (velocity.y < 0) velocity.y += gravity * 2.5f * Time.deltaTime;
-    else if (velocity.y > 0 && !isHoldingJump) velocity.y += gravity * 2f * Time.deltaTime;
-    else velocity.y += gravity * Time.deltaTime;
-
-    if (grounded && velocity.y < 0) velocity.y = -2f;
+    _animator.SetBool("isFalling", isTrulyFalling);
+}
+private bool IsNearGroundBelow()
+{
+    RaycastHit hit;
+    float checkDistance = 0.3f; // aumenta se vuoi tolleranza maggiore
+    Vector3 origin = transform.position + Vector3.up * 0.1f;
+    return Physics.Raycast(origin, Vector3.down, out hit, checkDistance);
 }
 
-    private void HandleFalling()
-    {
-        bool grounded = controller.isGrounded;
-        bool falling = !grounded && velocity.y < -3f &&
-                       !_animator.GetBool("Jump") && !_animator.GetBool("DoubleJump");
-
-        _animator.SetBool("isFalling", falling);
-    }
 
     private void HandleAirControl()
     {
@@ -273,35 +286,35 @@ public class ThirdPersonController : MonoBehaviour
         playerVelocity += new Vector3(moveDir.x, 0f, moveDir.z) * airControlSpeed;
     }
 
-  public void Respawn()
-{
-    controller.enabled = false;
+    public void Respawn()
+    {
+        controller.enabled = false;
 
-    Transform spawnPoint = GameManager.Instance.currentCheckpoint != null ?
-                           GameManager.Instance.currentCheckpoint :
-                           GameManager.Instance.levelStartPoint;
+        Transform spawnPoint = GameManager.Instance.currentCheckpoint != null ?
+                               GameManager.Instance.currentCheckpoint :
+                               GameManager.Instance.levelStartPoint;
 
-    transform.position = spawnPoint.position;
-    transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+        transform.position = spawnPoint.position;
+        transform.rotation = Quaternion.Euler(0f, 0f, 0f);
 
-    velocity = Vector3.zero;
-    controller.enabled = true;
+        velocity = Vector3.zero;
+        controller.enabled = true;
 
-    _animator.ResetTrigger("Jump");
-    _animator.ResetTrigger("DoubleJump");
-    _animator.SetBool("Jump", false);
-    _animator.SetBool("DoubleJump", false);
+        _animator.ResetTrigger("Jump");
+        _animator.ResetTrigger("DoubleJump");
+        _animator.SetBool("Jump", false);
+        _animator.SetBool("DoubleJump", false);
 
-    jumpCount = 0;
+        jumpCount = 0;
 
-    // Aggiungi questa riga:
-    wasGroundedLastFrame = true;
+        // Aggiungi questa riga:
+        wasGroundedLastFrame = true;
 
-    if (sprintFX) sprintFX.StopEffect();
-    sprintFXActive = false;
+        if (sprintFX) sprintFX.StopEffect();
+        sprintFXActive = false;
 
-    IsMovementLocked = false;
-}
+        IsMovementLocked = false;
+    }
 
 
 
@@ -394,4 +407,17 @@ public class ThirdPersonController : MonoBehaviour
         playerUI.UpdateHealth(currentHealth);
         IsMovementLocked = false;
     }
+    private Vector3 GetGroundNormal()
+{
+    if (controller.isGrounded)
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hit, 1.5f))
+        {
+            return hit.normal;
+        }
+    }
+    return Vector3.up;
+}
+
 }
