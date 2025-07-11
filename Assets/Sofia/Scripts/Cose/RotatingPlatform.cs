@@ -14,6 +14,10 @@ public class RotatingObject : MonoBehaviour
     [Header("Slowdown FX")]
     [SerializeField] private CFXR_EffectController slowdownEffect;
 
+    [Header("Girandola Mode")]
+    public bool enableGirandolaRotation = false;
+    public Vector3 girandolaPivotOffset = Vector3.zero;
+
     private MeshRenderer meshRenderer;
     private bool patinaActive = false;
 
@@ -33,8 +37,19 @@ public class RotatingObject : MonoBehaviour
 
     void Update()
     {
-        transform.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+        if (enableGirandolaRotation)
+        {
+            // Rotazione attorno al punto pivot
+            Vector3 pivot = transform.position + girandolaPivotOffset;
+            transform.RotateAround(pivot, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+        }
+        else
+        {
+            // Rotazione normale attorno al proprio asse
+            transform.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+        }
     }
+
 
     public void SetSpeedMultiplier(float multiplier)
     {
