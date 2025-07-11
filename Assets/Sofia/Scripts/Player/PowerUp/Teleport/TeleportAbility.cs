@@ -92,20 +92,26 @@ public class TeleportAbility : AbilityBase
     }
 
     public override void TryActivate()
+{
+    if (IsActive)
     {
-        if (IsActive)
+        Deactivate();
+    }
+    else if (CanActivate())
+    {
+        base.TryActivate();  // Questo attiva il suono corretto
+    }
+    else
+    {
+        Debug.Log("Impossibile attivare il teletrasporto.");
+
+        // AUDIO FALLIMENTO
+        if (failureSound != null && audioSource != null)
         {
-            Deactivate();
-        }
-        else if (CanActivate())
-        {
-            base.TryActivate();
-        }
-        else
-        {
-            Debug.Log("Impossibile attivare il teletrasporto.");
+            audioSource.PlayOneShot(failureSound);
         }
     }
+}
 
     public override void Activate()
     {
