@@ -17,7 +17,7 @@ public class Npc_village : MonoBehaviour
     [Header("Durata effetto slow in secondi")]
     [SerializeField] private float slowEffectDuration = 0.5f;
 
-    [Header("Animator")]
+    [Header("Animator (sul padre)")]
     [SerializeField] private Animator animator;
 
     [Header("Riferimento Player")]
@@ -30,18 +30,22 @@ public class Npc_village : MonoBehaviour
     private bool isSlowed = false;
     private bool slowEffectPlayed = false;
 
+    private Quaternion targetRotation;
+
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
+        agent.updateRotation = false;  // gestiamo rotazione manualmente
+        agent.stoppingDistance = 0.3f;
 
         if (animator == null)
             animator = GetComponent<Animator>();
+        animator.applyRootMotion = false;
 
         agent.speed = 15f;
         agent.angularSpeed = 120f;
         agent.acceleration = 8f;
         agent.avoidancePriority = Random.Range(10, 90);
-        agent.stoppingDistance = 0.3f;
 
         if (waypoints.Length == 0)
         {
@@ -61,6 +65,14 @@ public class Npc_village : MonoBehaviour
 
     void Update()
     {
+        // Trova player se non assegnato
+        if (playerTransform == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+                playerTransform = player.transform;
+        }
+
         if (isSlowed)
         {
             if (agent.enabled)
@@ -78,9 +90,9 @@ public class Npc_village : MonoBehaviour
             {
                 Vector3 dir = playerTransform.position - transform.position;
                 dir.y = 0;
-                if (dir.sqrMagnitude > 0.001f)
+                if (dir.sqrMagnitude > 0.01f)
                 {
-                    transform.rotation = Quaternion.LookRotation(dir);
+                    targetRotation = Quaternion.LookRotation(dir);
                 }
             }
 
@@ -91,8 +103,31 @@ public class Npc_village : MonoBehaviour
                 StartCoroutine(StopSlowEffectAfterDelay());
             }
 
-            return;
+            return; // blocca qui in slow
         }
+
+        // Se ha raggiunto waypoint, vai al prossimo
+        if (agent.enabled && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
+        {
+            if (!agent.hasPath || agent.velocity.sqrMagnitude < 0.1f)
+            {
+                GoToRandomWaypoint();
+            }
+        }
+
+        // Rotazione in base alla direzione di movimento
+        if (agent.velocity.sqrMagnitude > 0.1f)
+        {
+            Vector3 direction = agent.velocity.normalized;
+            direction.y = 0;
+            targetRotation = Quaternion.LookRotation(direction);
+        }
+    }
+
+    void LateUpdate()
+    {
+        // Applica la rotazione dopo che Animator ha aggiornato
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
     }
 
     public void SetSlow(bool slow)
@@ -107,6 +142,24 @@ public class Npc_village : MonoBehaviour
     {
         yield return new WaitForSeconds(slowEffectDuration);
         slowEffect.StopEffect();
+
+        // NPC resta fermo e rivolto verso il player
+        // Per far ripartire il patrol, decommenta:
+
+        /*
+        isSlowed = false;
+        slowEffectPlayed = false;
+        agent.isStopped = false;
+        animator.SetBool("Slow", false);
+
+        if (!footDustActive && footDustEffect != null)
+        {
+            footDustEffect.PlayEffect();
+            footDustActive = true;
+        }
+
+        GoToRandomWaypoint();
+        */
     }
 
     void GoToRandomWaypoint()
