@@ -11981,6 +11981,7 @@ Transform:
   - {fileID: 1113687858}
   - {fileID: 1458136809}
   - {fileID: 430796372}
+  - {fileID: 735521599}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &90280053
@@ -36906,6 +36907,8 @@ MonoBehaviour:
   PlatformSpawnerForwardAbility: {fileID: 652026448}
   SlowdownAbility: {fileID: 1754277129}
   TeleportAbility: {fileID: 1415577702}
+  playerAnimator: {fileID: 0}
+  slowdownEffectFX: {fileID: 0}
 --- !u!143 &240058739
 CharacterController:
   m_ObjectHideFlags: 0
@@ -49472,7 +49475,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2662968975382284228, guid: 44e0b49e770d22f44a947ace93063608, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3440491180511223166, guid: 44e0b49e770d22f44a947ace93063608, type: 3}
       propertyPath: m_LocalScale.x
@@ -135271,6 +135274,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 240058738}
   effectIconIndex: 1
+  activationSound: {fileID: 0}
   platformPrefab: {fileID: 3063364047387676250, guid: f052de377000b5f40907a0d5321d1d78, type: 3}
   ghostPrefab: {fileID: 5899461660554743012, guid: 1a858c8c596961e47b573aa90cbc41a3, type: 3}
   forwardDistance: 30
@@ -160059,6 +160063,68 @@ Transform:
   m_Children: []
   m_Father: {fileID: 472565640}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &735521598
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 89725379}
+    m_Modifications:
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1285.7388
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 149.88036
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 1357.899
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: -90
+      objectReference: {fileID: 0}
+    - target: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5785776329478915610, guid: ace21b645b600de43960107a0c06568b, type: 3}
+      propertyPath: m_Name
+      value: rainbow_road_def
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ace21b645b600de43960107a0c06568b, type: 3}
+--- !u!4 &735521599 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2188869338400802101, guid: ace21b645b600de43960107a0c06568b, type: 3}
+  m_PrefabInstance: {fileID: 735521598}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &736267900
 GameObject:
   m_ObjectHideFlags: 0
@@ -336215,7 +336281,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!154 &1367867928
 TerrainCollider:
   m_ObjectHideFlags: 0
@@ -358344,6 +358410,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 240058738}
   effectIconIndex: 2
+  activationSound: {fileID: 0}
   telePointerPrefab: {fileID: 919132149155446097, guid: eef142bb556f38746a86b39bdf98f1b8, type: 3}
   teleportableLayers:
     serializedVersion: 2
@@ -358351,6 +358418,7 @@ MonoBehaviour:
   meshesToHide:
   - {fileID: 1938703339}
   controllerGameObject: {fileID: 240058734}
+  teleportEffectController: {fileID: 0}
 --- !u!4 &1415577703
 Transform:
   m_ObjectHideFlags: 0
@@ -462333,6 +462401,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 240058738}
   effectIconIndex: 3
+  activationSound: {fileID: 0}
   slowdownRadius: 30
   slowdownFactor: 0.7
   customDuration: 10

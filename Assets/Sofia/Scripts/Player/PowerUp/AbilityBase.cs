@@ -15,9 +15,19 @@ public abstract class AbilityBase : MonoBehaviour
 
     protected virtual bool HasFixedDuration => false;
 
-    public virtual bool CanActivate()
+    [Header("Audio")]
+    public AudioClip activationSound;
+    protected AudioSource audioSource;
+
+    public AudioClip failureSound;  // nuovo
+
+    protected virtual void Awake()
     {
-        return !IsActive && powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
+
+        audioSource.playOnAwake = false;
     }
 
     protected virtual void Update()
@@ -29,25 +39,36 @@ public abstract class AbilityBase : MonoBehaviour
         }
     }
 
-    public virtual void TryActivate()
+    public virtual bool CanActivate()
     {
-        if (CanActivate())
+        return !IsActive && powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
+    }
+
+    public virtual void TryActivate()
+{
+    if (CanActivate())
+    {
+        Activate();
+        IsActive = true;
+
+        if (activationSound != null && audioSource != null)
         {
-            Activate();
-            IsActive = true;
-
-            // Mostra effetto sull’icona UI
-            if (PlayerUI.Instance != null)
-                PlayerUI.Instance.PulseIconAt(effectIconIndex);
-
-            if (HasFixedDuration)
-                Invoke(nameof(Deactivate), duration);
+            audioSource.PlayOneShot(activationSound);
         }
-        else
+
+        if (PlayerUI.Instance != null)
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
+    }
+    else
+    {
+        Debug.Log("Impossibile attivare l'abilità: energia insufficiente o già attiva.");
+        
+        if (failureSound != null && audioSource != null)
         {
-            Debug.Log("Impossibile attivare l'abilità.");
+            audioSource.PlayOneShot(failureSound);
         }
     }
+}
 
     public abstract void Activate();
     public abstract void Deactivate();

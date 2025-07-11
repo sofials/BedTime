@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections;
 
 public class PlatformSpawnerForwardAbility : AbilityBase
 {
@@ -29,15 +30,16 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private PlayerControls controls;
     private bool confirmPressed;
 
-    /* ---------- INITIALISATION ---------- */
+    private float activationClipLength = 0.5f; // durata suono attivazione (modifica se serve)
 
-    private void Awake()
+    protected override void Awake()
     {
+        base.Awake(); // importante per AudioSource
         controls = new PlayerControls();
         controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
 
-        effectIconIndex = 1;      // slot icona dedicato
+        effectIconIndex = 1; // slot icona dedicato
     }
 
     private void Start()
@@ -45,11 +47,9 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         cameraTransform = Camera.main.transform;
     }
 
-    /* ---------- MAIN LOOP ---------- */
-
-    protected override void Update()        // ← override, non più private!
+    protected override void Update()
     {
-        base.Update();                      // ← mantiene il feedback grigio/bianco
+        base.Update();
 
         if (!placing || currentGhost == null) return;
 
@@ -87,25 +87,59 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             return;
         }
 
-        Instantiate(platformPrefab, targetPos, currentGhost.transform.rotation);
+        Destroy(currentGhost);
+        currentGhost = null;
+
+        Instantiate(platformPrefab, targetPos, targetRotation);
+
         powerUpScript.SpendPower(powerCost);
         Deactivate();
     }
 
-    /* ---------- PUBLIC API ---------- */
+    public override void TryActivate()
+    {
+        if (IsActive)
+        {
+            Deactivate();
+        }
+        else if (CanActivate())
+        {
+            base.TryActivate(); // questo fa partire il suono di attivazione
+        }
+        else
+        {
+            Debug.Log("Impossibile attivare lo spawn piattaforma.");
+        }
+    }
 
     public override void Activate()
     {
         if (placing || currentGhost) return;
 
-        placing = true; IsActive = true;
+        placing = true;
+        IsActive = true;
 
         lastForwardDirection = GetCameraForwardFlat();
         Vector3 spawnPos     = GetSpawnPosition(lastForwardDirection);
 
-        currentGhost   = Instantiate(ghostPrefab, spawnPos, Quaternion.identity);
+        currentGhost = Instantiate(ghostPrefab, spawnPos, Quaternion.identity);
         targetRotation = Quaternion.LookRotation(lastForwardDirection);
         currentGhost.transform.rotation = targetRotation;
+
+        DrawRevealEffect drawEffect = currentGhost.GetComponent<DrawRevealEffect>();
+        if (drawEffect != null)
+        {
+            drawEffect.ResetDraw();
+
+            // Fa partire l’audio loop dopo il suono di attivazione
+            StartCoroutine(StartDrawAudioAfterDelay(drawEffect));
+        }
+    }
+
+    private IEnumerator StartDrawAudioAfterDelay(DrawRevealEffect drawEffect)
+    {
+        yield return new WaitForSeconds(activationClipLength);
+        drawEffect.PlayLoopAudio();
     }
 
     public override void Deactivate()
@@ -116,11 +150,10 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         IsActive = false;
     }
 
-    /* ---------- INTERNAL ---------- */
-
     private Vector3 GetCameraForwardFlat()
     {
-        Vector3 f = cameraTransform.forward; f.y = 0f;
+        Vector3 f = cameraTransform.forward;
+        f.y = 0f;
         return f.normalized;
     }
 

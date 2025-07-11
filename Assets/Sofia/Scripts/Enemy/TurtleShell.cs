@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
+using System.Collections.Generic;
 
 public class TurtleShell : MonoBehaviour
 {
@@ -26,7 +27,24 @@ public class TurtleShell : MonoBehaviour
 
     [Header("Attack Settings")]
     public float attackDamage = 10f;
+    public float slowedAttackDamage = 5f;
     public float attackCooldown = 1.5f;
+
+    [Header("Health")]
+    public float maxHealth = 100f;
+    public float currentHealth;
+
+    [Header("VFX")]
+    public Renderer Renderer;
+    public CFXR_EffectController deathEffectController;
+    [SerializeField] private Material patinaMaterial;
+    [SerializeField] private CFXR_EffectController slowdownEffect;
+    public SlowdownAbility activeSlowdownAbility;
+
+
+    private bool isDead = false;
+    private bool isStunned = false;
+    public bool hasBeenHitWhileSlow = false;
 
     private int currentWaypoint = 0;
     private float waitTimer;
@@ -36,6 +54,8 @@ public class TurtleShell : MonoBehaviour
     private bool isAttacking = false;
     private float attackTimer = 0f;
     private Animator animator;
+
+    private bool patinaActive = false;
 
     private void Awake()
     {
@@ -49,10 +69,24 @@ public class TurtleShell : MonoBehaviour
         if (waypoints != null && waypoints.Length > 0)
             agent.SetDestination(waypoints[currentWaypoint].position);
         agent.speed = walkSpeed;
+
+        currentHealth = maxHealth;
+
+        if (deathEffectController != null)
+            deathEffectController.StopEffect();
+
+        if (slowdownEffect != null)
+            slowdownEffect.gameObject.SetActive(false);
     }
 
     private void Update()
     {
+        if (isDead || isStunned)
+        {
+            agent.isStopped = true;
+            return;
+        }
+
         attackTimer -= Time.deltaTime;
         UpdatePlayerVisibility();
 
@@ -92,47 +126,45 @@ public class TurtleShell : MonoBehaviour
 
     private void ChasePlayer()
     {
-        if (player == null) return;
+        if (isStunned || player == null) return;
 
         RotateTowards(player.position);
         float dist = Vector3.Distance(transform.position, player.position);
 
         if (dist <= attackRange)
         {
-            if (attackTimer <= 0f)
+            if (isSlow)
             {
-                // Rimuovo qui l'infliggi danno diretto
-                // Lo facciamo invece tramite Animation Event
-                // InflictDamageToPlayer();
-                attackTimer = attackCooldown;
-            }
+                InflictPushToPlayer();
+                agent.isStopped = false;
+                agent.speed = walkSpeed * slowFactor;
+                agent.SetDestination(player.position);
 
-            if (!isSlow)
-            {
-                if (!isAttacking)
-                {
-                    isAttacking = true;
-                    animator.SetBool("isAttacking", true);
-                    agent.isStopped = true;
-                }
-            }
-            else
-            {
-                // Slow: segue lentamente E infligge danno (ma senza animazione attacco)
                 if (isAttacking)
                 {
                     isAttacking = false;
                     animator.SetBool("isAttacking", false);
                 }
-                agent.isStopped = false;
-                agent.speed = walkSpeed * slowFactor;
-                agent.SetDestination(player.position);
-                // Danno già inflitto via attackTimer sopra
+
+                return;
             }
+
+            if (attackTimer <= 0f)
+            {
+                if (!isAttacking)
+                {
+                    isAttacking = true;
+                    animator.SetBool("isAttacking", true);
+                }
+
+                animator.SetTrigger("Attack");
+                agent.isStopped = true;
+                attackTimer = attackCooldown;
+            }
+
             return;
         }
 
-        // Fuori raggio attacco
         if (isAttacking)
         {
             isAttacking = false;
@@ -144,21 +176,16 @@ public class TurtleShell : MonoBehaviour
         agent.SetDestination(player.position);
     }
 
-    // Questo metodo è chiamato dall'Animation Event "EnemyAttackHitbox"
     public void EnemyAttackHitbox()
     {
-        InflictDamageToPlayer();
-    }
-
-    private void InflictDamageToPlayer()
-    {
-        if (player == null) return;
+        if (isStunned || player == null) return;
 
         HurtBox playerHurtBox = player.GetComponentInChildren<HurtBox>();
         if (playerHurtBox != null)
         {
             Vector3 pushDir = (player.position - transform.position).normalized;
-            playerHurtBox.OnHit(pushDir, pushForce, attackDamage);
+            float damageToApply = isSlow ? 0f : slowedAttackDamage;
+            playerHurtBox.OnHit(pushDir, pushForce, damageToApply);
         }
         else
         {
@@ -166,9 +193,21 @@ public class TurtleShell : MonoBehaviour
         }
     }
 
+    private void InflictPushToPlayer()
+    {
+        if (player == null) return;
+
+        HurtBox playerHurtBox = player.GetComponentInChildren<HurtBox>();
+        if (playerHurtBox != null)
+        {
+            Vector3 pushDir = (player.position - transform.position).normalized;
+            playerHurtBox.OnHit(pushDir, pushForce, 0f);
+        }
+    }
+
     private void Patrol()
     {
-        if (!agent.isOnNavMesh) return;
+        if (!agent.isOnNavMesh || isStunned) return;
 
         agent.speed = walkSpeed;
 
@@ -227,30 +266,165 @@ public class TurtleShell : MonoBehaviour
 
     public void SetSlow(bool slow)
     {
+        Debug.Log($"SetSlow chiamato con valore: {slow}");
         isSlow = slow;
+        agent.speed = slow ? walkSpeed * slowFactor : walkSpeed;
         animator.SetBool("isSlow", slow);
-        if (isSlow)
-            agent.speed = walkSpeed * slowFactor;
+
+        if (slow)
+        {
+            SetOverlayActive(true);
+            PlaySlowdownEffect(1f);
+        }
         else
-            agent.speed = walkSpeed;
+        {
+            SetOverlayActive(false);
+        }
+
+        if (!slow)
+            hasBeenHitWhileSlow = false;
+    }
+
+    public void StartBlinkingOverlay(float duration)
+    {
+        if (Renderer == null || patinaMaterial == null) return;
+        StartCoroutine(BlinkOverlay(duration));
+    }
+
+    private IEnumerator BlinkOverlay(float duration)
+    {
+        float elapsed = 0f;
+        float blinkRate = 0.2f;
+        bool state = true;
+
+        while (elapsed < duration)
+        {
+            SetOverlayActive(state);
+            state = !state;
+            yield return new WaitForSeconds(blinkRate);
+            elapsed += blinkRate;
+        }
+
+        SetOverlayActive(false);
+    }
+
+    public void SetOverlayActive(bool active)
+    {
+        if (Renderer == null || patinaMaterial == null) return;
+
+        var materials = new List<Material>(Renderer.sharedMaterials);
+
+        if (active && !patinaActive)
+        {
+            if (!materials.Contains(patinaMaterial))
+            {
+                materials.Add(patinaMaterial);
+                Renderer.materials = materials.ToArray();
+                patinaActive = true;
+            }
+        }
+        else if (!active && patinaActive)
+        {
+            materials.Remove(patinaMaterial);
+            Renderer.materials = materials.ToArray();
+            patinaActive = false;
+        }
+    }
+
+    public void PlaySlowdownEffect(float duration = 1f)
+    {
+        if (slowdownEffect == null) return;
+
+        StartCoroutine(PlayEffectRoutine(duration));
+    }
+
+    private IEnumerator PlayEffectRoutine(float duration)
+    {
+        slowdownEffect.gameObject.SetActive(true);
+        slowdownEffect.PlayEffect();
+
+        yield return new WaitForSeconds(duration);
+
+        slowdownEffect.StopEffect();
+        slowdownEffect.gameObject.SetActive(false);
     }
 
     public void TakeDamage(float damage)
+{
+    if (isDead) return;
+
+    if (isSlow)
     {
-        if (isSlow)
+        if (!hasBeenHitWhileSlow)
         {
+            hasBeenHitWhileSlow = true;
             animator.SetTrigger("GetHitReal");
-            StartCoroutine(DieAfterHit());
+
+            SetSlow(false);
+            agent.isStopped = true;
+            isStunned = true;
+
+            // 👉 Disattiva l'effetto slowdown globale
+            if (activeSlowdownAbility != null && activeSlowdownAbility.IsActive)
+            {
+                activeSlowdownAbility.Deactivate();
+            }
+        }
+        return;
+    }
+
+    currentHealth -= damage;
+    animator.SetTrigger("GetHit");
+
+    if (currentHealth <= 0f)
+    {
+        currentHealth = 0f;
+        isDead = true;
+        StartCoroutine(HandleDeath());
+    }
+}
+
+
+    private IEnumerator HandleDeath()
+    {
+        agent.isStopped = true;
+        yield return null;
+    }
+
+    public void TriggerDie()
+    {
+        if (isDead) return;
+        isDead = true;
+        isStunned = true;
+        agent.isStopped = true;
+        animator.SetTrigger("Die");
+    }
+
+    public void OnDeathAnimationFinished()
+    {
+        if (deathEffectController != null)
+            deathEffectController.PlayEffect();
+
+        if (Renderer != null)
+            Renderer.enabled = false;
+
+        StartCoroutine(DelayedDestroy());
+    }
+
+    private IEnumerator DelayedDestroy()
+    {
+        if (deathEffectController != null)
+        {
+            ParticleSystem ps = deathEffectController.GetComponent<ParticleSystem>();
+            if (ps != null)
+                yield return new WaitUntil(() => !ps.isPlaying);
         }
         else
         {
-            animator.SetTrigger("GetHit");
+            yield return new WaitForSeconds(1.5f);
         }
-    }
 
-    private IEnumerator DieAfterHit()
-    {
-        yield return new WaitForSeconds(animator.GetCurrentAnimatorStateInfo(0).length + 0.1f);
+        GemManager.Instance?.SpawnLifeGem(transform.position);
         Destroy(gameObject);
     }
 
