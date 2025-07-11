@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Splines;
+using System.Collections;
 using System.Collections.Generic;
 
 public class MovingPlatform : MonoBehaviour
@@ -25,6 +26,29 @@ public class MovingPlatform : MonoBehaviour
     // Esportiamo il deltaMovement per il player
     public Vector3 DeltaMovement => deltaMovement;
 
+    [Header("Overlay Patina")]
+    [SerializeField] private Material patinaMaterial; // Materiale blu trasparente per patina
+
+    [Header("Slowdown FX")]
+    [SerializeField] private CFXR_EffectController slowdownEffect; // Effetto slowdown figlio piattaforma
+
+    private MeshRenderer meshRenderer;
+    private bool patinaActive = false;
+
+    void Awake()
+    {
+        meshRenderer = GetComponentInChildren<MeshRenderer>();
+        if (meshRenderer == null)
+        {
+            Debug.LogWarning($"[MovingPlatform] Nessun MeshRenderer trovato su {gameObject.name}");
+        }
+
+        if (slowdownEffect != null)
+        {
+            slowdownEffect.gameObject.SetActive(false); // Disattiva effetto all’inizio
+        }
+    }
+
     void Start()
     {
         SampleSpline();
@@ -33,7 +57,6 @@ public class MovingPlatform : MonoBehaviour
 
     void Update()
     {
-        // Usa il moltiplicatore per permettere il rallentamento
         currentDistance += speed * speedMultiplier * direction * Time.deltaTime;
 
         if (pingPong)
@@ -128,5 +151,77 @@ public class MovingPlatform : MonoBehaviour
                 playerController = null;
             }
         }
+    }
+
+    // -----------------------------
+    // Gestione patina blu overlay
+    // -----------------------------
+
+    public void SetOverlayActive(bool active)
+    {
+        if (meshRenderer == null || patinaMaterial == null) return;
+
+        var materials = new List<Material>(meshRenderer.sharedMaterials);
+
+        if (active && !patinaActive)
+        {
+            if (!materials.Contains(patinaMaterial))
+            {
+                materials.Add(patinaMaterial);
+                meshRenderer.materials = materials.ToArray();
+                patinaActive = true;
+            }
+        }
+        else if (!active && patinaActive)
+        {
+            materials.Remove(patinaMaterial);
+            meshRenderer.materials = materials.ToArray();
+            patinaActive = false;
+        }
+    }
+
+    public void StartBlinkingOverlay(float duration)
+    {
+        if (meshRenderer == null || patinaMaterial == null) return;
+        StartCoroutine(BlinkOverlay(duration));
+    }
+
+    private IEnumerator BlinkOverlay(float duration)
+    {
+        float elapsed = 0f;
+        float blinkRate = 0.2f;
+        bool state = true;
+
+        while (elapsed < duration)
+        {
+            SetOverlayActive(state);
+            state = !state;
+            yield return new WaitForSeconds(blinkRate);
+            elapsed += blinkRate;
+        }
+
+        SetOverlayActive(false);
+    }
+
+    // -----------------------------
+    // Gestione effetto slowdown FX
+    // -----------------------------
+
+    public void PlaySlowdownEffect(float duration = 1f)
+    {
+        if (slowdownEffect == null) return;
+
+        StartCoroutine(PlayEffectRoutine(duration));
+    }
+
+    private IEnumerator PlayEffectRoutine(float duration)
+    {
+        slowdownEffect.gameObject.SetActive(true);
+        slowdownEffect.PlayEffect();
+
+        yield return new WaitForSeconds(duration);
+
+        slowdownEffect.StopEffect();
+        slowdownEffect.gameObject.SetActive(false);
     }
 }

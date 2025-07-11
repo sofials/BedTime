@@ -16,6 +16,10 @@ public class TeleportAbility : AbilityBase
     [Header("Effect FX")]
     public CFXR_EffectController teleportEffectController;
 
+    [Header("Audio")]
+    public AudioClip teleportConfirmSound;  // Audio specifico per conferma teletrasporto
+    private AudioSource teleportConfirmAudioSource;
+
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
@@ -26,13 +30,20 @@ public class TeleportAbility : AbilityBase
     private Vector3 teleportPosition;
     private bool canUpdatePointer = false;
 
-    private void Awake()
-    {
-        controls = new PlayerControls();
-        controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
-        controls.Enable();
-        effectIconIndex = 2;
-    }
+    protected override void Awake()
+{
+    base.Awake();
+
+    controls = new PlayerControls();
+    controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
+    controls.Enable();
+
+    effectIconIndex = 2;
+
+    teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
+    teleportConfirmAudioSource.playOnAwake = false;
+}
+
 
     private void Start()
     {
@@ -69,6 +80,13 @@ public class TeleportAbility : AbilityBase
             }
 
             powerUpScript.SpendPower(powerCost);
+
+            // Esegui audio conferma
+            if (teleportConfirmSound != null)
+            {
+                teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
+            }
+
             StartCoroutine(ConfirmTeleportRoutine());
         }
     }
@@ -81,14 +99,7 @@ public class TeleportAbility : AbilityBase
         }
         else if (CanActivate())
         {
-            Activate();
-            IsActive = true;
-
-            if (PlayerUI.Instance != null)
-                PlayerUI.Instance.PulseIconAt(effectIconIndex);
-
-            if (HasFixedDuration)
-                Invoke(nameof(Deactivate), duration);
+            base.TryActivate();
         }
         else
         {
