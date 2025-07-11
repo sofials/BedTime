@@ -40,10 +40,10 @@ public class Gem : MonoBehaviour
 
     public void Collect()
     {
-        // Riproduci audio raccolta
+        // Riproduci audio raccolta con volume ridotto al 30%
         if (collectSound != null && audioSource != null)
         {
-            audioSource.PlayOneShot(collectSound);
+            audioSource.PlayOneShot(collectSound, 0.1f);
         }
 
         SetActiveVisual(false);
