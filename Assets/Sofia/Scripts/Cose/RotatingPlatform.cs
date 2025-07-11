@@ -8,18 +8,15 @@ public class RotatingObject : MonoBehaviour
     public float rotationSpeed = 360f;
     private float speedMultiplier = 1f;
 
+    [Header("Pivot Rotation")]
+    public bool rotateAroundTarget = false;
+    public Transform targetPivot;  // Oggetto attorno a cui ruotare
+
     [Header("Overlay Patina")]
     [SerializeField] private Material patinaMaterial;
 
     [Header("Slowdown FX")]
     [SerializeField] private CFXR_EffectController slowdownEffect;
-     [Header("Girandola Mode")]
-
-    public bool enableGirandolaRotation = false;
-
-    public Vector3 girandolaPivotOffset = Vector3.zero;
-
-
 
     private MeshRenderer meshRenderer;
     private bool patinaActive = false;
@@ -38,33 +35,20 @@ public class RotatingObject : MonoBehaviour
         }
     }
 
-      void Update()
-
+    void Update()
     {
-
-        if (enableGirandolaRotation)
-
+        if (rotateAroundTarget && targetPivot != null)
         {
-
-            // Rotazione attorno al punto pivot
-
-            Vector3 pivot = transform.position + girandolaPivotOffset;
-
-            transform.RotateAround(pivot, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
-
+            // Ruota attorno al target
+            transform.RotateAround(targetPivot.position, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
         }
-
         else
-
         {
-
-            // Rotazione normale attorno al proprio asse
-
+            // Ruota attorno al proprio asse
             transform.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
-
         }
-
     }
+
     public void SetSpeedMultiplier(float multiplier)
     {
         speedMultiplier = multiplier;
