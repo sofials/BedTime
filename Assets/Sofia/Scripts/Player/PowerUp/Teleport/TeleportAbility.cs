@@ -30,20 +30,20 @@ public class TeleportAbility : AbilityBase
     private Vector3 teleportPosition;
     private bool canUpdatePointer = false;
 
-    private void Awake()
-    {
-        base.Awake(); // Essenziale per inizializzare audio di AbilityBase
+    protected override void Awake()
+{
+    base.Awake();
 
-        controls = new PlayerControls();
-        controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
-        controls.Enable();
+    controls = new PlayerControls();
+    controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
+    controls.Enable();
 
-        effectIconIndex = 2;
+    effectIconIndex = 2;
 
-        // Setup AudioSource per suono conferma teletrasporto
-        teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
-        teleportConfirmAudioSource.playOnAwake = false;
-    }
+    teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
+    teleportConfirmAudioSource.playOnAwake = false;
+}
+
 
     private void Start()
     {

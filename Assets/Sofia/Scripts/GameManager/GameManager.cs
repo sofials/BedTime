@@ -11,10 +11,14 @@ public class GameManager : MonoBehaviour
     public GameObject pauseMenu;
     public PlayerAttack playerAttack;
 
-    private bool isPaused = false;
+    [Header("Respawn Settings")]
+    [Tooltip("Transform del punto iniziale di spawn, se non c'è un checkpoint attivo.")]
+    public Transform levelStartPoint;
 
     [HideInInspector]
     public Transform currentCheckpoint;
+
+    private bool isPaused = false;
 
     private void Awake()
     {
@@ -22,7 +26,6 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
         }
         else
         {

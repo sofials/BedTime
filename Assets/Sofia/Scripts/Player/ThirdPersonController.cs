@@ -1,46 +1,41 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
 using CartoonFX;
+using System.Collections;
 
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
-    /*────────────────────  UI  ────────────────────*/
     [Header("UI Effect")]
     public PlayerUI playerUI;
     public UIEffectHandler attackEffectUI;
 
-    /*─────────────────  Movement  ─────────────────*/
     [Header("Movement Settings")]
-    public float walkSpeed   = 2f;
-    public float runSpeed    = 5f;
+    public float walkSpeed = 2f;
+    public float runSpeed = 5f;
     public float sprintSpeed = 8f;
     public float rotationSmoothTime = 0.1f;
     private float rotationVelocity;
     private float smoothInputMagnitude;
 
-    /*────────────────────  Jump  ───────────────────*/
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
-    public float gravity    = -9.81f;
-    public int   maxJumps   = 2;
-    private int   jumpCount = 0;
+    public float gravity = -9.81f;
+    public int maxJumps = 2;
+    private int jumpCount = 0;
     private Vector3 velocity;
 
-    /*───────────────  Air‑control  ───────────────*/
     [Header("Air Control Settings")]
     public float airControlStrength = 0.5f;
-    public float airControlSpeed    = 2f;
+    public float airControlSpeed = 2f;
     public float airRotationSmoothTime = 0.3f;
 
-    /*─────────────────  Stats  ───────────────────*/
     [Header("Player Stats")]
     public float maxHealth = 100f;
     public float currentHealth;
     public float CurrentHealth => currentHealth;
-    public float MaxHealth    => maxHealth;
+    public float MaxHealth => maxHealth;
 
-    /*─────────────────  Internals  ───────────────*/
     private CharacterController controller;
     private Animator _animator;
 
@@ -48,15 +43,14 @@ public class ThirdPersonController : MonoBehaviour
     public Transform cameraTransform;
 
     private bool wasGroundedLastFrame;
-    private Transform currentPlatform  = null;
-    private Vector3   lastPlatformPos  = Vector3.zero;
+    private Transform currentPlatform = null;
+    private Vector3 lastPlatformPos = Vector3.zero;
     private Quaternion lastPlatformRot = Quaternion.identity;
-    private Vector3 platformDeltaPos   = Vector3.zero;
+    private Vector3 platformDeltaPos = Vector3.zero;
     private Quaternion platformDeltaRot = Quaternion.identity;
 
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
-
     [SerializeField] private float pushRecoverySpeed = 0.2f;
 
     private PlayerControls controls;
@@ -65,12 +59,10 @@ public class ThirdPersonController : MonoBehaviour
     private bool isSprinting;
     private bool isHoldingJump;
 
-    /*───────────────  Sprint FX  ───────────────*/
     [Header("Sprint Effect (assign CFXR_EffectController)")]
     public CFXR_EffectController sprintFX;
     private bool sprintFXActive = false;
 
-    /*─────────────  Movement Lock  ─────────────*/
     private bool isMovementLocked = false;
     public bool IsMovementLocked
     {
@@ -87,25 +79,23 @@ public class ThirdPersonController : MonoBehaviour
         }
     }
 
-    /*─────────────────  Awake  ───────────────────*/
     private void Awake()
     {
         controls = new PlayerControls();
 
-        controls.Gameplay.Move.performed +=  ctx => moveInput = ctx.ReadValue<Vector2>();
-        controls.Gameplay.Move.canceled  +=  ctx => moveInput = Vector2.zero;
+        controls.Gameplay.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
+        controls.Gameplay.Move.canceled += ctx => moveInput = Vector2.zero;
 
         controls.Gameplay.Sprint.performed += ctx => isSprinting = true;
-        controls.Gameplay.Sprint.canceled  += ctx => isSprinting = false;
+        controls.Gameplay.Sprint.canceled += ctx => isSprinting = false;
 
-        controls.Gameplay.Jump.started  += ctx => { jumpInput = true;  isHoldingJump = true;  };
-        controls.Gameplay.Jump.canceled += ctx => { isHoldingJump = false;                     };
+        controls.Gameplay.Jump.started += ctx => { jumpInput = true; isHoldingJump = true; };
+        controls.Gameplay.Jump.canceled += ctx => { isHoldingJump = false; };
     }
 
-    /*─────────────────  Start  ───────────────────*/
     private void Start()
     {
-        _animator  = GetComponentInChildren<Animator>();
+        _animator = GetComponentInChildren<Animator>();
         controller = GetComponent<CharacterController>();
 
         if (cameraTransform == null && Camera.main) cameraTransform = Camera.main.transform;
@@ -116,7 +106,7 @@ public class ThirdPersonController : MonoBehaviour
         if (sprintFX) sprintFX.StopEffect();
     }
 
-    private void OnEnable()  => controls.Gameplay.Enable();
+    private void OnEnable() => controls.Gameplay.Enable();
     private void OnDisable()
     {
         controls.Gameplay.Disable();
@@ -124,7 +114,6 @@ public class ThirdPersonController : MonoBehaviour
         sprintFXActive = false;
     }
 
-    /*──────────────────  Update  ──────────────────*/
     private void Update()
     {
         UpdatePlatformVelocity();
@@ -188,8 +177,8 @@ public class ThirdPersonController : MonoBehaviour
         {
             platformDeltaPos = currentPlatform.position - lastPlatformPos;
             platformDeltaRot = currentPlatform.rotation * Quaternion.Inverse(lastPlatformRot);
-            lastPlatformPos  = currentPlatform.position;
-            lastPlatformRot  = currentPlatform.rotation;
+            lastPlatformPos = currentPlatform.position;
+            lastPlatformRot = currentPlatform.rotation;
         }
         else platformDeltaPos = Vector3.zero;
     }
@@ -230,27 +219,35 @@ public class ThirdPersonController : MonoBehaviour
     }
 
     private void HandleJump()
+{
+    bool grounded = controller.isGrounded;
+
+    if (jumpInput && jumpCount < maxJumps && !IsMovementLocked)
     {
-        bool grounded = controller.isGrounded;
+        if (jumpCount == 0)
+            _animator.SetBool("Jump", true);
+        else
+            _animator.SetBool("DoubleJump", true);
 
-        if (jumpInput && jumpCount < maxJumps && !IsMovementLocked)
-        {
-            if (jumpCount == 0)   _animator.SetBool("Jump", true);
-            else                  _animator.SetBool("DoubleJump", true);
+        velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        jumpCount++;
+        jumpInput = false;
 
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-            jumpCount++;
-            jumpInput = false;
-
-            currentPlatform = null;
-        }
-
-        if (velocity.y < 0)                                  velocity.y += gravity * 2.5f * Time.deltaTime;
-        else if (velocity.y > 0 && !isHoldingJump)           velocity.y += gravity * 2f   * Time.deltaTime;
-        else                                                 velocity.y += gravity         * Time.deltaTime;
-
-        if (grounded && velocity.y < 0) velocity.y = -2f;
+        currentPlatform = null;
     }
+
+    // Se siamo in aria e stiamo iniziando a cadere, disattiva double jump
+    if (velocity.y < 0 && _animator.GetBool("DoubleJump"))
+    {
+        _animator.SetBool("DoubleJump", false);
+    }
+
+    if (velocity.y < 0) velocity.y += gravity * 2.5f * Time.deltaTime;
+    else if (velocity.y > 0 && !isHoldingJump) velocity.y += gravity * 2f * Time.deltaTime;
+    else velocity.y += gravity * Time.deltaTime;
+
+    if (grounded && velocity.y < 0) velocity.y = -2f;
+}
 
     private void HandleFalling()
     {
@@ -263,8 +260,7 @@ public class ThirdPersonController : MonoBehaviour
 
     private void HandleAirControl()
     {
-        if (controller.isGrounded) return;
-        if (IsMovementLocked) return;
+        if (controller.isGrounded || IsMovementLocked) return;
 
         Vector3 inputDir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
         if (inputDir.magnitude < 0.1f) return;
@@ -277,25 +273,37 @@ public class ThirdPersonController : MonoBehaviour
         playerVelocity += new Vector3(moveDir.x, 0f, moveDir.z) * airControlSpeed;
     }
 
-    public void Respawn()
-    {
-        controller.enabled = false;
-        transform.position = GameManager.Instance.currentCheckpoint ?
-                             GameManager.Instance.currentCheckpoint.position :
-                             transform.position;
+  public void Respawn()
+{
+    controller.enabled = false;
 
-        velocity = Vector3.zero;
-        controller.enabled = true;
+    Transform spawnPoint = GameManager.Instance.currentCheckpoint != null ?
+                           GameManager.Instance.currentCheckpoint :
+                           GameManager.Instance.levelStartPoint;
 
-        _animator.ResetTrigger("Jump");
-        _animator.ResetTrigger("DoubleJump");
-        _animator.SetBool("Jump", false);
-        _animator.SetBool("DoubleJump", false);
-        jumpCount = 0;
+    transform.position = spawnPoint.position;
+    transform.rotation = Quaternion.Euler(0f, 0f, 0f);
 
-        if (sprintFX) sprintFX.StopEffect();
-        sprintFXActive = false;
-    }
+    velocity = Vector3.zero;
+    controller.enabled = true;
+
+    _animator.ResetTrigger("Jump");
+    _animator.ResetTrigger("DoubleJump");
+    _animator.SetBool("Jump", false);
+    _animator.SetBool("DoubleJump", false);
+
+    jumpCount = 0;
+
+    // Aggiungi questa riga:
+    wasGroundedLastFrame = true;
+
+    if (sprintFX) sprintFX.StopEffect();
+    sprintFXActive = false;
+
+    IsMovementLocked = false;
+}
+
+
 
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
@@ -324,9 +332,66 @@ public class ThirdPersonController : MonoBehaviour
 
     public void TakeDamage(float amount)
     {
+        if (currentHealth <= 0) return; // evita danni se già morto
+
+        float oldHealth = currentHealth;
         currentHealth -= amount;
+        currentHealth = Mathf.Max(0, currentHealth);
         playerUI.UpdateHealth(currentHealth);
         attackEffectUI?.PulseIcon();
-        if (currentHealth <= 0) currentHealth = 0;
+
+        if (currentHealth <= 0 && oldHealth > 0)
+        {
+            // Blocca movimento subito
+            IsMovementLocked = true;
+            _animator.SetFloat("Speed", 0f);
+
+            // Controlla se possiamo giocare animazione HitReal o solo Hit
+            if (ShouldPlayHitReal())
+            {
+                _animator.SetTrigger("HitReal");
+            }
+            else
+            {
+                _animator.SetTrigger("Hit");
+                // Respawn rapido senza animazione se sta cadendo/jumpando
+                StartCoroutine(QuickRespawn());
+            }
+        }
+        else if (currentHealth > 0)
+        {
+            // Se danneggiato ma non morto, trigger animazione hit se non attacca
+            PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
+            bool isSwinging = playerAttack != null && playerAttack.isAttacking;
+            if (!isSwinging)
+            {
+                _animator.SetTrigger("Hit");
+            }
+        }
+    }
+
+    private IEnumerator QuickRespawn()
+    {
+        yield return new WaitForSeconds(0.1f); // piccola pausa o zero
+        Respawn();
+        currentHealth = maxHealth;
+        playerUI.UpdateHealth(currentHealth);
+        IsMovementLocked = false;
+    }
+
+    public bool ShouldPlayHitReal()
+    {
+        bool isFalling = !_animator.GetBool("isGrounded") && velocity.y < -2f;
+        bool isJumping = _animator.GetBool("Jump") || _animator.GetBool("DoubleJump");
+        return !isFalling && !isJumping;
+    }
+
+    // Animation Event callback: chiamata a fine animazione HitReal
+    public void OnHitRealEnd()
+    {
+        Respawn();
+        currentHealth = maxHealth;
+        playerUI.UpdateHealth(currentHealth);
+        IsMovementLocked = false;
     }
 }
