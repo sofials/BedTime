@@ -9,6 +9,10 @@ public class SlowdownAbility : AbilityBase
     public float slowdownFactor = 0.5f;
     public float customDuration = 10f;
 
+    [Header("Audio")]
+    public AudioClip effectAudioClip;  // audio specifico per effetto visivo
+    private AudioSource effectAudioSource;  // audio source dedicato
+
     public override int powerCost => 20;
     protected override bool HasFixedDuration => true;
 
@@ -30,6 +34,11 @@ public class SlowdownAbility : AbilityBase
         duration = customDuration;
         effectIconIndex = 3;
         Debug.Log("[SlowdownAbility] Awake() - Durata impostata a: " + duration);
+
+        // Setup audio source per effetto visivo
+        effectAudioSource = gameObject.AddComponent<AudioSource>();
+        effectAudioSource.playOnAwake = false;
+        effectAudioSource.clip = effectAudioClip;
     }
 
     public override void TryActivate()
@@ -39,7 +48,6 @@ public class SlowdownAbility : AbilityBase
             Debug.Log("[SlowdownAbility] Abilità già attiva – ignoro attivazione.");
             return;
         }
-
         base.TryActivate();
     }
 
@@ -49,19 +57,17 @@ public class SlowdownAbility : AbilityBase
 
         yield return new WaitForSeconds(duration - blinkDuration);
 
-        // Blinking MovingPlatform
         foreach (var data in affectedPlatforms)
-        {
             if (data.platform != null)
                 data.platform.StartBlinkingOverlay(blinkDuration);
-        }
 
-        // Blinking RotatingPlatform
         foreach (var ro in affectedRotators)
-        {
             if (ro != null)
                 ro.StartBlinkingOverlay(blinkDuration);
-        }
+
+        foreach (var ts in affectedTurtleShells)
+            if (ts != null)
+                ts.StartBlinkingOverlay(blinkDuration);
 
         yield return new WaitForSeconds(blinkDuration);
 
@@ -109,6 +115,9 @@ public class SlowdownAbility : AbilityBase
                 {
                     ts.slowFactor = slowdownFactor;
                     ts.SetSlow(true);
+                    ts.SetOverlayActive(true);
+                    ts.PlaySlowdownEffect(1f);
+                    ts.activeSlowdownAbility = this;
                     affectedTurtleShells.Add(ts);
                     Debug.Log($"→ TurtleShell {ts.name} rallentata.");
                 }
@@ -122,14 +131,15 @@ public class SlowdownAbility : AbilityBase
             return;
         }
 
-        if (powerUpScript.playerAnimator != null)
+        // Qui facciamo partire l'audio dell'effetto visivo
+        if (effectAudioSource != null && effectAudioClip != null)
         {
-            powerUpScript.playerAnimator.SetTrigger("SlowdownEffect");
-            Debug.Log("[SlowdownAbility] Trigger SlowdownEffect animazione inviato.");
+            effectAudioSource.Play();
+            Debug.Log("[SlowdownAbility] Audio effetto slowdown riprodotto.");
         }
         else
         {
-            Debug.LogWarning("[SlowdownAbility] playerAnimator non assegnato in PlayerPowerUp!");
+            Debug.LogWarning("[SlowdownAbility] effectAudioSource o effectAudioClip non assegnato.");
         }
 
         Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme, " +
@@ -174,7 +184,9 @@ public class SlowdownAbility : AbilityBase
             if (ts != null)
             {
                 ts.SetSlow(false);
-                Debug.Log($"Ripristinata TurtleShell: {ts.name}");
+                ts.SetOverlayActive(false);
+                ts.activeSlowdownAbility = null;
+                Debug.Log($"Ripristinata TurtleShell e patina disattivata: {ts.name}");
             }
         }
 

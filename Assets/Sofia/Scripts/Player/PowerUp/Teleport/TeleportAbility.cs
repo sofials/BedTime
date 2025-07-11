@@ -16,6 +16,10 @@ public class TeleportAbility : AbilityBase
     [Header("Effect FX")]
     public CFXR_EffectController teleportEffectController;
 
+    [Header("Audio")]
+    public AudioClip teleportConfirmSound;  // Audio specifico per conferma teletrasporto
+    private AudioSource teleportConfirmAudioSource;
+
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
@@ -26,14 +30,20 @@ public class TeleportAbility : AbilityBase
     private Vector3 teleportPosition;
     private bool canUpdatePointer = false;
 
-    private void Awake()
-    {
-        base.Awake(); // ✅ Essenziale per inizializzare l'audio da AbilityBase
-        controls = new PlayerControls();
-        controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
-        controls.Enable();
-        effectIconIndex = 2;
-    }
+    protected override void Awake()
+{
+    base.Awake();
+
+    controls = new PlayerControls();
+    controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
+    controls.Enable();
+
+    effectIconIndex = 2;
+
+    teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
+    teleportConfirmAudioSource.playOnAwake = false;
+}
+
 
     private void Start()
     {
@@ -70,26 +80,38 @@ public class TeleportAbility : AbilityBase
             }
 
             powerUpScript.SpendPower(powerCost);
+
+            // Esegui audio conferma
+            if (teleportConfirmSound != null)
+            {
+                teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
+            }
+
             StartCoroutine(ConfirmTeleportRoutine());
         }
     }
 
     public override void TryActivate()
+{
+    if (IsActive)
     {
-        if (IsActive)
+        Deactivate();
+    }
+    else if (CanActivate())
+    {
+        base.TryActivate();  // Questo attiva il suono corretto
+    }
+    else
+    {
+        Debug.Log("Impossibile attivare il teletrasporto.");
+
+        // AUDIO FALLIMENTO
+        if (failureSound != null && audioSource != null)
         {
-            Deactivate();
-        }
-        else if (CanActivate())
-        {
-            // Fa partire tutto il sistema base, incluso audio
-            base.TryActivate();
-        }
-        else
-        {
-            Debug.Log("Impossibile attivare il teletrasporto.");
+            audioSource.PlayOneShot(failureSound);
         }
     }
+}
 
     public override void Activate()
     {

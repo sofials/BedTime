@@ -18,10 +18,9 @@ public class PlayerPowerUp : MonoBehaviour
 
     [Header("Abilities")]
     public AbilityBase PlatformSpawnerForwardAbility;
-    public AbilityBase SlowdownAbility;
+    public SlowdownAbility SlowdownAbility;  // meglio cast diretto
     public AbilityBase TeleportAbility;
 
-    private Dictionary<KeyCode, AbilityBase> abilityKeyMap;
     private PlayerControls controls;
 
     [Header("References")]
@@ -58,12 +57,18 @@ public class PlayerPowerUp : MonoBehaviour
     {
         if (ability == null) return;
 
-        if (ability is SlowdownAbility)
+        if (ability == SlowdownAbility)
         {
-            if (!ability.IsActive)
-                ability.TryActivate();
+            // NON attivare subito la slow, ma far partire animazione
+            if (playerAnimator != null)
+            {
+                playerAnimator.SetTrigger("SlowdownEffect");
+                Debug.Log("[PlayerPowerUp] Trigger animazione SlowdownEffect inviato.");
+            }
             else
-                Debug.Log("[PlayerPowerUp] Slowdown già attivo, niente toggle off.");
+            {
+                Debug.LogWarning("[PlayerPowerUp] playerAnimator non assegnato!");
+            }
         }
         else
         {
@@ -71,6 +76,16 @@ public class PlayerPowerUp : MonoBehaviour
                 ability.Deactivate();
             else
                 ability.TryActivate();
+        }
+    }
+
+    // Metodo pubblico chiamato da Animation Event nel clip "magic"
+    public void OnMagicEffectStart()
+    {
+        if (SlowdownAbility != null && !SlowdownAbility.IsActive)
+        {
+            SlowdownAbility.TryActivate();
+            Debug.Log("[PlayerPowerUp] SlowdownAbility attivata tramite Animation Event.");
         }
     }
 

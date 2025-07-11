@@ -39,6 +39,8 @@ public class TurtleShell : MonoBehaviour
     public CFXR_EffectController deathEffectController;
     [SerializeField] private Material patinaMaterial;
     [SerializeField] private CFXR_EffectController slowdownEffect;
+    public SlowdownAbility activeSlowdownAbility;
+
 
     private bool isDead = false;
     private bool isStunned = false;
@@ -348,33 +350,40 @@ public class TurtleShell : MonoBehaviour
     }
 
     public void TakeDamage(float damage)
+{
+    if (isDead) return;
+
+    if (isSlow)
     {
-        if (isDead) return;
-
-        if (isSlow)
+        if (!hasBeenHitWhileSlow)
         {
-            if (!hasBeenHitWhileSlow)
+            hasBeenHitWhileSlow = true;
+            animator.SetTrigger("GetHitReal");
+
+            SetSlow(false);
+            agent.isStopped = true;
+            isStunned = true;
+
+            // 👉 Disattiva l'effetto slowdown globale
+            if (activeSlowdownAbility != null && activeSlowdownAbility.IsActive)
             {
-                hasBeenHitWhileSlow = true;
-                animator.SetTrigger("GetHitReal");
-
-                SetSlow(false);
-                agent.isStopped = true;
-                isStunned = true;
+                activeSlowdownAbility.Deactivate();
             }
-            return;
         }
-
-        currentHealth -= damage;
-        animator.SetTrigger("GetHit");
-
-        if (currentHealth <= 0f)
-        {
-            currentHealth = 0f;
-            isDead = true;
-            StartCoroutine(HandleDeath());
-        }
+        return;
     }
+
+    currentHealth -= damage;
+    animator.SetTrigger("GetHit");
+
+    if (currentHealth <= 0f)
+    {
+        currentHealth = 0f;
+        isDead = true;
+        StartCoroutine(HandleDeath());
+    }
+}
+
 
     private IEnumerator HandleDeath()
     {

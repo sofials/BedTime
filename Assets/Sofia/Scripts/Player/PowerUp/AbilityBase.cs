@@ -17,7 +17,9 @@ public abstract class AbilityBase : MonoBehaviour
 
     [Header("Audio")]
     public AudioClip activationSound;
-    private AudioSource audioSource;  // privato
+    protected AudioSource audioSource;
+
+    public AudioClip failureSound;  // nuovo
 
     protected virtual void Awake()
     {
@@ -43,27 +45,30 @@ public abstract class AbilityBase : MonoBehaviour
     }
 
     public virtual void TryActivate()
+{
+    if (CanActivate())
     {
-        if (CanActivate())
+        Activate();
+        IsActive = true;
+
+        if (activationSound != null && audioSource != null)
         {
-            Activate();
-            IsActive = true;
-
-            if (activationSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(activationSound);
-            }
-
-            if (PlayerUI.Instance != null)
-                PlayerUI.Instance.PulseIconAt(effectIconIndex);
-
-            // Nota: Non fare Invoke qui, lascia gestire la durata a subclassi
+            audioSource.PlayOneShot(activationSound);
         }
-        else
+
+        if (PlayerUI.Instance != null)
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
+    }
+    else
+    {
+        Debug.Log("Impossibile attivare l'abilità: energia insufficiente o già attiva.");
+        
+        if (failureSound != null && audioSource != null)
         {
-            Debug.Log("Impossibile attivare l'abilità.");
+            audioSource.PlayOneShot(failureSound);
         }
     }
+}
 
     public abstract void Activate();
     public abstract void Deactivate();
