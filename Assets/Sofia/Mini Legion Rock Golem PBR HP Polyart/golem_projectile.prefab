@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4880374607221257336}
   - component: {fileID: 5045523772850316427}
   - component: {fileID: 987204596186416419}
-  m_Layer: 16
+  m_Layer: 8
   m_Name: Particle System
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4853,7 +4853,7 @@ GameObject:
   - component: {fileID: 3209613625142850617}
   - component: {fileID: 4728879867730431944}
   - component: {fileID: 2870442823764533557}
-  m_Layer: 16
+  m_Layer: 8
   m_Name: Particle System (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9691,9 +9691,9 @@ GameObject:
   - component: {fileID: 3298362517634390472}
   - component: {fileID: 1365227821329407745}
   - component: {fileID: -4069670167407785059}
-  m_Layer: 16
+  m_Layer: 8
   m_Name: golem_projectile
-  m_TagString: Untagged
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -9708,7 +9708,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -53.27636, y: -2.1000004, z: -53.90189}
-  m_LocalScale: {x: 3, y: 3, z: 3}
+  m_LocalScale: {x: 100, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4880374607221257336}
@@ -14638,8 +14638,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   speed: 10
   damage: 10
-  pushForce: 5
-  maxLifetime: 5
+  lifetime: 5
 --- !u!1 &8770685957017539417
 GameObject:
   m_ObjectHideFlags: 0
@@ -14650,7 +14649,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2391758085264830996}
   - component: {fileID: 3490382191866087952}
-  m_Layer: 16
+  m_Layer: 8
   m_Name: Trail
   m_TagString: Untagged
   m_Icon: {fileID: 0}

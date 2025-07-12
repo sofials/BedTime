@@ -1,59 +1,62 @@
 using UnityEngine;
+using CartoonFX;  // Assicurati che sia il namespace corretto
 
-[RequireComponent(typeof(Collider))]
-public class Golem_Projectile : MonoBehaviour
+public class Projectile : MonoBehaviour
 {
-    public float speed = 10f;
-    public float damage = 10f;
-    public float pushForce = 5f;
-    public float maxLifetime = 5f;
+    public float speed = 15f;
+    public float damage = 15f;
+    public float lifetime = 5f;
 
-    private CFXR_EffectController fxController;
+    private Vector3 direction;
     private Rigidbody rb;
+
+    private CFXR_EffectController effectController;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        fxController = GetComponentInChildren<CFXR_EffectController>();
+        effectController = GetComponentInChildren<CFXR_EffectController>();
+
+        if (effectController != null)
+            effectController.StopEffect();
     }
 
-    private void OnEnable()
+    public void SetTarget(Vector3 targetPosition)
     {
-        if (fxController != null)
-            fxController.PlayEffect();
+        direction = (targetPosition - transform.position).normalized;
+        rb.linearVelocity = direction * speed;
 
-        // autodistruzione dopo un po' se non colpisce nulla
-        Invoke(nameof(DestroySelf), maxLifetime);
+        if (effectController != null)
+            effectController.PlayEffect();
     }
 
-    private void FixedUpdate()
+    private void Start()
     {
-        rb.MovePosition(transform.position + transform.forward * speed * Time.fixedDeltaTime);
+        Destroy(gameObject, lifetime);
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
+        if (other.CompareTag("PlayerHurtbox"))
         {
-            HurtBox hurtBox = other.GetComponent<HurtBox>();
-            if (hurtBox != null)
+            var hurtbox = other.GetComponent<HurtBox>();
+            if (hurtbox != null)
             {
                 Vector3 pushDir = (other.transform.position - transform.position).normalized;
-                hurtBox.OnHit(pushDir, pushForce, damage);
+                hurtbox.OnHit(pushDir, 0f, damage);
             }
+
+            if (effectController != null)
+                effectController.StopEffect();
+
+            Destroy(gameObject);
         }
+        else if (!other.CompareTag("Enemy"))
+        {
+            if (effectController != null)
+                effectController.StopEffect();
 
-        if (fxController != null)
-            fxController.StopEffect();
-
-        Destroy(gameObject);
-    }
-
-    private void DestroySelf()
-    {
-        if (fxController != null)
-            fxController.StopEffect();
-
-        Destroy(gameObject);
+            Destroy(gameObject);
+        }
     }
 }
