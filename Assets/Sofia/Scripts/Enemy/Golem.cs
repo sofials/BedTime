@@ -7,16 +7,19 @@ public class Golem : MonoBehaviour
     public NavMeshAgent agent;
 
     [Header("Vision Settings")]
-    public float viewRadius = 12f;
-    public float viewAngle = 110f;
+    public float viewRadius = 300f;
+    public float viewAngle = 360f;
     public LayerMask playerMask;
     public LayerMask obstacleMask;
 
     [Header("Attack Settings")]
-    public float attackRange = 10f;
-    public float rangedRange = 100f;
-    public float attackCooldown = 2f;
-    private float attackTimer = 0f;
+    public float meleeRange = 20f;
+    public float rangedRange = 280f;
+    public float meleeCooldown = 2f;
+    public float rangedCooldown = 3f;
+
+    private float meleeTimer = 0f;
+    private float rangedTimer = 0f;
 
     [Header("Attack Effects")]
     public float damage = 20f;
@@ -35,83 +38,91 @@ public class Golem : MonoBehaviour
     private bool isDead = false;
 
     private bool playerVisible = false;
-    private bool isAttacking = false;
+
+    private bool isMeleeAttacking = false;
+    private bool isRangedAttacking = false;
 
     private void Start()
     {
         currentHealth = maxHealth;
     }
 
-   private void Update()
-{
-    if (isDead || player == null) return;
-
-    attackTimer -= Time.deltaTime;
-    UpdatePlayerVisibility();
-
-    if (!playerVisible)
+    private void Update()
     {
-        MoveTowardsPlayer();
-        return;
-    }
+        if (isDead || player == null) return;
 
-    float dist = Vector3.Distance(transform.position, player.position);
-    Vector3 dir = (player.position - transform.position).normalized;
-    dir.y = 0;
-    if (dir != Vector3.zero)
-        transform.rotation = Quaternion.LookRotation(dir);
+        meleeTimer -= Time.deltaTime;
+        rangedTimer -= Time.deltaTime;
 
-    // In range di attacco?
-    if (!isAttacking && attackTimer <= 0f)
-    {
-        if (dist <= attackRange)
+        UpdatePlayerVisibility();
+
+        float dist = Vector3.Distance(transform.position, player.position);
+
+        // Ruota verso il player
+        Vector3 dir = (player.position - transform.position).normalized;
+        dir.y = 0;
+        if (dir != Vector3.zero)
+            transform.rotation = Quaternion.LookRotation(dir);
+
+        if (!playerVisible)
         {
-            animator.SetTrigger("AttackMelee");
-            isAttacking = true;
-            attackTimer = attackCooldown;
-            StopAndFacePlayer();
+            MoveTowardsPlayer();
+            return;
         }
-        else if (dist <= rangedRange)
+
+        // Blocco durante attacchi
+        if (isMeleeAttacking || isRangedAttacking)
+            return;
+
+        // Scegli attacco
+        if (dist <= meleeRange && meleeTimer <= 0f)
         {
-            animator.SetTrigger("AttackRanged");
-            isAttacking = true;
-            attackTimer = attackCooldown;
-            StopAndFacePlayer();
+            DoMeleeAttack();
+        }
+        else if (dist <= rangedRange && rangedTimer <= 0f)
+        {
+            DoRangedAttack();
         }
         else
         {
             MoveTowardsPlayer();
         }
     }
-    else
+
+    private void DoMeleeAttack()
     {
-        // È in cooldown → può comunque muoversi se fuori distanza
-        if (dist > rangedRange)
-            MoveTowardsPlayer();
-        else
-            StopAndFacePlayer();
-    }
-}
-
-private void StopAndFacePlayer()
-{
-    if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-        agent.isStopped = true;
-
-    animator.SetBool("isWalking", false);
-}
-
-private void MoveTowardsPlayer()
-{
-    if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-    {
-        agent.isStopped = false;
-        agent.SetDestination(player.position);
+        StopAndFacePlayer();
+        isMeleeAttacking = true;
+        meleeTimer = meleeCooldown;
+        animator.SetTrigger("AttackMelee");
     }
 
-    animator.SetBool("isWalking", true);
-}
+    private void DoRangedAttack()
+    {
+        StopAndFacePlayer();
+        isRangedAttacking = true;
+        rangedTimer = rangedCooldown;
+        animator.SetTrigger("AttackRanged");
+    }
 
+    private void StopAndFacePlayer()
+    {
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.isStopped = true;
+
+        animator.SetBool("isWalking", false);
+    }
+
+    private void MoveTowardsPlayer()
+    {
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = false;
+            agent.SetDestination(player.position);
+        }
+
+        animator.SetBool("isWalking", true);
+    }
 
     private void UpdatePlayerVisibility()
     {
@@ -132,14 +143,14 @@ private void MoveTowardsPlayer()
         }
     }
 
-    // ✳️ Evento nell'animazione melee
+    // Evento animazione melee — applica danno area
     public void EnemyAttackHitbox()
     {
         if (isDead) return;
 
         Collider[] hits = Physics.OverlapBox(
-            transform.position + transform.forward * (attackRange * 0.5f),
-            new Vector3(5f, 5f, 5f),
+            transform.position + transform.forward * (meleeRange * 0.5f),
+            new Vector3(10f, 10f, 10f),
             transform.rotation,
             LayerMask.GetMask("PlayerHurtbox")
         );
@@ -157,41 +168,50 @@ private void MoveTowardsPlayer()
             }
         }
 
-        isAttacking = false;
+        isMeleeAttacking = false;
     }
 
-    // ✳️ Evento nell'animazione ranged
+    // Evento animazione ranged — istanzia il proiettile (particellare)
     public void SpawnProjectile()
     {
         if (isDead || projectilePrefab == null || projectileSpawnPoint == null) return;
 
         GameObject proj = Instantiate(projectilePrefab, projectileSpawnPoint.position, Quaternion.identity);
+        Golem_Projectile projectile = proj.GetComponent<Golem_Projectile>();
 
-        Projectile projectile = proj.GetComponent<Projectile>();
         if (projectile != null)
-        {
-            projectile.SetTarget(player.position);
-        }
+            projectile.Initialize(player.position);
 
-        isAttacking = false;
+    }
+
+    // Evento di fine animazione ranged
+    public void EndRangedAttack()
+    {
+        Debug.Log("Ranged attack finished");
+        isRangedAttacking = false;
     }
 
     public void TakeDamage(float amount)
+{
+    if (isDead) return;
+
+    currentHealth -= amount;
+    Debug.Log($"Golem ha subito {amount} danni. Vita rimanente: {currentHealth}");
+
+    // Se stava attaccando, resetta flag per riprendere comportamento normale
+    isMeleeAttacking = false;
+    isRangedAttacking = false;
+
+    if (currentHealth <= 0)
     {
-        if (isDead) return;
-
-        currentHealth -= amount;
-        Debug.Log($"Golem ha subito {amount} danni. Vita rimanente: {currentHealth}");
-
-        if (currentHealth <= 0)
-        {
-            Die();
-        }
-        else
-        {
-            animator.SetTrigger("Hit");
-        }
+        Die();
     }
+    else
+    {
+        animator.SetTrigger("Hit");
+    }
+}
+
 
     private void Die()
     {
@@ -208,4 +228,35 @@ private void MoveTowardsPlayer()
         if (col != null)
             col.enabled = false;
     }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, meleeRange);
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, rangedRange);
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, viewRadius);
+
+        Vector3 viewAngleA = DirFromAngle(-viewAngle / 2);
+        Vector3 viewAngleB = DirFromAngle(viewAngle / 2);
+        Gizmos.color = Color.white;
+        Gizmos.DrawLine(transform.position, transform.position + viewAngleA * viewRadius);
+        Gizmos.DrawLine(transform.position, transform.position + viewAngleB * viewRadius);
+    }
+
+    private Vector3 DirFromAngle(float angleDegrees)
+    {
+        angleDegrees += transform.eulerAngles.y;
+        return new Vector3(Mathf.Sin(angleDegrees * Mathf.Deg2Rad), 0, Mathf.Cos(angleDegrees * Mathf.Deg2Rad));
+    }
+    // Chiamalo alla fine dell'animazione Hit (tramite evento animazione)
+public void EndHit()
+{
+    isMeleeAttacking = false;
+    isRangedAttacking = false;
+}
+
 }
