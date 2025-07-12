@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections;
+
 
 public class GameManager : MonoBehaviour
 {
@@ -17,6 +19,10 @@ public class GameManager : MonoBehaviour
 
     [HideInInspector]
     public Transform currentCheckpoint;
+    [Header("Fade Settings")]
+    public Image fadeImage;
+    public float fadeDuration = 1f;
+
 
     private bool isPaused = false;
 
@@ -45,6 +51,9 @@ public class GameManager : MonoBehaviour
             if (powerUp.powerUI != null)
                 powerUp.powerUI.SetActive(false);
         }
+        if (fadeImage != null)
+    StartCoroutine(FadeIn());
+
     }
 
     private void Update()
@@ -129,4 +138,52 @@ public class GameManager : MonoBehaviour
             Debug.LogWarning("playerAttack non assegnato!");
         }
     }
+    public void LoadSceneWithFade(string sceneName)
+{
+    StartCoroutine(FadeAndLoad(sceneName));
 }
+
+private IEnumerator FadeAndLoad(string sceneName)
+{
+    yield return StartCoroutine(FadeOut());
+    SceneManager.LoadScene(sceneName);
+    yield return new WaitForSeconds(0.1f); // piccolo delay per sicurezza
+    StartCoroutine(FadeIn());
+}
+
+private IEnumerator FadeOut()
+{
+    float t = 0;
+    while (t < fadeDuration)
+    {
+        t += Time.unscaledDeltaTime; // usa unscaled nel caso Time.timeScale = 0
+        SetFadeAlpha(t / fadeDuration);
+        yield return null;
+    }
+    SetFadeAlpha(1);
+}
+
+private IEnumerator FadeIn()
+{
+    float t = fadeDuration;
+    while (t > 0)
+    {
+        t -= Time.unscaledDeltaTime;
+        SetFadeAlpha(t / fadeDuration);
+        yield return null;
+    }
+    SetFadeAlpha(0);
+}
+
+private void SetFadeAlpha(float alpha)
+{
+    if (fadeImage != null)
+    {
+        Color c = fadeImage.color;
+        c.a = Mathf.Clamp01(alpha);
+        fadeImage.color = c;
+    }
+}
+
+}
+
