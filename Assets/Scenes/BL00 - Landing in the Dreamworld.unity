@@ -17864,10 +17864,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 300
+  rotateAroundTarget: 0
+  targetPivot: {fileID: 0}
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
 --- !u!23 &136494329
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -198294,58 +198294,6 @@ PrefabInstance:
       propertyPath: Composition.HardLimits.Offset.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: Radius
-      value: 18.51
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: OrbitStyle
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: TargetOffset.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: TargetOffset.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: TargetOffset.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: RadialAxis.Value
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: Orbits.Top.Height
-      value: 30.4
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: Orbits.Top.Radius
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: Orbits.Bottom.Height
-      value: -3.61
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: Orbits.Bottom.Radius
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: Orbits.Center.Height
-      value: 17.7
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: Orbits.Center.Radius
-      value: 42.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6078831364995930151, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
-      propertyPath: RadialAxis.Recentering.Enabled
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 6175422507480516633, guid: 597be67de91581f4a8ddbff3ec5aa205, type: 3}
       propertyPath: Target.TrackingTarget
       value: 
@@ -359371,10 +359319,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: -1, z: 0}
   rotationSpeed: 300
+  rotateAroundTarget: 0
+  targetPivot: {fileID: 0}
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
 --- !u!23 &1407445799
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -464037,6 +463985,7 @@ MonoBehaviour:
   slowdownFactor: 0.7
   customDuration: 10
   effectAudioClip: {fileID: 0}
+  npcsToSlow: []
 --- !u!4 &1754277130
 Transform:
   m_ObjectHideFlags: 0
@@ -587436,10 +587385,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 300
+  rotateAroundTarget: 0
+  targetPivot: {fileID: 0}
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
 --- !u!65 &8049640519507298585
 BoxCollider:
   m_ObjectHideFlags: 0
