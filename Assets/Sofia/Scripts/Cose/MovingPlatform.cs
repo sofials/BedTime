@@ -19,23 +19,24 @@ public class MovingPlatform : MonoBehaviour
     private Vector3 lastPosition;
     private CharacterController playerController = null;
 
-    private float speedMultiplier = 1f; // <-- IMPORTANTE per lo slowdown
-
-    private Vector3 deltaMovement; // <-- Salviamo il movimento della piattaforma (per il player)
-
-    // Esportiamo il deltaMovement per il player
+    private float speedMultiplier = 1f;
+    private Vector3 deltaMovement;
     public Vector3 DeltaMovement => deltaMovement;
 
     [Header("Overlay Patina")]
-    [SerializeField] private Material patinaMaterial; // Materiale blu trasparente per patina
+    [SerializeField] private Material patinaMaterial;
 
     [Header("Slowdown FX")]
-    [SerializeField] private CFXR_EffectController slowdownEffect; // Effetto slowdown figlio piattaforma
+    [SerializeField] private CFXR_EffectController slowdownEffect;
 
     [Header("Slowdown Custom Settings")]
     public bool useCustomSlowdown = false;
-    [Range(0.01f, 1f)]
-    public float customSlowdownFactor = 0.5f;
+    [Tooltip("Velocità da applicare temporaneamente durante lo slowdown.")]
+    public float customSlowdownFactor = 3f;
+
+    private MeshRenderer meshRenderer;
+    private bool patinaActive = false;
+    private float originalSpeed;
 
     void Awake()
     {
@@ -47,7 +48,7 @@ public class MovingPlatform : MonoBehaviour
 
         if (slowdownEffect != null)
         {
-            slowdownEffect.gameObject.SetActive(false); // Disattiva effetto all’inizio
+            slowdownEffect.gameObject.SetActive(false);
         }
     }
 
@@ -83,7 +84,6 @@ public class MovingPlatform : MonoBehaviour
         deltaMovement = newPosition - lastPosition;
 
         transform.position = newPosition;
-
         lastPosition = newPosition;
     }
 
@@ -129,19 +129,61 @@ public class MovingPlatform : MonoBehaviour
         return sampledPoints[sampledPoints.Count - 1];
     }
 
-    // Metodo chiamato dallo slowdown power-up
     public void SetSpeedMultiplier(float multiplier)
     {
         if (useCustomSlowdown)
-            speedMultiplier = customSlowdownFactor;
+        {
+            originalSpeed = speed;
+            speed = customSlowdownFactor;
+            Debug.Log($"[MovingPlatform] Velocità impostata direttamente a {speed} (da {originalSpeed})");
+        }
         else
-            speedMultiplier = multiplier;
-
-        Debug.Log($"[MovingPlatform] {gameObject.name} speed multiplier impostato a {speedMultiplier}");
+        {
+            speed *= multiplier;
+            Debug.Log($"[MovingPlatform] Velocità moltiplicata, nuova velocità = {speed}");
+        }
     }
 
-    private MeshRenderer meshRenderer;
-    private bool patinaActive = false;
+    public void RestoreOriginalSpeed()
+    {
+        if (useCustomSlowdown)
+        {
+            speed = originalSpeed;
+            Debug.Log($"[MovingPlatform] Velocità ripristinata a {speed}");
+        }
+    }
+
+    public void PlaySlowdownEffect(float duration = 1f)
+    {
+        if (slowdownEffect != null)
+        {
+            StartCoroutine(SlowdownWithFxRoutine(duration));
+        }
+        else
+        {
+            StartCoroutine(SlowdownRoutine(duration));
+        }
+    }
+
+    private IEnumerator SlowdownRoutine(float duration)
+    {
+        SetSpeedMultiplier(1f);
+        yield return new WaitForSeconds(duration);
+        RestoreOriginalSpeed();
+    }
+
+    private IEnumerator SlowdownWithFxRoutine(float duration)
+    {
+        slowdownEffect.gameObject.SetActive(true);
+        slowdownEffect.PlayEffect();
+
+        SetSpeedMultiplier(1f);
+        yield return new WaitForSeconds(duration);
+
+        RestoreOriginalSpeed();
+        slowdownEffect.StopEffect();
+        slowdownEffect.gameObject.SetActive(false);
+    }
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -161,10 +203,6 @@ public class MovingPlatform : MonoBehaviour
             }
         }
     }
-
-    // -----------------------------
-    // Gestione patina blu overlay
-    // -----------------------------
 
     public void SetOverlayActive(bool active)
     {
@@ -210,27 +248,5 @@ public class MovingPlatform : MonoBehaviour
         }
 
         SetOverlayActive(false);
-    }
-
-    // -----------------------------
-    // Gestione effetto slowdown FX
-    // -----------------------------
-
-    public void PlaySlowdownEffect(float duration = 1f)
-    {
-        if (slowdownEffect == null) return;
-
-        StartCoroutine(PlayEffectRoutine(duration));
-    }
-
-    private IEnumerator PlayEffectRoutine(float duration)
-    {
-        slowdownEffect.gameObject.SetActive(true);
-        slowdownEffect.PlayEffect();
-
-        yield return new WaitForSeconds(duration);
-
-        slowdownEffect.StopEffect();
-        slowdownEffect.gameObject.SetActive(false);
     }
 }

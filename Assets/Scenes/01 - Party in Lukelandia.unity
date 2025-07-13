@@ -238,8 +238,11 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
 --- !u!1001 &17742404
@@ -16295,6 +16298,72 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
   m_PrefabInstance: {fileID: 1186525371}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &154580775
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 154580776}
+  - component: {fileID: 154580778}
+  - component: {fileID: 154580777}
+  m_Layer: 0
+  m_Name: 3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &154580776
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 154580775}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.62137014, z: -0, w: 0.7835171}
+  m_LocalPosition: {x: -203, y: 214, z: -745}
+  m_LocalScale: {x: 519.4149, y: 367.8811, z: 19.209}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 899711697}
+  m_LocalEulerAnglesHint: {x: 0, y: 76.833, z: 0}
+--- !u!114 &154580777
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 154580775}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ef9331273877a4a93e6e2eec2525fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!65 &154580778
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 154580775}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!64 &158656610
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -44487,10 +44556,13 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 325230053}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 0.5
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
+  useCustomSlowdown: 1
+  customSlowdownFactor: 5
 --- !u!4 &550176177 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
@@ -49933,10 +50005,13 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 325230053}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 0.5
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
+  useCustomSlowdown: 1
+  customSlowdownFactor: 5
 --- !u!1 &586442757 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4999457811944008314, guid: 5c10a1708a0043f4f9e22a834880210e, type: 3}
@@ -50197,6 +50272,72 @@ Transform:
   - {fileID: 588014917}
   m_Father: {fileID: 318172616}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &612279551
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 612279552}
+  - component: {fileID: 612279554}
+  - component: {fileID: 612279553}
+  m_Layer: 0
+  m_Name: 1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &612279552
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 612279551}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.722568, z: -0, w: 0.6912999}
+  m_LocalPosition: {x: 387.7, y: 263, z: -844.3}
+  m_LocalScale: {x: 169.68607, y: 26.919512, z: 5.719}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 899711697}
+  m_LocalEulerAnglesHint: {x: 0, y: 92.534, z: 0}
+--- !u!114 &612279553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 612279551}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ef9331273877a4a93e6e2eec2525fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!65 &612279554
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 612279551}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.79, y: 4.88, z: 3.13}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &617337427
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -92535,8 +92676,11 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 1939248216}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
 --- !u!114 &884763259
@@ -92555,8 +92699,11 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 183090289812108120, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
 --- !u!114 &884763260
@@ -92575,8 +92722,11 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 2024196924}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
 --- !u!4 &890711088 stripped
@@ -92665,6 +92815,42 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ddb14c0e79de2864989c526fb2c80e35, type: 3}
+--- !u!1 &899711696
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 899711697}
+  m_Layer: 0
+  m_Name: 'Checkpoints '
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &899711697
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 899711696}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -14.7143, y: -15.453136, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 612279552}
+  - {fileID: 1910099903}
+  - {fileID: 154580776}
+  - {fileID: 962925918}
+  - {fileID: 1049456638}
+  m_Father: {fileID: 4612085054245254821}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!64 &917483231
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -98186,6 +98372,73 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 2037866675222372664, guid: c6faa2b48ced40547b2f6492428754ef, type: 3}
+--- !u!1 &962925917
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 962925918}
+  - component: {fileID: 962925920}
+  - component: {fileID: 962925919}
+  m_Layer: 0
+  m_Name: Finish
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &962925918
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 962925917}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0.9994298, z: -0, w: -0.033764385}
+  m_LocalPosition: {x: 165, y: 32, z: -991}
+  m_LocalScale: {x: 519.4149, y: 367.8811, z: 19.209}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 899711697}
+  m_LocalEulerAnglesHint: {x: 0, y: -183.87, z: 0}
+--- !u!114 &962925919
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 962925917}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c7807db0c8385b498bfb174d083764b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneToLoad: Scenes/02 - Finding Pietro
+--- !u!65 &962925920
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 962925917}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &962962186
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -98958,8 +99211,11 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 0}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
 --- !u!23 &1040784326
@@ -99168,6 +99424,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0dc7e9f2a3a5c0047822243cc33f19a6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1049456637
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1049456638}
+  m_Layer: 0
+  m_Name: Start
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1049456638
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1049456637}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -18, y: 7.88, z: -2262.21}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 899711697}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1050581942
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -115897,10 +116184,13 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 325230053}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 0.5
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
+  useCustomSlowdown: 1
+  customSlowdownFactor: 5
 --- !u!64 &1207074339
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -188578,6 +188868,72 @@ ParticleSystemRenderer:
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
   m_MaskInteraction: 0
+--- !u!1 &1910099902
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1910099903}
+  - component: {fileID: 1910099905}
+  - component: {fileID: 1910099904}
+  m_Layer: 0
+  m_Name: 2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1910099903
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1910099902}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.997448, z: -0, w: 0.0713971}
+  m_LocalPosition: {x: 255.3, y: 254.4, z: -609.2}
+  m_LocalScale: {x: 246.86836, y: 157.28082, z: 24.902576}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 899711697}
+  m_LocalEulerAnglesHint: {x: 0, y: 171.812, z: 0}
+--- !u!114 &1910099904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1910099902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ef9331273877a4a93e6e2eec2525fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!65 &1910099905
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1910099902}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1911985371
 GameObject:
   m_ObjectHideFlags: 0
@@ -194529,8 +194885,11 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 684780657}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
 --- !u!1 &1960794921
@@ -222827,6 +223186,10 @@ PrefabInstance:
       propertyPath: playerAttack
       value: 
       objectReference: {fileID: 1472802712461954273}
+    - target: {fileID: 5799149663439412204, guid: b1d89148922b0c44f9f6dc39ea446c67, type: 3}
+      propertyPath: levelStartPoint
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 7647410763134720624, guid: b1d89148922b0c44f9f6dc39ea446c67, type: 3}
       propertyPath: powerUpScript
       value: 
@@ -222924,10 +223287,19 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 392731603}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 6922769659337529094, guid: b1d89148922b0c44f9f6dc39ea446c67, type: 3}
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 8648148307428893858, guid: b1d89148922b0c44f9f6dc39ea446c67, type: 3}
+      insertIndex: 0
+      addedObject: {fileID: 899711697}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b1d89148922b0c44f9f6dc39ea446c67, type: 3}
+--- !u!4 &4612085054245254821 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8648148307428893858, guid: b1d89148922b0c44f9f6dc39ea446c67, type: 3}
+  m_PrefabInstance: {fileID: 4612085054245254820}
+  m_PrefabAsset: {fileID: 0}
 --- !u!23 &4616743430749888839
 MeshRenderer:
   m_ObjectHideFlags: 0
