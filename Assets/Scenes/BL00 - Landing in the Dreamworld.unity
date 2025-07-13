@@ -17733,10 +17733,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 300
-  rotateAroundTarget: 0
-  targetPivot: {fileID: 0}
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
+  enableGirandolaRotation: 0
+  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
 --- !u!23 &136494329
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -141251,7 +141253,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5971399396177671162, guid: 5e236f18cbdd9c741a4bad5c2161b67c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 389.2
+      value: 425
       objectReference: {fileID: 0}
     - target: {fileID: 5971399396177671162, guid: 5e236f18cbdd9c741a4bad5c2161b67c, type: 3}
       propertyPath: m_LocalPosition.z
@@ -176274,6 +176276,7 @@ Transform:
   - {fileID: 547766641}
   - {fileID: 1393131246}
   - {fileID: 1424151610}
+  - {fileID: 3034907752245993293}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &795166989
@@ -217465,6 +217468,8 @@ MonoBehaviour:
   sampleResolution: 100
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
 --- !u!1 &964460868
 GameObject:
   m_ObjectHideFlags: 0
@@ -286291,6 +286296,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Castello
       objectReference: {fileID: 0}
+    - target: {fileID: 2503761207201271805, guid: 6c3739cc719bc32439ad2fb6d7cfb590, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3027953534645478668, guid: 6c3739cc719bc32439ad2fb6d7cfb590, type: 3}
       propertyPath: m_LocalScale.z
       value: 81.20278
@@ -286339,9 +286348,6 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 1076678653949440996, guid: 6c3739cc719bc32439ad2fb6d7cfb590, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1632623219}
     - targetCorrespondingSourceObject: {fileID: 2652013082878346217, guid: 6c3739cc719bc32439ad2fb6d7cfb590, type: 3}
       insertIndex: -1
       addedObject: {fileID: 565895373}
@@ -291646,6 +291652,30 @@ PrefabInstance:
     - target: {fileID: 4082919237372269233, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 1.167
+      objectReference: {fileID: 0}
+    - target: {fileID: 4251224565847993548, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4251224565847993548, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4251224565847993548, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4251224565847993548, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4251224565847993548, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4251224565847993548, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 8898461724782157862, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
       propertyPath: m_Name
@@ -308135,6 +308165,8 @@ MonoBehaviour:
   sampleResolution: 100
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
 --- !u!65 &1247548525
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -351038,13 +351070,43 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ef47ebe958384f044b1e3543bbd160fc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1393131248}
   m_SourcePrefab: {fileID: 100100000, guid: ef47ebe958384f044b1e3543bbd160fc, type: 3}
 --- !u!4 &1393131246 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ef47ebe958384f044b1e3543bbd160fc, type: 3}
   m_PrefabInstance: {fileID: 1393131245}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1393131247 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: ef47ebe958384f044b1e3543bbd160fc, type: 3}
+  m_PrefabInstance: {fileID: 1393131245}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &1393131248
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1393131247}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4787136918717088048, guid: ef47ebe958384f044b1e3543bbd160fc, type: 3}
 --- !u!1 &1394082149
 GameObject:
   m_ObjectHideFlags: 0
@@ -356982,10 +357044,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: -1, z: 0}
   rotationSpeed: 300
-  rotateAroundTarget: 0
-  targetPivot: {fileID: 0}
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
+  enableGirandolaRotation: 0
+  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
 --- !u!23 &1407445799
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -363911,6 +363975,8 @@ MonoBehaviour:
   sampleResolution: 100
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
 --- !u!65 &1456429799
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -391554,6 +391620,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 2054968528}
     m_Modifications:
+    - target: {fileID: 3841719552174732602, guid: 732a1bef807304d4fb7c20ca3a1394ad, type: 3}
+      propertyPath: m_Size.x
+      value: 4.92
+      objectReference: {fileID: 0}
+    - target: {fileID: 3841719552174732602, guid: 732a1bef807304d4fb7c20ca3a1394ad, type: 3}
+      propertyPath: m_Size.y
+      value: 4.91
+      objectReference: {fileID: 0}
+    - target: {fileID: 3841719552174732602, guid: 732a1bef807304d4fb7c20ca3a1394ad, type: 3}
+      propertyPath: m_Size.z
+      value: 3.64
+      objectReference: {fileID: 0}
     - target: {fileID: 5851987192447093729, guid: 732a1bef807304d4fb7c20ca3a1394ad, type: 3}
       propertyPath: m_LocalScale.x
       value: 3.2755952
@@ -412883,33 +412961,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1629581458}
   m_CullTransparentMesh: 1
---- !u!1 &1632623217 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 1076678653949440996, guid: 6c3739cc719bc32439ad2fb6d7cfb590, type: 3}
-  m_PrefabInstance: {fileID: 1183469166}
-  m_PrefabAsset: {fileID: 0}
---- !u!64 &1632623219
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1632623217}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 0}
 --- !u!1 &1633049650
 GameObject:
   m_ObjectHideFlags: 0
@@ -480941,7 +480992,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3440491180511223166, guid: 44e0b49e770d22f44a947ace93063608, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 31.3
+      value: 64.9
       objectReference: {fileID: 0}
     - target: {fileID: 3440491180511223166, guid: 44e0b49e770d22f44a947ace93063608, type: 3}
       propertyPath: m_LocalPosition.z
@@ -584239,6 +584290,76 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8033162768737452215, guid: ec4263579a3e357489afd7a5390df165, type: 3}
   m_PrefabInstance: {fileID: 3034042879167209365}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &3034907752245993292
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 791815560}
+    m_Modifications:
+    - target: {fileID: 666608845450988355, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_Name
+      value: castello2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 81.727455
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 81.727455
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 258.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -66
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -31.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.68668264
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.7269574
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: -93.264
+      objectReference: {fileID: 0}
+    - target: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+--- !u!4 &3034907752245993293 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6213842003156511765, guid: 05ebb2e36b1d46d4a9921bd363472d59, type: 3}
+  m_PrefabInstance: {fileID: 3034907752245993292}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &3036221910883357292
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -585880,10 +586001,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 300
-  rotateAroundTarget: 0
-  targetPivot: {fileID: 0}
   patinaMaterial: {fileID: 0}
   slowdownEffect: {fileID: 0}
+  enableGirandolaRotation: 0
+  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
 --- !u!65 &8049640519507298585
 BoxCollider:
   m_ObjectHideFlags: 0
