@@ -406,15 +406,20 @@ namespace MTE
             {
                 return false;
             }
-            var method = ModelExporterType.GetMethod("ExportObject");
+            var method = ModelExporterType.GetMethod(
+                "ExportObject",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+                null,
+                new System.Type[] { typeof(string), typeof(UnityEngine.Object) },
+                null
+            );
             if (method == null)
             {
-                Debug.LogError("Failed to fetch the method: UnityEditor.Formats.Fbx.Exporter.ModelExporter.");
+                Debug.LogError("Failed to fetch the method: UnityEditor.Formats.Fbx.Exporter.ModelExporter.ExportObject.");
                 return false;
             }
 
             exportFbxMethod = (System.Func<string, UnityEngine.Object, string>)System.Delegate.CreateDelegate(typeof(System.Func<string, UnityEngine.Object, string>), method);
-            //Debug.Log("Successfully fetched the method: UnityEditor.Formats.Fbx.Exporter.ModelExporter().");
             return true;
         }
         

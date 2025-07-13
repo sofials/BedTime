@@ -3,7 +3,6 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
 
-
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
@@ -11,6 +10,7 @@ public class GameManager : MonoBehaviour
     [Header("UI Menus")]
     public GameObject startMenu;
     public GameObject pauseMenu;
+    public GameObject inGameUI;  // ✅ Aggiunto riferimento esplicito alla UI in-game
     public PlayerAttack playerAttack;
 
     [Header("Respawn Settings")]
@@ -19,25 +19,29 @@ public class GameManager : MonoBehaviour
 
     [HideInInspector]
     public Transform currentCheckpoint;
+
     [Header("Fade Settings")]
     public Image fadeImage;
     public float fadeDuration = 1f;
 
-
     private bool isPaused = false;
 
-    private void Awake()
+    void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            if (inGameUI != null)
+                DontDestroyOnLoad(inGameUI);
         }
         else
         {
             Destroy(gameObject);
         }
     }
+
 
     private void Start()
     {
@@ -49,12 +53,8 @@ public class GameManager : MonoBehaviour
             startMenu.SetActive(true);
             pauseMenu.SetActive(false);
 
-            // Nascondi barra del potere inizialmente
-            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-            {
-                if (powerUp.powerUI != null)
-                    powerUp.powerUI.SetActive(false);
-            }
+            if (inGameUI != null)
+                inGameUI.SetActive(false); // ❌ Non mostrare UI in-game all’inizio
         }
         else
         {
@@ -62,18 +62,13 @@ public class GameManager : MonoBehaviour
             startMenu.SetActive(false);
             pauseMenu.SetActive(false);
 
-            // Mostra barra del potere direttamente
-            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-            {
-                if (powerUp.powerUI != null)
-                    powerUp.powerUI.SetActive(true);
-            }
+            if (inGameUI != null)
+                inGameUI.SetActive(true); // ✅ Mostra UI in-game nelle altre scene
         }
 
         if (fadeImage != null)
             StartCoroutine(FadeIn());
     }
-
 
     private void Update()
     {
@@ -95,12 +90,8 @@ public class GameManager : MonoBehaviour
         Cursor.visible = false;
         Debug.Log("Gioco iniziato");
 
-        // Mostra barra del potere
-        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-        {
-            if (powerUp.powerUI != null)
-                powerUp.powerUI.SetActive(true);
-        }
+        if (inGameUI != null)
+            inGameUI.SetActive(true); // ✅ Attiva UI in-game
 
         IgnorePlayerAttackClick();
     }
@@ -157,52 +148,62 @@ public class GameManager : MonoBehaviour
             Debug.LogWarning("playerAttack non assegnato!");
         }
     }
+
     public void LoadSceneWithFade(string sceneName)
-{
-    StartCoroutine(FadeAndLoad(sceneName));
-}
-
-private IEnumerator FadeAndLoad(string sceneName)
-{
-    yield return StartCoroutine(FadeOut());
-    SceneManager.LoadScene(sceneName);
-    yield return new WaitForSeconds(0.1f); // piccolo delay per sicurezza
-    StartCoroutine(FadeIn());
-}
-
-private IEnumerator FadeOut()
-{
-    float t = 0;
-    while (t < fadeDuration)
     {
-        t += Time.unscaledDeltaTime; // usa unscaled nel caso Time.timeScale = 0
-        SetFadeAlpha(t / fadeDuration);
-        yield return null;
+        StartCoroutine(FadeAndLoad(sceneName));
     }
-    SetFadeAlpha(1);
-}
 
-private IEnumerator FadeIn()
-{
-    float t = fadeDuration;
-    while (t > 0)
+    private IEnumerator FadeAndLoad(string sceneName)
     {
-        t -= Time.unscaledDeltaTime;
-        SetFadeAlpha(t / fadeDuration);
-        yield return null;
-    }
-    SetFadeAlpha(0);
-}
+        yield return StartCoroutine(FadeOut());
 
-private void SetFadeAlpha(float alpha)
-{
-    if (fadeImage != null)
+        SceneManager.LoadScene(sceneName);
+        yield return new WaitForSeconds(0.1f); // piccolo delay per sicurezza
+
+        if (startMenu != null)
+            startMenu.SetActive(false);
+
+        if (pauseMenu != null)
+            pauseMenu.SetActive(false);
+
+        if (inGameUI != null)
+            inGameUI.SetActive(true); // ✅ Assicurati che UI in-game sia visibile
+
+        StartCoroutine(FadeIn());
+    }
+
+    private IEnumerator FadeOut()
     {
-        Color c = fadeImage.color;
-        c.a = Mathf.Clamp01(alpha);
-        fadeImage.color = c;
+        float t = 0;
+        while (t < fadeDuration)
+        {
+            t += Time.unscaledDeltaTime;
+            SetFadeAlpha(t / fadeDuration);
+            yield return null;
+        }
+        SetFadeAlpha(1);
+    }
+
+    private IEnumerator FadeIn()
+    {
+        float t = fadeDuration;
+        while (t > 0)
+        {
+            t -= Time.unscaledDeltaTime;
+            SetFadeAlpha(t / fadeDuration);
+            yield return null;
+        }
+        SetFadeAlpha(0);
+    }
+
+    private void SetFadeAlpha(float alpha)
+    {
+        if (fadeImage != null)
+        {
+            Color c = fadeImage.color;
+            c.a = Mathf.Clamp01(alpha);
+            fadeImage.color = c;
+        }
     }
 }
-
-}
-
