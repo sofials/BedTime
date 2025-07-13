@@ -7,6 +7,7 @@ public class RotatingObject : MonoBehaviour
     public Vector3 rotationAxis = Vector3.up;
     public float rotationSpeed = 360f;
     private float speedMultiplier = 1f;
+    private float originalRotationSpeed;
 
     [Header("Overlay Patina")]
     [SerializeField] private Material patinaMaterial;
@@ -16,7 +17,7 @@ public class RotatingObject : MonoBehaviour
 
     [Header("Modalità Girandola")]
     public bool usePinwheelMode = false;
-    public Transform visualToRotate; // Questo è il figlio che ruota visivamente
+    public Transform visualToRotate;
 
     [Header("Rotazione attorno a oggetto")]
     public bool rotateAroundObject = false;
@@ -25,8 +26,8 @@ public class RotatingObject : MonoBehaviour
 
     [Header("Slowdown Custom Settings")]
     public bool useCustomSlowdown = false;
-    [Range(0.01f, 1f)]
-    public float customSlowdownFactor = 0.5f;
+    [Tooltip("Velocità assoluta temporanea durante lo slowdown.")]
+    public float customSlowdownFactor = 90f;
 
     private MeshRenderer meshRenderer;
     private bool patinaActive = false;
@@ -59,15 +60,15 @@ public class RotatingObject : MonoBehaviour
 
     void Update()
     {
+        float rotationThisFrame = rotationSpeed * speedMultiplier * Time.deltaTime;
+
         if (usePinwheelMode && visualToRotate != null)
         {
-            // Ruota solo la parte visiva su sé stessa
-            visualToRotate.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime, Space.Self);
+            visualToRotate.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
         }
         else if (rotateAroundObject && targetObject != null)
         {
-            // Rotazione orbitale attorno al target
-            transform.RotateAround(targetObject.position, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+            transform.RotateAround(targetObject.position, rotationAxis.normalized, rotationThisFrame);
 
             if (maintainOrientation)
             {
@@ -76,15 +77,68 @@ public class RotatingObject : MonoBehaviour
         }
         else
         {
-            // Rotazione su sé stesso
-            transform.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime, Space.Self);
+            transform.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
         }
     }
 
     public void SetSpeedMultiplier(float multiplier)
     {
-        speedMultiplier = useCustomSlowdown ? customSlowdownFactor : multiplier;
-        Debug.Log($"[RotatingObject] {gameObject.name} speed multiplier impostato a {speedMultiplier}");
+        if (useCustomSlowdown)
+        {
+            originalRotationSpeed = rotationSpeed;
+            rotationSpeed = customSlowdownFactor;
+            Debug.Log($"[RotatingObject] {gameObject.name} - velocità impostata direttamente a {rotationSpeed} (da {originalRotationSpeed})");
+        }
+        else
+        {
+            speedMultiplier = multiplier;
+            Debug.Log($"[RotatingObject] {gameObject.name} - speed multiplier impostato a {speedMultiplier}");
+        }
+    }
+
+    public void RestoreOriginalSpeed()
+    {
+        if (useCustomSlowdown)
+        {
+            rotationSpeed = originalRotationSpeed;
+            Debug.Log($"[RotatingObject] {gameObject.name} - velocità ripristinata a {rotationSpeed}");
+        }
+        else
+        {
+            speedMultiplier = 1f;
+        }
+    }
+
+    public void PlaySlowdownEffect(float duration = 1f)
+    {
+        if (slowdownEffect != null)
+        {
+            StartCoroutine(SlowdownWithFxRoutine(duration));
+        }
+        else
+        {
+            StartCoroutine(SlowdownRoutine(duration));
+        }
+    }
+
+    private IEnumerator SlowdownRoutine(float duration)
+    {
+        SetSpeedMultiplier(1f);
+        yield return new WaitForSeconds(duration);
+        RestoreOriginalSpeed();
+    }
+
+    private IEnumerator SlowdownWithFxRoutine(float duration)
+    {
+        slowdownEffect.gameObject.SetActive(true);
+        slowdownEffect.PlayEffect();
+
+        SetSpeedMultiplier(1f);
+        yield return new WaitForSeconds(duration);
+
+        RestoreOriginalSpeed();
+        slowdownEffect.StopEffect();
+        slowdownEffect.gameObject.SetActive(false);
     }
 
     public void SetOverlayActive(bool active)
@@ -133,40 +187,20 @@ public class RotatingObject : MonoBehaviour
         SetOverlayActive(false);
     }
 
-    public void PlaySlowdownEffect(float duration = 1f)
-    {
-        if (slowdownEffect == null) return;
-        StartCoroutine(PlayEffectRoutine(duration));
-    }
-
-    private IEnumerator PlayEffectRoutine(float duration)
-    {
-        slowdownEffect.gameObject.SetActive(true);
-        slowdownEffect.PlayEffect();
-
-        yield return new WaitForSeconds(duration);
-
-        slowdownEffect.StopEffect();
-        slowdownEffect.gameObject.SetActive(false);
-    }
-
     private void OnTriggerEnter(Collider other)
     {
         var player = other.GetComponent<ThirdPersonController>();
         if (player != null && speedMultiplier > 0.99f)
         {
-            // Danno
             player.TakeDamage(DAMAGE_AMOUNT);
 
-            // Spinta all'indietro
             Rigidbody playerRb = player.GetComponent<Rigidbody>();
             if (playerRb != null)
             {
                 Vector3 pushDirection = (player.transform.position - transform.position).normalized;
-                float pushForce = 5f; // Puoi regolare questo valore
+                float pushForce = 5f;
                 playerRb.AddForce(pushDirection * pushForce, ForceMode.Impulse);
             }
         }
     }
-
 }

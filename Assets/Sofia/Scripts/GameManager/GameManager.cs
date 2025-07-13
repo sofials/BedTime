@@ -41,20 +41,39 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        Time.timeScale = 0f;
-        startMenu.SetActive(true);
-        pauseMenu.SetActive(false);
+        string currentScene = SceneManager.GetActiveScene().name;
 
-        // Nascondi barra del potere inizialmente
-        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        if (currentScene == "00 - Landing in the Dreamworld")
         {
-            if (powerUp.powerUI != null)
-                powerUp.powerUI.SetActive(false);
-        }
-        if (fadeImage != null)
-    StartCoroutine(FadeIn());
+            Time.timeScale = 0f;
+            startMenu.SetActive(true);
+            pauseMenu.SetActive(false);
 
+            // Nascondi barra del potere inizialmente
+            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+            {
+                if (powerUp.powerUI != null)
+                    powerUp.powerUI.SetActive(false);
+            }
+        }
+        else
+        {
+            Time.timeScale = 1f;
+            startMenu.SetActive(false);
+            pauseMenu.SetActive(false);
+
+            // Mostra barra del potere direttamente
+            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+            {
+                if (powerUp.powerUI != null)
+                    powerUp.powerUI.SetActive(true);
+            }
+        }
+
+        if (fadeImage != null)
+            StartCoroutine(FadeIn());
     }
+
 
     private void Update()
     {
