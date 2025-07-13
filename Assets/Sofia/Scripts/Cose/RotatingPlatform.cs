@@ -14,9 +14,14 @@ public class RotatingObject : MonoBehaviour
     [Header("Slowdown FX")]
     [SerializeField] private CFXR_EffectController slowdownEffect;
 
-    [Header("Girandola Mode")]
-    public bool enableGirandolaRotation = false;
-    public Vector3 girandolaPivotOffset = Vector3.zero;
+    [Header("Modalità Girandola")]
+    public bool usePinwheelMode = false;
+    public Transform visualToRotate; // Questo è il figlio che ruota visivamente
+
+    [Header("Rotazione attorno a oggetto")]
+    public bool rotateAroundObject = false;
+    public Transform targetObject;
+    public bool maintainOrientation = true;
 
     [Header("Slowdown Custom Settings")]
     public bool useCustomSlowdown = false;
@@ -25,6 +30,8 @@ public class RotatingObject : MonoBehaviour
 
     private MeshRenderer meshRenderer;
     private bool patinaActive = false;
+
+    private const float DAMAGE_AMOUNT = 10f;
 
     void Awake()
     {
@@ -38,36 +45,47 @@ public class RotatingObject : MonoBehaviour
         {
             slowdownEffect.gameObject.SetActive(false);
         }
+
+        if ((rotateAroundObject || usePinwheelMode) && targetObject == null)
+        {
+            Debug.LogWarning($"[RotatingObject] Modalità attivata ma targetObject non assegnato su {gameObject.name}");
+        }
+
+        if (usePinwheelMode && visualToRotate == null)
+        {
+            Debug.LogWarning($"[RotatingObject] usePinwheelMode attivo ma nessun visualToRotate assegnato su {gameObject.name}");
+        }
     }
 
     void Update()
     {
-        if (enableGirandolaRotation)
+        if (usePinwheelMode && visualToRotate != null)
         {
-            // Rotazione attorno al punto pivot
-            Vector3 pivot = transform.position + girandolaPivotOffset;
-            transform.RotateAround(pivot, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+            // Ruota solo la parte visiva su sé stessa
+            visualToRotate.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime, Space.Self);
+        }
+        else if (rotateAroundObject && targetObject != null)
+        {
+            // Rotazione orbitale attorno al target
+            transform.RotateAround(targetObject.position, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+
+            if (maintainOrientation)
+            {
+                transform.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y, 0);
+            }
         }
         else
         {
-            // Rotazione normale attorno al proprio asse
-            transform.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+            // Rotazione su sé stesso
+            transform.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime, Space.Self);
         }
     }
 
     public void SetSpeedMultiplier(float multiplier)
     {
-        if (useCustomSlowdown)
-            speedMultiplier = customSlowdownFactor;
-        else
-            speedMultiplier = multiplier;
-
+        speedMultiplier = useCustomSlowdown ? customSlowdownFactor : multiplier;
         Debug.Log($"[RotatingObject] {gameObject.name} speed multiplier impostato a {speedMultiplier}");
     }
-
-    // -----------------------------
-    // Overlay patina blu
-    // -----------------------------
 
     public void SetOverlayActive(bool active)
     {
@@ -115,10 +133,6 @@ public class RotatingObject : MonoBehaviour
         SetOverlayActive(false);
     }
 
-    // -----------------------------
-    // FX slowdown
-    // -----------------------------
-
     public void PlaySlowdownEffect(float duration = 1f)
     {
         if (slowdownEffect == null) return;
@@ -135,4 +149,24 @@ public class RotatingObject : MonoBehaviour
         slowdownEffect.StopEffect();
         slowdownEffect.gameObject.SetActive(false);
     }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        var player = other.GetComponent<ThirdPersonController>();
+        if (player != null && speedMultiplier > 0.99f)
+        {
+            // Danno
+            player.TakeDamage(DAMAGE_AMOUNT);
+
+            // Spinta all'indietro
+            Rigidbody playerRb = player.GetComponent<Rigidbody>();
+            if (playerRb != null)
+            {
+                Vector3 pushDirection = (player.transform.position - transform.position).normalized;
+                float pushForce = 5f; // Puoi regolare questo valore
+                playerRb.AddForce(pushDirection * pushForce, ForceMode.Impulse);
+            }
+        }
+    }
+
 }
