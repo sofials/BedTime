@@ -1,62 +1,76 @@
 using UnityEngine;
-using CartoonFX;  // Assicurati che sia il namespace corretto
 
-public class Projectile : MonoBehaviour
+[RequireComponent(typeof(Rigidbody))]
+public class Golem_Projectile : MonoBehaviour
 {
-    public float speed = 15f;
-    public float damage = 15f;
+    public float launchAngle = 45f; // Gradi
+    public float gravityMultiplier = 1f;
     public float lifetime = 5f;
+    public float damage = 20f;
+    public float pushForce = 5f;
 
-    private Vector3 direction;
+    [Header("FX")]
+    public CFXR_EffectController impactFX;
+
     private Rigidbody rb;
 
-    private CFXR_EffectController effectController;
-
-    private void Awake()
+    public void Initialize(Vector3 targetPosition)
     {
         rb = GetComponent<Rigidbody>();
-        effectController = GetComponentInChildren<CFXR_EffectController>();
+        rb.useGravity = true;
+        Physics.gravity *= gravityMultiplier;
 
-        if (effectController != null)
-            effectController.StopEffect();
-    }
+        Vector3 velocity = CalculateLaunchVelocity(targetPosition, launchAngle);
+        rb.linearVelocity = velocity;
 
-    public void SetTarget(Vector3 targetPosition)
-    {
-        direction = (targetPosition - transform.position).normalized;
-        rb.linearVelocity = direction * speed;
-
-        if (effectController != null)
-            effectController.PlayEffect();
-    }
-
-    private void Start()
-    {
+        transform.rotation = Quaternion.LookRotation(velocity);
         Destroy(gameObject, lifetime);
+    }
+
+    private Vector3 CalculateLaunchVelocity(Vector3 target, float angle)
+    {
+        Vector3 dir = target - transform.position;
+        float h = dir.y;
+        dir.y = 0;
+        float distance = dir.magnitude;
+        float radAngle = angle * Mathf.Deg2Rad;
+        dir.y = distance * Mathf.Tan(radAngle);
+
+        distance += h / Mathf.Tan(radAngle);
+
+        float velocity = Mathf.Sqrt(distance * Physics.gravity.magnitude / Mathf.Sin(2 * radAngle));
+        return velocity * dir.normalized;
     }
 
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("PlayerHurtbox"))
         {
-            var hurtbox = other.GetComponent<HurtBox>();
+            HurtBox hurtbox = other.GetComponent<HurtBox>();
             if (hurtbox != null)
             {
                 Vector3 pushDir = (other.transform.position - transform.position).normalized;
-                hurtbox.OnHit(pushDir, 0f, damage);
+                hurtbox.OnHit(pushDir, pushForce, damage);
             }
 
-            if (effectController != null)
-                effectController.StopEffect();
-
+            TriggerImpactEffect();
             Destroy(gameObject);
         }
-        else if (!other.CompareTag("Enemy"))
+        else if (!other.isTrigger)
         {
-            if (effectController != null)
-                effectController.StopEffect();
-
+            TriggerImpactEffect();
             Destroy(gameObject);
+        }
+    }
+
+    private void TriggerImpactEffect()
+    {
+        if (impactFX != null)
+        {
+            impactFX.transform.parent = null; // stacca l'effetto dal proiettile
+            impactFX.gameObject.SetActive(true);
+            impactFX.PlayEffect();
+            Destroy(impactFX.gameObject, 3f); // distruggi dopo che l'effetto è finito
         }
     }
 }

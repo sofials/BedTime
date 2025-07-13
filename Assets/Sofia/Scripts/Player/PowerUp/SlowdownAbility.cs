@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class SlowdownAbility : AbilityBase
 {
     [Header("Slowdown Settings")]
-    public float slowdownRadius = 20f;
+    public float slowdownRadius = 50f;
     public float slowdownFactor = 0.5f;
     public float customDuration = 10f;
 
