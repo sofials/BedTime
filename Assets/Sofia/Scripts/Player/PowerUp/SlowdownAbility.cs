@@ -14,7 +14,10 @@ public class SlowdownAbility : AbilityBase
     private AudioSource effectAudioSource;
 
     [Header("NPC Village da bloccare")]
-    public Npc_village[] npcsToSlow;
+    public Npc_village[] villageNPCsToSlow;
+
+    [Header("NPC Verde da bloccare")]
+    public Npc_verde[] verdeNPCsToSlow;
 
     public override int powerCost => 20;
     protected override bool HasFixedDuration => true;
@@ -127,13 +130,23 @@ public class SlowdownAbility : AbilityBase
             {
                 Debug.Log("[SlowdownAbility] Wall_Village colpito: " + col.name);
 
-                // Blocca gli NPC assegnati da inspector (solo slow = true)
-                foreach (Npc_village npc in npcsToSlow)
+                // Blocca gli NPC Village assegnati da inspector (solo slow = true)
+                foreach (Npc_village npc in villageNPCsToSlow)
                 {
                     if (npc != null)
                     {
                         npc.SetSlow(true);
-                        Debug.Log($"→ NPC {npc.name} bloccato (Slow=true).");
+                        Debug.Log($"→ NPC Village {npc.name} bloccato (Slow=true).");
+                    }
+                }
+
+                // Blocca gli NPC Verde assegnati da inspector
+                foreach (Npc_verde npc in verdeNPCsToSlow)
+                {
+                    if (npc != null)
+                    {
+                        npc.SetSlow(true);
+                        Debug.Log($"→ NPC Verde {npc.name} bloccato (Slow=true).");
                     }
                 }
 
@@ -151,16 +164,14 @@ public class SlowdownAbility : AbilityBase
                 }
             }
             else if (col.CompareTag("GolemHurtbox"))
-{
-    Golem golem = col.GetComponentInParent<Golem>();
-    if (golem != null && !golem.isSlow)
-    {
-        golem.StartSlow(duration, this); // usa durata globale
-        Debug.Log($"→ Golem {golem.name} rallentato da Slowdown.");
-    }
-}
-
-
+            {
+                Golem golem = col.GetComponentInParent<Golem>();
+                if (golem != null && !golem.isSlow)
+                {
+                    golem.StartSlow(duration, this); // usa durata globale
+                    Debug.Log($"→ Golem {golem.name} rallentato da Slowdown.");
+                }
+            }
         }
 
         if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0)
