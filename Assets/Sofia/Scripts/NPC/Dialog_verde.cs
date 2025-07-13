@@ -1,26 +1,49 @@
 using UnityEngine;
-using TMPro;  // TextMeshPro namespace
+using TMPro;
 using System.Collections;
 
 public class Dialog_verde : MonoBehaviour
 {
     public AudioSource audioSource;
-    public TextMeshProUGUI subtitleText;
 
-    [TextArea]
-    public string dialogText;
+    [Header("Sottotitoli assegnati da Inspector")]
+    public TextMeshProUGUI[] subtitleTexts; // Assegna i 4 oggetti con testo già scritto
 
-    public float displayDuration = 5f;
+    public float[] displayDurations; // Durate per ciascuno
 
-    public IEnumerator PlayDialog()
+    void Start()
     {
-        subtitleText.text = dialogText;
-        subtitleText.enabled = true;
+        foreach (var txt in subtitleTexts)
+        {
+            if (txt != null)
+                txt.enabled = false;
+        }
+    }
 
-        audioSource.Play();
+    public IEnumerator PlayDialog(int index)
+    {
+        if (index < 0 || index >= subtitleTexts.Length)
+        {
+            Debug.LogWarning("Indice sottotitolo non valido.");
+            yield break;
+        }
 
-        yield return new WaitForSeconds(displayDuration);
+        TextMeshProUGUI currentSubtitle = subtitleTexts[index];
+        if (currentSubtitle != null)
+        {
+            currentSubtitle.enabled = true;
+        }
 
-        subtitleText.enabled = false;
+        if (audioSource != null && audioSource.clip != null)
+            audioSource.Play();
+
+        float duration = (displayDurations != null && index < displayDurations.Length)
+            ? displayDurations[index]
+            : 5f;
+
+        yield return new WaitForSeconds(duration);
+
+        if (currentSubtitle != null)
+            currentSubtitle.enabled = false;
     }
 }

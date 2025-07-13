@@ -29,13 +29,14 @@ public class Npc_village : MonoBehaviour
     private bool footDustActive = false;
     private bool isSlowed = false;
     private bool slowEffectPlayed = false;
+    private bool movingToPlayerAfterSlow = false;
 
     private Quaternion targetRotation;
 
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
-        agent.updateRotation = false;  // gestiamo rotazione manualmente
+        agent.updateRotation = false;
         agent.stoppingDistance = 0.3f;
 
         if (animator == null)
@@ -65,7 +66,6 @@ public class Npc_village : MonoBehaviour
 
     void Update()
     {
-        // Trova player se non assegnato
         if (playerTransform == null)
         {
             GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -73,12 +73,12 @@ public class Npc_village : MonoBehaviour
                 playerTransform = player.transform;
         }
 
-        if (isSlowed)
+        if (isSlowed && !movingToPlayerAfterSlow)
         {
-            if (agent.enabled)
-                agent.isStopped = true;
-
+            agent.isStopped = true;
             animator.SetBool("Slow", true);
+            animator.SetBool("IsRunning", false);
+            animator.SetBool("IsWalking", false);
 
             if (footDustActive)
             {
@@ -91,9 +91,7 @@ public class Npc_village : MonoBehaviour
                 Vector3 dir = playerTransform.position - transform.position;
                 dir.y = 0;
                 if (dir.sqrMagnitude > 0.01f)
-                {
                     targetRotation = Quaternion.LookRotation(dir);
-                }
             }
 
             if (slowEffect != null && !slowEffectPlayed)
@@ -103,19 +101,55 @@ public class Npc_village : MonoBehaviour
                 StartCoroutine(StopSlowEffectAfterDelay());
             }
 
-            return; // blocca qui in slow
+            return;
         }
 
-        // Se ha raggiunto waypoint, vai al prossimo
-        if (agent.enabled && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
+        if (movingToPlayerAfterSlow)
         {
-            if (!agent.hasPath || agent.velocity.sqrMagnitude < 0.1f)
+            if (playerTransform != null)
             {
-                GoToRandomWaypoint();
+                Vector3 dir = playerTransform.position - transform.position;
+                dir.y = 0;
+                if (dir.sqrMagnitude > 0.01f)
+                    targetRotation = Quaternion.LookRotation(dir);
+            }
+            return;
+        }
+
+        if (playerTransform != null)
+        {
+            float dist = Vector3.Distance(transform.position, playerTransform.position);
+
+            if (dist <= 600f)
+            {
+                animator.SetBool("IsRunning", true);
+                animator.SetBool("Slow", false);
+                animator.SetBool("IsWalking", false);
+
+                if (footDustEffect != null && !footDustActive)
+                {
+                    footDustEffect.PlayEffect();
+                    footDustActive = true;
+                }
+            }
+            else
+            {
+                animator.SetBool("IsRunning", false);
+
+                if (footDustActive && footDustEffect != null)
+                {
+                    footDustEffect.StopEffect();
+                    footDustActive = false;
+                }
             }
         }
 
-        // Rotazione in base alla direzione di movimento
+        if (agent.enabled && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
+        {
+            if (!agent.hasPath || agent.velocity.sqrMagnitude < 0.1f)
+                GoToRandomWaypoint();
+        }
+
         if (agent.velocity.sqrMagnitude > 0.1f)
         {
             Vector3 direction = agent.velocity.normalized;
@@ -126,7 +160,6 @@ public class Npc_village : MonoBehaviour
 
     void LateUpdate()
     {
-        // Applica la rotazione dopo che Animator ha aggiornato
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
     }
 
@@ -135,31 +168,55 @@ public class Npc_village : MonoBehaviour
         if (slow && !isSlowed)
         {
             isSlowed = true;
+            slowEffectPlayed = false;
+            movingToPlayerAfterSlow = false;
         }
     }
 
     private IEnumerator StopSlowEffectAfterDelay()
     {
         yield return new WaitForSeconds(slowEffectDuration);
-        slowEffect.StopEffect();
+        if (slowEffect != null)
+            slowEffect.StopEffect();
 
-        // NPC resta fermo e rivolto verso il player
-        // Per far ripartire il patrol, decommenta:
-
-        /*
-        isSlowed = false;
-        slowEffectPlayed = false;
-        agent.isStopped = false;
+        movingToPlayerAfterSlow = true;
         animator.SetBool("Slow", false);
+        StartCoroutine(MoveTowardsPlayerThenStop(3.5f));
+    }
 
-        if (!footDustActive && footDustEffect != null)
+    public void MoveNearPlayer(float stopDistance = 3.5f)
+    {
+        StartCoroutine(MoveTowardsPlayerThenStop(stopDistance));
+    }
+
+    private IEnumerator MoveTowardsPlayerThenStop(float stopDistance)
+    {
+        if (playerTransform == null)
+            yield break;
+
+        animator.SetBool("IsWalking", true);
+        agent.isStopped = false;
+        agent.stoppingDistance = stopDistance;
+
+        while (true)
         {
-            footDustEffect.PlayEffect();
-            footDustActive = true;
+            Vector3 direction = (playerTransform.position - transform.position).normalized;
+            Vector3 targetPos = playerTransform.position - direction * stopDistance;
+
+            float distToTarget = Vector3.Distance(transform.position, targetPos);
+
+            if (distToTarget <= 0.1f)
+                break;
+
+            agent.SetDestination(targetPos);
+            yield return null;
         }
 
-        GoToRandomWaypoint();
-        */
+        agent.isStopped = true;
+        animator.SetBool("IsWalking", false);
+        movingToPlayerAfterSlow = false;
+
+        agent.stoppingDistance = 0.3f;
     }
 
     void GoToRandomWaypoint()
