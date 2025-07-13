@@ -150,6 +150,17 @@ public class SlowdownAbility : AbilityBase
                     Debug.Log($"→ Distrutto muro: {wallTransform.name}");
                 }
             }
+            else if (col.CompareTag("GolemHurtbox"))
+{
+    Golem golem = col.GetComponentInParent<Golem>();
+    if (golem != null && !golem.isSlow)
+    {
+        golem.StartSlow(duration, this); // usa durata globale
+        Debug.Log($"→ Golem {golem.name} rallentato da Slowdown.");
+    }
+}
+
+
         }
 
         if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0)

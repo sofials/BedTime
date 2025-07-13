@@ -8,15 +8,20 @@ public class RotatingObject : MonoBehaviour
     public float rotationSpeed = 360f;
     private float speedMultiplier = 1f;
 
-    [Header("Pivot Rotation")]
-    public bool rotateAroundTarget = false;
-    public Transform targetPivot;  // Oggetto attorno a cui ruotare
-
     [Header("Overlay Patina")]
     [SerializeField] private Material patinaMaterial;
 
     [Header("Slowdown FX")]
     [SerializeField] private CFXR_EffectController slowdownEffect;
+
+    [Header("Girandola Mode")]
+    public bool enableGirandolaRotation = false;
+    public Vector3 girandolaPivotOffset = Vector3.zero;
+
+    [Header("Slowdown Custom Settings")]
+    public bool useCustomSlowdown = false;
+    [Range(0.01f, 1f)]
+    public float customSlowdownFactor = 0.5f;
 
     private MeshRenderer meshRenderer;
     private bool patinaActive = false;
@@ -37,22 +42,27 @@ public class RotatingObject : MonoBehaviour
 
     void Update()
     {
-        if (rotateAroundTarget && targetPivot != null)
+        if (enableGirandolaRotation)
         {
-            // Ruota attorno al target
-            transform.RotateAround(targetPivot.position, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
+            // Rotazione attorno al punto pivot
+            Vector3 pivot = transform.position + girandolaPivotOffset;
+            transform.RotateAround(pivot, rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
         }
         else
         {
-            // Ruota attorno al proprio asse
+            // Rotazione normale attorno al proprio asse
             transform.Rotate(rotationAxis.normalized, rotationSpeed * speedMultiplier * Time.deltaTime);
         }
     }
 
     public void SetSpeedMultiplier(float multiplier)
     {
-        speedMultiplier = multiplier;
-        Debug.Log($"[RotatingObject] {gameObject.name} speed multiplier impostato a {multiplier}");
+        if (useCustomSlowdown)
+            speedMultiplier = customSlowdownFactor;
+        else
+            speedMultiplier = multiplier;
+
+        Debug.Log($"[RotatingObject] {gameObject.name} speed multiplier impostato a {speedMultiplier}");
     }
 
     // -----------------------------
