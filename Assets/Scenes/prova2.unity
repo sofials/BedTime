@@ -827,8 +827,11 @@ MonoBehaviour:
   rotationSpeed: 360
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 169099757}
-  enableGirandolaRotation: 0
-  girandolaPivotOffset: {x: 0, y: 0, z: 0}
+  usePinwheelMode: 0
+  visualToRotate: {fileID: 0}
+  rotateAroundObject: 0
+  targetObject: {fileID: 0}
+  maintainOrientation: 1
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
 --- !u!54 &317856029
@@ -5934,7 +5937,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1001 &964047188648916624
 PrefabInstance:
   m_ObjectHideFlags: 0
