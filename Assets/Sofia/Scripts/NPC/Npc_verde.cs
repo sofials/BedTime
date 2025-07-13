@@ -8,36 +8,28 @@ public class Npc_verde : MonoBehaviour
     [Header("Waypoints (random)")]
     public Transform[] waypoints;
 
-    [Header("Effetto polvere ai piedi")]
+    [Header("Effetti visivi")]
     [SerializeField] private CFXR_EffectController footDustEffect;
-
-    [Header("Effetto slow (una sola volta)")]
     [SerializeField] private CFXR_EffectController slowEffect;
 
-    [Header("Durata effetto slow in secondi")]
+    [Header("Config")]
     [SerializeField] private float slowEffectDuration = 0.5f;
-
-    [Header("Animator (sul padre)")]
     [SerializeField] private Animator animator;
-
-    [Header("Riferimento Player")]
-    public Transform playerTransform;
-
-    [Header("Dialogo")]
+    [SerializeField] private Transform playerTransform;
     [SerializeField] private Dialog_verde dialogController;
 
-    private int currentIndex = -1;
     private NavMeshAgent agent;
+    private int currentIndex = -1;
+    private Quaternion targetRotation;
 
-    private bool footDustActive = false;
     private bool isSlowed = false;
     private bool slowEffectPlayed = false;
     private bool movingToPlayerAfterSlow = false;
     private bool dialogStarted = false;
-    private bool dialogActive = false;  // Blocca animazioni durante dialogo
-    private bool hasUsedSlow = false;    // Segnala se slow è stato attivato almeno una volta
-
-    private Quaternion targetRotation;
+    private bool dialogActive = false;
+    private bool hasUsedSlow = false;
+    private bool ignoreRunLogic = false;
+    private bool footDustActive = false;
 
     void Start()
     {
@@ -54,14 +46,8 @@ public class Npc_verde : MonoBehaviour
         agent.acceleration = 8f;
         agent.avoidancePriority = Random.Range(10, 90);
 
-        if (waypoints.Length == 0)
-        {
-            Debug.LogWarning("Nessun waypoint assegnato a " + gameObject.name);
-            enabled = false;
-            return;
-        }
-
-        GoToRandomWaypoint();
+        if (waypoints.Length > 0)
+            GoToRandomWaypoint();
 
         if (footDustEffect != null)
         {
@@ -75,41 +61,28 @@ public class Npc_verde : MonoBehaviour
         if (playerTransform == null)
         {
             GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-                playerTransform = player.transform;
+            if (player != null) playerTransform = player.transform;
+        }
+
+        if (ignoreRunLogic)
+        {
+            ForzaIdle();
+            return;
         }
 
         if (dialogActive)
         {
-            animator.SetBool("IsRunning", false);
-            animator.SetBool("IsWalking", false);
-            animator.SetBool("Slow", false);
-            agent.isStopped = true;
+            ForzaIdle();
             return;
         }
 
         if (isSlowed && !movingToPlayerAfterSlow)
         {
-            agent.isStopped = true;
+            ForzaIdle();
             animator.SetBool("Slow", true);
-            animator.SetBool("IsRunning", false);
-            animator.SetBool("IsWalking", false);
+            LookAtPlayer();
 
-            if (footDustActive)
-            {
-                footDustEffect.StopEffect();
-                footDustActive = false;
-            }
-
-            if (playerTransform != null)
-            {
-                Vector3 dir = playerTransform.position - transform.position;
-                dir.y = 0;
-                if (dir.sqrMagnitude > 0.01f)
-                    targetRotation = Quaternion.LookRotation(dir);
-            }
-
-            if (slowEffect != null && !slowEffectPlayed)
+            if (!slowEffectPlayed && slowEffect != null)
             {
                 slowEffect.PlayEffect();
                 slowEffectPlayed = true;
@@ -121,58 +94,46 @@ public class Npc_verde : MonoBehaviour
 
         if (movingToPlayerAfterSlow)
         {
-            if (playerTransform != null)
-            {
-                Vector3 dir = playerTransform.position - transform.position;
-                dir.y = 0;
-                if (dir.sqrMagnitude > 0.01f)
-                    targetRotation = Quaternion.LookRotation(dir);
-            }
+            LookAtPlayer();
             return;
         }
 
-        if (!hasUsedSlow)
+        if (!hasUsedSlow && playerTransform != null)
         {
-            if (playerTransform != null)
+            float dist = Vector3.Distance(transform.position, playerTransform.position);
+
+            if (dist <= 600f)
             {
-                float dist = Vector3.Distance(transform.position, playerTransform.position);
+                animator.SetBool("IsRunning", true);
+                animator.SetBool("Slow", false);
+                animator.SetBool("IsWalking", false);
 
-                if (dist <= 600f)
+                if (!footDustActive && footDustEffect != null)
                 {
-                    animator.SetBool("IsRunning", true);
-                    animator.SetBool("Slow", false);
-                    animator.SetBool("IsWalking", false);
-
-                    if (footDustEffect != null && !footDustActive)
-                    {
-                        footDustEffect.PlayEffect();
-                        footDustActive = true;
-                    }
+                    footDustEffect.PlayEffect();
+                    footDustActive = true;
                 }
-                else
-                {
-                    animator.SetBool("IsRunning", false);
+            }
+            else
+            {
+                animator.SetBool("IsRunning", false);
 
-                    if (footDustActive && footDustEffect != null)
-                    {
-                        footDustEffect.StopEffect();
-                        footDustActive = false;
-                    }
+                if (footDustActive && footDustEffect != null)
+                {
+                    footDustEffect.StopEffect();
+                    footDustActive = false;
                 }
             }
         }
 
-        if (agent.enabled && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
-        {
-            if (!agent.hasPath || agent.velocity.sqrMagnitude < 0.1f)
-                GoToRandomWaypoint();
-        }
+        if (agent.enabled && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance && (!agent.hasPath || agent.velocity.sqrMagnitude < 0.1f))
+            GoToRandomWaypoint();
 
         if (agent.velocity.sqrMagnitude > 0.1f)
         {
-            Vector3 direction = agent.velocity.normalized;
-            direction.y = 0;
-            targetRotation = Quaternion.LookRotation(direction);
+            Vector3 dir = agent.velocity.normalized;
+            dir.y = 0;
+            targetRotation = Quaternion.LookRotation(dir);
         }
     }
 
@@ -197,7 +158,7 @@ public class Npc_verde : MonoBehaviour
     private IEnumerator StopSlowEffectAfterDelay()
     {
         yield return new WaitForSeconds(slowEffectDuration);
-        slowEffect.StopEffect();
+        if (slowEffect != null) slowEffect.StopEffect();
 
         movingToPlayerAfterSlow = true;
         animator.SetBool("Slow", false);
@@ -206,33 +167,27 @@ public class Npc_verde : MonoBehaviour
 
     private IEnumerator MoveTowardsPlayerThenStop()
     {
-        if (playerTransform == null)
-            yield break;
+        if (playerTransform == null) yield break;
 
         animator.SetBool("IsWalking", true);
         agent.isStopped = false;
-
-        float stopDistance = 3.5f;
-        agent.stoppingDistance = stopDistance;
+        agent.stoppingDistance = 3.5f;
 
         while (true)
         {
             Vector3 direction = (playerTransform.position - transform.position).normalized;
-            Vector3 targetPos = playerTransform.position - direction * stopDistance;
+            Vector3 target = playerTransform.position - direction * agent.stoppingDistance;
 
-            float distToTarget = Vector3.Distance(transform.position, targetPos);
-
-            if (distToTarget <= 0.1f)
+            if (Vector3.Distance(transform.position, target) <= 0.1f)
                 break;
 
-            agent.SetDestination(targetPos);
+            agent.SetDestination(target);
             yield return null;
         }
 
         agent.isStopped = true;
         animator.SetBool("IsWalking", false);
         movingToPlayerAfterSlow = false;
-
         agent.stoppingDistance = 0.3f;
 
         if (!dialogStarted)
@@ -246,61 +201,81 @@ public class Npc_verde : MonoBehaviour
     {
         dialogActive = true;
         if (dialogController != null)
-        {
             StartCoroutine(DialogCoroutine());
-        }
         else
-        {
-            Debug.LogWarning("DialogController non assegnato su " + gameObject.name);
-            dialogActive = false;
-        }
+            Debug.LogWarning($"{gameObject.name} - dialogController non assegnato");
     }
 
     private IEnumerator DialogCoroutine()
     {
-        int count = dialogController.subtitleTexts.Length;
-        for (int i = 0; i < count; i++)
-        {
-            yield return StartCoroutine(dialogController.PlayDialog(i));
-        }
-        dialogActive = false;
+        yield return StartCoroutine(dialogController.PlayEntireDialog());
 
-        // Stop all AudioSources figli
+        dialogActive = false;
+        ignoreRunLogic = true;
+        ForzaIdle();
         StopAllAudioSources();
+    }
+
+    private void ForzaIdle()
+    {
+        animator.SetBool("IsRunning", false);
+        animator.SetBool("IsWalking", false);
+        animator.SetBool("Slow", false);
+
+        if (footDustEffect != null && footDustActive)
+        {
+            footDustEffect.StopEffect();
+            footDustActive = false;
+        }
+
+        agent.isStopped = true;
+    }
+
+    public void OnDialogFinished()
+    {
+        ignoreRunLogic = true;
+        dialogActive = false;
+        ForzaIdle();
     }
 
     private void StopAllAudioSources()
     {
-        AudioSource[] audios = GetComponentsInChildren<AudioSource>();
-        foreach (AudioSource audio in audios)
+        foreach (var audio in GetComponentsInChildren<AudioSource>())
         {
             if (audio.isPlaying)
                 audio.Stop();
         }
     }
 
-    void GoToRandomWaypoint()
+    private void GoToRandomWaypoint()
     {
-        if (waypoints.Length <= 1)
-        {
-            SetDestinationWithOffset(waypoints[0].position);
-            return;
-        }
+        if (waypoints.Length == 0) return;
 
         int newIndex;
         do
         {
             newIndex = Random.Range(0, waypoints.Length);
-        } while (newIndex == currentIndex);
+        } while (waypoints.Length > 1 && newIndex == currentIndex);
 
         currentIndex = newIndex;
         SetDestinationWithOffset(waypoints[currentIndex].position);
     }
 
-    void SetDestinationWithOffset(Vector3 basePosition)
+    private void SetDestinationWithOffset(Vector3 basePos)
     {
-        Vector2 randomCircle = Random.insideUnitCircle * 0.5f;
-        Vector3 offsetPosition = basePosition + new Vector3(randomCircle.x, 0, randomCircle.y);
-        agent.SetDestination(offsetPosition);
+        Vector2 offset2D = Random.insideUnitCircle * 0.5f;
+        Vector3 finalPos = basePos + new Vector3(offset2D.x, 0, offset2D.y);
+        agent.SetDestination(finalPos);
+    }
+
+    private void LookAtPlayer()
+    {
+        if (playerTransform != null)
+        {
+            Vector3 dir = playerTransform.position - transform.position;
+            dir.y = 0;
+            if (dir.sqrMagnitude > 0.01f)
+                targetRotation = Quaternion.LookRotation(dir);
+        }
     }
 }

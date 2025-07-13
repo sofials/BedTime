@@ -5,8 +5,8 @@ using System.Collections;
 [RequireComponent(typeof(NavMeshAgent))]
 public class Npc_village : MonoBehaviour
 {
-    [Header("Waypoints (random)")]
-    public Transform[] waypoints;
+    [Header("Waypoints iniziali (prima del dialogo)")]
+    public Transform[] initialWaypoints;
 
     [Header("Effetto polvere ai piedi")]
     [SerializeField] private CFXR_EffectController footDustEffect;
@@ -17,6 +17,9 @@ public class Npc_village : MonoBehaviour
     [Header("Durata effetto slow in secondi")]
     [SerializeField] private float slowEffectDuration = 0.5f;
 
+    [Header("Distanza di stop vicino al player (regolabile in inspector)")]
+    public float stopDistanceFromPlayer = 6.5f;
+
     [Header("Animator (sul padre)")]
     [SerializeField] private Animator animator;
 
@@ -25,13 +28,13 @@ public class Npc_village : MonoBehaviour
 
     private int currentIndex = -1;
     private NavMeshAgent agent;
+    private Quaternion targetRotation;
 
     private bool footDustActive = false;
     private bool isSlowed = false;
     private bool slowEffectPlayed = false;
     private bool movingToPlayerAfterSlow = false;
-
-    private Quaternion targetRotation;
+    private bool dialogFinished = false;
 
     void Start()
     {
@@ -48,14 +51,12 @@ public class Npc_village : MonoBehaviour
         agent.acceleration = 8f;
         agent.avoidancePriority = Random.Range(10, 90);
 
-        if (waypoints.Length == 0)
+        if (initialWaypoints.Length > 0)
         {
-            Debug.LogWarning("Nessun waypoint assegnato a " + gameObject.name);
-            enabled = false;
-            return;
+            GoToRandomWaypoint(initialWaypoints);
+            animator.SetBool("IsWalking", true);
+            agent.isStopped = false;
         }
-
-        GoToRandomWaypoint();
 
         if (footDustEffect != null)
         {
@@ -86,13 +87,7 @@ public class Npc_village : MonoBehaviour
                 footDustActive = false;
             }
 
-            if (playerTransform != null)
-            {
-                Vector3 dir = playerTransform.position - transform.position;
-                dir.y = 0;
-                if (dir.sqrMagnitude > 0.01f)
-                    targetRotation = Quaternion.LookRotation(dir);
-            }
+            LookAtPlayer();
 
             if (slowEffect != null && !slowEffectPlayed)
             {
@@ -106,51 +101,12 @@ public class Npc_village : MonoBehaviour
 
         if (movingToPlayerAfterSlow)
         {
-            if (playerTransform != null)
-            {
-                Vector3 dir = playerTransform.position - transform.position;
-                dir.y = 0;
-                if (dir.sqrMagnitude > 0.01f)
-                    targetRotation = Quaternion.LookRotation(dir);
-            }
+            LookAtPlayer();
             return;
         }
 
-        if (playerTransform != null)
-        {
-            float dist = Vector3.Distance(transform.position, playerTransform.position);
-
-            if (dist <= 600f)
-            {
-                animator.SetBool("IsRunning", true);
-                animator.SetBool("Slow", false);
-                animator.SetBool("IsWalking", false);
-
-                if (footDustEffect != null && !footDustActive)
-                {
-                    footDustEffect.PlayEffect();
-                    footDustActive = true;
-                }
-            }
-            else
-            {
-                animator.SetBool("IsRunning", false);
-
-                if (footDustActive && footDustEffect != null)
-                {
-                    footDustEffect.StopEffect();
-                    footDustActive = false;
-                }
-            }
-        }
-
-        if (agent.enabled && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
-        {
-            if (!agent.hasPath || agent.velocity.sqrMagnitude < 0.1f)
-                GoToRandomWaypoint();
-        }
-
-        if (agent.velocity.sqrMagnitude > 0.1f)
+        // Aggiorna rotazione solo se non fermo e non rallentato
+        if (agent.isStopped == false && agent.velocity.sqrMagnitude > 0.1f)
         {
             Vector3 direction = agent.velocity.normalized;
             direction.y = 0;
@@ -161,6 +117,17 @@ public class Npc_village : MonoBehaviour
     void LateUpdate()
     {
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
+    }
+
+    void LookAtPlayer()
+    {
+        if (playerTransform != null)
+        {
+            Vector3 dir = playerTransform.position - transform.position;
+            dir.y = 0;
+            if (dir.sqrMagnitude > 0.01f)
+                targetRotation = Quaternion.LookRotation(dir);
+        }
     }
 
     public void SetSlow(bool slow)
@@ -179,51 +146,50 @@ public class Npc_village : MonoBehaviour
         if (slowEffect != null)
             slowEffect.StopEffect();
 
-        movingToPlayerAfterSlow = true;
+        movingToPlayerAfterSlow = false;
         animator.SetBool("Slow", false);
-        StartCoroutine(MoveTowardsPlayerThenStop(3.5f));
-    }
 
-    public void MoveNearPlayer(float stopDistance = 3.5f)
-    {
-        StartCoroutine(MoveTowardsPlayerThenStop(stopDistance));
-    }
-
-    private IEnumerator MoveTowardsPlayerThenStop(float stopDistance)
-    {
-        if (playerTransform == null)
-            yield break;
-
-        animator.SetBool("IsWalking", true);
-        agent.isStopped = false;
-        agent.stoppingDistance = stopDistance;
-
-        while (true)
+        // Se il dialogo è finito, solo stop e idle, niente routine post-dialogo
+        if (dialogFinished)
         {
-            Vector3 direction = (playerTransform.position - transform.position).normalized;
-            Vector3 targetPos = playerTransform.position - direction * stopDistance;
-
-            float distToTarget = Vector3.Distance(transform.position, targetPos);
-
-            if (distToTarget <= 0.1f)
-                break;
-
-            agent.SetDestination(targetPos);
-            yield return null;
+            StopAndIdle();
         }
+    }
 
+    /// <summary>
+    /// Chiamato dal Dialogo per indicare che è finito
+    /// </summary>
+    public void OnDialogFinished()
+    {
+        if (!dialogFinished)
+        {
+            dialogFinished = true;
+
+            // Ferma l'agente e imposta idle, senza avviare routine post-dialogo
+            StopAndIdle();
+        }
+    }
+
+    private void StopAndIdle()
+    {
         agent.isStopped = true;
         animator.SetBool("IsWalking", false);
-        movingToPlayerAfterSlow = false;
+        animator.SetBool("IsRunning", false);
+        animator.SetBool("Slow", false);
 
-        agent.stoppingDistance = 0.3f;
+        if (footDustActive && footDustEffect != null)
+        {
+            footDustEffect.StopEffect();
+            footDustActive = false;
+        }
     }
 
-    void GoToRandomWaypoint()
+    void GoToRandomWaypoint(Transform[] waypoints)
     {
         if (waypoints.Length <= 1)
         {
-            SetDestinationWithOffset(waypoints[0].position);
+            currentIndex = 0;
+            agent.SetDestination(waypoints[0].position);
             return;
         }
 
@@ -234,13 +200,6 @@ public class Npc_village : MonoBehaviour
         } while (newIndex == currentIndex);
 
         currentIndex = newIndex;
-        SetDestinationWithOffset(waypoints[currentIndex].position);
-    }
-
-    void SetDestinationWithOffset(Vector3 basePosition)
-    {
-        Vector2 randomCircle = Random.insideUnitCircle * 0.5f;
-        Vector3 offsetPosition = basePosition + new Vector3(randomCircle.x, 0, randomCircle.y);
-        agent.SetDestination(offsetPosition);
+        agent.SetDestination(waypoints[currentIndex].position);
     }
 }
