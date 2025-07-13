@@ -32,8 +32,10 @@ public class MovingPlatform : MonoBehaviour
     [Header("Slowdown FX")]
     [SerializeField] private CFXR_EffectController slowdownEffect; // Effetto slowdown figlio piattaforma
 
-    private MeshRenderer meshRenderer;
-    private bool patinaActive = false;
+    [Header("Slowdown Custom Settings")]
+    public bool useCustomSlowdown = false;
+    [Range(0.01f, 1f)]
+    public float customSlowdownFactor = 0.5f;
 
     void Awake()
     {
@@ -130,9 +132,16 @@ public class MovingPlatform : MonoBehaviour
     // Metodo chiamato dallo slowdown power-up
     public void SetSpeedMultiplier(float multiplier)
     {
-        speedMultiplier = multiplier;
-        Debug.Log($"[MovingPlatform] {gameObject.name} speed multiplier impostato a {multiplier}");
+        if (useCustomSlowdown)
+            speedMultiplier = customSlowdownFactor;
+        else
+            speedMultiplier = multiplier;
+
+        Debug.Log($"[MovingPlatform] {gameObject.name} speed multiplier impostato a {speedMultiplier}");
     }
+
+    private MeshRenderer meshRenderer;
+    private bool patinaActive = false;
 
     private void OnCollisionEnter(Collision collision)
     {

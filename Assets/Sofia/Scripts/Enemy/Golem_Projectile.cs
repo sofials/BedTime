@@ -3,43 +3,71 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class Golem_Projectile : MonoBehaviour
 {
-    public float launchAngle = 45f; // Gradi
-    public float gravityMultiplier = 1f;
+    public float launchAngle = 10f; // in gradi
     public float lifetime = 5f;
     public float damage = 20f;
-    public float pushForce = 5f;
-
-    [Header("FX")]
-    public CFXR_EffectController impactFX;
-
+    public float pushForce = 10f;
+    public float velocityMultiplier = 10f; // <-- Aggiunto per velocità extra
     private Rigidbody rb;
+    public float extraGravityForce = 15f;  // forza extra verso il basso
+
+private void FixedUpdate()
+{
+    if (rb != null)
+    {
+        rb.AddForce(Vector3.down * extraGravityForce, ForceMode.Acceleration);
+    }
+}
+
 
     public void Initialize(Vector3 targetPosition)
     {
         rb = GetComponent<Rigidbody>();
         rb.useGravity = true;
-        Physics.gravity *= gravityMultiplier;
 
-        Vector3 velocity = CalculateLaunchVelocity(targetPosition, launchAngle);
-        rb.linearVelocity = velocity;
+        Vector3 launchVelocity;
+        bool success = TryCalculateArcVelocity(targetPosition, launchAngle, out launchVelocity);
 
-        transform.rotation = Quaternion.LookRotation(velocity);
+        if (success)
+        {
+            rb.linearVelocity = launchVelocity * velocityMultiplier;
+            transform.rotation = Quaternion.LookRotation(launchVelocity);
+        }
+        else
+        {
+            Debug.LogWarning("Golem_Projectile: Traiettoria non calcolabile, uso lancio diretto.");
+            rb.linearVelocity = (targetPosition - transform.position).normalized * 10f * velocityMultiplier;
+        }
+
         Destroy(gameObject, lifetime);
     }
 
-    private Vector3 CalculateLaunchVelocity(Vector3 target, float angle)
+    private bool TryCalculateArcVelocity(Vector3 target, float angleDeg, out Vector3 velocity)
     {
-        Vector3 dir = target - transform.position;
-        float h = dir.y;
-        dir.y = 0;
-        float distance = dir.magnitude;
-        float radAngle = angle * Mathf.Deg2Rad;
-        dir.y = distance * Mathf.Tan(radAngle);
+        Vector3 origin = transform.position;
+        Vector3 toTarget = target - origin;
 
-        distance += h / Mathf.Tan(radAngle);
+        float g = Physics.gravity.y;
+        float angleRad = angleDeg * Mathf.Deg2Rad;
 
-        float velocity = Mathf.Sqrt(distance * Physics.gravity.magnitude / Mathf.Sin(2 * radAngle));
-        return velocity * dir.normalized;
+        Vector3 toTargetXZ = new Vector3(toTarget.x, 0f, toTarget.z);
+        float distance = toTargetXZ.magnitude;
+        float yOffset = toTarget.y;
+
+        float cosAngle = Mathf.Cos(angleRad);
+        float sinAngle = Mathf.Sin(angleRad);
+
+        float underSqrt = (g * distance * distance) / (2 * (yOffset - Mathf.Tan(angleRad) * distance) * cosAngle * cosAngle);
+
+        if (underSqrt < 0)
+        {
+            velocity = Vector3.zero;
+            return false;
+        }
+
+        float speed = Mathf.Sqrt(underSqrt);
+        velocity = toTargetXZ.normalized * speed * cosAngle + Vector3.up * speed * sinAngle;
+        return true;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -52,25 +80,13 @@ public class Golem_Projectile : MonoBehaviour
                 Vector3 pushDir = (other.transform.position - transform.position).normalized;
                 hurtbox.OnHit(pushDir, pushForce, damage);
             }
-
-            TriggerImpactEffect();
             Destroy(gameObject);
         }
         else if (!other.isTrigger)
         {
-            TriggerImpactEffect();
             Destroy(gameObject);
         }
     }
-
-    private void TriggerImpactEffect()
-    {
-        if (impactFX != null)
-        {
-            impactFX.transform.parent = null; // stacca l'effetto dal proiettile
-            impactFX.gameObject.SetActive(true);
-            impactFX.PlayEffect();
-            Destroy(impactFX.gameObject, 3f); // distruggi dopo che l'effetto è finito
-        }
-    }
 }
+
+
