@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3691799005045382729}
   - component: {fileID: 1575654673186743824}
-  - component: {fileID: 6273514530913890311}
   m_Layer: 0
   m_Name: gelato_sciolto_rosa_LODs
   m_TagString: Untagged
@@ -63,27 +62,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 6656758019836076507}
   m_Enabled: 1
---- !u!65 &6273514530913890311
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2446632139185050764}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 7.8, y: 8.1, z: 6.78}
-  m_Center: {x: -10.44, y: 0, z: -5.66}
 --- !u!1001 &122012674247719855
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -155,13 +133,42 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b7c5156dcb2c0ae46bbd9c2065bd7ab1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3785766929859974960}
   m_SourcePrefab: {fileID: 100100000, guid: b7c5156dcb2c0ae46bbd9c2065bd7ab1, type: 3}
 --- !u!4 &449164364169878596 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: b7c5156dcb2c0ae46bbd9c2065bd7ab1, type: 3}
   m_PrefabInstance: {fileID: 122012674247719855}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &968291720891221758 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: b7c5156dcb2c0ae46bbd9c2065bd7ab1, type: 3}
+  m_PrefabInstance: {fileID: 122012674247719855}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &3785766929859974960
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 968291720891221758}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 224.07678, y: 128.28708, z: 245.3901}
+  m_Center: {x: -14.128986, y: -4.2294226, z: -26.558733}
 --- !u!23 &1617052028666898219 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: b7c5156dcb2c0ae46bbd9c2065bd7ab1, type: 3}

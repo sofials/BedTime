@@ -90,7 +90,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 77d660f19876a514ab4d79e79de4ff16, type: 2}
     - target: {fileID: 919132149155446097, guid: 30d58064b1d962348a9f0bba55f64c5f, type: 3}
       propertyPath: m_Name
-      value: GingerbreadMan_LODs1
+      value: GingerbreadMan_LODs2
       objectReference: {fileID: 0}
     - target: {fileID: 1216645513378229945, guid: 30d58064b1d962348a9f0bba55f64c5f, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -155,5 +155,35 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8341304810291958593, guid: 30d58064b1d962348a9f0bba55f64c5f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4896619013149840981}
   m_SourcePrefab: {fileID: 100100000, guid: 30d58064b1d962348a9f0bba55f64c5f, type: 3}
+--- !u!1 &217263648357932443 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8341304810291958593, guid: 30d58064b1d962348a9f0bba55f64c5f, type: 3}
+  m_PrefabInstance: {fileID: 8124956231099961050}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &4896619013149840981
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 217263648357932443}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -6778349063961813127, guid: 30d58064b1d962348a9f0bba55f64c5f, type: 3}
