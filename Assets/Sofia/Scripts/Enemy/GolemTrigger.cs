@@ -3,21 +3,26 @@ using UnityEngine;
 public class GolemTrigger : MonoBehaviour
 {  
     public GolemVillaggio golem;
+    public DreamWave dreamWave;
 
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
         {
-            
-
-           if (golem != null)
-{
-    golem.ActivateWalk();
-}
-
+            if (dreamWave != null && dreamWave.IsTriggered)
+            {
+                if (golem != null)
+                {
+                    golem.ActivateWalk();
+                }
+                else
+                {
+                    Debug.LogWarning("Nessun GolemVillaggio assegnato.");
+                }
+            }
             else
             {
-                Debug.LogWarning("Nessun GolemVillaggio trovato nella scena.");
+                Debug.Log("DreamWave non è ancora stato attivato. Golem non parte.");
             }
         }
     }

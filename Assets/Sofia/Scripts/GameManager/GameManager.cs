@@ -15,22 +15,19 @@ public class GameManager : MonoBehaviour
     [Header("Respawn Settings")]
     [Tooltip("Transform del punto iniziale di spawn, se non c'è un checkpoint attivo.")]
     public Transform levelStartPoint;
+    [HideInInspector] public Transform currentCheckpoint;
 
-    [HideInInspector]
-    public Transform currentCheckpoint;
     [Header("Fade Settings")]
     public Image fadeImage;
     public float fadeDuration = 1f;
 
     [Header("Collectibles Settings")]
-    public Presents collectible1;  // assegna in Inspector il primo regalo
-    public Presents collectible2;  // assegna in Inspector il secondo regalo
-
+    public Presents collectible1; // assegna da Inspector
+    public Presents collectible2; // assegna da Inspector
     [Tooltip("Collider (BoxCollider) del muro da disabilitare quando entrambi i regali sono raccolti")]
     public Collider wallColliderToDisable;
 
     private bool isPaused = false;
-
     private int collectedCount = 0;
 
     private void Awake()
@@ -57,10 +54,8 @@ public class GameManager : MonoBehaviour
             pauseMenu.SetActive(false);
 
             if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-            {
                 if (powerUp.powerUI != null)
                     powerUp.powerUI.SetActive(false);
-            }
         }
         else
         {
@@ -69,16 +64,14 @@ public class GameManager : MonoBehaviour
             pauseMenu.SetActive(false);
 
             if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-            {
                 if (powerUp.powerUI != null)
                     powerUp.powerUI.SetActive(true);
-            }
         }
 
         if (fadeImage != null)
             StartCoroutine(FadeIn());
 
-        // Inizializza riferimenti ai regali
+        // Inizializza regali (se presenti)
         if (collectible1 != null) collectible1.gameManager = this;
         if (collectible2 != null) collectible2.gameManager = this;
     }
@@ -104,10 +97,8 @@ public class GameManager : MonoBehaviour
         Debug.Log("Gioco iniziato");
 
         if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-        {
             if (powerUp.powerUI != null)
                 powerUp.powerUI.SetActive(true);
-        }
 
         IgnorePlayerAttackClick();
     }
@@ -212,8 +203,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- Metodo da chiamare dagli oggetti collectible ---
-
+    // Metodo chiamato dai collectible (Presents)
     public void NotifyCollected(Presents collectedObject)
     {
         collectedCount++;

@@ -2,23 +2,26 @@ using UnityEngine;
 
 public class DreamWave : MonoBehaviour
 {
-    [Header("Oggetti da nascondere (array)")]
-    public GameObject[] objectsToHide;
+    [Header("NPC da distruggere (array)")]
+    public GameObject[] npcsToDestroy;
 
-    [Header("Oggetto da spawnare")]
-    public GameObject objectToSpawn;
+    [Header("Oggetto da attivare")]
+    public GameObject objectToActivate;
 
-    [Header("Posizione di spawn")]
-    public Transform spawnPoint;
+    [Header("Posizione di attivazione")]
+    public Transform activationPoint;
 
     private bool triggered = false;
+    public bool IsTriggered => triggered;
 
     private void Start()
     {
-        // Nasconde la mesh del trigger (se presente)
         var mesh = GetComponent<MeshRenderer>();
         if (mesh != null)
             mesh.enabled = false;
+
+        if (objectToActivate != null)
+            objectToActivate.SetActive(false);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -28,36 +31,23 @@ public class DreamWave : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             Debug.Log("Player entrato nel trigger!");
-
             triggered = true;
 
-            // Nasconde tutti gli oggetti nell'array
-            foreach (var obj in objectsToHide)
+            if (objectToActivate != null && activationPoint != null)
             {
-                if (obj == null) continue;
-
-                // Disattiva tutti i MeshRenderer dei figli e dell'oggetto stesso
-                MeshRenderer[] meshes = obj.GetComponentsInChildren<MeshRenderer>();
-                foreach (var m in meshes)
-                {
-                    m.enabled = false;
-                    Debug.Log("Mesh disattivata: " + m.gameObject.name);
-                }
-
-                // Disattiva tutti i Collider dei figli e dell'oggetto stesso
-                Collider[] colliders = obj.GetComponentsInChildren<Collider>();
-                foreach (var c in colliders)
-                {
-                    c.enabled = false;
-                    Debug.Log("Collider disattivato: " + c.gameObject.name);
-                }
+                objectToActivate.transform.position = activationPoint.position;
+                objectToActivate.transform.rotation = activationPoint.rotation;
+                objectToActivate.SetActive(true);
             }
 
-            // Fa spawnare l'oggetto specificato nella posizione data
-            if (objectToSpawn != null && spawnPoint != null)
+            // 🔥 Distruggi tutti gli NPC specificati
+            foreach (var npc in npcsToDestroy)
             {
-                Instantiate(objectToSpawn, spawnPoint.position, spawnPoint.rotation);
-                Debug.Log("Oggetto spawnato: " + objectToSpawn.name);
+                if (npc != null)
+                {
+                    Destroy(npc);
+                    Debug.Log($"Distrutto NPC: {npc.name}");
+                }
             }
         }
     }
