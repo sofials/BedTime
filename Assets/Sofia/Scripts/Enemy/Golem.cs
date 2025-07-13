@@ -60,9 +60,12 @@ public class Golem : MonoBehaviour
     private Coroutine slowCoroutine;
 
     private Coroutine blinkCoroutine;
-    [SerializeField] private float blinkDurationBeforeEnd = 2f; // Durata blinking prima che lo slow finisca
+    [SerializeField] private float blinkDurationBeforeEnd = 2f;
 
     private int deadLayer;
+
+    private float attackTimeout = 3f;
+    private float attackTimer = 0f;
 
     private void Start()
     {
@@ -80,6 +83,23 @@ public class Golem : MonoBehaviour
         meleeTimer -= Time.deltaTime;
         rangedTimer -= Time.deltaTime;
 
+        // Forza reset se l’attacco dura troppo
+        if (isMeleeAttacking || isRangedAttacking)
+        {
+            attackTimer += Time.deltaTime;
+            if (attackTimer > attackTimeout)
+            {
+                isMeleeAttacking = false;
+                isRangedAttacking = false;
+                attackTimer = 0f;
+            }
+            return;
+        }
+        else
+        {
+            attackTimer = 0f;
+        }
+
         UpdatePlayerVisibility();
 
         float dist = Vector3.Distance(transform.position, player.position);
@@ -94,9 +114,6 @@ public class Golem : MonoBehaviour
             MoveTowardsPlayer();
             return;
         }
-
-        if (isMeleeAttacking || isRangedAttacking)
-            return;
 
         if (dist <= meleeRange && meleeTimer <= 0f)
             DoMeleeAttack();
@@ -243,7 +260,6 @@ public class Golem : MonoBehaviour
         if (normalDuration > 0)
             yield return new WaitForSeconds(normalDuration);
 
-        // Avvia blinking negli ultimi secondi
         if (blinkCoroutine != null)
             StopCoroutine(blinkCoroutine);
         blinkCoroutine = StartCoroutine(BlinkOverlayWhileSlow());
@@ -285,7 +301,7 @@ public class Golem : MonoBehaviour
             if (agent != null)
                 agent.speed = 3f * slowFactor;
 
-            animator.speed = animationSlowFactor;  // animazioni più lente
+            animator.speed = animationSlowFactor;
         }
         else
         {
@@ -300,9 +316,12 @@ public class Golem : MonoBehaviour
             if (agent != null)
                 agent.speed = 3f;
 
-            animator.speed = 1f;  // velocità animazioni normale
-
+            animator.speed = 1f;
             slowdownEffectPlayedThisCycle = false;
+
+            // ✅ RESET ATTACCHI BLOCCATI
+            isMeleeAttacking = false;
+            isRangedAttacking = false;
         }
     }
 
@@ -310,12 +329,9 @@ public class Golem : MonoBehaviour
     {
         slowdownEffect.gameObject.SetActive(true);
         slowdownEffect.PlayEffect();
-
-        yield return null; // aspetta un frame
-
+        yield return null;
         slowdownEffect.StopEffect();
         slowdownEffect.gameObject.SetActive(false);
-
         fxCoroutine = null;
     }
 
