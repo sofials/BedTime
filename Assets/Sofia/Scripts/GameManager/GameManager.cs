@@ -3,7 +3,6 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
 
-
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
@@ -23,8 +22,16 @@ public class GameManager : MonoBehaviour
     public Image fadeImage;
     public float fadeDuration = 1f;
 
+    [Header("Collectibles Settings")]
+    public Presents collectible1;  // assegna in Inspector il primo regalo
+    public Presents collectible2;  // assegna in Inspector il secondo regalo
+
+    [Tooltip("Collider (BoxCollider) del muro da disabilitare quando entrambi i regali sono raccolti")]
+    public Collider wallColliderToDisable;
 
     private bool isPaused = false;
+
+    private int collectedCount = 0;
 
     private void Awake()
     {
@@ -49,7 +56,6 @@ public class GameManager : MonoBehaviour
             startMenu.SetActive(true);
             pauseMenu.SetActive(false);
 
-            // Nascondi barra del potere inizialmente
             if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
             {
                 if (powerUp.powerUI != null)
@@ -62,7 +68,6 @@ public class GameManager : MonoBehaviour
             startMenu.SetActive(false);
             pauseMenu.SetActive(false);
 
-            // Mostra barra del potere direttamente
             if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
             {
                 if (powerUp.powerUI != null)
@@ -72,8 +77,11 @@ public class GameManager : MonoBehaviour
 
         if (fadeImage != null)
             StartCoroutine(FadeIn());
-    }
 
+        // Inizializza riferimenti ai regali
+        if (collectible1 != null) collectible1.gameManager = this;
+        if (collectible2 != null) collectible2.gameManager = this;
+    }
 
     private void Update()
     {
@@ -95,7 +103,6 @@ public class GameManager : MonoBehaviour
         Cursor.visible = false;
         Debug.Log("Gioco iniziato");
 
-        // Mostra barra del potere
         if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
         {
             if (powerUp.powerUI != null)
@@ -157,52 +164,69 @@ public class GameManager : MonoBehaviour
             Debug.LogWarning("playerAttack non assegnato!");
         }
     }
+
     public void LoadSceneWithFade(string sceneName)
-{
-    StartCoroutine(FadeAndLoad(sceneName));
-}
-
-private IEnumerator FadeAndLoad(string sceneName)
-{
-    yield return StartCoroutine(FadeOut());
-    SceneManager.LoadScene(sceneName);
-    yield return new WaitForSeconds(0.1f); // piccolo delay per sicurezza
-    StartCoroutine(FadeIn());
-}
-
-private IEnumerator FadeOut()
-{
-    float t = 0;
-    while (t < fadeDuration)
     {
-        t += Time.unscaledDeltaTime; // usa unscaled nel caso Time.timeScale = 0
-        SetFadeAlpha(t / fadeDuration);
-        yield return null;
+        StartCoroutine(FadeAndLoad(sceneName));
     }
-    SetFadeAlpha(1);
-}
 
-private IEnumerator FadeIn()
-{
-    float t = fadeDuration;
-    while (t > 0)
+    private IEnumerator FadeAndLoad(string sceneName)
     {
-        t -= Time.unscaledDeltaTime;
-        SetFadeAlpha(t / fadeDuration);
-        yield return null;
+        yield return StartCoroutine(FadeOut());
+        SceneManager.LoadScene(sceneName);
+        yield return new WaitForSeconds(0.1f);
+        StartCoroutine(FadeIn());
     }
-    SetFadeAlpha(0);
-}
 
-private void SetFadeAlpha(float alpha)
-{
-    if (fadeImage != null)
+    private IEnumerator FadeOut()
     {
-        Color c = fadeImage.color;
-        c.a = Mathf.Clamp01(alpha);
-        fadeImage.color = c;
+        float t = 0;
+        while (t < fadeDuration)
+        {
+            t += Time.unscaledDeltaTime;
+            SetFadeAlpha(t / fadeDuration);
+            yield return null;
+        }
+        SetFadeAlpha(1);
+    }
+
+    private IEnumerator FadeIn()
+    {
+        float t = fadeDuration;
+        while (t > 0)
+        {
+            t -= Time.unscaledDeltaTime;
+            SetFadeAlpha(t / fadeDuration);
+            yield return null;
+        }
+        SetFadeAlpha(0);
+    }
+
+    private void SetFadeAlpha(float alpha)
+    {
+        if (fadeImage != null)
+        {
+            Color c = fadeImage.color;
+            c.a = Mathf.Clamp01(alpha);
+            fadeImage.color = c;
+        }
+    }
+
+    // --- Metodo da chiamare dagli oggetti collectible ---
+
+    public void NotifyCollected(Presents collectedObject)
+    {
+        collectedCount++;
+        Debug.Log("Oggetto raccolto: " + collectedObject.name);
+
+        if (collectedCount >= 2)
+        {
+            Debug.Log("Entrambi gli oggetti raccolti!");
+            if (wallColliderToDisable != null)
+            {
+                wallColliderToDisable.enabled = false;
+                Debug.Log("Collider muro disabilitato");
+            }
+        }
     }
 }
-
-}
-
