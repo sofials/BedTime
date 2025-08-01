@@ -168,7 +168,7 @@ public class TeleportAbility : AbilityBase
     {
         Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-        if (Physics.Raycast(ray, out var hit, 500f, teleportableLayers))
+        if (Physics.Raycast(ray, out var hit, 900f, teleportableLayers))
         {
             if (currentPointer != null)
             {

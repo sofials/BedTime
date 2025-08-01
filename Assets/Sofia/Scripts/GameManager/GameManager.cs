@@ -10,38 +10,38 @@ public class GameManager : MonoBehaviour
     [Header("UI Menus")]
     public GameObject startMenu;
     public GameObject pauseMenu;
-    public GameObject inGameUI;  // ✅ Aggiunto riferimento esplicito alla UI in-game
     public PlayerAttack playerAttack;
 
     [Header("Respawn Settings")]
     [Tooltip("Transform del punto iniziale di spawn, se non c'è un checkpoint attivo.")]
     public Transform levelStartPoint;
-
-    [HideInInspector]
-    public Transform currentCheckpoint;
+    [HideInInspector] public Transform currentCheckpoint;
 
     [Header("Fade Settings")]
     public Image fadeImage;
     public float fadeDuration = 1f;
 
-    private bool isPaused = false;
+    [Header("Collectibles Settings")]
+    public Presents collectible1; // assegna da Inspector
+    public Presents collectible2; // assegna da Inspector
+    [Tooltip("Collider (BoxCollider) del muro da disabilitare quando entrambi i regali sono raccolti")]
+    public Collider wallColliderToDisable;
 
-    void Awake()
+    private bool isPaused = false;
+    private int collectedCount = 0;
+
+    private void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
-            if (inGameUI != null)
-                DontDestroyOnLoad(inGameUI);
         }
         else
         {
             Destroy(gameObject);
         }
     }
-
 
     private void Start()
     {
@@ -53,8 +53,9 @@ public class GameManager : MonoBehaviour
             startMenu.SetActive(true);
             pauseMenu.SetActive(false);
 
-            if (inGameUI != null)
-                inGameUI.SetActive(false); // ❌ Non mostrare UI in-game all’inizio
+            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+                if (powerUp.powerUI != null)
+                    powerUp.powerUI.SetActive(false);
         }
         else
         {
@@ -62,12 +63,17 @@ public class GameManager : MonoBehaviour
             startMenu.SetActive(false);
             pauseMenu.SetActive(false);
 
-            if (inGameUI != null)
-                inGameUI.SetActive(true); // ✅ Mostra UI in-game nelle altre scene
+            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+                if (powerUp.powerUI != null)
+                    powerUp.powerUI.SetActive(true);
         }
 
         if (fadeImage != null)
             StartCoroutine(FadeIn());
+
+        // Inizializza regali (se presenti)
+        if (collectible1 != null) collectible1.gameManager = this;
+        if (collectible2 != null) collectible2.gameManager = this;
     }
 
     private void Update()
@@ -90,8 +96,9 @@ public class GameManager : MonoBehaviour
         Cursor.visible = false;
         Debug.Log("Gioco iniziato");
 
-        if (inGameUI != null)
-            inGameUI.SetActive(true); // ✅ Attiva UI in-game
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+            if (powerUp.powerUI != null)
+                powerUp.powerUI.SetActive(true);
 
         IgnorePlayerAttackClick();
     }
@@ -157,19 +164,8 @@ public class GameManager : MonoBehaviour
     private IEnumerator FadeAndLoad(string sceneName)
     {
         yield return StartCoroutine(FadeOut());
-
         SceneManager.LoadScene(sceneName);
-        yield return new WaitForSeconds(0.1f); // piccolo delay per sicurezza
-
-        if (startMenu != null)
-            startMenu.SetActive(false);
-
-        if (pauseMenu != null)
-            pauseMenu.SetActive(false);
-
-        if (inGameUI != null)
-            inGameUI.SetActive(true); // ✅ Assicurati che UI in-game sia visibile
-
+        yield return new WaitForSeconds(0.1f);
         StartCoroutine(FadeIn());
     }
 
@@ -204,6 +200,23 @@ public class GameManager : MonoBehaviour
             Color c = fadeImage.color;
             c.a = Mathf.Clamp01(alpha);
             fadeImage.color = c;
+        }
+    }
+
+    // Metodo chiamato dai collectible (Presents)
+    public void NotifyCollected(Presents collectedObject)
+    {
+        collectedCount++;
+        Debug.Log("Oggetto raccolto: " + collectedObject.name);
+
+        if (collectedCount >= 2)
+        {
+            Debug.Log("Entrambi gli oggetti raccolti!");
+            if (wallColliderToDisable != null)
+            {
+                wallColliderToDisable.enabled = false;
+                Debug.Log("Collider muro disabilitato");
+            }
         }
     }
 }
