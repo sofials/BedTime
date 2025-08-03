@@ -421,6 +421,7 @@ public class ThirdPersonController : MonoBehaviour
             if (shouldFall && !_animator.GetBool("isFalling"))
             {
                 _animator.SetBool("isFalling", true);
+
             }
         }
     }
@@ -462,7 +463,12 @@ public class ThirdPersonController : MonoBehaviour
         velocity = Vector3.zero;
         controller.enabled = true;
 
-
+        _animator.ResetTrigger("Jump");
+        _animator.ResetTrigger("DoubleJump");
+        _animator.ResetTrigger("JumpStart");
+        _animator.ResetTrigger("DoubleJumpStart");
+        _animator.ResetTrigger("StartFalling");
+        _animator.ResetTrigger("Land");
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
         _animator.SetBool("isFalling", false);
