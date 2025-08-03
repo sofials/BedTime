@@ -192,11 +192,6 @@ public class ThirdPersonController : MonoBehaviour
         _animator.SetBool("DoubleJump", false);
         _animator.SetBool("isFalling", false);
         
-        // Trigger animazione di atterraggio se necessario
-        if (velocity.y < -10f) // Solo per cadute veloci
-        {
-            _animator.SetTrigger("Land");
-        }
     }
 
     private void HandleImmediateJump()
@@ -288,14 +283,12 @@ public class ThirdPersonController : MonoBehaviour
         {
             // Primo salto
             _animator.SetBool("Jump", true);
-            _animator.SetTrigger("JumpStart"); // Trigger per transizione immediata
         }
         else
         {
             // Doppio salto
             _animator.SetBool("Jump", false); // Reset primo salto
             _animator.SetBool("DoubleJump", true);
-            _animator.SetTrigger("DoubleJumpStart"); // Trigger per doppio salto
         }
 
         // Aggiorna contatori
@@ -428,7 +421,6 @@ public class ThirdPersonController : MonoBehaviour
             if (shouldFall && !_animator.GetBool("isFalling"))
             {
                 _animator.SetBool("isFalling", true);
-                _animator.SetTrigger("StartFalling"); // Trigger opzionale
             }
         }
     }
@@ -470,12 +462,7 @@ public class ThirdPersonController : MonoBehaviour
         velocity = Vector3.zero;
         controller.enabled = true;
 
-        _animator.ResetTrigger("Jump");
-        _animator.ResetTrigger("DoubleJump");
-        _animator.ResetTrigger("JumpStart");
-        _animator.ResetTrigger("DoubleJumpStart");
-        _animator.ResetTrigger("StartFalling");
-        _animator.ResetTrigger("Land");
+
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
         _animator.SetBool("isFalling", false);

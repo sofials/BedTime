@@ -44,12 +44,10 @@ public class PlayerAttack : MonoBehaviour
             attackHitboxCollider = attackHitbox.GetComponent<Collider>();
 
         controls.Gameplay.Attack.performed += ctx =>
-        {
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                return;
+{
+    attackInput = true;  // setta sempre, controlla in Update()
+};
 
-            attackInput = true;
-        };
     }
 
     private void OnEnable() => controls.Gameplay.Enable();
