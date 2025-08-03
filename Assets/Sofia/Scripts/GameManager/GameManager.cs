@@ -77,15 +77,19 @@ public class GameManager : MonoBehaviour
     }
 
     private void Update()
+{
+    // Disabilito per ora la pausa con ESC
+    /*
+    if (Input.GetKeyDown(KeyCode.Escape) && !startMenu.activeSelf)
     {
-        if (Input.GetKeyDown(KeyCode.Escape) && !startMenu.activeSelf)
-        {
-            if (!isPaused)
-                OpenPauseMenu();
-            else
-                ResumeGame();
-        }
+        if (!isPaused)
+            OpenPauseMenu();
+        else
+            ResumeGame();
     }
+    */
+}
+
 
     public void StartGame()
     {
