@@ -27,7 +27,7 @@ public class GameManager : MonoBehaviour
     [Tooltip("Collider (BoxCollider) del muro da disabilitare quando entrambi i regali sono raccolti")]
     public Collider wallColliderToDisable;
 
-    private bool isPaused = false;
+   // private bool isPaused = false;
     private int collectedCount = 0;
 
     private void Awake()
@@ -77,21 +77,25 @@ public class GameManager : MonoBehaviour
     }
 
     private void Update()
+{
+    // Disabilito per ora la pausa con ESC
+    /*
+    if (Input.GetKeyDown(KeyCode.Escape) && !startMenu.activeSelf)
     {
-        if (Input.GetKeyDown(KeyCode.Escape) && !startMenu.activeSelf)
-        {
-            if (!isPaused)
-                OpenPauseMenu();
-            else
-                ResumeGame();
-        }
+        if (!isPaused)
+            OpenPauseMenu();
+        else
+            ResumeGame();
     }
+    */
+}
+
 
     public void StartGame()
     {
         startMenu.SetActive(false);
         Time.timeScale = 1f;
-        isPaused = false;
+      //  isPaused = false;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         Debug.Log("Gioco iniziato");
@@ -105,7 +109,7 @@ public class GameManager : MonoBehaviour
 
     private void OpenPauseMenu()
     {
-        isPaused = true;
+       // isPaused = true;
         pauseMenu.SetActive(true);
         Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
@@ -117,7 +121,7 @@ public class GameManager : MonoBehaviour
 
     public void ResumeGame()
     {
-        isPaused = false;
+      //  isPaused = false;
         pauseMenu.SetActive(false);
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;

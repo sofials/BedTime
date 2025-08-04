@@ -7,16 +7,20 @@ public class GemManager : MonoBehaviour
     [Header("Gem Prefabs")]
     public GameObject lifeGemPrefab;   // assegna UNA VOLTA il prefab qui!
 
-    private void Awake()
+   private void Awake()
+{
+    if (Instance != null && Instance != this)
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
+        Destroy(gameObject);
+        return;
     }
+
+    Instance = this;
+
+    transform.SetParent(null); // stacca da qualsiasi parent
+    DontDestroyOnLoad(gameObject);
+}
+
 
 public void SpawnLifeGem(Vector3 position)
 {
