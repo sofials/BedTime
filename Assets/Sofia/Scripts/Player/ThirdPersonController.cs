@@ -23,36 +23,43 @@ public class ThirdPersonController : MonoBehaviour
     public float gravity = -9.81f;
     public int maxJumps = 2;
     private int jumpCount = 0;
-    private Vector3 velocity;
+    public Vector3 velocity;
+
+    [Header("Ledge Grab System")]
+    public float ledgeDetectionDistance = 1.5f;
+    public float ledgeHangOffset = 0.5f; // Distanza sotto il bordo
+    public float ledgeForwardOffset = 0.3f; // Distanza dal muro
+    public float climbUpDuration = 1.0f;
+    public float climbUpHeight = 1.5f;
+    public string[] climbableTags = {"Platform", "MovingPlatform", "RotatingPlatform"}; // Tag climbabili
     
+    [Header("Debug Ledge System")]
+    public bool showLedgeRaycast = true;
+    
+    [Header("Ledge Grab Trigger (Recommended)")]
+    public bool useTriggersForLedgeGrab = true; // Usa trigger invece di raycast
+    
+    [HideInInspector] public bool isHanging = false;
+    [HideInInspector] public bool isClimbingUp = false;
+    private Vector3 hangingPosition;
+    private Vector3 hangingNormal;
+    private Transform hangingPlatform;
+
     [Header("Advanced Jump Timing")]
     public float coyoteTime = 0.15f;
     public float jumpBufferTime = 0.2f;
     private float coyoteTimeCounter = 0f;
     private float jumpBufferCounter = 0f;
-    private bool jumpInputPressed = false; // Flag per input immediato
+    private bool jumpInputPressed = false;
 
     [Header("Falling Settings")]
-    public float fallingTimeThreshold = 1.0f; // Ridotto per più responsività
+    public float fallingTimeThreshold = 1.0f;
     private float fallingTimer = 0f;
 
     [Header("Air Control Settings")]
     public float airControlStrength = 0.5f;
     public float airControlSpeed = 2f;
     public float airRotationSmoothTime = 0.3f;
-
-    [Header("Hanging Settings")]
-    public float hangingDetectionDistance = 1.2f;
-    public float hangingOffsetY = 0.5f; // Quanto sotto il bordo si posiziona
-    public float hangingOffsetZ = 0.3f; // Distanza dal bordo
-    public float climbUpDuration = 1.0f;
-    public LayerMask hangingLayerMask = -1; // Quali layer possono essere appesi
-
-    private bool isHanging = false;
-    private bool isClimbingUp = false;
-    private Vector3 hangingPosition;
-    private Vector3 hangingNormal;
-    private Transform hangingPlatform;
 
     [Header("Player Stats")]
     public float maxHealth = 100f;
@@ -103,6 +110,11 @@ public class ThirdPersonController : MonoBehaviour
         }
     }
 
+    // Property per compatibilità con LedgeGrabDetector
+    public bool IsGrounded() => controller.isGrounded;
+    [System.Obsolete("Use isHanging instead")]
+    public bool isGrabbingLedge => isHanging;
+
     private void Awake()
     {
         controls = new PlayerControls();
@@ -116,7 +128,7 @@ public class ThirdPersonController : MonoBehaviour
         controls.Gameplay.Jump.started += ctx => { 
             jumpBufferCounter = jumpBufferTime; 
             isHoldingJump = true;
-            jumpInputPressed = true; // Flag per salto immediato
+            jumpInputPressed = true;
         };
         controls.Gameplay.Jump.canceled += ctx => { 
             isHoldingJump = false; 
@@ -151,18 +163,17 @@ public class ThirdPersonController : MonoBehaviour
         HandleMovement();
         UpdateJumpTimers();
         
-        // Gestione salto ottimizzata - controlla prima l'input diretto
         if (jumpInputPressed)
         {
             HandleImmediateJump();
-            jumpInputPressed = false; // Consuma il flag
+            jumpInputPressed = false;
         }
         
         HandleJump();
-        HandleHangingDetection(); // Sistema hanging
-        HandleHangingInput(); // Input durante hanging
+        HandleLedgeDetection();
+        HandleHangingInput();
 
-        if (currentPlatform != null)
+        if (currentPlatform != null && controller.enabled)
         {
             controller.Move(platformDeltaPos);
             if (platformDeltaRot != Quaternion.identity)
@@ -172,9 +183,13 @@ public class ThirdPersonController : MonoBehaviour
                 velocity.y = Mathf.Max(platformDeltaPos.y, velocity.y);
         }
 
-        Vector3 totalMove = playerVelocity + externalPush;
-        totalMove.y = velocity.y;
-        controller.Move(totalMove * Time.deltaTime);
+        // Non muovere il controller se è disabilitato (durante hanging/climbing)
+        if (controller.enabled)
+        {
+            Vector3 totalMove = playerVelocity + externalPush;
+            totalMove.y = velocity.y;
+            controller.Move(totalMove * Time.deltaTime);
+        }
 
         externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
 
@@ -184,119 +199,242 @@ public class ThirdPersonController : MonoBehaviour
         HandleSprintFX();
     }
 
-    // Rilevamento opportunità hanging
-    private bool DetectHangingOpportunity(out Vector3 hangPosition, out Vector3 normal, out Transform platform)
+    // Sistema unificato per rilevamento ledge
+    private void HandleLedgeDetection()
+    {
+        // Se usi trigger system, non fare raycast
+        if (useTriggersForLedgeGrab) return;
+        
+        // Non rilevare se già appeso, arrampicandosi, o a terra
+        if (isHanging || isClimbingUp || controller.isGrounded) return;
+        
+        // Solo se stai cadendo abbastanza velocemente
+        if (velocity.y > -1f) return;
+        
+        if (showLedgeRaycast)
+            Debug.Log($"Checking ledge detection - Velocity Y: {velocity.y}, Grounded: {controller.isGrounded}");
+        
+        Vector3 hangPos;
+        Vector3 hangNormal;
+        Transform hangPlatform;
+        
+        if (DetectLedgeOpportunity(out hangPos, out hangNormal, out hangPlatform))
+        {
+            StartHanging(hangPos, hangNormal, hangPlatform);
+        }
+    }
+
+    private bool DetectLedgeOpportunity(out Vector3 hangPosition, out Vector3 normal, out Transform platform)
     {
         hangPosition = Vector3.zero;
         normal = Vector3.zero;
         platform = null;
-
-        // Controlla solo se stai cadendo ma NON nel vuoto
-        if (controller.isGrounded || velocity.y > -1f || isHanging || _animator.GetBool("isFalling")) 
-            return false;
 
         // Raycast in avanti per trovare una parete
         Vector3 forward = transform.forward;
         Vector3 origin = transform.position + Vector3.up * 1.0f;
         
         RaycastHit wallHit;
-        if (!Physics.Raycast(origin, forward, out wallHit, hangingDetectionDistance, hangingLayerMask))
+        if (!Physics.Raycast(origin, forward, out wallHit, ledgeDetectionDistance))
             return false;
 
-        // Verifica che sia una parete verticale (normale verso l'alto tra 0.7 e 1.0)
-        if (Vector3.Dot(wallHit.normal, Vector3.up) > 0.3f)
+        // Verifica che l'oggetto colpito abbia un tag climbabile
+        if (!IsClimbableTag(wallHit.collider.tag))
+        {
+            if (showLedgeRaycast)
+                Debug.Log($"Hit {wallHit.collider.name} but tag '{wallHit.collider.tag}' is not climbable");
             return false;
+        }
+
+        // Debug raycast
+        if (showLedgeRaycast)
+        {
+            Debug.DrawRay(origin, forward * ledgeDetectionDistance, Color.red, 0.1f);
+            Debug.Log($"Wall hit: {wallHit.collider.name} with climbable tag '{wallHit.collider.tag}' at {wallHit.point}");
+        }
+
+        // Verifica che sia una parete verticale
+        if (Vector3.Dot(wallHit.normal, Vector3.up) > 0.3f)
+        {
+            if (showLedgeRaycast)
+                Debug.Log("Not a vertical wall");
+            return false;
+        }
 
         // Raycast verso l'alto dal punto di impatto per trovare il bordo
         Vector3 wallPoint = wallHit.point;
         Vector3 upRayOrigin = wallPoint + Vector3.up * 0.1f - wallHit.normal * 0.1f;
         
         RaycastHit edgeHit;
-        if (!Physics.Raycast(upRayOrigin, Vector3.up, out edgeHit, 3.0f, hangingLayerMask))
+        if (!Physics.Raycast(upRayOrigin, Vector3.up, out edgeHit, 3.0f))
+        {
+            if (showLedgeRaycast)
+                Debug.Log("No edge found above");
             return false;
+        }
+
+        // Verifica che anche il bordo abbia un tag climbabile
+        if (!IsClimbableTag(edgeHit.collider.tag))
+        {
+            if (showLedgeRaycast)
+                Debug.Log($"Edge has non-climbable tag: {edgeHit.collider.tag}");
+            return false;
+        }
+
+        // Debug edge raycast
+        if (showLedgeRaycast)
+        {
+            Debug.DrawRay(upRayOrigin, Vector3.up * 3.0f, Color.blue, 0.1f);
+            Debug.Log($"Edge hit: {edgeHit.collider.name} with tag '{edgeHit.collider.tag}' at {edgeHit.point}");
+        }
 
         // Verifica che il bordo sia orizzontale
         if (Vector3.Dot(edgeHit.normal, Vector3.up) < 0.8f)
+        {
+            if (showLedgeRaycast)
+                Debug.Log("Edge not horizontal enough");
             return false;
+        }
 
         // Calcola la posizione di hanging
         Vector3 edgePosition = edgeHit.point;
-        hangPosition = edgePosition - wallHit.normal * hangingOffsetZ + Vector3.down * hangingOffsetY;
+        hangPosition = edgePosition - wallHit.normal * ledgeForwardOffset + Vector3.down * ledgeHangOffset;
         normal = wallHit.normal;
         platform = edgeHit.collider.transform;
+
+        if (showLedgeRaycast)
+        {
+            Debug.Log($"Ledge grab opportunity found! Hang position: {hangPosition}");
+            Debug.DrawLine(transform.position, hangPosition, Color.green, 1f);
+        }
 
         return true;
     }
 
-    // Nuovo metodo separato per il rilevamento hanging
-    private void HandleHangingDetection()
+    // Verifica se un tag è climbabile
+    private bool IsClimbableTag(string tag)
     {
-        // Se già in hanging o climbing, non fare nulla
-        if (isHanging || isClimbingUp) return;
-        
-        // Rileva opportunità di hanging (solo se NON stai cadendo nel vuoto)
-        Vector3 hangPos;
-        Vector3 hangNormal;
-        Transform hangPlatform;
-        
-        if (DetectHangingOpportunity(out hangPos, out hangNormal, out hangPlatform))
+        for (int i = 0; i < climbableTags.Length; i++)
         {
-            StartHanging(hangPos, hangNormal, hangPlatform);
+            if (climbableTags[i] == tag)
+                return true;
         }
+        return false;
     }
 
-    // Nuovo metodo per iniziare hanging
+    // Metodo pubblico per trigger system (RACCOMANDATO)
+    public void StartHangingFromTrigger(Vector3 hangPosition, Vector3 hangNormal, Transform platform)
+    {
+        if (isHanging || isClimbingUp || controller.isGrounded) 
+        {
+            if (showLedgeRaycast)
+                Debug.Log($"Cannot start hanging - isHanging: {isHanging}, isClimbingUp: {isClimbingUp}, isGrounded: {controller.isGrounded}");
+            return;
+        }
+        
+        if (showLedgeRaycast)
+        {
+            Debug.Log($"StartHangingFromTrigger called - Position: {hangPosition}, Velocity: {velocity.y}");
+            Debug.Log($"Current animator states - Jump: {_animator.GetBool("Jump")}, DoubleJump: {_animator.GetBool("DoubleJump")}, isFalling: {_animator.GetBool("isFalling")}");
+        }
+            
+        StartHanging(hangPosition, hangNormal, platform);
+    }
+
+    // Metodo pubblico per compatibilità con LedgeGrabDetector vecchio
+    public void TryGrabLedge(Collider platformCollider)
+    {
+        if (isHanging || isClimbingUp || controller.isGrounded) return;
+        
+        // Calcola posizione di hang basata sul collider
+        Vector3 platformTop = new Vector3(transform.position.x, platformCollider.bounds.max.y, transform.position.z);
+        Vector3 hangPos = platformTop + Vector3.down * ledgeHangOffset + transform.forward * -ledgeForwardOffset;
+        Vector3 hangNormal = -transform.forward;
+        
+        StartHanging(hangPos, hangNormal, platformCollider.transform);
+    }
+
     private void StartHanging(Vector3 position, Vector3 normal, Transform platform)
     {
         isHanging = true;
         hangingPosition = position;
         hangingNormal = normal;
         hangingPlatform = platform;
-        
+
+        if (showLedgeRaycast)
+            Debug.Log($"StartHanging called - Grab position: {position}, Platform: {platform.name}");
+
         // Ferma il movimento
         velocity = Vector3.zero;
         playerVelocity = Vector3.zero;
-        
-        // Posiziona il personaggio
-        controller.enabled = false;
-        transform.position = hangingPosition;
-        transform.rotation = Quaternion.LookRotation(-hangingNormal);
-        controller.enabled = true;
-        
-        // Aggiorna animator (NON toccare isFalling che gestisce cadute nel vuoto)
-        _animator.SetBool("isHanging", true);
+
+        // MIGLIORATO: Posiziona il player considerando la sua altezza/offset
+        if (controller.enabled)
+        {
+            controller.enabled = false;
+            
+            // Calcola posizione finale considerando l'offset del controller
+            Vector3 finalPosition = hangingPosition;
+            
+            // Aggiungi offset per compensare la differenza tra centro del controller e punto di grab
+            finalPosition.y -= controller.height * 0.3f; // Regola questo valore se serve
+            
+            transform.position = finalPosition;
+            transform.rotation = Quaternion.LookRotation(-hangingNormal);
+            
+            if (showLedgeRaycast)
+                Debug.Log($"Player positioned at: {transform.position} (adjusted from {hangingPosition})");
+            
+            controller.enabled = true;
+        }
+
+        // Aggiorna animator - FORZA il reset di tutti gli stati di salto
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
+        _animator.SetBool("isFalling", false);
+        _animator.SetBool("isGrounded", false); // Non è a terra quando appeso
         
+        // Aspetta un frame prima di impostare hanging per assicurare transizione pulita
+        StartCoroutine(SetHangingAfterFrame());
+
         // Reset jump count
         jumpCount = 0;
+        coyoteTimeCounter = 0f;
+        jumpBufferCounter = 0f;
     }
 
-    // Nuovo metodo per gestire input durante hanging
+    private System.Collections.IEnumerator SetHangingAfterFrame()
+    {
+        yield return null; // Aspetta un frame
+        _animator.SetBool("isHanging", true);
+        
+        if (showLedgeRaycast)
+            Debug.Log("Set isHanging = true after one frame");
+    }
+
     private void HandleHangingInput()
     {
         if (!isHanging || isClimbingUp) return;
         
-        // Input per arrampicarsi
-        if (moveInput.y > 0.1f || jumpInputPressed) // Su o Spazio
+        // Input per arrampicarsi (Su o Spazio)
+        if (moveInput.y > 0.1f || jumpInputPressed)
         {
             StartClimbUp();
             jumpInputPressed = false;
         }
-        // Input per lasciarsi cadere
-        else if (moveInput.y < -0.1f) // Giù
+        // Input per lasciarsi cadere (Giù)
+        else if (moveInput.y < -0.1f)
         {
             DropFromHanging();
         }
         
-        // Movimento laterale durante hanging (opzionale)
+        // Movimento laterale durante hanging
         if (Mathf.Abs(moveInput.x) > 0.1f)
         {
             HandleHangingMovement();
         }
     }
 
-    // Metodo per iniziare arrampicata
     private void StartClimbUp()
     {
         isClimbingUp = true;
@@ -306,58 +444,52 @@ public class ThirdPersonController : MonoBehaviour
         StartCoroutine(ClimbUpCoroutine());
     }
 
-    // Coroutine per gestire l'arrampicata
     private System.Collections.IEnumerator ClimbUpCoroutine()
     {
         float timer = 0f;
         Vector3 startPos = transform.position;
-        Vector3 targetPos = hangingPosition + Vector3.up * 1.5f - hangingNormal * 0.5f;
+        Vector3 targetPos = hangingPosition + Vector3.up * climbUpHeight - hangingNormal * 0.5f;
         
-        // Disabilita controlli durante arrampicata
         IsMovementLocked = true;
+        controller.enabled = false;
         
         while (timer < climbUpDuration)
         {
             timer += Time.deltaTime;
             float t = timer / climbUpDuration;
-            
-            // Interpolazione smooth
             float smoothT = Mathf.SmoothStep(0f, 1f, t);
-            Vector3 currentPos = Vector3.Lerp(startPos, targetPos, smoothT);
             
-            controller.enabled = false;
-            transform.position = currentPos;
-            controller.enabled = true;
-            
+            transform.position = Vector3.Lerp(startPos, targetPos, smoothT);
             yield return null;
         }
         
         // Fine arrampicata
+        controller.enabled = true;
         isHanging = false;
         isClimbingUp = false;
         IsMovementLocked = false;
         
-        // Reset velocità
         velocity = Vector3.zero;
         playerVelocity = Vector3.zero;
+        jumpCount = 0;
     }
 
-    // Metodo per lasciarsi cadere
     private void DropFromHanging()
     {
         isHanging = false;
         _animator.SetBool("isHanging", false);
-        // NON impostare isFalling - quello è solo per cadute nel vuoto
         
-        // Dai una piccola spinta indietro
+        // Spinta indietro
         velocity.y = -2f;
         externalPush = hangingNormal * 2f;
+        
+        // Reset contatori
+        jumpCount = 0;
     }
 
-    // Movimento laterale durante hanging (opzionale)
     private void HandleHangingMovement()
     {
-        if (hangingPlatform == null) return;
+        if (hangingPlatform == null || !controller.enabled) return;
         
         Vector3 right = Vector3.Cross(Vector3.up, -hangingNormal);
         Vector3 moveDirection = right * moveInput.x * 2f * Time.deltaTime;
@@ -374,7 +506,6 @@ public class ThirdPersonController : MonoBehaviour
         bool grounded = controller.isGrounded;
         _animator.SetBool("isGrounded", grounded);
 
-        // Landing logic
         if (grounded && !wasGroundedLastFrame)
         {
             OnLanding();
@@ -387,11 +518,9 @@ public class ThirdPersonController : MonoBehaviour
         jumpCount = 0;
         fallingTimer = 0f;
         
-        // Reset animazioni di salto
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
         _animator.SetBool("isFalling", false);
-        
     }
 
     private void HandleImmediateJump()
@@ -400,12 +529,10 @@ public class ThirdPersonController : MonoBehaviour
         
         bool grounded = controller.isGrounded;
         
-        // Salto immediato se grounded
         if (grounded && jumpCount == 0)
         {
             PerformJump();
         }
-        // Doppio salto immediato se in aria
         else if (!grounded && jumpCount > 0 && jumpCount < maxJumps)
         {
             PerformJump();
@@ -414,37 +541,31 @@ public class ThirdPersonController : MonoBehaviour
 
     private void UpdateJumpTimers()
     {
-        // Aggiorna coyote time
         if (controller.isGrounded)
             coyoteTimeCounter = coyoteTime;
         else
             coyoteTimeCounter -= Time.deltaTime;
 
-        // Aggiorna jump buffer
         jumpBufferCounter -= Time.deltaTime;
     }
 
     private void HandleJump()
     {
-        if (isHanging || isClimbingUp) return; // Non saltare durante hanging
+        if (isHanging || isClimbingUp) return;
         
         bool grounded = controller.isGrounded;
 
-        // Stabilizza velocità Y quando sei a terra
         if (grounded && velocity.y < 0)
             velocity.y = -2f;
 
-        // Jump buffer logic (per input non consumati dal salto immediato)
         if (jumpBufferCounter > 0 && !IsMovementLocked)
         {
             bool canJump = false;
 
-            // Primo salto con coyote time
             if (jumpCount == 0 && coyoteTimeCounter > 0)
             {
                 canJump = true;
             }
-            // Salti successivi in aria
             else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
             {
                 canJump = true;
@@ -462,67 +583,54 @@ public class ThirdPersonController : MonoBehaviour
 
     private void UpdateJumpAnimations()
     {
-        // Reset double jump animation quando inizi a cadere
         if (velocity.y < -1f && _animator.GetBool("DoubleJump"))
         {
             _animator.SetBool("DoubleJump", false);
         }
         
-        // Set vertical velocity per blend tree (opzionale)
         _animator.SetFloat("VerticalVelocity", velocity.y);
     }
 
     private void PerformJump()
     {
-        // Reset velocità Y per salto pulito
         if (velocity.y < 0) velocity.y = 0f;
 
-        // Calcola velocità del salto
         velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
 
-        // Gestione animazioni ottimizzata
         if (jumpCount == 0)
         {
-            // Primo salto
             _animator.SetBool("Jump", true);
         }
         else
         {
-            // Doppio salto
-            _animator.SetBool("Jump", false); // Reset primo salto
+            _animator.SetBool("Jump", false);
             _animator.SetBool("DoubleJump", true);
         }
 
-        // Aggiorna contatori
         jumpCount++;
-        jumpBufferCounter = 0; // Consuma buffer
+        jumpBufferCounter = 0;
         
-        // Consuma coyote time solo per il primo salto
         if (jumpCount == 1)
             coyoteTimeCounter = 0;
 
-        // Reset stati
         currentPlatform = null;
         fallingTimer = 0f;
     }
 
     private void ApplyGravity()
     {
-        if (isHanging || isClimbingUp) return; // Nessuna gravità durante hanging
+        if (isHanging || isClimbingUp) return;
         
         if (velocity.y < 0)
         {
-            // Moltiplicatore di caduta per caduta più rapida
             velocity.y += gravity * 2.5f * Time.deltaTime;
         }
         else if (velocity.y > 0 && !isHoldingJump)
         {
-            // Moltiplicatore per salto basso quando si rilascia il tasto
             velocity.y += gravity * 2f * Time.deltaTime;
         }
         else
         {
-            // Gravità normale
             velocity.y += gravity * Time.deltaTime;
         }
     }
@@ -586,8 +694,6 @@ public class ThirdPersonController : MonoBehaviour
         transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
         Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-
-        // Proietta il movimento sulla pendenza
         moveDir = Vector3.ProjectOnPlane(moveDir, GetGroundNormal());
 
         float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
@@ -599,12 +705,11 @@ public class ThirdPersonController : MonoBehaviour
 
     private void HandleFalling()
     {
-        if (isHanging || isClimbingUp) return; // Non gestire falling durante hanging
+        if (isHanging || isClimbingUp) return;
         
         bool grounded = controller.isGrounded;
-        bool isDescending = velocity.y < -3f; // Soglia più alta per falling
+        bool isDescending = velocity.y < -3f;
 
-        // Reset falling se grounded o salendo
         if (grounded || velocity.y > -1f)
         {
             fallingTimer = 0f;
@@ -613,12 +718,10 @@ public class ThirdPersonController : MonoBehaviour
             return;
         }
 
-        // Accumula tempo di caduta solo se scendi velocemente
         if (isDescending)
         {
             fallingTimer += Time.deltaTime;
 
-            // Attiva falling solo dopo soglia temporale E distanza dal terreno
             bool shouldFall = fallingTimer >= fallingTimeThreshold && 
                              !IsNearGroundBelow() && 
                              !_animator.GetBool("Jump") && 
@@ -627,7 +730,6 @@ public class ThirdPersonController : MonoBehaviour
             if (shouldFall && !_animator.GetBool("isFalling"))
             {
                 _animator.SetBool("isFalling", true);
-
             }
         }
     }
@@ -669,30 +771,25 @@ public class ThirdPersonController : MonoBehaviour
         velocity = Vector3.zero;
         controller.enabled = true;
 
-        _animator.ResetTrigger("Jump");
-        _animator.ResetTrigger("DoubleJump");
-        _animator.ResetTrigger("JumpStart");
-        _animator.ResetTrigger("DoubleJumpStart");
-        _animator.ResetTrigger("StartFalling");
-        _animator.ResetTrigger("Land");
-        _animator.ResetTrigger("ClimbUp"); // Reset hanging trigger
+        // Reset solo i trigger e bool che esistono nel tuo Animator
+        _animator.ResetTrigger("ClimbUp");
         _animator.SetBool("Jump", false);
         _animator.SetBool("DoubleJump", false);
         _animator.SetBool("isFalling", false);
-        _animator.SetBool("isHanging", false); // Reset hanging state
+        _animator.SetBool("isHanging", false);
+        _animator.SetBool("isGrounded", true);
 
+        // Reset stati
         jumpCount = 0;
         coyoteTimeCounter = 0f;
         jumpBufferCounter = 0f;
         fallingTimer = 0f;
-        jumpInputPressed = false; // Reset flag
-
-        // Reset hanging state
+        jumpInputPressed = false;
         isHanging = false;
         isClimbingUp = false;
-        StopAllCoroutines(); // Ferma eventuale ClimbUpCoroutine
-
         wasGroundedLastFrame = true;
+
+        StopAllCoroutines();
 
         if (sprintFX) sprintFX.StopEffect();
         sprintFXActive = false;
@@ -702,7 +799,7 @@ public class ThirdPersonController : MonoBehaviour
 
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        if (hit.collider.CompareTag("MovingPlatform") || hit.collider.CompareTag("RotatingPlatform")||hit.collider.CompareTag("RaftPlatform"))
+        if (hit.collider.CompareTag("MovingPlatform") || hit.collider.CompareTag("RotatingPlatform") || hit.collider.CompareTag("RaftPlatform"))
         {
             if (currentPlatform != hit.collider.transform)
             {
@@ -727,7 +824,7 @@ public class ThirdPersonController : MonoBehaviour
 
     public void TakeDamage(float amount)
     {
-        if (currentHealth <= 0 || isHanging || isClimbingUp) return; // No damage during hanging
+        if (currentHealth <= 0 || isHanging || isClimbingUp) return;
 
         float oldHealth = currentHealth;
         currentHealth -= amount;
