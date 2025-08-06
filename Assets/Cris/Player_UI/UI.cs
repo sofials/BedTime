@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 
@@ -67,7 +67,7 @@ public class PlayerUI : MonoBehaviour
         if (UIController != null)
             UIController.SetActive(useGamepad);
 
-        Debug.Log($"[PlayerUI] Layout attivo: {(useGamepad ? "Gamepad" : "Keyboard")}");
+        // Debug.Log($"[PlayerUI] Layout attivo: {(useGamepad ? "Gamepad" : "Keyboard")}");
     }
 
     public void UpdateAbilityIconState(int index, bool canActivate)
