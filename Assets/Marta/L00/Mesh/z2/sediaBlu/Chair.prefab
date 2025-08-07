@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8378150095843817581}
-  - component: {fileID: 5984850536284874783}
   - component: {fileID: 6111446203686830742}
   m_Layer: 0
   m_Name: Chair
@@ -36,27 +35,6 @@ Transform:
   - {fileID: 2066590645406547363}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &5984850536284874783
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7374797229009140583}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.2761046, y: 0.27399728, z: 0.42686734}
-  m_Center: {x: -0.0026236484, y: -0.00945212, z: -0.10335195}
 --- !u!205 &6111446203686830742
 LODGroup:
   m_ObjectHideFlags: 0
@@ -65,21 +43,21 @@ LODGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7374797229009140583}
   serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0, z: 0}
-  m_Size: 1
+  m_LocalReferencePoint: {x: 0, y: -0.0000038146973, z: -0.000013500452}
+  m_Size: 0.60913146
   m_FadeMode: 0
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.6
+  - screenRelativeHeight: 0.83038765
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 8914919434976850143}
-  - screenRelativeHeight: 0.3
+  - screenRelativeHeight: 0.38856575
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 1794282951124226703}
-  - screenRelativeHeight: 0.1
+  - screenRelativeHeight: 0.1215475
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 929199349215643340}
@@ -273,8 +251,38 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b48cb1540ed64084c96ec4f230cc940e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1175372243813742619}
   m_SourcePrefab: {fileID: 100100000, guid: b48cb1540ed64084c96ec4f230cc940e, type: 3}
+--- !u!1 &6969561826785415434 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: b48cb1540ed64084c96ec4f230cc940e, type: 3}
+  m_PrefabInstance: {fileID: 7816474753558375515}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &1175372243813742619
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6969561826785415434}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -3603173157935367975, guid: b48cb1540ed64084c96ec4f230cc940e, type: 3}
 --- !u!4 &7778573224322436016 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: b48cb1540ed64084c96ec4f230cc940e, type: 3}

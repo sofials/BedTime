@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8359465436076757449}
-  - component: {fileID: 626308541728446593}
   - component: {fileID: 551958472911451883}
   m_Layer: 0
   m_Name: xylophone_LOD
@@ -36,27 +35,6 @@ Transform:
   - {fileID: 4633115990320851201}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0.886, y: -158.048, z: -90.178}
---- !u!65 &626308541728446593
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2161839767205087554}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 3.6140864, y: 1.9991095, z: 19.731302}
-  m_Center: {x: -0.8486276, y: 0.0067741936, z: -9.365652}
 --- !u!205 &551958472911451883
 LODGroup:
   m_ObjectHideFlags: 0
@@ -65,21 +43,21 @@ LODGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2161839767205087554}
   serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0, z: 0}
-  m_Size: 1
+  m_LocalReferencePoint: {x: -0.49510223, y: 0.056641936, z: -11.452276}
+  m_Size: 24.904556
   m_FadeMode: 0
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.48482692
+  - screenRelativeHeight: 0.39537027
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 6354821857430002801}
-  - screenRelativeHeight: 0.3
+  - screenRelativeHeight: 0.17821498
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 611645943927506059}
-  - screenRelativeHeight: 0.1
+  - screenRelativeHeight: 0.053465575
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 5766593990679745134}
@@ -309,8 +287,38 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0f83797502ce9104aa8dd3de8ce0013f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7926338547094743959}
   m_SourcePrefab: {fileID: 100100000, guid: 0f83797502ce9104aa8dd3de8ce0013f, type: 3}
+--- !u!1 &4841405605907234212 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 0f83797502ce9104aa8dd3de8ce0013f, type: 3}
+  m_PrefabInstance: {fileID: 5760466137555026165}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &7926338547094743959
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4841405605907234212}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -5495902117074765545, guid: 0f83797502ce9104aa8dd3de8ce0013f, type: 3}
 --- !u!4 &5223032161340172062 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 0f83797502ce9104aa8dd3de8ce0013f, type: 3}
