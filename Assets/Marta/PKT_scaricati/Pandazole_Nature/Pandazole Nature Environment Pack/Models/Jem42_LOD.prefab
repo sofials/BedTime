@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7495618638132709134}
-  - component: {fileID: 1914478004720142095}
   - component: {fileID: 6894029177745044750}
   m_Layer: 0
   m_Name: Jem42_LOD
@@ -36,27 +35,6 @@ Transform:
   - {fileID: 8991471388288762158}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &1914478004720142095
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4789643149697688946}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.45337528, y: 0.19880156, z: 0.85846037}
-  m_Center: {x: 0.007616446, y: 0.09359825, z: -0.01859592}
 --- !u!205 &6894029177745044750
 LODGroup:
   m_ObjectHideFlags: 0
@@ -139,13 +117,42 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bf1398f38e8b5274a9637bfbdb2eed5e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8928043588221658479}
   m_SourcePrefab: {fileID: 100100000, guid: bf1398f38e8b5274a9637bfbdb2eed5e, type: 3}
 --- !u!4 &2848400924963156841 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: bf1398f38e8b5274a9637bfbdb2eed5e, type: 3}
   m_PrefabInstance: {fileID: 2309560396839638146}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &3228057425556990419 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: bf1398f38e8b5274a9637bfbdb2eed5e, type: 3}
+  m_PrefabInstance: {fileID: 2309560396839638146}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &8928043588221658479
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3228057425556990419}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.45650116, y: 0.16031118, z: 0.85999995}
+  m_Center: {x: 0, y: 0.080156215, z: 0}
 --- !u!23 &4020765932611520518 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: bf1398f38e8b5274a9637bfbdb2eed5e, type: 3}

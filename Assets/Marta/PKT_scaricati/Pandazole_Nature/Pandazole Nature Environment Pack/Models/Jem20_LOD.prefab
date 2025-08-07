@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: -8679921383154817045}
   - component: {fileID: -5754084199372789682}
   - component: {fileID: -7511558181221131132}
+  - component: {fileID: 2012164401392602471}
   m_Layer: 0
   m_Name: Jem_20
   m_TagString: Untagged
@@ -86,6 +87,27 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!65 &2012164401392602471
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 919132149155446097}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.39999992, y: 0.08299288, z: 0.39999992}
+  m_Center: {x: 0, y: 0.041495547, z: 0}
 --- !u!1 &1023947159521427500
 GameObject:
   m_ObjectHideFlags: 0
@@ -182,7 +204,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2822205525055531904}
   - component: {fileID: 2893857559728067285}
-  - component: {fileID: 3644233796612902637}
   m_Layer: 0
   m_Name: Jem20_LOD
   m_TagString: Untagged
@@ -222,40 +243,19 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.19911295
+  - screenRelativeHeight: 0.45953164
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: -7511558181221131132}
-  - screenRelativeHeight: 0.10510191
+  - screenRelativeHeight: 0.23937842
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 5827607309425634388}
-  - screenRelativeHeight: 0.073865525
+  - screenRelativeHeight: 0.086594775
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 6056289094002603002}
   m_Enabled: 1
---- !u!65 &3644233796612902637
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8008943438526758713}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.43618983, y: 0.10094627, z: 0.4283739}
-  m_Center: {x: -0.0060517, y: 0.035056807, z: -0.000006629315}
 --- !u!1 &8994197747770540032
 GameObject:
   m_ObjectHideFlags: 0
