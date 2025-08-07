@@ -287,25 +287,62 @@ private void UpdateMemoryCounterDisplay()
         healthFill.fillAmount = fillAmount;
     }
 
-    public void UpdatePower(float currentPower)
+   // Sostituisci questo metodo in PlayerUI.cs
+// Sostituisci questo metodo in PlayerUI.cs
+public void UpdatePower(float currentPower)
+{
+    Debug.Log($"[PlayerUI] UpdatePower chiamato con: {currentPower}");
+    
+    if (powerFill == null)
     {
-        if (powerFill == null || playerPowerUp == null)
-        {
-            Debug.LogWarning("[PlayerUI] powerFill o playerPowerUp non assegnato!");
-            return;
-        }
-
-        float fillAmount = currentPower / playerPowerUp.MaxPower;
-        fillAmount = Mathf.Clamp(fillAmount, 0f, 1f);
-
-        if (currentPower > 0f && fillAmount < 0.01f)
-        {
-            fillAmount = 0.01f;
-        }
-
-        powerFill.fillAmount = fillAmount;
+        Debug.LogError("[PlayerUI] powerFill non assegnato!");
+        return;
     }
 
+    if (playerPowerUp == null)
+    {
+        Debug.LogError("[PlayerUI] playerPowerUp non assegnato!");
+        // Prova a trovarlo automaticamente
+        playerPowerUp = Object.FindFirstObjectByType<PlayerPowerUp>();
+        
+        if (playerPowerUp == null)
+        {
+            Debug.LogError("[PlayerUI] PlayerPowerUp non trovato nemmeno in scena!");
+            return;
+        }
+        Debug.Log("[PlayerUI] PlayerPowerUp trovato automaticamente!");
+    }
+
+    float maxPower = playerPowerUp.MaxPower;
+    Debug.Log($"[PlayerUI] MaxPower: {maxPower}, CurrentPower: {currentPower}");
+    
+    if (maxPower <= 0f)
+    {
+        Debug.LogWarning("[PlayerUI] MaxPower è 0 o negativo!");
+        powerFill.fillAmount = 0f;
+        return;
+    }
+
+    float fillAmount = currentPower / maxPower;
+    fillAmount = Mathf.Clamp01(fillAmount);
+
+    Debug.Log($"[PlayerUI] Settando fillAmount a: {fillAmount}");
+    
+    // AGGIUNTO: Verifica che l'immagine sia attiva e visibile
+    if (!powerFill.gameObject.activeInHierarchy)
+    {
+        Debug.LogWarning("[PlayerUI] powerFill non è attivo nella gerarchia!");
+        powerFill.gameObject.SetActive(true);
+    }
+    
+    powerFill.fillAmount = fillAmount;
+    
+    // AGGIUNTO: Forza il refresh dell'UI
+    powerFill.SetAllDirty();
+    
+    // AGGIUNTO: Log di verifica
+    Debug.Log($"[PlayerUI] Verificando fillAmount settato: {powerFill.fillAmount}");
+}
     public void SetMaxValues(float maxHealth, float maxPower)
     {
         if (playerController != null)

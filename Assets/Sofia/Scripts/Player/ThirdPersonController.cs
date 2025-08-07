@@ -21,16 +21,16 @@ public class ThirdPersonController : MonoBehaviour
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
     public float gravity = -9.81f;
-    public int maxJumps = 2;
+    public int maxJumps = 10;
     private int jumpCount = 0;
     private Vector3 velocity;
 
     [Header("Advanced Jump Timing")]
     public float coyoteTime = 0.15f;
     public float jumpBufferTime = 0.2f;
+    
     private float coyoteTimeCounter = 0f;
     private float jumpBufferCounter = 0f;
-    private bool jumpInputPressed = false;
 
     [Header("Falling Settings")]
     public float fallingTimeThreshold = 1.0f;
@@ -129,16 +129,22 @@ public class ThirdPersonController : MonoBehaviour
     private void OnMoveCanceled(InputAction.CallbackContext ctx) => moveInput = Vector2.zero;
     private void OnSprintPerformed(InputAction.CallbackContext ctx) => isSprinting = true;
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
+    
+    // SISTEMA INPUT IMMEDIATO
     private void OnJumpStarted(InputAction.CallbackContext ctx)
     {
         jumpBufferCounter = jumpBufferTime;
         isHoldingJump = true;
-        jumpInputPressed = true;
+        
+        // PROVA SUBITO A SALTARE
+        TryJump();
+        
+        Debug.Log("INPUT SALTO RICEVUTO");
     }
+    
     private void OnJumpCanceled(InputAction.CallbackContext ctx)
     {
         isHoldingJump = false;
-        jumpInputPressed = false;
     }
 
     private void Start()
@@ -166,10 +172,10 @@ public class ThirdPersonController : MonoBehaviour
         HandleMovement();
         UpdateJumpTimers();
         
-        if (jumpInputPressed)
+        // PROVA A SALTARE SE C'È BUFFER ATTIVO
+        if (jumpBufferCounter > 0)
         {
-            HandleImmediateJump();
-            jumpInputPressed = false;
+            TryJump();
         }
         
         HandleJump();
@@ -225,107 +231,107 @@ public class ThirdPersonController : MonoBehaviour
         wasGroundedLastFrame = grounded;
     }
 
+    // LANDING SEMPLIFICATO
     private void OnLanding()
     {
         jumpCount = 0;
         fallingTimer = 0f;
         
+        // Reset animazioni
         _animator.SetBool(JumpHash, false);
         _animator.SetBool(DoubleJumpHash, false);
         _animator.SetBool(IsFallingHash, false);
-    }
-
-    private void HandleImmediateJump()
-    {
-        if (IsMovementLocked) return;
         
-        bool grounded = controller.isGrounded;
-        
-        if (grounded && jumpCount == 0)
-        {
-            PerformJump();
-        }
-        else if (!grounded && jumpCount > 0 && jumpCount < maxJumps)
-        {
-            PerformJump();
-        }
+        Debug.Log("LANDING - Count resettato a 0");
     }
 
     private void UpdateJumpTimers()
     {
+        // Coyote time
         if (controller.isGrounded)
             coyoteTimeCounter = coyoteTime;
         else
             coyoteTimeCounter -= Time.deltaTime;
 
-        jumpBufferCounter -= Time.deltaTime;
+        // Jump buffer
+        if (jumpBufferCounter > 0)
+            jumpBufferCounter -= Time.deltaTime;
     }
 
+    // METODO UNIFICATO PER TENTARE IL SALTO
+    private void TryJump()
+    {
+        if (IsMovementLocked) return;
+        
+        bool grounded = controller.isGrounded;
+        bool canJump = false;
+        bool isFirstJump = false;
+
+        // PRIMO SALTO: da terra o coyote time
+        if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
+        {
+            canJump = true;
+            isFirstJump = true;
+        }
+        // SALTI MULTIPLI: in aria
+        else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
+        {
+            canJump = true;
+            isFirstJump = false;
+        }
+
+        if (canJump)
+        {
+            ExecuteJump(isFirstJump);
+            // CONSUMA il buffer quando salti
+            jumpBufferCounter = 0;
+            Debug.Log($"SALTO ESEGUITO! Primo: {isFirstJump}, Count: {jumpCount}");
+        }
+    }
+
+    // SISTEMA DI SALTO RIDOTTO (solo gravità)
     private void HandleJump()
     {
         bool grounded = controller.isGrounded;
-
         if (grounded && velocity.y < 0)
             velocity.y = -2f;
-
-        if (jumpBufferCounter > 0 && !IsMovementLocked)
-        {
-            bool canJump = false;
-
-            if (jumpCount == 0 && coyoteTimeCounter > 0)
-            {
-                canJump = true;
-            }
-            else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
-            {
-                canJump = true;
-            }
-
-            if (canJump)
-            {
-                PerformJump();
-            }
-        }
 
         ApplyGravity();
         UpdateJumpAnimations();
     }
 
-    private void UpdateJumpAnimations()
-    {
-        if (velocity.y < -1f && _animator.GetBool(DoubleJumpHash))
-        {
-            _animator.SetBool(DoubleJumpHash, false);
-        }
-        
-        _animator.SetFloat(VerticalVelocityHash, velocity.y);
-    }
-
-    private void PerformJump()
+    // ESECUZIONE DEL SALTO
+    private void ExecuteJump(bool isFirstJump)
     {
         if (velocity.y < 0) velocity.y = 0f;
-
         velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
 
-        if (jumpCount == 0)
+        if (isFirstJump)
         {
             _animator.SetBool(JumpHash, true);
+            _animator.SetBool(DoubleJumpHash, false);
+            jumpCount = 1;
         }
         else
         {
             _animator.SetBool(JumpHash, false);
             _animator.SetBool(DoubleJumpHash, true);
+            jumpCount++;
         }
 
-        jumpCount++;
-        jumpBufferCounter = 0;
-        
-        if (jumpCount == 1)
-            coyoteTimeCounter = 0;
-
+        // Reset timers
+        coyoteTimeCounter = 0;
         currentPlatform = null;
         fallingTimer = 0f;
     }
+
+    private void UpdateJumpAnimations()
+    {
+        // Mantieni solo l'aggiornamento della velocità verticale
+        _animator.SetFloat(VerticalVelocityHash, velocity.y);
+    }
+
+    // PERFORM JUMP RIMOSSO - ora si chiama ExecuteJump
 
     private void ApplyGravity()
     {
@@ -516,7 +522,7 @@ public class ThirdPersonController : MonoBehaviour
         coyoteTimeCounter = 0f;
         jumpBufferCounter = 0f;
         fallingTimer = 0f;
-        jumpInputPressed = false;
+        
         wasGroundedLastFrame = true;
 
         StopAllCoroutines();

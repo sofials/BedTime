@@ -9,14 +9,13 @@ public class Gem : MonoBehaviour
     [SerializeField] private float respawnSec = 10f;
 
     [Header("Audio")]
-    [SerializeField] private AudioClip collectSound;  // Clip da assegnare in Inspector
+    [SerializeField] private AudioClip collectSound;
     private AudioSource audioSource;
 
-    /* ───────────────── Floating ───────────────── */
     [Header("Floating / Rotation")]
-    [SerializeField] private float floatAmplitude = 0.3f;  // Più contenuto delle LifeGem
-    [SerializeField] private float floatFrequency = 2f;    // Leggermente più veloce
-    [SerializeField] private float rotationSpeed = 30f;   // Rotazione più lenta
+    [SerializeField] private float floatAmplitude = 0.3f;
+    [SerializeField] private float floatFrequency = 2f;
+    [SerializeField] private float rotationSpeed = 30f;
 
     private Collider _coll;
     private Renderer[] _renderers;
@@ -38,36 +37,29 @@ public class Gem : MonoBehaviour
 
     private void Start()
     {
-        // Salva la posizione iniziale per il galleggiamento
         startPos = transform.position;
     }
 
     private void Update()
     {
-        // Solo se la gem è visibile (non durante il respawn)
         if (_renderers.Length > 0 && _renderers[0].enabled)
         {
-            // Galleggiamento
             float y = startPos.y + Mathf.Sin(Time.time * floatFrequency) * floatAmplitude;
             transform.position = new Vector3(transform.position.x, y, transform.position.z);
-
-            // Rotazione
             transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime, Space.World);
         }
     }
 
-    private void OnTriggerEnter(Collider other)
-    {
-        if (!other.CompareTag("Player")) return;
-
-        Collect();
-    }
+    // RIMOSSO: OnTriggerEnter - ora gestito solo da PlayerPowerUp
 
     public int GetGemValue() => gemValue;
 
     public void Collect()
     {
-        // Riproduci audio raccolta con volume ridotto al 30%
+        // Controlla se già raccolta per evitare doppie chiamate
+        if (!_coll.enabled) return;
+        
+        // Riproduci audio raccolta
         if (collectSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(collectSound, 0.1f);
