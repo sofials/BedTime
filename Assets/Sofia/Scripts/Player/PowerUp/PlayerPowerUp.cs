@@ -18,7 +18,7 @@ public class PlayerPowerUp : MonoBehaviour
 
     [Header("Abilities")]
     public AbilityBase PlatformSpawnerForwardAbility;
-    public SlowdownAbility SlowdownAbility;  // meglio cast diretto
+    public SlowdownAbility SlowdownAbility;
     public AbilityBase TeleportAbility;
 
     private PlayerControls controls;
@@ -42,12 +42,46 @@ public class PlayerPowerUp : MonoBehaviour
     {
         if (powerUI != null)
         {
-            powerUI.SetActive(false);
+            powerUI.SetActive(true); // CAMBIATO: Attiva la UI del power
         }
 
+        // VERIFICA che playerUI sia assegnata
+        if (playerUI == null)
+        {
+            Debug.LogError("[PlayerPowerUp] playerUI NON è assegnata! Cerca PlayerUI in scena...");
+            playerUI = Object.FindAnyObjectByType<PlayerUI>();
+           
+            if (playerUI != null)
+            {
+                Debug.Log("[PlayerPowerUp] PlayerUI trovata automaticamente!");
+            }
+            else
+            {
+                Debug.LogError("[PlayerPowerUp] PlayerUI non trovata nemmeno in scena!");
+                return;
+            }
+        }
+
+        // AGGIUNTO: Inizializza con un po' di power per test
+        currentPower = 20f; // Valore di test
+        
         Debug.Log("[PlayerPowerUp] Start: Imposto max power e aggiorno UI");
-        playerUI.SetMaxValues(100f, maxPower);
-        playerUI.UpdatePower(currentPower);
+        Debug.Log($"[PlayerPowerUp] Valori iniziali - Current: {currentPower}, Max: {maxPower}");
+        
+        // Aspetta un frame prima di aggiornare l'UI per assicurarsi che tutto sia inizializzato
+        StartCoroutine(DelayedUIUpdate());
+    }
+
+    private System.Collections.IEnumerator DelayedUIUpdate()
+    {
+        yield return new WaitForEndOfFrame();
+        
+        if (playerUI != null)
+        {
+            playerUI.SetMaxValues(100f, maxPower);
+            playerUI.UpdatePower(currentPower);
+            Debug.Log($"[PlayerPowerUp] UI aggiornata con power: {currentPower}/{maxPower}");
+        }
     }
 
     private void OnEnable() => controls.Gameplay.Enable();
@@ -59,7 +93,6 @@ public class PlayerPowerUp : MonoBehaviour
 
         if (ability == SlowdownAbility)
         {
-            // NON attivare subito la slow, ma far partire animazione
             if (playerAnimator != null)
             {
                 playerAnimator.SetTrigger("SlowdownEffect");
@@ -79,7 +112,6 @@ public class PlayerPowerUp : MonoBehaviour
         }
     }
 
-    // Metodo pubblico chiamato da Animation Event nel clip "magic"
     public void OnMagicEffectStart()
     {
         if (SlowdownAbility != null && !SlowdownAbility.IsActive)
@@ -92,9 +124,11 @@ public class PlayerPowerUp : MonoBehaviour
     public void SpendPower(float amount)
     {
         Debug.Log($"[PlayerPowerUp] SpendPower chiamato con amount: {amount}");
+        float oldPower = currentPower;
         currentPower = Mathf.Max(0f, currentPower - amount);
-        Debug.Log($"[PlayerPowerUp] Energia consumata: {amount}. Rimasta: {currentPower}");
-        playerUI.UpdatePower(currentPower);
+        Debug.Log($"[PlayerPowerUp] Energia consumata: {amount}. Da {oldPower} a {currentPower}");
+        
+        UpdateUI();
     }
 
     public bool HasEnoughPower(float amount) => currentPower >= amount;
@@ -102,17 +136,40 @@ public class PlayerPowerUp : MonoBehaviour
     public void AddPower(float amount)
     {
         Debug.Log($"[PlayerPowerUp] AddPower chiamato con amount: {amount}");
-        if (currentPower < maxPower)
+        
+        float oldPower = currentPower;
+        currentPower = Mathf.Min(currentPower + amount, maxPower);
+        
+        Debug.Log($"[PlayerPowerUp] Energia aumentata da {oldPower} a {currentPower} (+{amount})");
+        
+        UpdateUI();
+    }
+
+    // NUOVO METODO: Centralizza l'aggiornamento dell'UI
+    private void UpdateUI()
+    {
+        if (playerUI != null)
         {
-            currentPower += amount;
-            currentPower = Mathf.Min(currentPower, maxPower);
-            Debug.Log($"[PlayerPowerUp] Energia aumentata di {amount}. Attuale: {currentPower}");
+            Debug.Log($"[PlayerPowerUp] Aggiornando UI con power: {currentPower}/{maxPower}");
+            playerUI.UpdatePower(currentPower);
         }
         else
         {
-            Debug.Log("[PlayerPowerUp] Power già al massimo");
+            Debug.LogError("[PlayerPowerUp] playerUI è null!");
         }
-        playerUI.UpdatePower(currentPower); // aggiorna la UI subito
+    }
+
+    // AGGIUNTO: Metodo per test manuale
+    [ContextMenu("Test Add Power")]
+    public void TestAddPower()
+    {
+        AddPower(10f);
+    }
+
+    [ContextMenu("Test Spend Power")]
+    public void TestSpendPower()
+    {
+        SpendPower(10f);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -124,13 +181,34 @@ public class PlayerPowerUp : MonoBehaviour
             Gem gem = other.GetComponent<Gem>();
             if (gem != null)
             {
-                Debug.Log("[PlayerPowerUp] Gemma trovata, aggiungo energia");
-                AddPower(gem.GetGemValue());
+                Debug.Log($"[PlayerPowerUp] Gemma trovata con valore: {gem.GetGemValue()}");
+                
+                // Prima raccogli la gem
                 gem.Collect();
+                
+                // POI aggiungi il power
+                AddPower(gem.GetGemValue());
             }
             else
             {
                 Debug.LogWarning("[PlayerPowerUp] Oggetto con tag Gem ma senza componente Gem");
+            }
+        }
+    }
+
+    // AGGIUNTO: Metodo di debug per verificare lo stato
+    void Update()
+    {
+        // Solo per debug - rimuovi in produzione
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            Debug.Log($"[DEBUG] Current Power: {currentPower}, Max Power: {maxPower}");
+            Debug.Log($"[DEBUG] PowerUI attivo: {powerUI != null && powerUI.activeInHierarchy}");
+            Debug.Log($"[DEBUG] PlayerUI presente: {playerUI != null}");
+            
+            if (playerUI != null && playerUI.powerFill != null)
+            {
+                Debug.Log($"[DEBUG] PowerFill fillAmount: {playerUI.powerFill.fillAmount}");
             }
         }
     }

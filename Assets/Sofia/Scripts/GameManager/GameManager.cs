@@ -21,14 +21,6 @@ public class GameManager : MonoBehaviour
     public Image fadeImage;
     public float fadeDuration = 1f;
 
-    [Header("Collectibles Settings")]
-    public Presents collectible1; // assegna da Inspector
-    public Presents collectible2; // assegna da Inspector
-    [Tooltip("Collider (BoxCollider) del muro da disabilitare quando entrambi i regali sono raccolti")]
-    public Collider wallColliderToDisable;
-
-   // private bool isPaused = false;
-    private int collectedCount = 0;
 
     private void Awake()
     {
@@ -70,10 +62,6 @@ public class GameManager : MonoBehaviour
 
         if (fadeImage != null)
             StartCoroutine(FadeIn());
-
-        // Inizializza regali (se presenti)
-        if (collectible1 != null) collectible1.gameManager = this;
-        if (collectible2 != null) collectible2.gameManager = this;
     }
 
     private void Update()
@@ -204,23 +192,6 @@ public class GameManager : MonoBehaviour
             Color c = fadeImage.color;
             c.a = Mathf.Clamp01(alpha);
             fadeImage.color = c;
-        }
-    }
-
-    // Metodo chiamato dai collectible (Presents)
-    public void NotifyCollected(Presents collectedObject)
-    {
-        collectedCount++;
-        Debug.Log("Oggetto raccolto: " + collectedObject.name);
-
-        if (collectedCount >= 2)
-        {
-            Debug.Log("Entrambi gli oggetti raccolti!");
-            if (wallColliderToDisable != null)
-            {
-                wallColliderToDisable.enabled = false;
-                Debug.Log("Collider muro disabilitato");
-            }
         }
     }
 }
