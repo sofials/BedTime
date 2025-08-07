@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3929162288690665997}
   - component: {fileID: 5327229028817534413}
-  - component: {fileID: 2619720111255814139}
   m_Layer: 0
   m_Name: fuoco1_LOD
   m_TagString: Untagged
@@ -63,27 +62,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 2832080929274798639}
   m_Enabled: 1
---- !u!65 &2619720111255814139
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1481098879174117188}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 12.181832, y: 6.1608467, z: 11.3216915}
-  m_Center: {x: -0.4300701, y: 2.5804226, z: 0.0000004101472}
 --- !u!1001 &3498178949642960555
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -238,7 +216,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 7c8d2aaf5676766409011b51cda3accf, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8049488519189718023}
   m_SourcePrefab: {fileID: 100100000, guid: 7c8d2aaf5676766409011b51cda3accf, type: 3}
 --- !u!23 &7174352836858863172 stripped
 MeshRenderer:
@@ -250,6 +231,32 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 7c8d2aaf5676766409011b51cda3accf, type: 3}
   m_PrefabInstance: {fileID: 8381759954304582336}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &8687610347284496273 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 7c8d2aaf5676766409011b51cda3accf, type: 3}
+  m_PrefabInstance: {fileID: 8381759954304582336}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &8049488519189718023
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8687610347284496273}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.018565841, y: 0.018566383, z: 0.0089602}
+  m_Center: {x: -0.00035604739, y: 0.00028786613, z: 0.0041051735}
 --- !u!1001 &8482183192476154817
 PrefabInstance:
   m_ObjectHideFlags: 0

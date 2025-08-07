@@ -74,7 +74,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4190799376816465359}
   - component: {fileID: 4531989369803259108}
-  - component: {fileID: 6628195854254814197}
   m_Layer: 0
   m_Name: raft_LOD
   m_TagString: Untagged
@@ -127,27 +126,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 7919034834855469029}
   m_Enabled: 1
---- !u!65 &6628195854254814197
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7197086113613200815}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 75.30001, y: 7, z: 135}
-  m_Center: {x: 0.0000038146973, y: 0, z: 0}
 --- !u!1 &9151788584607285640
 GameObject:
   m_ObjectHideFlags: 0
@@ -157,6 +135,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2657224975571635053}
+  - component: {fileID: 7394040834432979378}
   m_Layer: 0
   m_Name: raft_LOD0
   m_TagString: Untagged
@@ -180,6 +159,27 @@ Transform:
   - {fileID: 7575767720308705519}
   m_Father: {fileID: 4190799376816465359}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &7394040834432979378
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9151788584607285640}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 63.77, y: 6.3, z: 133.12}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &983516475575405458
 PrefabInstance:
   m_ObjectHideFlags: 0

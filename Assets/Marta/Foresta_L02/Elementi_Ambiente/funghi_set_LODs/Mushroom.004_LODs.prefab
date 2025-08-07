@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7171511160363261220}
   - component: {fileID: 5332516789201634950}
-  - component: {fileID: 173383019079507258}
   m_Layer: 0
   m_Name: Mushroom.004_LODs
   m_TagString: Untagged
@@ -63,29 +62,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 3164767370538335641}
   m_Enabled: 1
---- !u!136 &173383019079507258
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1667921322650409560}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.03387351
-  m_Height: 0.28913984
-  m_Direction: 1
-  m_Center: {x: 0, y: 0.1405189, z: 0}
 --- !u!1 &2531720028008662183
 GameObject:
   m_ObjectHideFlags: 0
@@ -97,6 +73,7 @@ GameObject:
   - component: {fileID: 1278990738837013516}
   - component: {fileID: 4843646080150533454}
   - component: {fileID: 1720054703766699824}
+  - component: {fileID: 3585239859058414955}
   m_Layer: 0
   m_Name: Mushroom.004_LOD0
   m_TagString: Untagged
@@ -172,6 +149,29 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!136 &3585239859058414955
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2531720028008662183}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.0008
+  m_Height: 0.0028
+  m_Direction: 2
+  m_Center: {x: 0.00018821638, y: 0.00016652221, z: 0.0012607714}
 --- !u!1 &5713074841538648174
 GameObject:
   m_ObjectHideFlags: 0

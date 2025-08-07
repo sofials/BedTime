@@ -97,6 +97,7 @@ GameObject:
   - component: {fileID: 3099296777988239582}
   - component: {fileID: 2602714422821062848}
   - component: {fileID: 7852129507859023342}
+  - component: {fileID: 8756387181628494942}
   m_Layer: 0
   m_Name: Mushroom.001_LOD0
   m_TagString: Untagged
@@ -172,6 +173,29 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!136 &8756387181628494942
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2139499319157124596}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.0009
+  m_Height: 0.0017475715
+  m_Direction: 2
+  m_Center: {x: -0.000024990411, y: -0.000046643687, z: 0.00072272203}
 --- !u!1 &3303374550540476147
 GameObject:
   m_ObjectHideFlags: 0
@@ -268,7 +292,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5119326850817361164}
   - component: {fileID: 7622179410223157955}
-  - component: {fileID: 4265032932205968469}
   m_Layer: 0
   m_Name: Mushroom.001_LODs
   m_TagString: Untagged
@@ -321,26 +344,3 @@ LODGroup:
     renderers:
     - renderer: {fileID: 3477557603257238699}
   m_Enabled: 1
---- !u!136 &4265032932205968469
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9190402403278974894}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.7
-  m_Height: 2.45
-  m_Direction: 1
-  m_Center: {x: -0.02, y: 0.83, z: 0.04}

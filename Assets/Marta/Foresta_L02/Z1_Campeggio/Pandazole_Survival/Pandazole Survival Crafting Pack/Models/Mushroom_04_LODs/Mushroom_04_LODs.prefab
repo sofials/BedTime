@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4845128081647789149}
   - component: {fileID: 6419514235788513748}
-  - component: {fileID: 6916089217667314990}
   m_Layer: 0
   m_Name: Mushroom_04_LODs
   m_TagString: Untagged
@@ -63,29 +62,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 299160455149596618}
   m_Enabled: 1
---- !u!136 &6916089217667314990
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6330764180339580324}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 4.64
-  m_Height: 10.461553
-  m_Direction: 1
-  m_Center: {x: 0, y: 5.19, z: 0}
 --- !u!1001 &1434186992252072782
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -236,8 +212,39 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 6187221ec4bd80b488176e42f903ff10, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4182885337477492028}
   m_SourcePrefab: {fileID: 100100000, guid: 6187221ec4bd80b488176e42f903ff10, type: 3}
+--- !u!1 &4614371233060560034 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 6187221ec4bd80b488176e42f903ff10, type: 3}
+  m_PrefabInstance: {fileID: 5532922700488909299}
+  m_PrefabAsset: {fileID: 0}
+--- !u!136 &4182885337477492028
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4614371233060560034}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.14600308
+  m_Height: 0.3277195
+  m_Direction: 1
+  m_Center: {x: -0.000054739412, y: 0.16170734, z: 0.000003159046}
 --- !u!4 &5422996531041748504 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6187221ec4bd80b488176e42f903ff10, type: 3}
