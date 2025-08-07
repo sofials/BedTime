@@ -27,11 +27,11 @@ public class PlayerUI : MonoBehaviour
     [Header("Player References")]
     public ThirdPersonController playerController;
     public PlayerPowerUp playerPowerUp;
-    public PlayerMemoryCollector memoryCollector; // Nuovo riferimento
+    public PlayerCollectibleTracker memoryCollector;
 
     [Header("Ability Icons")]
-    public UIEffectHandler[] keyboardEffectIcons;   // es. 4 icone tastiera
-    public UIEffectHandler[] controllerEffectIcons; // es. 4 icone controller
+    public UIEffectHandler[] keyboardEffectIcons;
+    public UIEffectHandler[] controllerEffectIcons;
 
     private bool useGamepad = false;
     private int currentMemories = 0;
@@ -50,53 +50,67 @@ public class PlayerUI : MonoBehaviour
     }
 
     private void Start()
-{
-    // Trova automaticamente il memory collector se non assegnato
-    if (memoryCollector == null)
     {
-        memoryCollector = Object.FindFirstObjectByType<PlayerMemoryCollector>();
+        InitializeMemorySystem();
     }
-    
-    // Collegati agli eventi del memory collector
-    if (memoryCollector != null)
-    {
-        memoryCollector.OnMemoryCollected += UpdateMemoryCounter;
-        memoryCollector.OnMemoriesInitialized += InitializeMemoryCounter;
-        
-        // AGGIUNTO: Se il collector ha già il totale, inizializza subito
-        if (memoryCollector.GetTotalMemories() > 0)
-        {
-            InitializeMemoryCounter(memoryCollector.GetTotalMemories());
-        }
-    }
-    else
-    {
-        Debug.LogWarning("[PlayerUI] PlayerMemoryCollector non trovato!");
-    }
-    
-    // AGGIUNTO: Fallback se tutto il resto fallisce
-    if (totalMemories == 0)
-    {
-        StartCoroutine(LateInitializeCounter());
-    }
-}
 
-// Nuovo metodo di fallback
-private System.Collections.IEnumerator LateInitializeCounter()
-{
-    yield return new WaitForEndOfFrame();
-    
-    if (totalMemories == 0)
+    private void InitializeMemorySystem()
     {
-        // Conta direttamente dalla scena come backup
-        GameObject[] memories = GameObject.FindGameObjectsWithTag("Memories");
-        if (memories.Length > 0)
+        // Trova automaticamente il memory collector se non assegnato
+        if (memoryCollector == null)
         {
-            InitializeMemoryCounter(memories.Length);
-            Debug.Log($"[PlayerUI] Fallback: Inizializzato counter con {memories.Length} memorie");
+            memoryCollector = PlayerCollectibleTracker.Instance;
+            if (memoryCollector == null)
+            {
+                memoryCollector = Object.FindFirstObjectByType<PlayerCollectibleTracker>();
+            }
+        }
+        
+        // Collegati agli eventi del memory collector
+        if (memoryCollector != null)
+        {
+            // Disconnetti eventuali vecchi eventi
+            memoryCollector.OnMemoryCollected -= UpdateMemoryCounter;
+            memoryCollector.OnMemoriesInitialized -= InitializeMemoryCounter;
+            memoryCollector.OnAllMemoriesCollected -= OnAllMemoriesCompleted;
+            
+            // Connetti i nuovi eventi
+            memoryCollector.OnMemoryCollected += UpdateMemoryCounter;
+            memoryCollector.OnMemoriesInitialized += InitializeMemoryCounter;
+            memoryCollector.OnAllMemoriesCollected += OnAllMemoriesCompleted;
+            
+            // Inizializza subito se i dati sono già disponibili
+            if (memoryCollector.GetTotalMemories() > 0)
+            {
+                currentMemories = memoryCollector.GetCollectedMemories();
+                totalMemories = memoryCollector.GetTotalMemories();
+                UpdateMemoryCounterDisplay();
+                Debug.Log($"[PlayerUI] Inizializzato da collector esistente: {currentMemories}/{totalMemories}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[PlayerUI] PlayerMemoryCollector non trovato!");
+            // Fallback con SceneManager
+            TryInitializeFromSceneManager();
         }
     }
-}
+    
+    private void TryInitializeFromSceneManager()
+    {
+        if (SceneManager01.Instance != null)
+        {
+            // Collegati direttamente al SceneManager come fallback
+            SceneManager01.Instance.OnMemoryCountChanged.AddListener(UpdateMemoryCounter);
+            
+            totalMemories = SceneManager01.Instance.GetTotalMemories();
+            currentMemories = SceneManager01.Instance.GetCurrentMemories();
+            UpdateMemoryCounterDisplay();
+            
+            Debug.Log($"[PlayerUI] Fallback: Inizializzato da SceneManager: {currentMemories}/{totalMemories}");
+        }
+    }
+
     private void OnEnable()
     {
         InputSystem.onActionChange += OnInputActionChange;
@@ -106,12 +120,23 @@ private System.Collections.IEnumerator LateInitializeCounter()
     private void OnDisable()
     {
         InputSystem.onActionChange -= OnInputActionChange;
-        
+        CleanupEvents();
+    }
+    
+    private void CleanupEvents()
+    {
         // Disconnetti gli eventi per evitare memory leaks
         if (memoryCollector != null)
         {
             memoryCollector.OnMemoryCollected -= UpdateMemoryCounter;
             memoryCollector.OnMemoriesInitialized -= InitializeMemoryCounter;
+            memoryCollector.OnAllMemoriesCollected -= OnAllMemoriesCompleted;
+        }
+        
+        // Cleanup SceneManager events
+        if (SceneManager01.Instance != null)
+        {
+            SceneManager01.Instance.OnMemoryCountChanged.RemoveListener(UpdateMemoryCounter);
         }
     }
 
@@ -136,20 +161,14 @@ private System.Collections.IEnumerator LateInitializeCounter()
 
     // === MEMORY COUNTER METHODS ===
     
-   public void InitializeMemoryCounter(int total)
-{
-    totalMemories = total;
-    currentMemories = 0;
-    
-    // MODIFICA QUI: Mostra subito il totale corretto
-    if (memoryCounterText != null)
+    public void InitializeMemoryCounter(int total)
     {
-        memoryCounterText.text = $"Memories collected 0/{total}";
-        memoryCounterText.color = Color.white;
+        totalMemories = total;
+        currentMemories = 0;
+        UpdateMemoryCounterDisplay();
+        
+        Debug.Log($"[PlayerUI] Memory counter inizializzato: 0/{total}");
     }
-    
-    Debug.Log($"[PlayerUI] Memory counter inizializzato: 0/{total}");
-}
     
     public void UpdateMemoryCounter(int collected, int total)
     {
@@ -165,47 +184,64 @@ private System.Collections.IEnumerator LateInitializeCounter()
         Debug.Log($"[PlayerUI] Memory counter aggiornato: {currentMemories}/{totalMemories}");
     }
     
-private void UpdateMemoryCounterDisplay()
-{
-    if (memoryCounterText != null)
+    private void UpdateMemoryCounterDisplay()
     {
-        // Usa sempre i valori correnti
-        memoryCounterText.text = $"Memories collected {currentMemories}/{totalMemories}";
-        
-        // Cambia colore se tutte raccolte
-        if (currentMemories >= totalMemories && totalMemories > 0)
+        if (memoryCounterText != null)
         {
-            memoryCounterText.color = Color.green;
-        }
-        else
-        {
-            memoryCounterText.color = Color.white;
+            memoryCounterText.text = $"Memories collected {currentMemories}/{totalMemories}";
+            
+            // Cambia colore se tutte raccolte
+            if (currentMemories >= totalMemories && totalMemories > 0)
+            {
+                memoryCounterText.color = Color.green;
+                
+                // Anima icona se presente
+                if (memoryIcon != null)
+                {
+                    AnimateMemoryIcon();
+                }
+            }
+            else
+            {
+                memoryCounterText.color = Color.white;
+            }
         }
     }
-}
+    
+    private void OnAllMemoriesCompleted()
+    {
+        Debug.Log("[PlayerUI] Tutte le memorie completate! Attivando celebrazione UI");
+        
+        // Effetti speciali quando tutte le memorie sono raccolte
+        if (memoryCounterText != null)
+        {
+            memoryCounterText.color = new Color(1f, 0.84f, 0f, 1f); // Colore oro
+            StartCoroutine(CelebrationTextEffect());
+        }
+        
+        if (memoryIcon != null)
+        {
+            StartCoroutine(CelebrationIconEffect());
+        }
+    }
     
     private void AnimateMemoryCounter()
     {
         if (memoryCounterText != null)
         {
-            // Simple scale animation con LeanTween (se disponibile)
-            // Altrimenti puoi usare un'animazione semplice
             Transform textTransform = memoryCounterText.transform;
             Vector3 originalScale = textTransform.localScale;
-            
-            // Se hai LeanTween:
-            /*
-            LeanTween.cancel(memoryCounterText.gameObject);
-            LeanTween.scale(memoryCounterText.gameObject, originalScale * memoryPunchScale, memoryAnimationDuration * 0.5f)
-                .setEaseOutBack()
-                .setOnComplete(() => {
-                    LeanTween.scale(memoryCounterText.gameObject, originalScale, memoryAnimationDuration * 0.5f)
-                        .setEaseInBack();
-                });
-            */
-            
-            // Versione senza LeanTween (semplice):
             StartCoroutine(SimpleScaleAnimation(textTransform, originalScale));
+        }
+    }
+    
+    private void AnimateMemoryIcon()
+    {
+        if (memoryIcon != null)
+        {
+            Transform iconTransform = memoryIcon.transform;
+            Vector3 originalScale = iconTransform.localScale;
+            StartCoroutine(SimpleScaleAnimation(iconTransform, originalScale));
         }
     }
     
@@ -235,6 +271,49 @@ private void UpdateMemoryCounterDisplay()
         }
         
         target.localScale = originalScale;
+    }
+    
+    private System.Collections.IEnumerator CelebrationTextEffect()
+    {
+        if (memoryCounterText == null) yield break;
+        
+        Transform textTransform = memoryCounterText.transform;
+        Vector3 originalScale = textTransform.localScale;
+        
+        // Effetto di celebrazione più lungo
+        for (int i = 0; i < 3; i++)
+        {
+            yield return StartCoroutine(SimpleScaleAnimation(textTransform, originalScale));
+            yield return new WaitForSeconds(0.1f);
+        }
+    }
+    
+    private System.Collections.IEnumerator CelebrationIconEffect()
+    {
+        if (memoryIcon == null) yield break;
+        
+        // Effetto di rotazione per l'icona
+        Transform iconTransform = memoryIcon.transform;
+        float elapsed = 0f;
+        float duration = 1f;
+        
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float rotation = Mathf.Lerp(0f, 360f, elapsed / duration);
+            iconTransform.rotation = Quaternion.Euler(0, 0, rotation);
+            yield return null;
+        }
+        
+        iconTransform.rotation = Quaternion.identity;
+    }
+    
+    // Metodo per reinizializzare quando cambi scena
+    public void OnSceneChanged()
+    {
+        currentMemories = 0;
+        totalMemories = 0;
+        InitializeMemorySystem();
     }
 
     // === EXISTING METHODS ===
@@ -287,62 +366,56 @@ private void UpdateMemoryCounterDisplay()
         healthFill.fillAmount = fillAmount;
     }
 
-   // Sostituisci questo metodo in PlayerUI.cs
-// Sostituisci questo metodo in PlayerUI.cs
-public void UpdatePower(float currentPower)
-{
-    Debug.Log($"[PlayerUI] UpdatePower chiamato con: {currentPower}");
-    
-    if (powerFill == null)
+    public void UpdatePower(float currentPower)
     {
-        Debug.LogError("[PlayerUI] powerFill non assegnato!");
-        return;
-    }
-
-    if (playerPowerUp == null)
-    {
-        Debug.LogError("[PlayerUI] playerPowerUp non assegnato!");
-        // Prova a trovarlo automaticamente
-        playerPowerUp = Object.FindFirstObjectByType<PlayerPowerUp>();
+        Debug.Log($"[PlayerUI] UpdatePower chiamato con: {currentPower}");
         
-        if (playerPowerUp == null)
+        if (powerFill == null)
         {
-            Debug.LogError("[PlayerUI] PlayerPowerUp non trovato nemmeno in scena!");
+            Debug.LogError("[PlayerUI] powerFill non assegnato!");
             return;
         }
-        Debug.Log("[PlayerUI] PlayerPowerUp trovato automaticamente!");
+
+        if (playerPowerUp == null)
+        {
+            Debug.LogError("[PlayerUI] playerPowerUp non assegnato!");
+            playerPowerUp = Object.FindFirstObjectByType<PlayerPowerUp>();
+            
+            if (playerPowerUp == null)
+            {
+                Debug.LogError("[PlayerUI] PlayerPowerUp non trovato nemmeno in scena!");
+                return;
+            }
+            Debug.Log("[PlayerUI] PlayerPowerUp trovato automaticamente!");
+        }
+
+        float maxPower = playerPowerUp.MaxPower;
+        Debug.Log($"[PlayerUI] MaxPower: {maxPower}, CurrentPower: {currentPower}");
+        
+        if (maxPower <= 0f)
+        {
+            Debug.LogWarning("[PlayerUI] MaxPower è 0 o negativo!");
+            powerFill.fillAmount = 0f;
+            return;
+        }
+
+        float fillAmount = currentPower / maxPower;
+        fillAmount = Mathf.Clamp01(fillAmount);
+
+        Debug.Log($"[PlayerUI] Settando fillAmount a: {fillAmount}");
+        
+        if (!powerFill.gameObject.activeInHierarchy)
+        {
+            Debug.LogWarning("[PlayerUI] powerFill non è attivo nella gerarchia!");
+            powerFill.gameObject.SetActive(true);
+        }
+        
+        powerFill.fillAmount = fillAmount;
+        powerFill.SetAllDirty();
+        
+        Debug.Log($"[PlayerUI] Verificando fillAmount settato: {powerFill.fillAmount}");
     }
 
-    float maxPower = playerPowerUp.MaxPower;
-    Debug.Log($"[PlayerUI] MaxPower: {maxPower}, CurrentPower: {currentPower}");
-    
-    if (maxPower <= 0f)
-    {
-        Debug.LogWarning("[PlayerUI] MaxPower è 0 o negativo!");
-        powerFill.fillAmount = 0f;
-        return;
-    }
-
-    float fillAmount = currentPower / maxPower;
-    fillAmount = Mathf.Clamp01(fillAmount);
-
-    Debug.Log($"[PlayerUI] Settando fillAmount a: {fillAmount}");
-    
-    // AGGIUNTO: Verifica che l'immagine sia attiva e visibile
-    if (!powerFill.gameObject.activeInHierarchy)
-    {
-        Debug.LogWarning("[PlayerUI] powerFill non è attivo nella gerarchia!");
-        powerFill.gameObject.SetActive(true);
-    }
-    
-    powerFill.fillAmount = fillAmount;
-    
-    // AGGIUNTO: Forza il refresh dell'UI
-    powerFill.SetAllDirty();
-    
-    // AGGIUNTO: Log di verifica
-    Debug.Log($"[PlayerUI] Verificando fillAmount settato: {powerFill.fillAmount}");
-}
     public void SetMaxValues(float maxHealth, float maxPower)
     {
         if (playerController != null)
@@ -354,6 +427,16 @@ public void UpdatePower(float currentPower)
         {
             playerPowerUp.maxPower = maxPower;
             UpdatePower(playerPowerUp.currentPower);
+        }
+    }
+    
+    private void OnDestroy()
+    {
+        CleanupEvents();
+        
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 }
