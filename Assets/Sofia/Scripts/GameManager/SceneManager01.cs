@@ -319,23 +319,118 @@ public class SceneManager01 : MonoBehaviour
     
     // ========== CLEANUP ==========
     
-    private void OnDestroy()
+    // ========== METODI CHIAMATI DAL PLAYERCOLLECTIBLETRACKER ==========
+    
+    // Questi metodi vengono chiamati dal PlayerCollectibleTracker quando raccoglie collectibles
+    public void OnMemoryCollectedByTracker(int collected, int total)
     {
-        // Pulisci gli eventi quando l'oggetto viene distrutto
-        foreach (Collectibles present in scenePresents)
+        currentMemories = collected;
+        totalMemories = total;
+        
+        // Notifica gli eventi per la UI (se qualcuno si è collegato direttamente)
+        OnMemoryCountChanged?.Invoke(currentMemories, totalMemories);
+        
+        Debug.Log($"[SceneManager01] Aggiornato dal tracker - Memorie: {currentMemories}/{totalMemories}");
+        
+        // Notifica il GameManager se disponibile
+        NotifyGameManager("MemoryCollected", currentMemories, totalMemories);
+    }
+    
+    public void OnPresentCollectedByTracker(int collected, int total)
+    {
+        currentPresents = collected;
+        totalPresents = total;
+        
+        // Notifica gli eventi per la UI (se qualcuno si è collegato direttamente)  
+        OnPresentCountChanged?.Invoke(currentPresents, totalPresents);
+        
+        Debug.Log($"[SceneManager01] Aggiornato dal tracker - Present: {currentPresents}/{totalPresents}");
+        
+        // Notifica il GameManager se disponibile
+        NotifyGameManager("PresentCollected", currentPresents, totalPresents);
+    }
+    
+    public void OnAllMemoriesCompletedByTracker()
+    {
+        Debug.Log("[SceneManager01] Tutte le memorie completate - notificato dal tracker");
+        OnAllMemoriesCollected?.Invoke();
+        
+        // Notifica il GameManager
+        NotifyGameManager("AllMemoriesCompleted");
+    }
+    
+    public void OnAllPresentsCompletedByTracker()
+    {
+        Debug.Log("[SceneManager01] Tutti i present completati - notificato dal tracker");
+        OnAllPresentsCollected?.Invoke();
+        
+        // Notifica il GameManager
+        NotifyGameManager("AllPresentsCompleted");
+    }
+    
+    public void OnAllCollectiblesCompletedByTracker()
+    {
+        Debug.Log("[SceneManager01] Tutti i collectibles completati - notificato dal tracker");
+        OnAllCollectiblesCompleted?.Invoke();
+        
+        // Notifica il GameManager
+        NotifyGameManager("AllCollectiblesCompleted");
+    }
+    
+    // ========== COMUNICAZIONE CON GAMEMANAGER ==========
+    
+    private void NotifyGameManager(string eventType, int current = 0, int total = 0)
+    {
+        // Trova il GameManager nella scena
+        GameObject gameManagerObj = GameObject.Find("GameManager");
+        if (gameManagerObj == null)
         {
-            if (present != null)
-            {
-                present.OnCollected.RemoveListener(OnCollectibleCollected);
-            }
+            // Prova con il tag
+            gameManagerObj = GameObject.FindWithTag("GameManager");
         }
         
-        foreach (Collectibles memory in sceneMemories)
+        if (gameManagerObj != null)
         {
-            if (memory != null)
+            // Prova a trovare un component che gestisce i collectibles
+            var gameManager = gameManagerObj.GetComponent<MonoBehaviour>();
+            
+            if (gameManager != null)
             {
-                memory.OnCollected.RemoveListener(OnCollectibleCollected);
+                // Usa reflection per chiamare i metodi del GameManager se esistono
+                var methodName = $"On{eventType}";
+                var method = gameManager.GetType().GetMethod(methodName);
+                
+                if (method != null)
+                {
+                    try
+                    {
+                        if (eventType.Contains("Collected") && !eventType.Contains("All"))
+                        {
+                            // Metodi con parametri (current, total)
+                            method.Invoke(gameManager, new object[] { current, total });
+                        }
+                        else
+                        {
+                            // Metodi senza parametri  
+                            method.Invoke(gameManager, null);
+                        }
+                        
+                        Debug.Log($"[SceneManager01] GameManager notificato: {methodName}");
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogWarning($"[SceneManager01] Errore chiamando {methodName} su GameManager: {e.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.Log($"[SceneManager01] Metodo {methodName} non trovato su GameManager");
+                }
             }
+        }
+        else
+        {
+            Debug.Log("[SceneManager01] GameManager non trovato nella scena");
         }
     }
 }

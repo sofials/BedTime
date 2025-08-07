@@ -36,9 +36,6 @@ public class PlayerCollectibleTracker : MonoBehaviour
     // Singleton per accesso globale
     public static PlayerCollectibleTracker Instance { get; private set; }
     
-    // Backward compatibility - mantieni i vecchi nomi per non rompere il codice esistente
-    public static PlayerCollectibleTracker MemoryCollectorInstance => Instance;
-    
     void Awake() 
     {
         // Singleton setup
@@ -231,31 +228,44 @@ public class PlayerCollectibleTracker : MonoBehaviour
         {
             Debug.Log("[PlayerCollectibleTracker] TUTTI i collectibles completati!");
             OnAllCollectiblesCompleted?.Invoke();
+            
+            // Notifica il SceneManager del completamento totale
+            if (SceneManager01.Instance != null)
+            {
+                SceneManager01.Instance.OnAllCollectiblesCompletedByTracker();
+                Debug.Log("[PlayerCollectibleTracker] SceneManager01 notificato del completamento totale");
+            }
         }
     }
 
-    // METODI PUBBLICI chiamati dalla classe Collectibles (backward compatibility)
+    // METODI PUBBLICI chiamati dalla classe Collectibles
     public void NotifyMemoryCollected()
     {
-        if (useSceneManagerIntegration && SceneManager01.Instance != null)
-        {
-            // Se usiamo SceneManager, lascia che gestisca tutto lui
-            Debug.Log("[PlayerCollectibleTracker] Notifica memoria ricevuta - gestita dal SceneManager");
-            return;
-        }
-        
-        // Gestione diretta solo se non usiamo SceneManager
+        // Incrementa sempre il contatore locale
         collectedMemories++;
         
-        Debug.Log($"[PlayerCollectibleTracker] Memoria raccolta direttamente! {collectedMemories}/{totalMemories}");
+        Debug.Log($"[PlayerCollectibleTracker] Memoria raccolta! {collectedMemories}/{totalMemories}");
         
-        // Notifica la UI
+        // Notifica la UI direttamente
         OnMemoryCollected?.Invoke(collectedMemories, totalMemories);
         
+        // Notifica il SceneManager01 se disponibile
+        if (SceneManager01.Instance != null)
+        {
+            SceneManager01.Instance.OnMemoryCollectedByTracker(collectedMemories, totalMemories);
+            Debug.Log("[PlayerCollectibleTracker] SceneManager01 notificato della raccolta memory");
+        }
+        
         // Controlla se hai raccolto tutte le memorie
-        if (collectedMemories >= totalMemories)
+        if (collectedMemories >= totalMemories && totalMemories > 0)
         {
             OnAllMemoriesCollected?.Invoke();
+            
+            // Notifica il SceneManager del completamento
+            if (SceneManager01.Instance != null)
+            {
+                SceneManager01.Instance.OnAllMemoriesCompletedByTracker();
+            }
         }
         
         if (trackCombinedProgress)
@@ -268,25 +278,31 @@ public class PlayerCollectibleTracker : MonoBehaviour
     
     public void NotifyPresentCollected()
     {
-        if (useSceneManagerIntegration && SceneManager01.Instance != null)
-        {
-            // Se usiamo SceneManager, lascia che gestisca tutto lui
-            Debug.Log("[PlayerCollectibleTracker] Notifica present ricevuta - gestita dal SceneManager");
-            return;
-        }
-        
-        // Gestione diretta solo se non usiamo SceneManager
+        // Incrementa sempre il contatore locale
         collectedPresents++;
         
-        Debug.Log($"[PlayerCollectibleTracker] Present raccolto direttamente! {collectedPresents}/{totalPresents}");
+        Debug.Log($"[PlayerCollectibleTracker] Present raccolto! {collectedPresents}/{totalPresents}");
         
-        // Notifica la UI
+        // Notifica la UI direttamente
         OnPresentCollected?.Invoke(collectedPresents, totalPresents);
         
+        // Notifica il SceneManager01 se disponibile
+        if (SceneManager01.Instance != null)
+        {
+            SceneManager01.Instance.OnPresentCollectedByTracker(collectedPresents, totalPresents);
+            Debug.Log("[PlayerCollectibleTracker] SceneManager01 notificato della raccolta present");
+        }
+        
         // Controlla se hai raccolto tutti i presents
-        if (collectedPresents >= totalPresents)
+        if (collectedPresents >= totalPresents && totalPresents > 0)
         {
             OnAllPresentsCollected?.Invoke();
+            
+            // Notifica il SceneManager del completamento
+            if (SceneManager01.Instance != null)
+            {
+                SceneManager01.Instance.OnAllPresentsCompletedByTracker();
+            }
         }
         
         if (trackCombinedProgress)

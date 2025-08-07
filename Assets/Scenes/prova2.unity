@@ -194,7 +194,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6288668001946139221, guid: d8ea987af3be7ef44a73fffb53c295a0, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 19.30622
+      value: 30.4
       objectReference: {fileID: 0}
     - target: {fileID: 6288668001946139221, guid: d8ea987af3be7ef44a73fffb53c295a0, type: 3}
       propertyPath: m_LocalPosition.z
@@ -282,6 +282,7 @@ MonoBehaviour:
   collectSound: {fileID: 0}
   ambientSound: {fileID: 0}
   collectVolume: 0.3
+  enableDebugLogs: 1
   OnCollected:
     m_PersistentCalls:
       m_Calls: []
@@ -290,6 +291,8 @@ MonoBehaviour:
   customFloatSettings: 0
   presentFloatSpeed: 2.5
   presentFloatStrength: 0.4
+  presentCollectionParticles: {fileID: 0}
+  presentJingleSound: {fileID: 0}
 --- !u!1 &97751544
 GameObject:
   m_ObjectHideFlags: 0
@@ -2603,7 +2606,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &816471629
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2620,7 +2623,7 @@ MonoBehaviour:
   itemName: Collectible
   value: 1
   isCollected: 0
-  targetCamera: {fileID: 0}
+  targetCamera: {fileID: 150112121}
   useBillboard: 0
   rotateObject: 1
   rotationSpeed: 90
@@ -2633,9 +2636,16 @@ MonoBehaviour:
   collectSound: {fileID: 8300000, guid: 062181ead6117294bb40eb276bd5f708, type: 3}
   ambientSound: {fileID: 8300000, guid: 3c4479bded450f74c918131a84216eac, type: 3}
   collectVolume: 0.3
+  enableDebugLogs: 1
   OnCollected:
     m_PersistentCalls:
       m_Calls: []
+  customFloatSettings: 0
+  memoryFloatSpeed: 4
+  memoryFloatStrength: 1
+  memoryGlowColor: {r: 0, g: 1, b: 1, a: 1}
+  memoryCollectionAura: {fileID: 0}
+  memoryEchoSound: {fileID: 0}
 --- !u!23 &816471631
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2882,7 +2892,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2304316810472892400, guid: 6edbf507becd1c948a7dc4245d090d2d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 19.30622
+      value: 26.65
       objectReference: {fileID: 0}
     - target: {fileID: 2304316810472892400, guid: 6edbf507becd1c948a7dc4245d090d2d, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2970,6 +2980,7 @@ MonoBehaviour:
   collectSound: {fileID: 0}
   ambientSound: {fileID: 0}
   collectVolume: 0.3
+  enableDebugLogs: 1
   OnCollected:
     m_PersistentCalls:
       m_Calls: []
@@ -2978,6 +2989,8 @@ MonoBehaviour:
   customFloatSettings: 0
   presentFloatSpeed: 2.5
   presentFloatStrength: 0.4
+  presentCollectionParticles: {fileID: 0}
+  presentJingleSound: {fileID: 0}
 --- !u!1 &1105801219
 GameObject:
   m_ObjectHideFlags: 0
@@ -5582,7 +5595,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1441061072628973122, guid: 7b589ee8d1e1aff41a95602d612b070c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 19.306221
+      value: 23.25
       objectReference: {fileID: 0}
     - target: {fileID: 1441061072628973122, guid: 7b589ee8d1e1aff41a95602d612b070c, type: 3}
       propertyPath: m_LocalPosition.z
@@ -5670,6 +5683,7 @@ MonoBehaviour:
   collectSound: {fileID: 0}
   ambientSound: {fileID: 0}
   collectVolume: 0.3
+  enableDebugLogs: 1
   OnCollected:
     m_PersistentCalls:
       m_Calls: []
@@ -5678,6 +5692,8 @@ MonoBehaviour:
   customFloatSettings: 0
   presentFloatSpeed: 2.5
   presentFloatStrength: 0.4
+  presentCollectionParticles: {fileID: 0}
+  presentJingleSound: {fileID: 0}
 --- !u!43 &2058761036
 Mesh:
   m_ObjectHideFlags: 0
@@ -7699,7 +7715,7 @@ PrefabInstance:
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: cameraTransform
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 150112122}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
