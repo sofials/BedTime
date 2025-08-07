@@ -1,82 +1,86 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using TMPro;
 
 [RequireComponent(typeof(Image))]
 public class UIEffectHandler : MonoBehaviour
 {
-    [Header("Pulse")]
-    [SerializeField] float pulseFactor  = 1.2f;
-    [SerializeField] float pulseTime    = 0.3f;
-    [SerializeField] int   pulseLoops   = 1;
+    [Header("Input Text")]
+    public TextMeshProUGUI inputText;
+    public string keyboardText;
+    public string controllerText;
 
-    Image image;
-    Coroutine pulseCoroutine;
-    Vector3 baseScale;
+    private Image iconImage;
+    private Vector3 baseScale;
+    private Coroutine pulseCoroutine;
 
     void Awake()
     {
-        image     = GetComponent<Image>();
+        iconImage = GetComponent<Image>();
         baseScale = transform.localScale;
     }
 
-    void OnEnable()       => transform.localScale = baseScale;
-    void OnDisable()      => StopPulse();
+    public void SetGrayscale(bool grayscale)
+    {
+        if (iconImage != null)
+        {
+            iconImage.color = grayscale ? Color.gray : Color.white;
+        }
+    }
 
-    /* =========== PUBLIC API =========== */
+    public void UpdateInputText(bool isGamepad)
+    {
+        if (inputText != null)
+        {
+            inputText.text = isGamepad ? controllerText : keyboardText;
+        }
+    }
 
     public void PulseIcon()
     {
-        // se non è attivo oppure già in corso: esco
-        if (!isActiveAndEnabled) return;
-
-        StopPulse();
+        if (pulseCoroutine != null)
+        {
+            StopCoroutine(pulseCoroutine);
+        }
         pulseCoroutine = StartCoroutine(PulseRoutine());
     }
 
-    public void SetGrayscale(bool gray)
-    {
-        if (image) image.color = gray ? Color.gray : Color.white;
-    }
-
-    /* =========== PRIVATE ============== */
-
-    void StopPulse()
+    private void StopPulse()
     {
         if (pulseCoroutine != null)
         {
             StopCoroutine(pulseCoroutine);
             pulseCoroutine = null;
-            transform.localScale = baseScale;
         }
+        transform.localScale = baseScale;
     }
 
-    IEnumerator PulseRoutine()
+    private IEnumerator PulseRoutine()
     {
-        Vector3 target = baseScale * pulseFactor;
-        float   half   = pulseTime * 0.5f;
-
-        for (int loop = 0; loop < pulseLoops; loop++)
+        float duration = 0.2f;
+        float maxScale = 1.2f;
+        
+        // Scale up
+        float elapsed = 0;
+        while (elapsed < duration)
         {
-            // zoom‑in
-            float t = 0f;
-            while (t < half)
-            {
-                t += Time.unscaledDeltaTime;
-                transform.localScale = Vector3.Lerp(baseScale, target, t / half);
-                yield return null;
-            }
-
-            // zoom‑out
-            t = 0f;
-            while (t < half)
-            {
-                t += Time.unscaledDeltaTime;
-                transform.localScale = Vector3.Lerp(target, baseScale, t / half);
-                yield return null;
-            }
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            transform.localScale = Vector3.Lerp(baseScale, baseScale * maxScale, t);
+            yield return null;
         }
-
+        
+        // Scale down
+        elapsed = 0;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            transform.localScale = Vector3.Lerp(baseScale * maxScale, baseScale, t);
+            yield return null;
+        }
+        
         transform.localScale = baseScale;
         pulseCoroutine = null;
     }

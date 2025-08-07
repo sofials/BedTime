@@ -20,18 +20,13 @@ public class PlayerUI : MonoBehaviour
     public float memoryPunchScale = 1.2f;
     public float memoryAnimationDuration = 0.3f;
 
-    [Header("Input Layouts")]
-    public GameObject UIKeyboard;
-    public GameObject UIController;
-
     [Header("Player References")]
     public ThirdPersonController playerController;
     public PlayerPowerUp playerPowerUp;
     public PlayerCollectibleTracker memoryCollector;
 
     [Header("Ability Icons")]
-    public UIEffectHandler[] keyboardEffectIcons;
-    public UIEffectHandler[] controllerEffectIcons;
+    public UIEffectHandler[] abilityIcons; // Un singolo array invece di due separati
 
     private bool useGamepad = false;
     private int currentMemories = 0;
@@ -150,13 +145,22 @@ public class PlayerUI : MonoBehaviour
 
     private void UpdateInputLayout()
     {
+        bool wasGamepad = useGamepad;
         useGamepad = Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame;
 
-        if (UIKeyboard != null)
-            UIKeyboard.SetActive(!useGamepad);
+        // Non serve più attivare/disattivare UIKeyboard/UIController
 
-        if (UIController != null)
-            UIController.SetActive(useGamepad);
+        // Aggiorna il testo di tutte le icone quando cambia il tipo di input
+        if (wasGamepad != useGamepad && abilityIcons != null)
+        {
+            for (int i = 0; i < abilityIcons.Length; i++)
+            {
+                if (abilityIcons[i] != null)
+                {
+                    abilityIcons[i].UpdateInputText(useGamepad);
+                }
+            }
+        }
     }
 
     // === MEMORY COUNTER METHODS ===
@@ -320,37 +324,19 @@ public class PlayerUI : MonoBehaviour
 
     public void UpdateAbilityIconState(int index, bool canActivate)
     {
-        if (useGamepad)
+        if (abilityIcons != null && index >= 0 && index < abilityIcons.Length && abilityIcons[index] != null)
         {
-            if (controllerEffectIcons != null && index >= 0 && index < controllerEffectIcons.Length && controllerEffectIcons[index] != null)
-            {
-                controllerEffectIcons[index].SetGrayscale(!canActivate);
-            }
-        }
-        else
-        {
-            if (keyboardEffectIcons != null && index >= 0 && index < keyboardEffectIcons.Length && keyboardEffectIcons[index] != null)
-            {
-                keyboardEffectIcons[index].SetGrayscale(!canActivate);
-            }
+            abilityIcons[index].SetGrayscale(!canActivate);
+            // Aggiorna il testo in base al tipo di input
+            abilityIcons[index].UpdateInputText(useGamepad);
         }
     }
 
     public void PulseIconAt(int index)
     {
-        if (useGamepad)
+        if (abilityIcons != null && index >= 0 && index < abilityIcons.Length)
         {
-            if (controllerEffectIcons != null && index >= 0 && index < controllerEffectIcons.Length)
-            {
-                controllerEffectIcons[index]?.PulseIcon();
-            }
-        }
-        else
-        {
-            if (keyboardEffectIcons != null && index >= 0 && index < keyboardEffectIcons.Length)
-            {
-                keyboardEffectIcons[index]?.PulseIcon();
-            }
+            abilityIcons[index]?.PulseIcon();
         }
     }
 
