@@ -51,41 +51,48 @@ public class Collectibles : MonoBehaviour
     private Renderer objectRenderer;
     private Collider triggerCollider;
     private bool hasBeenInitialized = false;
-    private float timeOffset; // AGGIUNTO: Offset temporale per floating sincronizzato
+    private float timeOffset;
     
     private void Awake()
     {
-        // Pre-inizializzazione in Awake per permettere override nelle classi derivate
+        // Store the start position immediately
+        startPosition = transform.position;
+        
+        // Generate time offset for floating animation
+        timeOffset = Random.Range(0f, Mathf.PI * 2f);
+        
+        // Pre-initialize components
         PreInitialize();
+        
+        DebugLog($"[Collectibles] Awake completed for {gameObject.name}");
     }
     
     private void Start()
     {
-        // Inizializzazione completa in Start
-        if (!hasBeenInitialized)
-        {
-            Initialize();
-        }
+        // Complete initialization
+        Initialize();
     }
     
     private void PreInitialize()
     {
-        // Setup di base che può essere modificato dalle classi derivate
-        startPosition = transform.position;
+        // Get essential components
         objectRenderer = GetComponent<Renderer>();
         triggerCollider = GetComponent<Collider>();
         
-        // AGGIUNTO: Inizializza offset temporale per floating sincronizzato
-        timeOffset = Random.Range(0f, Mathf.PI * 2f); // Offset casuale per variare il floating
+        // Ensure object is visible and active
+        gameObject.SetActive(true);
         
+        // Set target camera if not assigned
         if (targetCamera == null)
             targetCamera = Camera.main;
             
-        DebugLog($"[Collectibles] Pre-inizializzazione completata per {gameObject.name}");
+        DebugLog($"[Collectibles] Pre-initialization completed for {gameObject.name}");
     }
     
     private void Initialize()
     {
+        if (hasBeenInitialized) return;
+        
         hasBeenInitialized = true;
         
         InitializeComponents();
@@ -94,19 +101,32 @@ public class Collectibles : MonoBehaviour
         StartVisualEffects();
         RegisterWithManagers();
         
-        DebugLog($"[Collectibles] Inizializzazione completa per {gameObject.name} - Tipo: {collectibleType}");
+        DebugLog($"[Collectibles] Full initialization completed for {gameObject.name} - Type: {collectibleType}");
     }
     
     private void InitializeComponents()
     {
-        // Verifica componenti essenziali
+        // Verify essential components
         if (objectRenderer == null)
         {
             objectRenderer = GetComponent<Renderer>();
             if (objectRenderer == null)
             {
-                Debug.LogWarning($"[Collectibles] Nessun Renderer trovato su {gameObject.name}");
+                Debug.LogWarning($"[Collectibles] No Renderer found on {gameObject.name} - object may not be visible!");
+                
+                // Try to find renderer in children
+                objectRenderer = GetComponentInChildren<Renderer>();
+                if (objectRenderer != null)
+                {
+                    DebugLog($"[Collectibles] Found Renderer in children for {gameObject.name}");
+                }
             }
+        }
+        
+        // Ensure renderer is enabled
+        if (objectRenderer != null)
+        {
+            objectRenderer.enabled = true;
         }
         
         if (triggerCollider == null)
@@ -114,7 +134,11 @@ public class Collectibles : MonoBehaviour
             triggerCollider = GetComponent<Collider>();
             if (triggerCollider == null)
             {
-                Debug.LogWarning($"[Collectibles] Nessun Collider trovato su {gameObject.name}");
+                Debug.LogWarning($"[Collectibles] No Collider found on {gameObject.name} - adding default SphereCollider");
+                
+                // Auto-create a collider if missing
+                triggerCollider = gameObject.AddComponent<SphereCollider>();
+                ((SphereCollider)triggerCollider).radius = 1f;
             }
         }
     }
@@ -124,18 +148,19 @@ public class Collectibles : MonoBehaviour
         if (triggerCollider != null)
         {
             triggerCollider.isTrigger = true;
+            triggerCollider.enabled = true; // Ensure collider is enabled
             
-            // Assicurati che i MeshCollider siano convessi per i trigger
+            // Ensure MeshColliders are convex for triggers
             if (triggerCollider is MeshCollider meshCol)
             {
                 meshCol.convex = true;
             }
             
-            DebugLog($"[Collectibles] Collider configurato per {gameObject.name}");
+            DebugLog($"[Collectibles] Collider configured for {gameObject.name}");
         }
         else
         {
-            Debug.LogError($"[Collectibles] ERRORE: Nessun collider su {gameObject.name}! Il collectible non sarà raccoglibile.");
+            Debug.LogError($"[Collectibles] ERROR: No collider on {gameObject.name}! Collectible won't be collectable.");
         }
     }
     
@@ -147,38 +172,40 @@ public class Collectibles : MonoBehaviour
             audioSource = gameObject.AddComponent<AudioSource>();
         }
         
-        // Configurazione audio basata sul tipo di collectible
+        // Configure audio based on collectible type
         ConfigureAudioForType();
         
-        DebugLog($"[Collectibles] Audio configurato per {gameObject.name} - Tipo: {collectibleType}");
+        DebugLog($"[Collectibles] Audio configured for {gameObject.name} - Type: {collectibleType}");
     }
     
     private void ConfigureAudioForType()
     {
+        if (audioSource == null) return;
+        
         if (collectibleType == CollectibleType.Memory)
         {
-            // Audio 3D spaziale per le memory
+            // 3D spatial audio for memories
             audioSource.playOnAwake = false;
-            audioSource.spatialBlend = 1f; // 3D completo
+            audioSource.spatialBlend = 1f; // Full 3D
             audioSource.rolloffMode = AudioRolloffMode.Linear;
             audioSource.minDistance = 20f;
             audioSource.maxDistance = 100f;
             audioSource.volume = 1f;
             
-            // Avvia suono ambientale per le memory
+            // Start ambient sound for memories
             if (ambientSound != null)
             {
                 audioSource.clip = ambientSound;
                 audioSource.loop = true;
                 audioSource.Play();
-                DebugLog($"[Collectibles] Suono ambientale avviato per memory {gameObject.name}");
+                DebugLog($"[Collectibles] Ambient sound started for memory {gameObject.name}");
             }
         }
         else if (collectibleType == CollectibleType.Present)
         {
-            // Setup standard per present
+            // Standard setup for presents
             audioSource.playOnAwake = false;
-            audioSource.spatialBlend = 0.5f; // Mix di 2D e 3D
+            audioSource.spatialBlend = 0.5f; // Mix of 2D and 3D
             audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
             audioSource.minDistance = 5f;
             audioSource.maxDistance = 50f;
@@ -188,11 +215,11 @@ public class Collectibles : MonoBehaviour
     
     private void StartVisualEffects()
     {
-        // Avvia effetti CFXR per le memory
+        // Start CFXR effects for memories
         if (collectibleType == CollectibleType.Memory && cfxrEffect != null)
         {
             cfxrEffect.PlayEffect();
-            DebugLog($"[Collectibles] Effetto CFXR avviato per memory {gameObject.name}");
+            DebugLog($"[Collectibles] CFXR effect started for memory {gameObject.name}");
         }
     }
     
@@ -200,22 +227,29 @@ public class Collectibles : MonoBehaviour
     {
         if (!isCollected)
         {
-            // Registrazione automatica con SceneManager01 se disponibile
-            if (SceneManager01.Instance != null)
+            // Auto-register with SceneManager01 if available
+            try
             {
-                SceneManager01.Instance.RegisterCollectible(this);
-                DebugLog($"[Collectibles] Registrato con SceneManager01: {gameObject.name}");
+                if (SceneManager01.Instance != null)
+                {
+                    SceneManager01.Instance.RegisterCollectible(this);
+                    DebugLog($"[Collectibles] Registered with SceneManager01: {gameObject.name}");
+                }
+                else
+                {
+                    DebugLog($"[Collectibles] SceneManager01 not available for {gameObject.name}");
+                }
             }
-            else
+            catch (System.Exception e)
             {
-                DebugLog($"[Collectibles] SceneManager01 non disponibile per {gameObject.name}");
+                Debug.LogWarning($"[Collectibles] Failed to register with SceneManager01: {e.Message}");
             }
         }
     }
     
     private void Update()
     {
-        if (!isCollected)
+        if (!isCollected && hasBeenInitialized)
         {
             HandleAnimations();
         }
@@ -231,29 +265,30 @@ public class Collectibles : MonoBehaviour
     
     private void HandleAnimations()
     {
-        // Rotazione
+        // Rotation
         if (rotateObject)
         {
             transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime);
         }
         
-        // Effetto floating/bobbing - CORRETTO per non spostare dalla posizione originale
+        // Floating/bobbing effect - FIXED to maintain original X and Z position
         if (floatUpDown)
         {
             float newY = startPosition.y + Mathf.Sin((Time.time + timeOffset) * floatSpeed) * floatStrength;
+            // CRITICAL FIX: Always use startPosition.x and startPosition.z to prevent drift
             transform.position = new Vector3(startPosition.x, newY, startPosition.z);
         }
     }
     
     private void HandleBillboard()
     {
-        // Comportamento billboard per le memory
+        // Billboard behavior for memories
         if (targetCamera != null)
         {
             Vector3 targetPosition = targetCamera.transform.position;
             Vector3 direction = targetPosition - transform.position;
             
-            // Calcola rotazione verso la camera
+            // Calculate rotation towards camera
             if (direction.magnitude > 0.1f)
             {
                 Quaternion lookRotation = Quaternion.LookRotation(direction);
@@ -263,64 +298,85 @@ public class Collectibles : MonoBehaviour
     }
     
     private void OnTriggerEnter(Collider other)
+{
+    if (isCollected) return;
+    
+    Debug.Log($"[Collectibles] TRIGGER DETECTED: {other.name} with tag '{other.tag}'"); // ← AGGIUNGI QUESTO
+    
+    if (other.CompareTag("Player"))
     {
-        if (isCollected) return;
-        
-        if (other.CompareTag("Player"))
-        {
-            DebugLog($"[Collectibles] Player entrato nel trigger di {gameObject.name}");
-            CollectItem();
-        }
+        Debug.Log($"[Collectibles] PLAYER CONFIRMED - collecting {gameObject.name}"); // ← E QUESTO
+        CollectItem();
     }
+    else
+    {
+        Debug.Log($"[Collectibles] NOT PLAYER - ignoring {other.name}"); // ← E QUESTO
+    }
+}
     
     public void CollectItem()
     {
         if (isCollected) 
         {
-            DebugLog($"[Collectibles] Tentativo di raccogliere {gameObject.name} già raccolto!");
+            DebugLog($"[Collectibles] Attempt to collect already collected {gameObject.name}!");
             return;
         }
         
         isCollected = true;
-        DebugLog($"[Collectibles] Inizio raccolta di {gameObject.name}");
+        DebugLog($"[Collectibles] Starting collection of {gameObject.name}");
         
-        // Disabilita il collider per prevenire trigger multipli
+        // Disable collider to prevent multiple triggers
         if (triggerCollider != null)
             triggerCollider.enabled = false;
         
-        // Notifica i manager appropriati
+        // Notify appropriate managers
         NotifyManagers();
         
-        // Ferma effetti visivi
+        // Stop visual effects
         StopVisualEffects();
         
-        // Nascondi oggetto immediatamente
+        // Hide object immediately
         if (objectRenderer != null)
             objectRenderer.enabled = false;
         
-        // Riproduci effetti di raccolta e gestisci distruzione
+        // Play collection effects and handle destruction
         PlayCollectionEffects();
         
-        // Invoca evento per le classi derivate
+        // Invoke event for derived classes
         OnCollected?.Invoke(this);
         
-        DebugLog($"[Collectibles] Raccolta completata per {gameObject.name}");
+        DebugLog($"[Collectibles] Collection completed for {gameObject.name}");
     }
     
     private void NotifyManagers()
     {
-        // Prima strategia: Notifica SceneManager01 se disponibile e abilitato
+        // Prima strategia: Notifica SceneManager01 se disponibile
         bool notifiedSceneManager = false;
         
         if (SceneManager01.Instance != null)
         {
-            // Il SceneManager gestisce automaticamente la raccolta attraverso gli eventi
-            // Non serve notifica diretta, il collectible è già registrato
-            notifiedSceneManager = true;
-            DebugLog($"[Collectibles] SceneManager01 disponibile per {gameObject.name}");
+            try
+            {
+                if (collectibleType == CollectibleType.Memory)
+                {
+                    // Passa il nome della memory al SceneManager
+                    SceneManager01.Instance.NotifyMemoryCollected(itemName);
+                    DebugLog($"[Collectibles] Memory '{itemName}' notificata al SceneManager01");
+                }
+                else if (collectibleType == CollectibleType.Present)
+                {
+                    SceneManager01.Instance.NotifyPresentCollected();
+                    DebugLog($"[Collectibles] Present notificato al SceneManager01: {gameObject.name}");
+                }
+                notifiedSceneManager = true;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[Collectibles] Errore notificando SceneManager01: {e.Message}");
+            }
         }
         
-        // Seconda strategia: Notifica sempre anche il PlayerCollectibleTracker
+        // Seconda strategia: Notifica anche il PlayerCollectibleTracker
         // Questo assicura che funzioni con o senza SceneManager
         PlayerCollectibleTracker tracker = PlayerCollectibleTracker.Instance;
         if (tracker == null)
@@ -330,15 +386,22 @@ public class Collectibles : MonoBehaviour
         
         if (tracker != null)
         {
-            if (collectibleType == CollectibleType.Memory)
+            try
             {
-                tracker.NotifyMemoryCollected();
-                DebugLog($"[Collectibles] Memory notificata al tracker: {gameObject.name}");
+                if (collectibleType == CollectibleType.Memory)
+                {
+                    tracker.NotifyMemoryCollected();
+                    DebugLog($"[Collectibles] Memory notificata al tracker: {gameObject.name}");
+                }
+                else if (collectibleType == CollectibleType.Present)
+                {
+                    tracker.NotifyPresentCollected();
+                    DebugLog($"[Collectibles] Present notificato al tracker: {gameObject.name}");
+                }
             }
-            else if (collectibleType == CollectibleType.Present)
+            catch (System.Exception e)
             {
-                tracker.NotifyPresentCollected();
-                DebugLog($"[Collectibles] Present notificato al tracker: {gameObject.name}");
+                Debug.LogWarning($"[Collectibles] Errore notificando PlayerCollectibleTracker: {e.Message}");
             }
         }
         else
@@ -358,23 +421,23 @@ public class Collectibles : MonoBehaviour
         if (collectibleType == CollectibleType.Memory && cfxrEffect != null)
         {
             cfxrEffect.StopEffect();
-            DebugLog($"[Collectibles] Effetto CFXR fermato per {gameObject.name}");
+            DebugLog($"[Collectibles] CFXR effect stopped for {gameObject.name}");
         }
     }
     
     private void PlayCollectionEffects()
     {
-        // Effetto visivo generico
+        // Generic visual effect
         if (visualEffect != null)
         {
             GameObject effect = Instantiate(visualEffect, transform.position, transform.rotation);
-            DebugLog($"[Collectibles] Effetto visivo istanziato per {gameObject.name}");
+            DebugLog($"[Collectibles] Visual effect instantiated for {gameObject.name}");
             
-            // Pulisci l'effetto dopo un po' se non ha auto-distruzione
+            // Clean up effect after a while if it doesn't have auto-destruction
             Destroy(effect, 5f);
         }
         
-        // Gestione audio
+        // Handle audio
         HandleCollectionAudio();
     }
     
@@ -382,35 +445,35 @@ public class Collectibles : MonoBehaviour
     {
         if (audioSource != null)
         {
-            // Ferma audio ambientale per le memory
+            // Stop ambient audio for memories
             if (collectibleType == CollectibleType.Memory && ambientSound != null)
             {
                 audioSource.Stop();
-                DebugLog($"[Collectibles] Audio ambientale fermato per {gameObject.name}");
+                DebugLog($"[Collectibles] Ambient audio stopped for {gameObject.name}");
             }
             
-            // Riproduci suono di raccolta
+            // Play collection sound
             if (collectSound != null)
             {
                 audioSource.PlayOneShot(collectSound, collectVolume);
-                DebugLog($"[Collectibles] Suono di raccolta riprodotto per {gameObject.name} - Volume: {collectVolume}");
+                DebugLog($"[Collectibles] Collection sound played for {gameObject.name} - Volume: {collectVolume}");
                 
-                // Aspetta che l'audio finisca prima di distruggere
+                // Wait for audio to finish before destroying
                 StartCoroutine(DestroyAfterAudio());
             }
             else
             {
-                DebugLog($"[Collectibles] Nessun suono di raccolta - distruzione immediata: {gameObject.name}");
+                DebugLog($"[Collectibles] No collection sound - immediate destruction: {gameObject.name}");
                 Destroy(gameObject, destroyDelay);
             }
         }
         else
         {
-            // Fallback: riproduci suono al punto se disponibile
+            // Fallback: play sound at point if available
             if (collectSound != null)
             {
                 AudioSource.PlayClipAtPoint(collectSound, transform.position, collectVolume);
-                DebugLog($"[Collectibles] Suono riprodotto al punto per {gameObject.name}");
+                DebugLog($"[Collectibles] Sound played at point for {gameObject.name}");
             }
             Destroy(gameObject, destroyDelay);
         }
@@ -421,29 +484,29 @@ public class Collectibles : MonoBehaviour
         if (collectSound != null)
         {
             float duration = collectSound.length;
-            DebugLog($"[Collectibles] Aspettando {duration:F2}s per l'audio prima di distruggere {gameObject.name}");
+            DebugLog($"[Collectibles] Waiting {duration:F2}s for audio before destroying {gameObject.name}");
             yield return new WaitForSeconds(duration);
         }
         
-        DebugLog($"[Collectibles] Distruggendo {gameObject.name}");
+        DebugLog($"[Collectibles] Destroying {gameObject.name}");
         Destroy(gameObject);
     }
     
-    // ========== METODI PUBBLICI ==========
+    // ========== PUBLIC METHODS ==========
     
     public void ResetItem()
     {
         isCollected = false;
         gameObject.SetActive(true);
         
-        // Riabilita componenti
+        // Re-enable components
         if (triggerCollider != null)
             triggerCollider.enabled = true;
         
         if (objectRenderer != null)
             objectRenderer.enabled = true;
         
-        // Riavvia effetti per memory
+        // Restart effects for memories
         if (collectibleType == CollectibleType.Memory)
         {
             if (cfxrEffect != null)
@@ -457,7 +520,7 @@ public class Collectibles : MonoBehaviour
             }
         }
         
-        DebugLog($"[Collectibles] Reset completato per {gameObject.name}");
+        DebugLog($"[Collectibles] Reset completed for {gameObject.name}");
     }
     
     public void ForceInitialize()
@@ -466,6 +529,29 @@ public class Collectibles : MonoBehaviour
         {
             Initialize();
         }
+    }
+    
+    // Force object to be visible (useful for debugging)
+    [ContextMenu("Force Visible")]
+    public void ForceVisible()
+    {
+        gameObject.SetActive(true);
+        
+        if (objectRenderer != null)
+        {
+            objectRenderer.enabled = true;
+        }
+        else
+        {
+            objectRenderer = GetComponent<Renderer>();
+            if (objectRenderer == null)
+                objectRenderer = GetComponentInChildren<Renderer>();
+            
+            if (objectRenderer != null)
+                objectRenderer.enabled = true;
+        }
+        
+        Debug.Log($"[Collectibles] Forced visible: {gameObject.name}");
     }
     
     // ========== GETTERS ==========
@@ -484,16 +570,16 @@ public class Collectibles : MonoBehaviour
         CollectibleType oldType = collectibleType;
         collectibleType = type;
         
-        // Configura automaticamente le impostazioni in base al tipo
+        // Automatically configure settings based on type
         ApplyTypeSpecificSettings(type);
         
-        // Riconfigura audio se già inizializzato e il tipo è cambiato
+        // Reconfigure audio if already initialized and type changed
         if (hasBeenInitialized && oldType != type && audioSource != null)
         {
             ConfigureAudioForType();
         }
         
-        DebugLog($"[Collectibles] Tipo cambiato da {oldType} a {type} per {gameObject.name}");
+        DebugLog($"[Collectibles] Type changed from {oldType} to {type} for {gameObject.name}");
     }
     
     private void ApplyTypeSpecificSettings(CollectibleType type)
@@ -501,67 +587,67 @@ public class Collectibles : MonoBehaviour
         if (type == CollectibleType.Memory)
         {
             useBillboard = true;
-            rotateObject = false; // Il billboard gestisce l'orientamento
-            floatSpeed = 4f; // Movimento più mistico
-            floatStrength = 1f; // Ampiezza maggiore
+            rotateObject = false; // Billboard handles orientation
+            floatSpeed = 4f; // More mystical movement
+            floatStrength = 1f; // Greater amplitude
         }
         else if (type == CollectibleType.Present)
         {
             useBillboard = false;
-            rotateObject = true; // I present ruotano per effetto carino
-            floatSpeed = 2f; // Movimento più leggero
-            floatStrength = 0.3f; // Ampiezza minore
+            rotateObject = true; // Presents rotate for nice effect
+            floatSpeed = 2f; // Lighter movement
+            floatStrength = 0.3f; // Smaller amplitude
         }
     }
     
     public void SetName(string name) 
     { 
         itemName = name;
-        DebugLog($"[Collectibles] Nome cambiato in '{name}' per {gameObject.name}");
+        DebugLog($"[Collectibles] Name changed to '{name}' for {gameObject.name}");
     }
     
     public void SetValue(int newValue) 
     { 
         value = newValue;
-        DebugLog($"[Collectibles] Valore cambiato in {newValue} per {gameObject.name}");
+        DebugLog($"[Collectibles] Value changed to {newValue} for {gameObject.name}");
     }
     
-    // Setters per configurazione animazioni
+    // Setters for animation configuration
     public void SetRotationSpeed(float speed)
     {
         rotationSpeed = speed;
-        DebugLog($"[Collectibles] Velocità rotazione impostata a {speed} per {gameObject.name}");
+        DebugLog($"[Collectibles] Rotation speed set to {speed} for {gameObject.name}");
     }
     
     public void SetFloatSettings(float speed, float strength)
     {
         floatSpeed = speed;
         floatStrength = strength;
-        DebugLog($"[Collectibles] Float impostato: Speed={speed}, Strength={strength} per {gameObject.name}");
+        DebugLog($"[Collectibles] Float set: Speed={speed}, Strength={strength} for {gameObject.name}");
     }
     
     public void SetRotationEnabled(bool enabled)
     {
         rotateObject = enabled;
-        DebugLog($"[Collectibles] Rotazione {(enabled ? "abilitata" : "disabilitata")} per {gameObject.name}");
+        DebugLog($"[Collectibles] Rotation {(enabled ? "enabled" : "disabled")} for {gameObject.name}");
     }
     
     public void SetFloatEnabled(bool enabled)
     {
         floatUpDown = enabled;
-        DebugLog($"[Collectibles] Float {(enabled ? "abilitato" : "disabilitato")} per {gameObject.name}");
+        DebugLog($"[Collectibles] Float {(enabled ? "enabled" : "disabled")} for {gameObject.name}");
     }
     
     public void SetBillboardEnabled(bool enabled)
     {
         useBillboard = enabled;
-        DebugLog($"[Collectibles] Billboard {(enabled ? "abilitato" : "disabilitato")} per {gameObject.name}");
+        DebugLog($"[Collectibles] Billboard {(enabled ? "enabled" : "disabled")} for {gameObject.name}");
     }
     
     public void SetTargetCamera(Camera camera)
     {
         targetCamera = camera;
-        DebugLog($"[Collectibles] Camera target impostata per {gameObject.name}");
+        DebugLog($"[Collectibles] Target camera set for {gameObject.name}");
     }
     
     public void SetAudioSettings(AudioClip collect, AudioClip ambient = null, float volume = 0.3f)
@@ -570,7 +656,7 @@ public class Collectibles : MonoBehaviour
         ambientSound = ambient;
         collectVolume = volume;
         
-        // Riapplica audio ambientale se è una memory già inizializzata
+        // Reapply ambient audio if it's an already initialized memory
         if (hasBeenInitialized && collectibleType == CollectibleType.Memory && ambient != null && audioSource != null)
         {
             audioSource.clip = ambient;
@@ -578,7 +664,7 @@ public class Collectibles : MonoBehaviour
             audioSource.Play();
         }
         
-        DebugLog($"[Collectibles] Audio configurato per {gameObject.name}");
+        DebugLog($"[Collectibles] Audio configured for {gameObject.name}");
     }
     
     public void SetVisualEffects(GameObject effect, CFXR_EffectController cfxr = null)
@@ -586,16 +672,16 @@ public class Collectibles : MonoBehaviour
         visualEffect = effect;
         cfxrEffect = cfxr;
         
-        // Avvia CFXR se è una memory già inizializzata
+        // Start CFXR if it's an already initialized memory
         if (hasBeenInitialized && collectibleType == CollectibleType.Memory && cfxr != null)
         {
             cfxr.PlayEffect();
         }
         
-        DebugLog($"[Collectibles] Effetti visivi configurati per {gameObject.name}");
+        DebugLog($"[Collectibles] Visual effects configured for {gameObject.name}");
     }
     
-    // ========== UTILITY E DEBUG ==========
+    // ========== UTILITY AND DEBUG ==========
     
     private void DebugLog(string message)
     {
@@ -610,71 +696,82 @@ public class Collectibles : MonoBehaviour
         enableDebugLogs = enabled;
     }
     
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    [ContextMenu("Validate Setup")]
     public void ValidateSetup()
     {
         string issues = "";
         
         if (triggerCollider == null)
-            issues += "- Manca Collider per trigger\n";
+            issues += "- Missing Collider for trigger\n";
         
         if (objectRenderer == null)
-            issues += "- Manca Renderer per visualizzazione\n";
+            issues += "- Missing Renderer for visualization\n";
         
         if (collectibleType == CollectibleType.Memory && useBillboard && targetCamera == null)
-            issues += "- Memory con billboard ma senza target camera\n";
+            issues += "- Memory with billboard but no target camera\n";
         
         if (collectSound == null)
-            issues += "- Manca audio di raccolta\n";
+            issues += "- Missing collection audio\n";
         
         if (collectibleType == CollectibleType.Memory && cfxrEffect == null)
-            issues += "- Memory senza effetto CFXR\n";
+            issues += "- Memory without CFXR effect\n";
+        
+        if (!gameObject.activeInHierarchy)
+            issues += "- GameObject is not active in hierarchy\n";
+        
+        if (objectRenderer != null && !objectRenderer.enabled)
+            issues += "- Renderer is disabled\n";
         
         if (string.IsNullOrEmpty(issues))
         {
-            Debug.Log($"[Collectibles] ✅ Setup corretto per {gameObject.name}");
+            Debug.Log($"[Collectibles] ✅ Setup correct for {gameObject.name}");
         }
         else
         {
-            Debug.LogWarning($"[Collectibles] ⚠️ Problemi setup per {gameObject.name}:\n{issues}");
+            Debug.LogWarning($"[Collectibles] ⚠️ Setup issues for {gameObject.name}:\n{issues}");
         }
     }
     
     // Debug visual in editor
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void OnDrawGizmos()
     {
-        // Gizmo base per area di raccolta
+        // Base gizmo for collection area
         Color gizmoColor = collectibleType == CollectibleType.Memory ? Color.cyan : Color.green;
         Gizmos.color = gizmoColor;
         Gizmos.DrawWireSphere(transform.position, 1f);
         
-        // Indicatore tipo
+        // Type indicator
         Gizmos.color = collectibleType == CollectibleType.Memory ? Color.blue : Color.yellow;
         Vector3 indicatorPos = transform.position + Vector3.up * 2f;
         
         if (collectibleType == CollectibleType.Memory)
         {
-            // Diamante per memory
+            // Diamond for memory
             Gizmos.matrix = Matrix4x4.TRS(indicatorPos, Quaternion.Euler(45, 0, 45), Vector3.one * 0.3f);
             Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
             Gizmos.matrix = Matrix4x4.identity;
         }
         else
         {
-            // Cubo per present
+            // Cube for present
             Gizmos.DrawWireCube(indicatorPos, Vector3.one * 0.3f);
+        }
+        
+        // Visibility indicator
+        if (!gameObject.activeInHierarchy)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position, 1.5f);
         }
     }
     
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void OnDrawGizmosSelected()
     {
-        // Info dettagliate quando selezionato
+        // Detailed info when selected
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, 1.5f);
         
-        // Mostra range di movimento floating
+        // Show floating movement range
         if (Application.isPlaying && floatUpDown)
         {
             Vector3 currentPos = transform.position;
@@ -685,7 +782,7 @@ public class Collectibles : MonoBehaviour
             Gizmos.DrawLine(minPos, maxPos);
         }
         
-        // Indicatore billboard per memory
+        // Billboard indicator for memories
         if (collectibleType == CollectibleType.Memory && useBillboard && targetCamera != null)
         {
             Gizmos.color = Color.yellow;
@@ -697,6 +794,6 @@ public class Collectibles : MonoBehaviour
     // Cleanup
     private void OnDestroy()
     {
-        DebugLog($"[Collectibles] Distruzione di {gameObject.name}");
+        DebugLog($"[Collectibles] Destroying {gameObject.name}");
     }
 }

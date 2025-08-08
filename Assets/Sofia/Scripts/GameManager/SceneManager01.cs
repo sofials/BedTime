@@ -1,33 +1,28 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
 public class SceneManager01 : MonoBehaviour
 {
-    [Header("Collectibles Settings")]
+    [Header("Current Scene Progress")]
     [SerializeField] private int totalPresents = 0;
-    [SerializeField] private int currentPresents = 0;
+    [SerializeField] private int collectedPresents = 0;
     [SerializeField] private int totalMemories = 0;
-    [SerializeField] private int currentMemories = 0;
+    [SerializeField] private int collectedMemories = 0;
     
     [Header("Present Events")]
-    public UnityEvent<int, int> OnPresentCountChanged; // current, total
+    public UnityEvent<int, int> OnPresentCountChanged; // collected, total
     public UnityEvent OnAllPresentsCollected;
     
     [Header("Memory Events")]
-    public UnityEvent<int, int> OnMemoryCountChanged; // current, total
+    public UnityEvent<int, int> OnMemoryCountChanged; // collected, total
     public UnityEvent OnAllMemoriesCollected;
     
     [Header("Combined Events")]
     public UnityEvent<int, int> OnAllCollectiblesCountChanged; // total collected, total available
     public UnityEvent OnAllCollectiblesCompleted;
     
-    [Header("Scene References")]
-    [SerializeField] private List<Collectibles> scenePresents = new List<Collectibles>();
-    [SerializeField] private List<Collectibles> sceneMemories = new List<Collectibles>();
-    [SerializeField] private Transform presentsParent;
-    [SerializeField] private Transform memoriesParent;
+    [Header("Settings")]
+    [SerializeField] private bool enableDebugLogs = true;
     
     // Singleton pattern
     public static SceneManager01 Instance { get; private set; }
@@ -45,7 +40,7 @@ public class SceneManager01 : MonoBehaviour
             return;
         }
         
-        InitializeCollectibles();
+        InitializeScene();
     }
     
     private void Start()
@@ -54,383 +49,242 @@ public class SceneManager01 : MonoBehaviour
         UpdateUI();
     }
     
-    private void InitializeCollectibles()
+    private void InitializeScene()
     {
-        // Trova tutti i collectibles nella scena se non sono già assegnati
-        if (scenePresents.Count == 0 && sceneMemories.Count == 0)
-        {
-            FindAllCollectibles();
-        }
+        // Reset contatori per la scena corrente
+        collectedPresents = 0;
+        collectedMemories = 0;
         
-        totalPresents = scenePresents.Count;
-        totalMemories = sceneMemories.Count;
+        // Conta gli oggetti usando i tag
+        CountCollectiblesByTags();
         
-        // Registra eventi per ogni present
-        foreach (Collectibles present in scenePresents)
-        {
-            if (present != null)
-            {
-                present.OnCollected.AddListener(OnCollectibleCollected);
-            }
-        }
-        
-        // Registra eventi per ogni memory
-        foreach (Collectibles memory in sceneMemories)
-        {
-            if (memory != null)
-            {
-                memory.OnCollected.AddListener(OnCollectibleCollected);
-            }
-        }
-        
-        Debug.Log($"[SceneManager01] Inizializzati {totalPresents} presents e {totalMemories} memories");
+        DebugLog($"[SceneManager01] Scena inizializzata: {totalPresents} presents, {totalMemories} memories");
     }
     
-    private void FindAllCollectibles()
+    private void CountCollectiblesByTags()
     {
-        // Trova tutti i collectibles nella scena
+        // Conta i Present usando il tag
+        GameObject[] presentObjects = GameObject.FindGameObjectsWithTag("Present");
+        totalPresents = presentObjects?.Length ?? 0;
+        
+        // Conta le Memories usando il tag
+        GameObject[] memoryObjects = GameObject.FindGameObjectsWithTag("Memories");
+        totalMemories = memoryObjects?.Length ?? 0;
+        
+        DebugLog($"[SceneManager01] Conteggio tramite tag completato: {totalPresents} presents, {totalMemories} memories");
+        
+        // Se non troviamo niente con i tag, prova con le classi come fallback
+        if (totalPresents == 0 && totalMemories == 0)
+        {
+            CountCollectiblesByClass();
+        }
+    }
+    
+    private void CountCollectiblesByClass()
+    {
+        // Fallback: conta usando la classe Collectibles
         Collectibles[] allCollectibles = FindObjectsByType<Collectibles>(FindObjectsSortMode.None);
+        int presentCount = 0;
+        int memoryCount = 0;
         
         foreach (Collectibles collectible in allCollectibles)
         {
-            if (collectible.GetCollectibleType() == CollectibleType.Present)
+            if (!collectible.IsCollected())
             {
-                // Controlla se è nel parent specifico dei presents
-                if (presentsParent == null || collectible.transform.IsChildOf(presentsParent))
+                if (collectible.GetCollectibleType() == CollectibleType.Present)
                 {
-                    scenePresents.Add(collectible);
+                    presentCount++;
                 }
-            }
-            else if (collectible.GetCollectibleType() == CollectibleType.Memory)
-            {
-                // Controlla se è nel parent specifico delle memories
-                if (memoriesParent == null || collectible.transform.IsChildOf(memoriesParent))
+                else if (collectible.GetCollectibleType() == CollectibleType.Memory)
                 {
-                    sceneMemories.Add(collectible);
+                    memoryCount++;
                 }
             }
         }
+        
+        totalPresents = presentCount;
+        totalMemories = memoryCount;
+        
+        DebugLog($"[SceneManager01] Fallback conteggio con classe: {totalPresents} presents, {totalMemories} memories");
     }
     
-    private void OnCollectibleCollected(Collectibles collectible)
+    // ========== METODI CHIAMATI DAL PLAYER/COLLECTIBLES ==========
+    
+    public void NotifyPresentCollected()
     {
-        if (collectible == null) return;
+        collectedPresents++;
         
-        if (collectible.GetCollectibleType() == CollectibleType.Present)
+        DebugLog($"[SceneManager01] Present raccolto! Progresso: {collectedPresents}/{totalPresents}");
+        
+        // Eventi per la UI
+        OnPresentCountChanged?.Invoke(collectedPresents, totalPresents);
+        
+        // Controlla se tutti i presents sono stati raccolti
+        if (collectedPresents >= totalPresents && totalPresents > 0)
         {
-            HandlePresentCollected(collectible);
-        }
-        else if (collectible.GetCollectibleType() == CollectibleType.Memory)
-        {
-            HandleMemoryCollected(collectible);
+            DebugLog("[SceneManager01] Tutti i presents raccolti!");
+            OnAllPresentsCollected?.Invoke();
+            CheckAllCollectiblesCompletion();
         }
         
-        // Aggiorna UI e controlla completamento totale
         UpdateUI();
-        CheckAllCollectiblesCompletion();
     }
     
-    private void HandlePresentCollected(Collectibles present)
+    public void NotifyMemoryCollected()
     {
-        if (scenePresents.Contains(present))
+        collectedMemories++;
+        
+        DebugLog($"[SceneManager01] Memory raccolta! Progresso: {collectedMemories}/{totalMemories}");
+        
+        // Eventi per la UI
+        OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
+        
+        // Controlla se tutte le memories sono state raccolte
+        if (collectedMemories >= totalMemories && totalMemories > 0)
         {
-            currentPresents++;
-            scenePresents.Remove(present);
-            
-            OnPresentCountChanged?.Invoke(currentPresents, totalPresents);
-            
-            if (currentPresents >= totalPresents)
-            {
-                OnAllPresentsCompleted();
-            }
-            
-            Debug.Log($"[SceneManager01] Present '{present.GetName()}' raccolto! Progresso: {currentPresents}/{totalPresents}");
+            DebugLog("[SceneManager01] Tutte le memories raccolte!");
+            OnAllMemoriesCollected?.Invoke();
+            CheckAllCollectiblesCompletion();
         }
-    }
-    
-    private void HandleMemoryCollected(Collectibles memory)
-    {
-        if (sceneMemories.Contains(memory))
-        {
-            currentMemories++;
-            sceneMemories.Remove(memory);
-            
-            OnMemoryCountChanged?.Invoke(currentMemories, totalMemories);
-            
-            if (currentMemories >= totalMemories)
-            {
-                OnAllMemoriesCompleted();
-            }
-            
-            Debug.Log($"[SceneManager01] Memory '{memory.GetName()}' raccolta! Progresso: {currentMemories}/{totalMemories}");
-        }
-    }
-    
-    private void OnAllPresentsCompleted()
-    {
-        Debug.Log("[SceneManager01] Tutti i presents sono stati raccolti!");
-        OnAllPresentsCollected?.Invoke();
-    }
-    
-    private void OnAllMemoriesCompleted()
-    {
-        Debug.Log("[SceneManager01] Tutte le memories sono state raccolte!");
-        OnAllMemoriesCollected?.Invoke();
+        
+        UpdateUI();
     }
     
     private void CheckAllCollectiblesCompletion()
     {
-        bool allCompleted = (currentPresents >= totalPresents) && (currentMemories >= totalMemories);
+        bool presentsComplete = totalPresents == 0 || collectedPresents >= totalPresents;
+        bool memoriesComplete = totalMemories == 0 || collectedMemories >= totalMemories;
         
-        if (allCompleted && (totalPresents > 0 || totalMemories > 0))
+        if (presentsComplete && memoriesComplete && (totalPresents > 0 || totalMemories > 0))
         {
-            Debug.Log("[SceneManager01] TUTTI i collectibles completati!");
+            DebugLog("[SceneManager01] TUTTI i collectibles completati!");
             OnAllCollectiblesCompleted?.Invoke();
         }
     }
     
     private void UpdateUI()
     {
-        int totalCollected = currentPresents + currentMemories;
+        int totalCollected = collectedPresents + collectedMemories;
         int totalAvailable = totalPresents + totalMemories;
         
         OnAllCollectiblesCountChanged?.Invoke(totalCollected, totalAvailable);
     }
     
-    // ========== METODI PUBBLICI - PRESENTS ==========
+    // ========== GETTERS - PRESENTS ==========
     
-    public int GetCurrentPresents() => currentPresents;
+    public int GetCollectedPresents() => collectedPresents;
     public int GetTotalPresents() => totalPresents;
-    public float GetPresentsCompletionPercentage()
-    {
-        if (totalPresents == 0) return 0f;
-        return (float)currentPresents / totalPresents * 100f;
-    }
-    public bool AreAllPresentsCollected() => currentPresents >= totalPresents;
+    public float GetPresentsProgress() => totalPresents > 0 ? (float)collectedPresents / totalPresents : 0f;
+    public float GetPresentsCompletionPercentage() => GetPresentsProgress() * 100f;
+    public bool AreAllPresentsCollected() => collectedPresents >= totalPresents && totalPresents > 0;
     
-    // ========== METODI PUBBLICI - MEMORIES ==========
+    // ========== GETTERS - MEMORIES ==========
     
-    public int GetCurrentMemories() => currentMemories;
+    public int GetCollectedMemories() => collectedMemories;
     public int GetTotalMemories() => totalMemories;
-    public float GetMemoriesCompletionPercentage()
-    {
-        if (totalMemories == 0) return 0f;
-        return (float)currentMemories / totalMemories * 100f;
-    }
-    public bool AreAllMemoriesCollected() => currentMemories >= totalMemories;
+    public float GetMemoriesProgress() => totalMemories > 0 ? (float)collectedMemories / totalMemories : 0f;
+    public float GetMemoriesCompletionPercentage() => GetMemoriesProgress() * 100f;
+    public bool AreAllMemoriesCollected() => collectedMemories >= totalMemories && totalMemories > 0;
     
-    // ========== METODI PUBBLICI - COMBINATI ==========
+    // ========== GETTERS - COMBINED ==========
     
-    public int GetTotalCollected() => currentPresents + currentMemories;
+    public int GetTotalCollected() => collectedPresents + collectedMemories;
     public int GetTotalAvailable() => totalPresents + totalMemories;
-    public float GetOverallCompletionPercentage()
+    public float GetOverallProgress() 
     {
         int total = GetTotalAvailable();
-        if (total == 0) return 0f;
-        return (float)GetTotalCollected() / total * 100f;
+        return total > 0 ? (float)GetTotalCollected() / total : 0f;
     }
+    public float GetOverallCompletionPercentage() => GetOverallProgress() * 100f;
     public bool AreAllCollectiblesCompleted()
     {
         return AreAllPresentsCollected() && AreAllMemoriesCollected();
     }
     
-    // ========== REGISTRAZIONE DINAMICA ==========
+    // ========== UTILITY METHODS ==========
     
-    public void RegisterPresent(Collectibles present)
+    public void RefreshSceneCounts()
     {
-        if (present != null && present.GetCollectibleType() == CollectibleType.Present && !scenePresents.Contains(present))
-        {
-            scenePresents.Add(present);
-            totalPresents++;
-            present.OnCollected.AddListener(OnCollectibleCollected);
-            
-            UpdateUI();
-            Debug.Log($"[SceneManager01] Present '{present.GetName()}' registrato dinamicamente");
-        }
+        DebugLog("[SceneManager01] Aggiornamento conteggi scena");
+        CountCollectiblesByTags();
+        UpdateUI();
     }
     
-    public void RegisterMemory(Collectibles memory)
+    public void ResetSceneProgress()
     {
-        if (memory != null && memory.GetCollectibleType() == CollectibleType.Memory && !sceneMemories.Contains(memory))
-        {
-            sceneMemories.Add(memory);
-            totalMemories++;
-            memory.OnCollected.AddListener(OnCollectibleCollected);
-            
-            UpdateUI();
-            Debug.Log($"[SceneManager01] Memory '{memory.GetName()}' registrata dinamicamente");
-        }
+        DebugLog("[SceneManager01] Reset progresso scena");
+        collectedPresents = 0;
+        collectedMemories = 0;
+        UpdateUI();
     }
     
+    public void ResetAndRefresh()
+    {
+        DebugLog("[SceneManager01] Reset completo e refresh");
+        ResetSceneProgress();
+        RefreshSceneCounts();
+    }
+    
+    // ========== REGISTRAZIONE COLLECTIBLES ==========
+    
+    // Metodo chiamato dai collectibles per registrarsi (per compatibilità)
     public void RegisterCollectible(Collectibles collectible)
     {
         if (collectible == null) return;
         
-        if (collectible.GetCollectibleType() == CollectibleType.Present)
+        // Questo metodo esiste per compatibilità con il codice esistente
+        // ma il conteggio principale avviene tramite tag
+        DebugLog($"[SceneManager01] Collectible registrato: {collectible.GetName()} (Tipo: {collectible.GetCollectibleType()})");
+    }
+    
+    // ========== DEBUG ==========
+    
+    private void DebugLog(string message)
+    {
+        if (enableDebugLogs)
         {
-            RegisterPresent(collectible);
-        }
-        else if (collectible.GetCollectibleType() == CollectibleType.Memory)
-        {
-            RegisterMemory(collectible);
+            Debug.Log(message);
         }
     }
     
-    // ========== RESET E DEBUG ==========
-    
-    public void ResetPresents()
+    public void SetDebugLogs(bool enabled)
     {
-        currentPresents = 0;
-        
-        foreach (Collectibles present in scenePresents)
-        {
-            if (present != null)
-            {
-                present.ResetItem();
-            }
-        }
-        
-        UpdateUI();
-        Debug.Log("[SceneManager01] Presents resettati");
+        enableDebugLogs = enabled;
     }
     
-    public void ResetMemories()
+    [ContextMenu("Debug Current State")]
+    public void DebugCurrentState()
     {
-        currentMemories = 0;
-        
-        foreach (Collectibles memory in sceneMemories)
-        {
-            if (memory != null)
-            {
-                memory.ResetItem();
-            }
-        }
-        
-        UpdateUI();
-        Debug.Log("[SceneManager01] Memories resettate");
+        Debug.Log($"=== SceneManager01 State ===\n" +
+                  $"Presents: {collectedPresents}/{totalPresents} ({GetPresentsCompletionPercentage():F1}%)\n" +
+                  $"Memories: {collectedMemories}/{totalMemories} ({GetMemoriesCompletionPercentage():F1}%)\n" +
+                  $"Total: {GetTotalCollected()}/{GetTotalAvailable()} ({GetOverallCompletionPercentage():F1}%)\n" +
+                  $"All Complete: {AreAllCollectiblesCompleted()}");
     }
     
-    public void ResetAllCollectibles()
+    [ContextMenu("Refresh Scene Counts")]
+    public void DebugRefreshCounts()
     {
-        ResetPresents();
-        ResetMemories();
-        Debug.Log("[SceneManager01] Tutti i collectibles resettati");
+        RefreshSceneCounts();
+        DebugCurrentState();
+    }
+    
+    [ContextMenu("Reset Scene Progress")]
+    public void DebugResetProgress()
+    {
+        ResetSceneProgress();
+        DebugCurrentState();
     }
     
     // ========== CLEANUP ==========
     
-    // ========== METODI CHIAMATI DAL PLAYERCOLLECTIBLETRACKER ==========
-    
-    // Questi metodi vengono chiamati dal PlayerCollectibleTracker quando raccoglie collectibles
-    public void OnMemoryCollectedByTracker(int collected, int total)
+    private void OnDestroy()
     {
-        currentMemories = collected;
-        totalMemories = total;
-        
-        // Notifica gli eventi per la UI (se qualcuno si è collegato direttamente)
-        OnMemoryCountChanged?.Invoke(currentMemories, totalMemories);
-        
-        Debug.Log($"[SceneManager01] Aggiornato dal tracker - Memorie: {currentMemories}/{totalMemories}");
-        
-        // Notifica il GameManager se disponibile
-        NotifyGameManager("MemoryCollected", currentMemories, totalMemories);
-    }
-    
-    public void OnPresentCollectedByTracker(int collected, int total)
-    {
-        currentPresents = collected;
-        totalPresents = total;
-        
-        // Notifica gli eventi per la UI (se qualcuno si è collegato direttamente)  
-        OnPresentCountChanged?.Invoke(currentPresents, totalPresents);
-        
-        Debug.Log($"[SceneManager01] Aggiornato dal tracker - Present: {currentPresents}/{totalPresents}");
-        
-        // Notifica il GameManager se disponibile
-        NotifyGameManager("PresentCollected", currentPresents, totalPresents);
-    }
-    
-    public void OnAllMemoriesCompletedByTracker()
-    {
-        Debug.Log("[SceneManager01] Tutte le memorie completate - notificato dal tracker");
-        OnAllMemoriesCollected?.Invoke();
-        
-        // Notifica il GameManager
-        NotifyGameManager("AllMemoriesCompleted");
-    }
-    
-    public void OnAllPresentsCompletedByTracker()
-    {
-        Debug.Log("[SceneManager01] Tutti i present completati - notificato dal tracker");
-        OnAllPresentsCollected?.Invoke();
-        
-        // Notifica il GameManager
-        NotifyGameManager("AllPresentsCompleted");
-    }
-    
-    public void OnAllCollectiblesCompletedByTracker()
-    {
-        Debug.Log("[SceneManager01] Tutti i collectibles completati - notificato dal tracker");
-        OnAllCollectiblesCompleted?.Invoke();
-        
-        // Notifica il GameManager
-        NotifyGameManager("AllCollectiblesCompleted");
-    }
-    
-    // ========== COMUNICAZIONE CON GAMEMANAGER ==========
-    
-    private void NotifyGameManager(string eventType, int current = 0, int total = 0)
-    {
-        // Trova il GameManager nella scena
-        GameObject gameManagerObj = GameObject.Find("GameManager");
-        if (gameManagerObj == null)
+        if (Instance == this)
         {
-            // Prova con il tag
-            gameManagerObj = GameObject.FindWithTag("GameManager");
+            Instance = null;
         }
         
-        if (gameManagerObj != null)
-        {
-            // Prova a trovare un component che gestisce i collectibles
-            var gameManager = gameManagerObj.GetComponent<MonoBehaviour>();
-            
-            if (gameManager != null)
-            {
-                // Usa reflection per chiamare i metodi del GameManager se esistono
-                var methodName = $"On{eventType}";
-                var method = gameManager.GetType().GetMethod(methodName);
-                
-                if (method != null)
-                {
-                    try
-                    {
-                        if (eventType.Contains("Collected") && !eventType.Contains("All"))
-                        {
-                            // Metodi con parametri (current, total)
-                            method.Invoke(gameManager, new object[] { current, total });
-                        }
-                        else
-                        {
-                            // Metodi senza parametri  
-                            method.Invoke(gameManager, null);
-                        }
-                        
-                        Debug.Log($"[SceneManager01] GameManager notificato: {methodName}");
-                    }
-                    catch (System.Exception e)
-                    {
-                        Debug.LogWarning($"[SceneManager01] Errore chiamando {methodName} su GameManager: {e.Message}");
-                    }
-                }
-                else
-                {
-                    Debug.Log($"[SceneManager01] Metodo {methodName} non trovato su GameManager");
-                }
-            }
-        }
-        else
-        {
-            Debug.Log("[SceneManager01] GameManager non trovato nella scena");
-        }
+        DebugLog("[SceneManager01] Cleanup completato");
     }
 }

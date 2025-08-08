@@ -12,31 +12,115 @@ public class Memories : Collectibles
     [SerializeField] private GameObject memoryCollectionAura;
     [SerializeField] private AudioClip memoryEchoSound;
     
+    private bool memoryInitialized = false;
+    private Vector3 memoryStartPosition; // Store our own start position as backup
+    
     private void Awake()
     {
-        // Forza il tipo a Memory e configura le impostazioni di base
+        // Store the position IMMEDIATELY before any other code runs
+        memoryStartPosition = transform.position;
+        
+        // Force the type to Memory FIRST, before any other initialization
         SetCollectibleType(CollectibleType.Memory);
         
-        // Configura impostazioni specifiche per le memory
+        // Configure memory-specific settings
         ApplyMemorySettings();
         
-        Debug.Log($"[Memories] Configurazione Awake completata per {gameObject.name}");
+        Debug.Log($"[Memories] Awake configuration completed for {gameObject.name} at position {memoryStartPosition}");
     }
     
     private void Start()
     {
-        // Registrati al SceneManager01 se disponibile
+        // Make sure base initialization is complete first
+        if (!IsInitialized())
+        {
+            ForceInitialize();
+        }
+        
+        // Verify position hasn't drifted
+        VerifyPosition();
+        
+        // Now do memory-specific initialization
+        InitializeMemorySpecifics();
+        
+        Debug.Log($"[Memories] '{GetName()}' fully initialized as Memory at {transform.position}");
+    }
+    
+    private void VerifyPosition()
+    {
+        // Check if position has drifted from where we expect it
+        Vector3 currentPos = transform.position;
+        float drift = Vector3.Distance(currentPos, memoryStartPosition);
+        
+        if (drift > 0.1f) // If drifted more than 0.1 units
+        {
+            Debug.LogWarning($"[Memories] Position drift detected for {gameObject.name}: {drift:F3} units. Correcting...");
+            transform.position = memoryStartPosition;
+            
+            // Force the base class to update its start position too
+            ForceUpdateStartPosition();
+        }
+    }
+    
+    private void ForceUpdateStartPosition()
+    {
+        // This ensures the base class has the correct start position
+        // We'll call this through reflection or add a public method to base class
+        
+        // For now, let's set transform position and hope base class updates
+        transform.position = memoryStartPosition;
+    }
+    
+    private void InitializeMemorySpecifics()
+    {
+        if (memoryInitialized) return;
+        
+        memoryInitialized = true;
+        
+        // Ensure object is visible and active
+        gameObject.SetActive(true);
+        
+        // Double-check position is correct
+        if (Vector3.Distance(transform.position, memoryStartPosition) > 0.01f)
+        {
+            transform.position = memoryStartPosition;
+            Debug.Log($"[Memories] Position corrected to {memoryStartPosition}");
+        }
+        
+        // Register with SceneManager
         RegisterWithSceneManager();
         
-        // Sottoscrivi all'evento di raccolta per logica specifica delle memory
+        // Subscribe to collection event for memory-specific logic
         OnCollected.AddListener(OnMemoryCollected);
         
-        Debug.Log($"[Memories] '{GetName()}' inizializzata");
+        Debug.Log($"[Memories] Memory-specific initialization complete for {GetName()}");
+    }
+    
+    // Override the floating behavior to ensure position stability
+    private void Update()
+    {
+        // Let base class handle animations, but monitor for position drift
+        if (!IsCollected() && IsInitialized())
+        {
+            // Check for unexpected position changes (excluding Y for floating)
+            Vector2 currentXZ = new Vector2(transform.position.x, transform.position.z);
+            Vector2 expectedXZ = new Vector2(memoryStartPosition.x, memoryStartPosition.z);
+            
+            float drift = Vector2.Distance(currentXZ, expectedXZ);
+            if (drift > 0.1f)
+            {
+                Debug.LogWarning($"[Memories] XZ drift detected: {drift:F3}. Correcting {gameObject.name}");
+                
+                // Preserve the Y (floating) but fix X and Z
+                float currentY = transform.position.y;
+                transform.position = new Vector3(memoryStartPosition.x, currentY, memoryStartPosition.z);
+            }
+        }
     }
     
     private void ApplyMemorySettings()
     {
-        // Le memory usano sempre billboard e non ruotano
+        // Memories always use billboard and don't rotate
         SetBillboardEnabled(true);
         SetRotationEnabled(false);
         
@@ -46,97 +130,109 @@ public class Memories : Collectibles
         }
         else
         {
-            // Impostazioni default per memory - movimento più ampio e misterioso
+            // Default settings for memories - broader, more mystical movement
             SetFloatSettings(4f, 1f);
         }
         
-        // Assicura che fluttuino
+        // Ensure they float
         SetFloatEnabled(true);
+        
+        Debug.Log($"[Memories] Memory settings applied to {gameObject.name}");
     }
     
     private void RegisterWithSceneManager()
     {
-        if (!IsCollected() && SceneManager01.Instance != null)
+        if (!IsCollected())
         {
-            SceneManager01.Instance.RegisterCollectible(this);
-            Debug.Log($"[Memories] Registrata con SceneManager01: {GetName()}");
-        }
-        else
-        {
-            Debug.LogWarning($"[Memories] SceneManager01 non trovato per {GetName()}");
+            try
+            {
+                if (SceneManager01.Instance != null)
+                {
+                    SceneManager01.Instance.RegisterCollectible(this);
+                    Debug.Log($"[Memories] Registered with SceneManager01: {GetName()}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[Memories] SceneManager01 not found for {GetName()}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[Memories] Failed to register with SceneManager01: {e.Message}");
+            }
         }
     }
     
     private void OnMemoryCollected(Collectibles collectible)
     {
-        Debug.Log($"[Memories] Memory '{GetName()}' raccolta!");
+        Debug.Log($"[Memories] Memory '{GetName()}' collected!");
         
-        // La notifica al PlayerCollectibleTracker viene gestita automaticamente 
-        // dalla classe base Collectibles nel metodo NotifyManagers()
+        // The notification to PlayerCollectibleTracker is handled automatically 
+        // by the base Collectibles class in the NotifyManagers() method
         
-        // Logica specifica per le memory
+        // Memory-specific logic
         HandleMemorySpecificLogic();
     }
     
     private void HandleMemorySpecificLogic()
     {
-        // Effetti specifici per memory
+        // Memory-specific effects
         PlayMemoryCollectionEffect();
         
-        // Integrazione con sistemi narrativi
+        // Integration with narrative systems
         NotifyNarrativeSystems();
         
-        Debug.Log($"[Memories] Logica specifica eseguita per {GetName()}");
+        Debug.Log($"[Memories] Specific logic executed for {GetName()}");
     }
     
     private void PlayMemoryCollectionEffect()
     {
-        // Effetti visivi specifici per memory
+        // Memory-specific visual effects
         if (memoryCollectionAura != null)
         {
             GameObject aura = Instantiate(memoryCollectionAura, transform.position, Quaternion.identity);
-            Destroy(aura, 5f); // Effetto più lungo per le memory
+            Destroy(aura, 5f); // Longer effect for memories
         }
         
-        // Audio specifico per memory - più etereo e misterioso
+        // Memory-specific audio - more ethereal and mysterious
         if (memoryEchoSound != null)
         {
             AudioSource.PlayClipAtPoint(memoryEchoSound, transform.position, 0.5f);
         }
         
-        Debug.Log($"[Memories] Effetti memory riprodotti per {GetName()}");
+        Debug.Log($"[Memories] Memory effects played for {GetName()}");
     }
     
     private void NotifyNarrativeSystems()
     {
-        // Notifica sistemi narrativi specifici per memory
+        // Notify narrative systems specific to memories
         
-        // Esempio: Sistema narrative/dialoghi
+        // Example: Narrative/dialogue system
         // if (NarrativeManager.Instance != null)
         // {
         //     NarrativeManager.Instance.UnlockMemory(GetName());
         // }
         
-        // Esempio: Sistema cutscene
+        // Example: Cutscene system
         // if (CutsceneManager.Instance != null)
         // {
         //     CutsceneManager.Instance.TriggerMemoryScene(GetValue());
         // }
         
-        // Esempio: Sistema journal/lore
+        // Example: Journal/lore system
         // if (JournalManager.Instance != null)
         // {
         //     JournalManager.Instance.AddMemoryEntry(GetName(), GetValue());
         // }
     }
     
-    // Configurazioni preset per diversi tipi di memory
+    // Preset configurations for different types of memories
     public void ConfigureAsStoryMemory()
     {
         SetName("Story Fragment");
         SetValue(1);
         SetFloatSettings(3f, 0.8f);
-        Debug.Log("[Memories] Configurata come memoria narrativa");
+        Debug.Log("[Memories] Configured as narrative memory");
     }
     
     public void ConfigureAsLoreMemory()
@@ -144,7 +240,7 @@ public class Memories : Collectibles
         SetName("Ancient Knowledge");
         SetValue(5);
         SetFloatSettings(5f, 1.2f);
-        Debug.Log("[Memories] Configurata come memoria del lore");
+        Debug.Log("[Memories] Configured as lore memory");
     }
     
     public void ConfigureAsSecretMemory()
@@ -152,10 +248,10 @@ public class Memories : Collectibles
         SetName("Hidden Truth");
         SetValue(10);
         SetFloatSettings(6f, 1.5f);
-        Debug.Log("[Memories] Configurata come memoria segreta");
+        Debug.Log("[Memories] Configured as secret memory");
     }
     
-    // Metodo per impostare proprietà memory-specific
+    // Method to set memory-specific properties
     public void SetMemoryProperties(string newName, int importance, float mysticalLevel = 1f)
     {
         SetName(newName);
@@ -163,50 +259,119 @@ public class Memories : Collectibles
         SetFloatSettings(3f + mysticalLevel, 0.5f + (mysticalLevel * 0.3f));
     }
     
-    private void OnDestroy()
+    // Override reset to ensure memory settings are maintained
+    public new void ResetItem()
     {
-        // Cleanup dell'evento
-        OnCollected.RemoveListener(OnMemoryCollected);
-        Debug.Log($"[Memories] Cleanup eventi per {GetName()}");
+        // Reset to our stored position first
+        transform.position = memoryStartPosition;
+        
+        base.ResetItem();
+        
+        // Reapply memory settings after reset
+        ApplyMemorySettings();
+        
+        Debug.Log($"[Memories] Memory reset completed for {GetName()} at {memoryStartPosition}");
     }
     
-    // Debug e utility
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    // Force memory to be visible (debugging)
+    [ContextMenu("Force Memory Visible")]
+    public void ForceMemoryVisible()
+    {
+        // Reset position first
+        transform.position = memoryStartPosition;
+        
+        ForceVisible();
+        
+        // Ensure memory-specific settings
+        SetCollectibleType(CollectibleType.Memory);
+        ApplyMemorySettings();
+        
+        Debug.Log($"[Memories] Forced memory visible: {gameObject.name} at {memoryStartPosition}");
+    }
+    
+    // Debug method to manually set the correct position
+    [ContextMenu("Reset to Start Position")]
+    public void ResetToStartPosition()
+    {
+        transform.position = memoryStartPosition;
+        Debug.Log($"[Memories] Position reset to {memoryStartPosition} for {gameObject.name}");
+    }
+    
+    // Debug method to update start position to current position
+    [ContextMenu("Update Start Position to Current")]
+    public void UpdateStartPositionToCurrent()
+    {
+        memoryStartPosition = transform.position;
+        Debug.Log($"[Memories] Start position updated to {memoryStartPosition} for {gameObject.name}");
+    }
+    
+    private void OnDestroy()
+    {
+        // Event cleanup
+        if (OnCollected != null)
+        {
+            OnCollected.RemoveListener(OnMemoryCollected);
+        }
+        Debug.Log($"[Memories] Event cleanup for {GetName()}");
+    }
+    
+    // Debug and utility
     private void OnDrawGizmos()
     {
-        // Gizmo per area di raccolta
+        // Collection area gizmo
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(transform.position, 1.2f);
         
-        // Indicatore Memory con effetto mistico
+        // Show the intended start position
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireCube(memoryStartPosition, Vector3.one * 0.2f);
+        
+        // Memory indicator with mystical effect
         Gizmos.color = memoryGlowColor;
         Gizmos.matrix = Matrix4x4.TRS(transform.position + Vector3.up * 2.5f, 
                                      Quaternion.Euler(45, 0, 45), 
                                      Vector3.one * 0.4f);
         Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
         Gizmos.matrix = Matrix4x4.identity;
+        
+        // Visibility warning
+        if (!gameObject.activeInHierarchy)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position, 2f);
+        }
+        
+        // Position drift warning
+        float drift = Vector3.Distance(transform.position, memoryStartPosition);
+        if (drift > 0.1f)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(memoryStartPosition, transform.position);
+        }
     }
     
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void OnDrawGizmosSelected()
     {
-        // Info dettagliate quando selezionato
+        // Detailed info when selected
         Gizmos.color = Color.magenta;
         Gizmos.DrawWireSphere(transform.position, 2f);
         
-        // Visualizza range di floating più ampio per memory
+        // Show start position clearly
+        Gizmos.color = Color.white;
+        Gizmos.DrawWireSphere(memoryStartPosition, 0.5f);
+        
+        // Visualize broader floating range for memories
         if (Application.isPlaying)
         {
-            Vector3 currentPos = transform.position;
-            Vector3 maxFloatPos = currentPos;
+            Vector3 maxFloatPos = memoryStartPosition;
             maxFloatPos.y += memoryFloatStrength;
-            Vector3 minFloatPos = currentPos;
+            Vector3 minFloatPos = memoryStartPosition;
             minFloatPos.y -= memoryFloatStrength;
             
             Gizmos.color = Color.blue;
             Gizmos.DrawLine(minFloatPos, maxFloatPos);
             
-            // Indicatori billboard
+            // Billboard indicators
             Gizmos.color = Color.yellow;
             if (Camera.main != null)
             {
