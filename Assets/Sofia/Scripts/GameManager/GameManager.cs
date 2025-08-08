@@ -94,21 +94,32 @@ public class GameManager : MonoBehaviour
         */
     }
 
-    public void StartGame()
+   public void StartGame()
+{
+    startMenu.SetActive(false);
+    Time.timeScale = 1f;
+    Cursor.lockState = CursorLockMode.Locked;
+    Cursor.visible = false;
+    Debug.Log("Gioco iniziato");
+
+    if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        if (powerUp.powerUI != null)
+            powerUp.powerUI.SetActive(true);
+
+    // Aumenta i frame da ignorare
+    StartCoroutine(DelayedIgnoreClick());
+}
+
+private IEnumerator DelayedIgnoreClick()
+{
+    yield return new WaitForSecondsRealtime(0.1f); // Aspetta 0.1 secondi
+    
+    if (playerAttack != null)
     {
-        startMenu.SetActive(false);
-        Time.timeScale = 1f;
-        //  isPaused = false;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-        Debug.Log("Gioco iniziato");
-
-        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-            if (powerUp.powerUI != null)
-                powerUp.powerUI.SetActive(true);
-
-        IgnorePlayerAttackClick();
+        playerAttack.IgnoreNextClick();
+        Debug.Log("IgnoreNextClick chiamato dopo delay");
     }
+}
 
     private void OpenPauseMenu()
     {
