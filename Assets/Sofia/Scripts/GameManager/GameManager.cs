@@ -51,34 +51,35 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void Start()
+  private void Start()
+{
+    string currentScene = SceneManager.GetActiveScene().name;
+
+    if (currentScene == "00 - Landing in the Dreamworld")
     {
-        string currentScene = SceneManager.GetActiveScene().name;
+        Time.timeScale = 0f;          // gioco fermo all'inizio
+        startMenu.SetActive(true);    // mostra startMenu
+        pauseMenu.SetActive(false);
 
-        if (currentScene == "00 - Landing in the Dreamworld")
-        {
-            Time.timeScale = 0f;
-            startMenu.SetActive(true);
-            pauseMenu.SetActive(false);
-
-            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-                if (powerUp.powerUI != null)
-                    powerUp.powerUI.SetActive(false);
-        }
-        else
-        {
-            Time.timeScale = 1f;
-            startMenu.SetActive(false);
-            pauseMenu.SetActive(false);
-
-            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-                if (powerUp.powerUI != null)
-                    powerUp.powerUI.SetActive(true);
-        }
-
-        if (fadeImage != null)
-            StartCoroutine(FadeIn());
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+            if (powerUp.powerUI != null)
+                powerUp.powerUI.SetActive(false);
     }
+    else
+    {
+        Time.timeScale = 1f;          // gioco parte subito
+        startMenu.SetActive(false);   // startMenu nascosto sempre
+        pauseMenu.SetActive(false);
+
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+            if (powerUp.powerUI != null)
+                powerUp.powerUI.SetActive(true);
+    }
+
+    if (fadeImage != null)
+        StartCoroutine(FadeIn());
+}
+
 
     private void Update()
     {
