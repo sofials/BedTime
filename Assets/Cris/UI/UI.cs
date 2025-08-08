@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
 using System.Text.RegularExpressions;
+using System.Collections;
 
 public class PlayerUI : MonoBehaviour
 {
@@ -48,11 +49,52 @@ public class PlayerUI : MonoBehaviour
     private int currentScenePresents = 0;
     private int totalScenePresents = 0;
     
-    // Template strings per preservare la formattazione
+    // Template strings per preservare la formattazione (IMMUTABILI)
     private string memoryTextTemplate = "";
     private string presentTextTemplate = "";
     private Color originalMemoryColor;
     private Color originalPresentColor;
+    
+    // Controllo animazioni per evitare conflitti
+    private Coroutine memoryPanelCoroutine = null;
+    private Coroutine presentPanelCoroutine = null;
+    private Coroutine memoryAnimationCoroutine = null;
+    private Coroutine presentAnimationCoroutine = null;
+    
+    // Flag per prevenire aggiornamenti multipli simultanei
+    private bool isUpdatingMemoryUI = false;
+    private bool isUpdatingPresentUI = false;
+    
+    // 🔥 SALVATAGGIO POSIZIONI ORIGINALI - La chiave per risolvere il problema!
+    private struct UIElementState
+    {
+        public Vector3 anchoredPosition;
+        public Vector3 localScale;
+        public Quaternion rotation;
+        public float alpha;
+        
+        public UIElementState(RectTransform rect, CanvasGroup canvas = null)
+        {
+            anchoredPosition = rect.anchoredPosition;
+            localScale = rect.localScale;
+            rotation = rect.rotation;
+            alpha = canvas != null ? canvas.alpha : 1f;
+        }
+    }
+    
+    private UIElementState memoryPanelOriginalState;
+    private UIElementState presentPanelOriginalState;
+    private UIElementState memoryTextOriginalState;
+    private UIElementState presentTextOriginalState;
+    private UIElementState memoryIconOriginalState;
+    private UIElementState presentIconOriginalState;
+    
+    private RectTransform memoryPanelRect;
+    private RectTransform presentPanelRect;
+    private RectTransform memoryTextRect;
+    private RectTransform presentTextRect;
+    private RectTransform memoryIconRect;
+    private RectTransform presentIconRect;
 
     public static PlayerUI Instance { get; private set; }
 
@@ -68,13 +110,106 @@ public class PlayerUI : MonoBehaviour
 
     private void Start()
     {
-        // Salva i template di testo e colori originali PRIMA di inizializzare
+        // PRIMA: Cache delle posizioni originali - FONDAMENTALE!
+        CacheOriginalUIStates();
+        
+        // DOPO: Tutto il resto
         SaveOriginalTextFormats();
-        
-        // Nascondi i pannelli all'inizio
         HidePanelsAtStart();
-        
         InitializeCollectibleSystem();
+    }
+    
+    private void CacheOriginalUIStates()
+    {
+        // 🔥 SALVA lo stato ORIGINALE di ogni elemento UI (posizione, scale, rotazione)
+        
+        if (memoryPanel != null)
+        {
+            memoryPanelRect = memoryPanel.GetComponent<RectTransform>();
+            if (memoryPanelRect != null)
+            {
+                CanvasGroup canvas = memoryPanel.GetComponent<CanvasGroup>();
+                memoryPanelOriginalState = new UIElementState(memoryPanelRect, canvas);
+            }
+        }
+        
+        if (presentPanel != null)
+        {
+            presentPanelRect = presentPanel.GetComponent<RectTransform>();
+            if (presentPanelRect != null)
+            {
+                CanvasGroup canvas = presentPanel.GetComponent<CanvasGroup>();
+                presentPanelOriginalState = new UIElementState(presentPanelRect, canvas);
+            }
+        }
+        
+        if (memoryCounterText != null)
+        {
+            memoryTextRect = memoryCounterText.GetComponent<RectTransform>();
+            if (memoryTextRect != null)
+            {
+                memoryTextOriginalState = new UIElementState(memoryTextRect);
+            }
+        }
+        
+        if (presentCounterText != null)
+        {
+            presentTextRect = presentCounterText.GetComponent<RectTransform>();
+            if (presentTextRect != null)
+            {
+                presentTextOriginalState = new UIElementState(presentTextRect);
+            }
+        }
+        
+        if (memoryIcon != null)
+        {
+            memoryIconRect = memoryIcon.GetComponent<RectTransform>();
+            if (memoryIconRect != null)
+            {
+                memoryIconOriginalState = new UIElementState(memoryIconRect);
+            }
+        }
+        
+        if (presentIcon != null)
+        {
+            presentIconRect = presentIcon.GetComponent<RectTransform>();
+            if (presentIconRect != null)
+            {
+                presentIconOriginalState = new UIElementState(presentIconRect);
+            }
+        }
+        
+        Debug.Log("[PlayerUI] 🔥 Stati originali UI cachati!");
+    }
+    
+    // 🔥 METODO CHIAVE: Ripristina ESATTAMENTE lo stato originale
+    private void RestoreUIElementState(RectTransform rect, UIElementState originalState, CanvasGroup canvas = null)
+    {
+        if (rect == null) return;
+        
+        rect.anchoredPosition = originalState.anchoredPosition;
+        rect.localScale = originalState.localScale;
+        rect.rotation = originalState.rotation;
+        
+        if (canvas != null)
+        {
+            canvas.alpha = originalState.alpha;
+        }
+        
+        Debug.Log($"[PlayerUI] Ripristinato stato originale per {rect.name}: pos={originalState.anchoredPosition}, scale={originalState.localScale}");
+    }
+    
+    private void RestoreAllOriginalStates()
+    {
+        // Ripristina TUTTI gli elementi alle loro posizioni originali
+        RestoreUIElementState(memoryPanelRect, memoryPanelOriginalState, memoryPanel?.GetComponent<CanvasGroup>());
+        RestoreUIElementState(presentPanelRect, presentPanelOriginalState, presentPanel?.GetComponent<CanvasGroup>());
+        RestoreUIElementState(memoryTextRect, memoryTextOriginalState);
+        RestoreUIElementState(presentTextRect, presentTextOriginalState);
+        RestoreUIElementState(memoryIconRect, memoryIconOriginalState);
+        RestoreUIElementState(presentIconRect, presentIconOriginalState);
+        
+        Debug.Log("[PlayerUI] 🔥 TUTTI gli stati originali ripristinati!");
     }
     
     private void HidePanelsAtStart()
@@ -225,6 +360,41 @@ public class PlayerUI : MonoBehaviour
         {
             CleanupTrackerEvents(tracker);
         }
+        
+        // Ferma tutte le animazioni attive e ripristina posizioni
+        StopAllUIAnimations();
+    }
+    
+    private void StopAllUIAnimations()
+    {
+        if (memoryPanelCoroutine != null)
+        {
+            StopCoroutine(memoryPanelCoroutine);
+            memoryPanelCoroutine = null;
+        }
+        
+        if (presentPanelCoroutine != null)
+        {
+            StopCoroutine(presentPanelCoroutine);
+            presentPanelCoroutine = null;
+        }
+        
+        if (memoryAnimationCoroutine != null)
+        {
+            StopCoroutine(memoryAnimationCoroutine);
+            memoryAnimationCoroutine = null;
+        }
+        
+        if (presentAnimationCoroutine != null)
+        {
+            StopCoroutine(presentAnimationCoroutine);
+            presentAnimationCoroutine = null;
+        }
+        
+        // 🔥 FONDAMENTALE: Ripristina le posizioni originali
+        RestoreAllOriginalStates();
+        
+        Debug.Log("[PlayerUI] Tutte le animazioni UI fermate e posizioni originali ripristinate");
     }
     
     private void CleanupSceneManagerEvents()
@@ -280,6 +450,15 @@ public class PlayerUI : MonoBehaviour
     
     public void UpdateSceneMemoryCounter(int collected, int total)
     {
+        // Previeni aggiornamenti multipli simultanei
+        if (isUpdatingMemoryUI)
+        {
+            Debug.Log("[PlayerUI] Memory UI già in aggiornamento, ignorato");
+            return;
+        }
+        
+        isUpdatingMemoryUI = true;
+        
         currentSceneMemories = collected;
         totalSceneMemories = total;
         UpdateMemoryCounterDisplay();
@@ -296,10 +475,22 @@ public class PlayerUI : MonoBehaviour
         }
         
         Debug.Log($"[PlayerUI] Scene memory counter aggiornato: {currentSceneMemories}/{totalSceneMemories}");
+        
+        // Libera il flag dopo un breve delay
+        StartCoroutine(ReleaseMemoryUILock());
     }
     
     public void UpdateScenePresentCounter(int collected, int total)
     {
+        // Previeni aggiornamenti multipli simultanei
+        if (isUpdatingPresentUI)
+        {
+            Debug.Log("[PlayerUI] Present UI già in aggiornamento, ignorato");
+            return;
+        }
+        
+        isUpdatingPresentUI = true;
+        
         currentScenePresents = collected;
         totalScenePresents = total;
         UpdatePresentCounterDisplay();
@@ -316,13 +507,28 @@ public class PlayerUI : MonoBehaviour
         }
         
         Debug.Log($"[PlayerUI] Scene present counter aggiornato: {currentScenePresents}/{totalScenePresents}");
+        
+        // Libera il flag dopo un breve delay
+        StartCoroutine(ReleasePresentUILock());
+    }
+    
+    private IEnumerator ReleaseMemoryUILock()
+    {
+        yield return new WaitForSeconds(0.1f);
+        isUpdatingMemoryUI = false;
+    }
+    
+    private IEnumerator ReleasePresentUILock()
+    {
+        yield return new WaitForSeconds(0.1f);
+        isUpdatingPresentUI = false;
     }
     
     private void UpdateMemoryCounterDisplay()
     {
         if (memoryCounterText != null && totalSceneMemories > 0)
         {
-            // Usa il template salvato e sostituisci solo i numeri, preservando la formattazione
+            // USA SEMPRE IL TEMPLATE ORIGINALE, non il testo corrente
             string updatedText = UpdateNumbersInTemplate(memoryTextTemplate, currentSceneMemories, totalSceneMemories);
             memoryCounterText.text = updatedText;
             
@@ -344,7 +550,7 @@ public class PlayerUI : MonoBehaviour
     {
         if (presentCounterText != null && totalScenePresents > 0)
         {
-            // Usa il template salvato e sostituisci solo i numeri, preservando la formattazione
+            // USA SEMPRE IL TEMPLATE ORIGINALE, non il testo corrente
             string updatedText = UpdateNumbersInTemplate(presentTextTemplate, currentScenePresents, totalScenePresents);
             presentCounterText.text = updatedText;
             
@@ -362,7 +568,6 @@ public class PlayerUI : MonoBehaviour
         }
     }
     
-    // Metodo helper per aggiornare solo i numeri nel template, preservando tutta la formattazione TMP
     private string UpdateNumbersInTemplate(string template, int current, int total)
     {
         // Metodo semplice: cerca il pattern X/Y e sostituiscilo
@@ -387,7 +592,13 @@ public class PlayerUI : MonoBehaviour
         GameObject targetPanel = memoryPanel != null ? memoryPanel : memoryCounterText?.gameObject;
         if (targetPanel != null)
         {
-            StartCoroutine(ShowPanelWithAnimation(targetPanel));
+            // Ferma animazione precedente se attiva
+            if (memoryPanelCoroutine != null)
+            {
+                StopCoroutine(memoryPanelCoroutine);
+            }
+            
+            memoryPanelCoroutine = StartCoroutine(ShowPanelWithAnimation(targetPanel, "Memory"));
         }
     }
     
@@ -396,22 +607,43 @@ public class PlayerUI : MonoBehaviour
         GameObject targetPanel = presentPanel != null ? presentPanel : presentCounterText?.gameObject;
         if (targetPanel != null)
         {
-            StartCoroutine(ShowPanelWithAnimation(targetPanel));
+            // Ferma animazione precedente se attiva
+            if (presentPanelCoroutine != null)
+            {
+                StopCoroutine(presentPanelCoroutine);
+            }
+            
+            presentPanelCoroutine = StartCoroutine(ShowPanelWithAnimation(targetPanel, "Present"));
         }
     }
     
-    private System.Collections.IEnumerator ShowPanelWithAnimation(GameObject panel)
+    // 🔥 ANIMAZIONE CHE PRESERVA LA POSIZIONE ORIGINALE
+    private System.Collections.IEnumerator ShowPanelWithAnimation(GameObject panel, string panelType)
     {
         if (panel == null) yield break;
         
-        // Ferma eventuali animazioni precedenti su questo pannello
-        StopCoroutine(nameof(HidePanelWithAnimation));
+        Debug.Log($"[PlayerUI] Avvio animazione {panelType} panel: {panel.name}");
         
-        // Attiva il pannello e prepara l'animazione
-        panel.SetActive(true);
-        Transform panelTransform = panel.transform;
-        Vector3 originalScale = panelTransform.localScale;
+        // 🔥 PRIMO: Ripristina lo stato originale PRIMA di iniziare l'animazione
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
         CanvasGroup canvasGroup = panel.GetComponent<CanvasGroup>();
+        
+        if (panelRect == null) yield break;
+        
+        // Ottieni lo stato originale
+        UIElementState originalState;
+        if (panelType == "Memory")
+        {
+            originalState = memoryPanelOriginalState;
+        }
+        else if (panelType == "Present")
+        {
+            originalState = presentPanelOriginalState;
+        }
+        else
+        {
+            yield break;
+        }
         
         // Se non ha un CanvasGroup, aggiungilo per l'animazione di fade
         if (canvasGroup == null)
@@ -419,12 +651,17 @@ public class PlayerUI : MonoBehaviour
             canvasGroup = panel.AddComponent<CanvasGroup>();
         }
         
+        // 🔥 RIPRISTINA la posizione originale PRIMA dell'animazione
+        panelRect.anchoredPosition = originalState.anchoredPosition;
+        panelRect.rotation = originalState.rotation;
+        
+        // Attiva il pannello e prepara l'animazione
+        panel.SetActive(true);
+        
         // Inizia l'animazione di entrata (scale + fade)
         float elapsed = 0f;
-        panelTransform.localScale = Vector3.zero;
+        panelRect.localScale = Vector3.zero;
         canvasGroup.alpha = 0f;
-        
-        Debug.Log($"[PlayerUI] Showing panel with animation: {panel.name}");
         
         // Animazione di entrata
         while (elapsed < panelAnimationSpeed)
@@ -433,34 +670,66 @@ public class PlayerUI : MonoBehaviour
             float progress = elapsed / panelAnimationSpeed;
             float easedProgress = panelEaseInOut.Evaluate(progress);
             
-            panelTransform.localScale = Vector3.Lerp(Vector3.zero, originalScale, easedProgress);
+            panelRect.localScale = Vector3.Lerp(Vector3.zero, originalState.localScale, easedProgress);
             canvasGroup.alpha = Mathf.Lerp(0f, 1f, easedProgress);
+            
+            // 🔥 MANTIENI SEMPRE la posizione originale durante l'animazione
+            panelRect.anchoredPosition = originalState.anchoredPosition;
+            panelRect.rotation = originalState.rotation;
             
             yield return null;
         }
         
-        // Assicura che sia completamente visibile
-        panelTransform.localScale = originalScale;
+        // 🔥 ASSICURA che sia completamente nello stato originale
+        panelRect.localScale = originalState.localScale;
+        panelRect.anchoredPosition = originalState.anchoredPosition;
+        panelRect.rotation = originalState.rotation;
         canvasGroup.alpha = 1f;
+        
+        Debug.Log($"[PlayerUI] {panelType} panel mostrato nella posizione originale: {originalState.anchoredPosition}");
         
         // Aspetta il tempo di visualizzazione
         yield return new WaitForSeconds(panelShowDuration);
         
         // Inizia l'animazione di uscita
-        StartCoroutine(HidePanelWithAnimation(panel));
+        yield return StartCoroutine(HidePanelWithAnimation(panel, panelType));
+        
+        // Resetta la coroutine reference
+        if (panelType == "Memory")
+        {
+            memoryPanelCoroutine = null;
+        }
+        else if (panelType == "Present")
+        {
+            presentPanelCoroutine = null;
+        }
     }
     
-    private System.Collections.IEnumerator HidePanelWithAnimation(GameObject panel)
+    private System.Collections.IEnumerator HidePanelWithAnimation(GameObject panel, string panelType)
     {
         if (panel == null || !panel.activeInHierarchy) yield break;
         
-        Transform panelTransform = panel.transform;
-        Vector3 originalScale = panelTransform.localScale;
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
         CanvasGroup canvasGroup = panel.GetComponent<CanvasGroup>();
         
-        if (canvasGroup == null) yield break;
+        if (canvasGroup == null || panelRect == null) yield break;
         
-        Debug.Log($"[PlayerUI] Hiding panel with animation: {panel.name}");
+        Debug.Log($"[PlayerUI] Nascondo {panelType} panel: {panel.name}");
+        
+        // Ottieni lo stato originale
+        UIElementState originalState;
+        if (panelType == "Memory")
+        {
+            originalState = memoryPanelOriginalState;
+        }
+        else if (panelType == "Present")
+        {
+            originalState = presentPanelOriginalState;
+        }
+        else
+        {
+            yield break;
+        }
         
         // Animazione di uscita
         float elapsed = 0f;
@@ -471,21 +740,24 @@ public class PlayerUI : MonoBehaviour
             float progress = elapsed / panelAnimationSpeed;
             float easedProgress = panelEaseInOut.Evaluate(progress);
             
-            panelTransform.localScale = Vector3.Lerp(originalScale, Vector3.zero, easedProgress);
+            panelRect.localScale = Vector3.Lerp(originalState.localScale, Vector3.zero, easedProgress);
             canvasGroup.alpha = Mathf.Lerp(1f, 0f, easedProgress);
+            
+            // 🔥 MANTIENI SEMPRE la posizione originale anche durante l'uscita
+            panelRect.anchoredPosition = originalState.anchoredPosition;
+            panelRect.rotation = originalState.rotation;
             
             yield return null;
         }
         
-        // Nascondi completamente il pannello
-        panelTransform.localScale = Vector3.zero;
-        canvasGroup.alpha = 0f;
+        // 🔥 RIPRISTINA COMPLETAMENTE lo stato originale prima di nascondere
+        panelRect.localScale = originalState.localScale;
+        panelRect.anchoredPosition = originalState.anchoredPosition;
+        panelRect.rotation = originalState.rotation;
+        canvasGroup.alpha = originalState.alpha;
         panel.SetActive(false);
         
-        // Ripristina la scala originale per la prossima volta
-        panelTransform.localScale = originalScale;
-        
-        Debug.Log($"[PlayerUI] Panel hidden: {panel.name}");
+        Debug.Log($"[PlayerUI] {panelType} panel nascosto e ripristinato alla posizione originale: {originalState.anchoredPosition}");
     }
     
     private void UpdateAllCounterDisplays()
@@ -493,7 +765,6 @@ public class PlayerUI : MonoBehaviour
         UpdateMemoryCounterDisplay();
         UpdatePresentCounterDisplay();
     }
-    
     
     // Metodo per forzare la visualizzazione di un pannello (per debug)
     [ContextMenu("Show Memory Panel")]
@@ -540,35 +811,61 @@ public class PlayerUI : MonoBehaviour
     
     private void AnimateMemoryCounter()
     {
-        if (memoryCounterText != null)
+        // Ferma animazione precedente
+        if (memoryAnimationCoroutine != null)
         {
-            StartCoroutine(SimpleScaleAnimation(memoryCounterText.transform));
+            StopCoroutine(memoryAnimationCoroutine);
         }
         
-        if (memoryIcon != null)
-        {
-            StartCoroutine(SimpleScaleAnimation(memoryIcon.transform));
-        }
+        memoryAnimationCoroutine = StartCoroutine(AnimateMemoryCounterCoroutine());
     }
     
     private void AnimatePresentCounter()
     {
+        // Ferma animazione precedente
+        if (presentAnimationCoroutine != null)
+        {
+            StopCoroutine(presentAnimationCoroutine);
+        }
+        
+        presentAnimationCoroutine = StartCoroutine(AnimatePresentCounterCoroutine());
+    }
+    
+    private System.Collections.IEnumerator AnimateMemoryCounterCoroutine()
+    {
+        if (memoryCounterText != null)
+        {
+            yield return StartCoroutine(PositionPreservingScaleAnimation(memoryTextRect, memoryTextOriginalState));
+        }
+        
+        if (memoryIcon != null)
+        {
+            yield return StartCoroutine(PositionPreservingScaleAnimation(memoryIconRect, memoryIconOriginalState));
+        }
+        
+        memoryAnimationCoroutine = null;
+    }
+    
+    private System.Collections.IEnumerator AnimatePresentCounterCoroutine()
+    {
         if (presentCounterText != null)
         {
-            StartCoroutine(SimpleScaleAnimation(presentCounterText.transform));
+            yield return StartCoroutine(PositionPreservingScaleAnimation(presentTextRect, presentTextOriginalState));
         }
         
         if (presentIcon != null)
         {
-            StartCoroutine(SimpleScaleAnimation(presentIcon.transform));
+            yield return StartCoroutine(PositionPreservingScaleAnimation(presentIconRect, presentIconOriginalState));
         }
+        
+        presentAnimationCoroutine = null;
     }
     
-    private System.Collections.IEnumerator SimpleScaleAnimation(Transform target)
+    // 🔥 ANIMAZIONE CHE PRESERVA LA POSIZIONE ORIGINALE
+    private System.Collections.IEnumerator PositionPreservingScaleAnimation(RectTransform targetRect, UIElementState originalState)
     {
-        if (target == null) yield break;
+        if (targetRect == null) yield break;
         
-        Vector3 originalScale = target.localScale;
         float elapsed = 0f;
         float halfDuration = animationDuration * 0.5f;
         
@@ -577,7 +874,12 @@ public class PlayerUI : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float t = elapsed / halfDuration;
-            target.localScale = Vector3.Lerp(originalScale, originalScale * punchScale, t);
+            targetRect.localScale = Vector3.Lerp(originalState.localScale, originalState.localScale * punchScale, t);
+            
+            // 🔥 MANTIENI SEMPRE la posizione e rotazione originale
+            targetRect.anchoredPosition = originalState.anchoredPosition;
+            targetRect.rotation = originalState.rotation;
+            
             yield return null;
         }
         
@@ -588,11 +890,19 @@ public class PlayerUI : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float t = elapsed / halfDuration;
-            target.localScale = Vector3.Lerp(originalScale * punchScale, originalScale, t);
+            targetRect.localScale = Vector3.Lerp(originalState.localScale * punchScale, originalState.localScale, t);
+            
+            // 🔥 MANTIENI SEMPRE la posizione e rotazione originale
+            targetRect.anchoredPosition = originalState.anchoredPosition;
+            targetRect.rotation = originalState.rotation;
+            
             yield return null;
         }
         
-        target.localScale = originalScale;
+        // 🔥 RIPRISTINA COMPLETAMENTE lo stato originale
+        targetRect.localScale = originalState.localScale;
+        targetRect.anchoredPosition = originalState.anchoredPosition;
+        targetRect.rotation = originalState.rotation;
     }
     
     private System.Collections.IEnumerator CelebrationEffect(Transform textTransform, Transform iconTransform)
@@ -601,10 +911,24 @@ public class PlayerUI : MonoBehaviour
         for (int i = 0; i < 3; i++)
         {
             if (textTransform != null)
-                StartCoroutine(SimpleScaleAnimation(textTransform));
+            {
+                RectTransform textRect = textTransform as RectTransform;
+                if (textRect != null)
+                {
+                    UIElementState state = textRect == memoryTextRect ? memoryTextOriginalState : presentTextOriginalState;
+                    StartCoroutine(PositionPreservingScaleAnimation(textRect, state));
+                }
+            }
                 
             if (iconTransform != null)
-                StartCoroutine(RotationEffect(iconTransform));
+            {
+                RectTransform iconRect = iconTransform as RectTransform;
+                if (iconRect != null)
+                {
+                    UIElementState state = iconRect == memoryIconRect ? memoryIconOriginalState : presentIconOriginalState;
+                    StartCoroutine(PositionPreservingRotationEffect(iconRect, state));
+                }
+            }
                 
             yield return new WaitForSeconds(0.2f);
         }
@@ -626,9 +950,10 @@ public class PlayerUI : MonoBehaviour
         }
     }
     
-    private System.Collections.IEnumerator RotationEffect(Transform target)
+    // 🔥 ROTAZIONE CHE PRESERVA LA POSIZIONE ORIGINALE
+    private System.Collections.IEnumerator PositionPreservingRotationEffect(RectTransform targetRect, UIElementState originalState)
     {
-        if (target == null) yield break;
+        if (targetRect == null) yield break;
         
         float elapsed = 0f;
         float duration = 0.5f;
@@ -637,27 +962,44 @@ public class PlayerUI : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float rotation = Mathf.Lerp(0f, 360f, elapsed / duration);
-            target.rotation = Quaternion.Euler(0, 0, rotation);
+            targetRect.rotation = Quaternion.Euler(0, 0, rotation);
+            
+            // 🔥 MANTIENI SEMPRE la posizione e scale originale
+            targetRect.anchoredPosition = originalState.anchoredPosition;
+            targetRect.localScale = originalState.localScale;
+            
             yield return null;
         }
         
-        target.rotation = Quaternion.identity;
+        // 🔥 RIPRISTINA COMPLETAMENTE lo stato originale
+        targetRect.rotation = originalState.rotation;
+        targetRect.anchoredPosition = originalState.anchoredPosition;
+        targetRect.localScale = originalState.localScale;
     }
     
     // Metodo per reinizializzare quando cambi scena
     public void OnSceneChanged()
     {
+        // Ferma tutte le animazioni attive
+        StopAllUIAnimations();
+        
+        // Reset valori
         currentSceneMemories = 0;
         totalSceneMemories = 0;
         currentScenePresents = 0;
         totalScenePresents = 0;
+        isUpdatingMemoryUI = false;
+        isUpdatingPresentUI = false;
+        
+        // 🔥 RICACHE le posizioni per la nuova scena
+        CacheOriginalUIStates();
         
         // Risalva i template per la nuova scena
         SaveOriginalTextFormats();
         
         InitializeCollectibleSystem();
         
-        Debug.Log("[PlayerUI] Reinizializzato per nuova scena");
+        Debug.Log("[PlayerUI] Reinizializzato per nuova scena con nuove posizioni originali");
     }
     
     // ========== GETTERS PUBBLICI ==========
@@ -668,6 +1010,64 @@ public class PlayerUI : MonoBehaviour
     public int GetTotalScenePresents() => totalScenePresents;
     public int GetCurrentSceneCollectibles() => currentSceneMemories + currentScenePresents;
     public int GetTotalSceneCollectibles() => totalSceneMemories + totalScenePresents;
+    
+    // ========== DEBUG METHODS ==========
+    
+    [ContextMenu("Debug - Force Update Present Counter")]
+    public void DebugForceUpdatePresents()
+    {
+        UpdateScenePresentCounter(currentScenePresents + 1, totalScenePresents);
+    }
+    
+    [ContextMenu("Debug - Force Update Memory Counter")]
+    public void DebugForceUpdateMemories()
+    {
+        UpdateSceneMemoryCounter(currentSceneMemories + 1, totalSceneMemories);
+    }
+    
+    [ContextMenu("Debug - Reset All Counters")]
+    public void DebugResetCounters()
+    {
+        currentSceneMemories = 0;
+        currentScenePresents = 0;
+        UpdateAllCounterDisplays();
+    }
+    
+    [ContextMenu("Debug - Stop All Animations")]
+    public void DebugStopAllAnimations()
+    {
+        StopAllUIAnimations();
+    }
+    
+    [ContextMenu("🔥 Debug - Restore Original Positions")]
+    public void DebugRestoreOriginalPositions()
+    {
+        RestoreAllOriginalStates();
+    }
+    
+    [ContextMenu("🔥 Debug - Show Original States")]
+    public void DebugShowOriginalStates()
+    {
+        Debug.Log($"=== Stati Originali UI ===\n" +
+                  $"Memory Panel: pos={memoryPanelOriginalState.anchoredPosition}, scale={memoryPanelOriginalState.localScale}\n" +
+                  $"Present Panel: pos={presentPanelOriginalState.anchoredPosition}, scale={presentPanelOriginalState.localScale}\n" +
+                  $"Memory Text: pos={memoryTextOriginalState.anchoredPosition}, scale={memoryTextOriginalState.localScale}\n" +
+                  $"Present Text: pos={presentTextOriginalState.anchoredPosition}, scale={presentTextOriginalState.localScale}");
+    }
+    
+    [ContextMenu("Debug - Show All Info")]
+    public void DebugShowInfo()
+    {
+        Debug.Log($"=== PlayerUI Debug Info ===\n" +
+                  $"Memories: {currentSceneMemories}/{totalSceneMemories}\n" +
+                  $"Presents: {currentScenePresents}/{totalScenePresents}\n" +
+                  $"Memory Template: '{memoryTextTemplate}'\n" +
+                  $"Present Template: '{presentTextTemplate}'\n" +
+                  $"Updating Memory UI: {isUpdatingMemoryUI}\n" +
+                  $"Updating Present UI: {isUpdatingPresentUI}\n" +
+                  $"Memory Panel Coroutine: {memoryPanelCoroutine != null}\n" +
+                  $"Present Panel Coroutine: {presentPanelCoroutine != null}");
+    }
     
     // ========== EXISTING METHODS ==========
 

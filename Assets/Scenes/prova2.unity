@@ -2474,16 +2474,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce3111224a7e02f48ae80dd331e8d610, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  memoryName: 
+  collectibleName: 
+  collectibleType: 0
   isCollected: 0
-  memoryValue: 1
+  collectibleValue: 1
+  collectEffect: {fileID: 0}
+  collectSound: {fileID: 0}
+  effectDuration: 1
+  displayMessage: 
   enableFloating: 1
   floatSpeed: 2
   floatStrength: 1
+  canBeClickedToCollect: 1
+  canBeTriggerToCollect: 1
   memoryGlowColor: {r: 0, g: 1, b: 1, a: 1}
+  memoryCategory: 0
   memoryCollectionAura: {fileID: 0}
   memoryEchoSound: {fileID: 0}
-  collectEffect: {fileID: 0}
+  memoryGlowEffect: {fileID: 0}
   OnMemoryCollected:
     m_PersistentCalls:
       m_Calls: []
@@ -3375,6 +3383,8 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   enableDebugLogs: 1
+  developmentMode: 1
+  skipSyncOnStart: 1
 --- !u!4 &1247841983
 Transform:
   m_ObjectHideFlags: 0
