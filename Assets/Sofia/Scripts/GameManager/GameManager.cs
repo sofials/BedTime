@@ -125,10 +125,11 @@ public class GameManager : MonoBehaviour
         NotifySceneManagersReady();
     }
 
-    private void NotifySceneManagersReady()
+   private void NotifySceneManagersReady()
     {
         // Invia un messaggio broadcast per notificare che il GameManager è pronto
-        GameObject[] allObjects = FindObjectsOfType<GameObject>();
+        GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        
         foreach (GameObject obj in allObjects)
         {
             if (obj.name.Contains("SceneManager"))
