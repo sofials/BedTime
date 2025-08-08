@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8947742943069913601}
-  - component: {fileID: 5743336602183184544}
   - component: {fileID: 6102385316184323905}
   m_Layer: 0
   m_Name: Teddy_LOD
@@ -36,27 +35,6 @@ Transform:
   - {fileID: 6398549264104469240}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &5743336602183184544
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2434236894767241905}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 4.074711, y: 4.4849944, z: 2.7354624}
-  m_Center: {x: 0.015210569, y: 0.9296443, z: 0.44463733}
 --- !u!205 &6102385316184323905
 LODGroup:
   m_ObjectHideFlags: 0
@@ -71,15 +49,15 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.05262881
+  - screenRelativeHeight: 0.14122346
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 2504364367679875489}
-  - screenRelativeHeight: 0.022296399
+  - screenRelativeHeight: 0.052749462
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 8385472145418820756}
-  - screenRelativeHeight: 0.0023518004
+  - screenRelativeHeight: 0.010705445
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 6937456915101549532}
@@ -139,8 +117,37 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d50a087bfb6f95f448281627ac34f3ab, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9102695736430268208}
   m_SourcePrefab: {fileID: 100100000, guid: d50a087bfb6f95f448281627ac34f3ab, type: 3}
+--- !u!1 &1225085040203399743 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: d50a087bfb6f95f448281627ac34f3ab, type: 3}
+  m_PrefabInstance: {fileID: 2144005392709271406}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &9102695736430268208
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1225085040203399743}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 3.950113, y: 4.343491, z: 3.3601117}
+  m_Center: {x: 0.098307945, y: 1.0817177, z: 0.590027}
 --- !u!4 &1894802642778478725 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: d50a087bfb6f95f448281627ac34f3ab, type: 3}

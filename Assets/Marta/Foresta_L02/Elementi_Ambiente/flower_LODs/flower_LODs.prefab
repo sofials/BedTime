@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4272075194386789316}
   - component: {fileID: 7598602438838450675}
-  - component: {fileID: 4969288721612164618}
   m_Layer: 0
   m_Name: flower_LODs
   m_TagString: Untagged
@@ -63,29 +62,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 7224143797663794750}
   m_Enabled: 1
---- !u!136 &4969288721612164618
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5598932144473027446}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 11.87
-  m_Height: 1
-  m_Direction: 1
-  m_Center: {x: 0, y: -14.11, z: -0.11}
 --- !u!1001 &5171717505741846510
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -153,13 +129,44 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ee346d45eae7f574ba30a5fdcaa3bf39, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1950797415511006435}
   m_SourcePrefab: {fileID: 100100000, guid: ee346d45eae7f574ba30a5fdcaa3bf39, type: 3}
 --- !u!4 &4633949852593819653 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ee346d45eae7f574ba30a5fdcaa3bf39, type: 3}
   m_PrefabInstance: {fileID: 5171717505741846510}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &5405665880344644287 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: ee346d45eae7f574ba30a5fdcaa3bf39, type: 3}
+  m_PrefabInstance: {fileID: 5171717505741846510}
+  m_PrefabAsset: {fileID: 0}
+--- !u!136 &1950797415511006435
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5405665880344644287}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.020751972
+  m_Height: 0.054688565
+  m_Direction: 1
+  m_Center: {x: 0.000000009313226, y: -0.000000037252903, z: 0}
 --- !u!23 &5765790642555579242 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: ee346d45eae7f574ba30a5fdcaa3bf39, type: 3}

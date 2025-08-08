@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8615479005302935519}
   - component: {fileID: 7361272043746036860}
-  - component: {fileID: 8916702256343859690}
   m_Layer: 0
   m_Name: forestpack_roadSign_westEast_1_LODs
   m_TagString: Untagged
@@ -63,27 +62,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 682324633103723534}
   m_Enabled: 1
---- !u!65 &8916702256343859690
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8364398429395221015}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 7.020987, y: 7.020987, z: 1.8601384}
-  m_Center: {x: -0.63000005, y: 3.0104938, z: -0.08000003}
 --- !u!1001 &1829289754422768259
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -317,8 +295,37 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 100000, guid: fbaae1d077d294940b6ecbec3e9c88eb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3943410784960241285}
   m_SourcePrefab: {fileID: 100100000, guid: fbaae1d077d294940b6ecbec3e9c88eb, type: 3}
+--- !u!1 &6414971277329078752 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 100000, guid: fbaae1d077d294940b6ecbec3e9c88eb, type: 3}
+  m_PrefabInstance: {fileID: 6414971277329112896}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &3943410784960241285
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6414971277329078752}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.0513879, y: 1.0416875, z: 0.24608192}
+  m_Center: {x: -0.09841232, y: 0.38177854, z: -0.016752644}
 --- !u!4 &6414971277329499584 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 400000, guid: fbaae1d077d294940b6ecbec3e9c88eb, type: 3}

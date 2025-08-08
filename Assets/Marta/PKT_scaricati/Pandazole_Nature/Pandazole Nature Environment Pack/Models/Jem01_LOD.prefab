@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8184403340029215966}
-  - component: {fileID: 8460575608958677891}
   - component: {fileID: 6965051085310311792}
   m_Layer: 0
   m_Name: Jem01_LOD
@@ -36,27 +35,6 @@ Transform:
   - {fileID: 3919275923683047647}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &8460575608958677891
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9143419792094715291}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.6383398, y: 0.11296477, z: 0.5540518}
-  m_Center: {x: -0.0035646043, y: 0.061290305, z: -0.009570172}
 --- !u!205 &6965051085310311792
 LODGroup:
   m_ObjectHideFlags: 0
@@ -71,15 +49,15 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.34618202
+  - screenRelativeHeight: 0.89144593
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 4992145876190095834}
-  - screenRelativeHeight: 0.17873539
+  - screenRelativeHeight: 0.35649323
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 8142935793373391487}
-  - screenRelativeHeight: 0.12636776
+  - screenRelativeHeight: 0.2572888
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 2751484363504976816}
@@ -206,7 +184,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 3ff5e52a00a9c4a4d8137e5ecd097911, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2333149118881341749}
   m_SourcePrefab: {fileID: 100100000, guid: 3ff5e52a00a9c4a4d8137e5ecd097911, type: 3}
 --- !u!23 &4992145876190095834 stripped
 MeshRenderer:
@@ -218,6 +199,32 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 3ff5e52a00a9c4a4d8137e5ecd097911, type: 3}
   m_PrefabInstance: {fileID: 5946510281191421278}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &6793493437255665679 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 3ff5e52a00a9c4a4d8137e5ecd097911, type: 3}
+  m_PrefabInstance: {fileID: 5946510281191421278}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &2333149118881341749
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6793493437255665679}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.55945754, y: 0.12333963, z: 0.5284503}
+  m_Center: {x: -0.00000032761406, y: 0.06166952, z: -0.018743163}
 --- !u!1001 &7403936856287950587
 PrefabInstance:
   m_ObjectHideFlags: 0
