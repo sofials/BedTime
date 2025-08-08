@@ -16,9 +16,9 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     [Header("References")]
     public Transform footTarget;
+    [SerializeField] private Transform cameraTransform; // Make this assignable in inspector
 
     private GameObject currentGhost;
-    private Transform  cameraTransform;
     private bool       placing = false;
 
     private Vector3    lastForwardDirection;
@@ -40,18 +40,52 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         controls.Enable();
 
         effectIconIndex = 1; // slot icona dedicato
+        
+        // Try to find camera in Awake if not assigned
+        if (cameraTransform == null)
+        {
+            Camera mainCamera = Camera.main;
+            if (mainCamera != null)
+            {
+                cameraTransform = mainCamera.transform;
+            }
+            else
+            {
+                // Fallback: find any camera
+                Camera anyCamera = Object.FindFirstObjectByType<Camera>();
+                if (anyCamera != null)
+                {
+                    cameraTransform = anyCamera.transform;
+                    Debug.LogWarning($"MainCamera not found, using {anyCamera.name} instead.");
+                }
+            }
+        }
     }
 
     private void Start()
     {
-        cameraTransform = Camera.main.transform;
+        // Final attempt to find camera if still null
+        if (cameraTransform == null)
+        {
+            Camera mainCamera = Camera.main;
+            if (mainCamera != null)
+            {
+                cameraTransform = mainCamera.transform;
+            }
+            else
+            {
+                Debug.LogError("No camera found! Please assign a camera transform in the inspector or ensure there's a MainCamera in the scene.");
+                enabled = false; // Disable this component to prevent further errors
+                return;
+            }
+        }
     }
 
     protected override void Update()
     {
         base.Update();
 
-        if (!placing || currentGhost == null) return;
+        if (!placing || currentGhost == null || cameraTransform == null) return;
 
         Vector3 camForward = GetCameraForwardFlat();
         float angle = Vector3.Angle(lastForwardDirection, camForward);
@@ -114,7 +148,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     public override void Activate()
     {
-        if (placing || currentGhost) return;
+        if (placing || currentGhost || cameraTransform == null) return;
 
         placing = true;
         IsActive = true;
@@ -131,7 +165,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         {
             drawEffect.ResetDraw();
 
-            // Fa partire l’audio loop dopo il suono di attivazione
+            // Fa partire l'audio loop dopo il suono di attivazione
             StartCoroutine(StartDrawAudioAfterDelay(drawEffect));
         }
     }
@@ -152,6 +186,8 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     private Vector3 GetCameraForwardFlat()
     {
+        if (cameraTransform == null) return transform.forward; // Fallback to object's forward
+        
         Vector3 f = cameraTransform.forward;
         f.y = 0f;
         return f.normalized;
@@ -167,5 +203,14 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private bool CanPlacePlatform(Vector3 pos)
     {
         return !Physics.CheckSphere(pos, checkRadius, obstacleMask);
+    }
+
+    private void OnDestroy()
+    {
+        if (controls != null)
+        {
+            controls.Disable();
+            controls.Dispose();
+        }
     }
 }
