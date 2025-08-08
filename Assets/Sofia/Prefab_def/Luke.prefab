@@ -30369,7 +30369,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4530120001442678975}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -14.6, y: 19.6, z: 69.96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -30475,8 +30475,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   attackHitbox: {fileID: 6924923339556105575}
   attackHitboxCollider: {fileID: 2376905988324229258}
-  attackIconKeyboard: {fileID: 0}
-  attackIconController: {fileID: 0}
+  attackIcon: {fileID: 0}
+  effectIconIndex: 0
   punchEffect: {fileID: 7894657145701143272}
   punchImpactFX: {fileID: 5916694476000559725}
   isAttacking: 0
@@ -30516,6 +30516,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   totalMemories: 0
   collectedMemories: 0
+  totalPresents: 0
+  collectedPresents: 0
+  useSceneManagerIntegration: 1
+  autoFindCollectiblesInScene: 1
+  trackCombinedProgress: 1
 --- !u!1 &4640162231798183033
 GameObject:
   m_ObjectHideFlags: 0
