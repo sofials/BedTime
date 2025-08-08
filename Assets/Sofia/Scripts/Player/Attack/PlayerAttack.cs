@@ -12,13 +12,9 @@ public class PlayerAttack : MonoBehaviour
     private bool attackInput;
     private int ignoreFrames = 0;
 
-    public UIEffectHandler attackIconKeyboard;
-    public UIEffectHandler attackIconController;
-
-    private UIEffectHandler currentEffectIcon =>
-        Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame
-            ? attackIconController
-            : attackIconKeyboard;
+    [Header("UI Effect")]
+    public UIEffectHandler attackIcon; // Modificato per usare una sola icona
+    public int effectIconIndex = 0; // Indice dell'icona nell'array di PlayerUI
 
     public ParticleSystem punchEffect;            // Effetto generale del pugno (da inspector)
     public CFXR_EffectController punchImpactFX;   // Effetto specifico per impatto con nemici
@@ -48,8 +44,34 @@ public class PlayerAttack : MonoBehaviour
         };
     }
 
-    private void OnEnable() => controls.Gameplay.Enable();
-    private void OnDisable() => controls.Gameplay.Disable();
+    private void OnEnable()
+    {
+        controls.Gameplay.Enable();
+        // Sottoscrivi all'evento di cambio input
+        InputSystem.onActionChange += OnInputActionChange;
+    }
+
+    private void OnDisable()
+    {
+        controls.Gameplay.Disable();
+        // Rimuovi la sottoscrizione
+        InputSystem.onActionChange -= OnInputActionChange;
+    }
+
+    private void OnInputActionChange(object obj, InputActionChange change)
+    {
+        if (change == InputActionChange.ActionPerformed)
+        {
+            bool wasGamepad = useGamepad;
+            useGamepad = Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame;
+
+            // Aggiorna il testo dell'icona se è cambiato il tipo di input
+            if (wasGamepad != useGamepad && attackIcon != null)
+            {
+                attackIcon.UpdateInputText(useGamepad);
+            }
+        }
+    }
 
     private void Start()
     {
@@ -66,6 +88,8 @@ public class PlayerAttack : MonoBehaviour
             effectCurrentlyPlaying = false;
         }
     }
+
+    private bool useGamepad = false; // Nuova variabile per tenere traccia del tipo di input
 
     private void Update()
     {
@@ -90,8 +114,11 @@ public class PlayerAttack : MonoBehaviour
             {
                 animator.SetTrigger("Attack");
 
-                if (currentEffectIcon != null)
-                    currentEffectIcon.PulseIcon();
+                // Usa l'indice per aggiornare l'icona tramite PlayerUI
+                if (PlayerUI.Instance != null && effectIconIndex >= 0)
+                {
+                    PlayerUI.Instance.PulseIconAt(effectIconIndex);
+                }
 
                 isAttacking = true;
                 attackTimer = attackDuration;
