@@ -27,6 +27,9 @@ public class SceneManager01 : MonoBehaviour
     
     [Header("Settings")]
     [SerializeField] private bool enableDebugLogs = true;
+    [Header("Development Mode")]
+[SerializeField] private bool developmentMode = true; // ← ATTIVA QUESTO DURANTE LO SVILUPPO
+[SerializeField] private bool skipSyncOnStart = true; // ← E ANCHE QUESTO
     
     // Tracking degli oggetti raccolti per nome (per GameManager)
     private List<string> collectedPresentNames = new List<string>();
@@ -88,26 +91,34 @@ public class SceneManager01 : MonoBehaviour
         sceneInitialized = true;
     }
     
-    private void InitializeWithGameManager()
+   private void InitializeWithGameManager()
+{
+    if (!gameManagerReady || !sceneInitialized || GameManager.Instance == null) return;
+    
+    // Crea liste di nomi per GameManager (basati sui GameObject trovati)
+    List<string> allMemoryNames = GetAllMemoryNames();
+    List<string> allPresentNames = GetAllPresentNames();
+    
+    // Notifica al GameManager i totali di questa scena
+    GameManager.Instance.InitializeSceneMemories(sceneName, totalMemories, allMemoryNames);
+    GameManager.Instance.InitializeScene01Presents(totalPresents, allPresentNames);
+    
+    // 🔧 MODALITÀ SVILUPPO: Salta la sincronizzazione se richiesto
+    if (developmentMode && skipSyncOnStart)
     {
-        if (!gameManagerReady || !sceneInitialized || GameManager.Instance == null) return;
-        
-        // Crea liste di nomi per GameManager (basati sui GameObject trovati)
-        List<string> allMemoryNames = GetAllMemoryNames();
-        List<string> allPresentNames = GetAllPresentNames();
-        
-        // Notifica al GameManager i totali di questa scena
-        GameManager.Instance.InitializeSceneMemories(sceneName, totalMemories, allMemoryNames);
-        GameManager.Instance.InitializeScene01Presents(totalPresents, allPresentNames);
-        
+        DebugLog("🔧 [DEV MODE] Sincronizzazione saltata - tutti i regali saranno visibili");
+    }
+    else
+    {
         // Sincronizza con i dati già raccolti dal GameManager
         SyncWithGameManager();
-        
-        DebugLog($"[SceneManager01] Sincronizzazione con GameManager completata");
-        
-        // Aggiorna l'UI iniziale
-        UpdateUI();
     }
+    
+    DebugLog($"[SceneManager01] Sincronizzazione con GameManager completata");
+    
+    // Aggiorna l'UI iniziale
+    UpdateUI();
+}
     
     private void SyncWithGameManager()
     {

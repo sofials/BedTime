@@ -23,8 +23,16 @@ public class Presents : MonoBehaviour
     [Header("Present Events")]
     public UnityEvent<Presents> OnPresentCollected;
     
+    [Header("Parent Object Components")]
+    [SerializeField] private Transform visualContainer; // Container per le mesh/LOD
+    [SerializeField] private Transform effectsContainer; // Container per effetti
+    [SerializeField] private Collider presentCollider; // Reference al collider
+    [SerializeField] private LODGroup lodGroup; // Reference al LOD Group
+    
     private Vector3 startPosition;
     private bool presentInitialized = false;
+    private Renderer[] childRenderers; // Cache dei renderer per ottimizzazione
+    private AudioSource audioSource; // AudioSource locale se presente
     
     private void Awake()
     {
@@ -36,6 +44,9 @@ public class Presents : MonoBehaviour
         {
             presentName = gameObject.name;
         }
+        
+        // Cache dei componenti child
+        CacheChildComponents();
         
         Debug.Log($"[Presents] Awake completato per {presentName} alla posizione {startPosition}");
     }
@@ -52,18 +63,69 @@ public class Presents : MonoBehaviour
     {
         if (!isCollected)
         {
-            // Animazione rotazione
+            // Animazione rotazione - applica al visual container se presente, altrimenti al parent
             if (enableRotation)
             {
-                transform.Rotate(Vector3.up * rotationSpeed * Time.deltaTime);
+                Transform targetTransform = visualContainer != null ? visualContainer : transform;
+                targetTransform.Rotate(Vector3.up * rotationSpeed * Time.deltaTime);
             }
             
-            // Animazione floating
+            // Animazione floating - sempre applicata al parent per mantenere collider allineato
             if (enableFloating)
             {
                 FloatAnimation();
             }
         }
+    }
+    
+    private void CacheChildComponents()
+    {
+        // Auto-trova i componenti se non assegnati manualmente
+        if (presentCollider == null)
+        {
+            presentCollider = GetComponent<Collider>();
+            if (presentCollider == null)
+            {
+                presentCollider = GetComponentInChildren<Collider>();
+            }
+        }
+        
+        if (lodGroup == null)
+        {
+            lodGroup = GetComponent<LODGroup>();
+            if (lodGroup == null)
+            {
+                lodGroup = GetComponentInChildren<LODGroup>();
+            }
+        }
+        
+        // Auto-trova i container
+        if (visualContainer == null)
+        {
+            Transform found = transform.Find("Visual_Container");
+            if (found == null) found = transform.Find("Visuals");
+            if (found == null) found = transform.Find("Mesh");
+            visualContainer = found;
+        }
+        
+        if (effectsContainer == null)
+        {
+            Transform found = transform.Find("Effects_Container");
+            if (found == null) found = transform.Find("Effects");
+            effectsContainer = found;
+        }
+        
+        // Cache tutti i renderer per gestione visibilità
+        childRenderers = GetComponentsInChildren<Renderer>();
+        
+        // Cache AudioSource locale
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null && effectsContainer != null)
+        {
+            audioSource = effectsContainer.GetComponent<AudioSource>();
+        }
+        
+        Debug.Log($"[Presents] Componenti cachati: Collider={presentCollider != null}, LOD={lodGroup != null}, Renderers={childRenderers.Length}");
     }
     
     private void InitializePresent()
@@ -72,8 +134,9 @@ public class Presents : MonoBehaviour
         
         presentInitialized = true;
         
-        // Assicurati che l'oggetto sia attivo
+        // Assicurati che l'oggetto e i suoi child siano attivi
         gameObject.SetActive(true);
+        SetChildVisibility(true);
         
         // Verifica che la posizione sia corretta
         if (Vector3.Distance(transform.position, startPosition) > 0.1f)
@@ -82,7 +145,35 @@ public class Presents : MonoBehaviour
             Debug.Log($"[Presents] Posizione corretta a {startPosition}");
         }
         
+        // Setup collider come trigger se non già impostato
+        if (presentCollider != null && !presentCollider.isTrigger)
+        {
+            presentCollider.isTrigger = true;
+            Debug.Log($"[Presents] Collider impostato come trigger");
+        }
+        
         Debug.Log($"[Presents] Inizializzazione specifica completata per {presentName}");
+    }
+    
+    private void SetChildVisibility(bool visible)
+    {
+        // Gestisce la visibilità di tutti i renderer child
+        if (childRenderers != null)
+        {
+            foreach (var renderer in childRenderers)
+            {
+                if (renderer != null)
+                {
+                    renderer.enabled = visible;
+                }
+            }
+        }
+        
+        // Gestisce il LOD Group
+        if (lodGroup != null)
+        {
+            lodGroup.enabled = visible;
+        }
     }
     
     private void FloatAnimation()
@@ -167,22 +258,32 @@ public class Presents : MonoBehaviour
     
     private void PlayPresentFeedback()
     {
+        // Posizione per gli effetti - preferisce il centro visuale
+        Vector3 effectPosition = visualContainer != null ? visualContainer.position : transform.position;
+        
         // Effetti visivi specifici per i present
         if (presentCollectionParticles != null)
         {
-            GameObject particles = Instantiate(presentCollectionParticles, transform.position, Quaternion.identity);
+            GameObject particles = Instantiate(presentCollectionParticles, effectPosition, Quaternion.identity);
             Destroy(particles, 3f);
         }
         else if (collectEffect != null)
         {
-            GameObject effect = Instantiate(collectEffect, transform.position, Quaternion.identity);
+            GameObject effect = Instantiate(collectEffect, effectPosition, Quaternion.identity);
             Destroy(effect, 2f);
         }
         
         // Audio specifico per present
         if (presentJingleSound != null)
         {
-            AudioSource.PlayClipAtPoint(presentJingleSound, transform.position, 0.7f);
+            if (audioSource != null)
+            {
+                audioSource.PlayOneShot(presentJingleSound, 0.7f);
+            }
+            else
+            {
+                AudioSource.PlayClipAtPoint(presentJingleSound, effectPosition, 0.7f);
+            }
         }
         
         Debug.Log($"[Presents] Effetti present riprodotti per {presentName}");
@@ -209,7 +310,12 @@ public class Presents : MonoBehaviour
     
     private System.Collections.IEnumerator HideAfterEffect()
     {
+        // Disabilita prima i renderer per feedback immediato
+        SetChildVisibility(false);
+        
         yield return new WaitForSeconds(1f);
+        
+        // Poi disattiva completamente l'oggetto
         gameObject.SetActive(false);
     }
     
@@ -218,6 +324,8 @@ public class Presents : MonoBehaviour
     public string GetPresentName() => presentName;
     public bool IsCollected() => isCollected;
     public int GetPresentValue() => presentValue;
+    public Collider GetCollider() => presentCollider;
+    public LODGroup GetLODGroup() => lodGroup;
     
     public void SetPresentName(string name)
     {
@@ -282,6 +390,14 @@ public class Presents : MonoBehaviour
         isCollected = false;
         transform.position = startPosition;
         gameObject.SetActive(true);
+        SetChildVisibility(true);
+        
+        // Reset rotazione del visual container se presente
+        if (visualContainer != null)
+        {
+            visualContainer.rotation = Quaternion.identity;
+        }
+        
         Debug.Log($"[Presents] Present {presentName} resetato");
     }
     
@@ -290,6 +406,24 @@ public class Presents : MonoBehaviour
         if (!isCollected)
         {
             CollectPresent();
+        }
+    }
+    
+    // ========== LOD MANAGEMENT ==========
+    
+    public void ForceLODLevel(int lodLevel)
+    {
+        if (lodGroup != null)
+        {
+            lodGroup.ForceLOD(lodLevel);
+        }
+    }
+    
+    public void EnableAutoLOD()
+    {
+        if (lodGroup != null)
+        {
+            lodGroup.ForceLOD(-1); // -1 = automatic
         }
     }
     
@@ -325,13 +459,48 @@ public class Presents : MonoBehaviour
         ConfigureAsSpecialPresent();
     }
     
+    [ContextMenu("Cache Components")]
+    public void DebugCacheComponents()
+    {
+        CacheChildComponents();
+    }
+    
+    [ContextMenu("Force LOD 0")]
+    public void DebugForceLOD0()
+    {
+        ForceLODLevel(0);
+    }
+    
+    [ContextMenu("Enable Auto LOD")]
+    public void DebugEnableAutoLOD()
+    {
+        EnableAutoLOD();
+    }
+    
     // ========== GIZMOS ==========
     
     private void OnDrawGizmos()
     {
-        // Area di raccolta
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, 1f);
+        // Area di raccolta basata sul collider se presente
+        if (presentCollider != null)
+        {
+            Gizmos.color = Color.green;
+            if (presentCollider is SphereCollider sphereCol)
+            {
+                Gizmos.DrawWireSphere(transform.position + sphereCol.center, sphereCol.radius);
+            }
+            else if (presentCollider is BoxCollider boxCol)
+            {
+                Gizmos.matrix = Matrix4x4.TRS(transform.position + boxCol.center, transform.rotation, boxCol.size);
+                Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
+                Gizmos.matrix = Matrix4x4.identity;
+            }
+        }
+        else
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(transform.position, 1f);
+        }
         
         // Posizione iniziale
         if (Application.isPlaying)
@@ -350,13 +519,42 @@ public class Presents : MonoBehaviour
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(transform.position, 2f);
         }
+        
+        // Indicatori per containers
+        if (visualContainer != null)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireCube(visualContainer.position, Vector3.one * 0.1f);
+        }
+        
+        if (effectsContainer != null)
+        {
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireCube(effectsContainer.position, Vector3.one * 0.1f);
+        }
     }
     
     private void OnDrawGizmosSelected()
     {
         // Info dettagliate quando selezionato
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, 1.5f);
+        if (presentCollider != null)
+        {
+            if (presentCollider is SphereCollider sphereCol)
+            {
+                Gizmos.DrawWireSphere(transform.position + sphereCol.center, sphereCol.radius * 1.2f);
+            }
+            else if (presentCollider is BoxCollider boxCol)
+            {
+                Gizmos.matrix = Matrix4x4.TRS(transform.position + boxCol.center, transform.rotation, boxCol.size * 1.2f);
+                Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
+                Gizmos.matrix = Matrix4x4.identity;
+            }
+        }
+        else
+        {
+            Gizmos.DrawWireSphere(transform.position, 1.5f);
+        }
         
         // Visualizza movimento float se abilitato
         if (Application.isPlaying && enableFloating)
@@ -373,14 +571,28 @@ public class Presents : MonoBehaviour
         // Visualizza rotazione se abilitata
         if (enableRotation)
         {
+            Transform rotatingTransform = visualContainer != null ? visualContainer : transform;
             Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(transform.position, 0.5f);
+            Gizmos.DrawWireSphere(rotatingTransform.position, 0.5f);
             
             // Frecce per indicare la rotazione
-            Vector3 right = transform.right * 0.8f;
-            Vector3 forward = transform.forward * 0.8f;
-            Gizmos.DrawRay(transform.position, right);
-            Gizmos.DrawRay(transform.position, forward);
+            Vector3 right = rotatingTransform.right * 0.8f;
+            Vector3 forward = rotatingTransform.forward * 0.8f;
+            Gizmos.DrawRay(rotatingTransform.position, right);
+            Gizmos.DrawRay(rotatingTransform.position, forward);
+        }
+        
+        // Connessioni tra parent e container
+        if (visualContainer != null)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawLine(transform.position, visualContainer.position);
+        }
+        
+        if (effectsContainer != null)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawLine(transform.position, effectsContainer.position);
         }
     }
 }

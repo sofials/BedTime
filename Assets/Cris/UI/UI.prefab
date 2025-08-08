@@ -150,7 +150,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &5492683640733157285
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2360,7 +2360,7 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
-  m_HorizontalAlignment: 2
+  m_HorizontalAlignment: 32
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
@@ -3968,13 +3968,43 @@ MonoBehaviour:
   healthFill: {fileID: 5469030518114506338}
   powerFill: {fileID: 4409547164819770399}
   memoryCounterText: {fileID: 6260973983457266122}
+  presentCounterText: {fileID: 44637636739072925}
   memoryIcon: {fileID: 4213838696535530750}
-  animateMemoryOnCollect: 1
-  memoryPunchScale: 1.2
-  memoryAnimationDuration: 0.3
+  presentIcon: {fileID: 4996077789761404197}
+  memoryPanel: {fileID: 1493279534681966601}
+  presentPanel: {fileID: 2001155661263499657}
+  showPanelsOnCollect: 1
+  panelShowDuration: 3
+  panelAnimationSpeed: 0.5
+  panelEaseInOut:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  animateOnCollect: 1
+  punchScale: 1.2
+  animationDuration: 0.3
   playerController: {fileID: 0}
   playerPowerUp: {fileID: 0}
-  memoryCollector: {fileID: 0}
   abilityIcons:
   - {fileID: 1268219951578629933}
   - {fileID: 5758857784328852407}
@@ -4561,7 +4591,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '00/00
+  m_text: '0/0 presents
 
 '
   m_isRightToLeft: 0
@@ -4590,14 +4620,14 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 35
-  m_fontSizeBase: 35
+  m_fontSize: 40
+  m_fontSizeBase: 40
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
-  m_HorizontalAlignment: 2
+  m_HorizontalAlignment: 4
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0

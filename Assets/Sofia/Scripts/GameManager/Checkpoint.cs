@@ -6,27 +6,12 @@ public class Checkpoint : MonoBehaviour
     [SerializeField] private string checkpointName;
     [SerializeField] private bool isActivated = false;
     
-    [Header("Visual Feedback")]
-    [SerializeField] private GameObject activationEffect;
-    [SerializeField] private AudioClip activationSound;
-    [SerializeField] private Material activatedMaterial;
-    
-    private Renderer checkpointRenderer;
-    private Material originalMaterial;
-    
     private void Start()
     {
         // Auto-assign name se non impostato
         if (string.IsNullOrEmpty(checkpointName))
         {
             checkpointName = gameObject.name;
-        }
-        
-        // Salva il materiale originale
-        checkpointRenderer = GetComponent<Renderer>();
-        if (checkpointRenderer != null)
-        {
-            originalMaterial = checkpointRenderer.material;
         }
         
         // Controlla se questo checkpoint è già stato raggiunto
@@ -43,7 +28,7 @@ public class Checkpoint : MonoBehaviour
             if (savedCheckpoint == checkpointName)
             {
                 // Questo checkpoint era già attivo
-                ActivateCheckpoint(false); // false = non suonare effetti
+                isActivated = true;
                 Debug.Log($"[Checkpoint] {checkpointName} era già attivato");
             }
         }
@@ -53,47 +38,28 @@ public class Checkpoint : MonoBehaviour
     {
         // Controlla se l'oggetto che ha attivato il trigger è il player
         ThirdPersonController player = other.GetComponent<ThirdPersonController>();
-        if (player != null && !isActivated)
+        if (player != null)
         {
-            ActivateCheckpoint(true);
+            // Se già attivato, non fare niente!
+            if (isActivated)
+            {
+                Debug.Log($"[Checkpoint] {checkpointName} già attivo - ignorato");
+                return;
+            }
+            
+            // Prima attivazione
+            ActivateCheckpoint();
             NotifySceneManager();
-            Debug.Log($"Checkpoint raggiunto: {checkpointName}");
+            Debug.Log($"[Checkpoint] Checkpoint {checkpointName} attivato");
         }
     }
     
-    private void ActivateCheckpoint(bool playEffects)
+    private void ActivateCheckpoint()
     {
         if (isActivated) return;
         
         isActivated = true;
-        
-        // Feedback visivo/audio solo se richiesto
-        if (playEffects)
-        {
-            PlayActivationFeedback();
-        }
-        
-        // Cambia materiale se disponibile
-        if (checkpointRenderer != null && activatedMaterial != null)
-        {
-            checkpointRenderer.material = activatedMaterial;
-        }
-    }
-    
-    private void PlayActivationFeedback()
-    {
-        // Effetto visivo
-        if (activationEffect != null)
-        {
-            GameObject effect = Instantiate(activationEffect, transform.position, Quaternion.identity);
-            Destroy(effect, 3f);
-        }
-        
-        // Suono
-        if (activationSound != null)
-        {
-            AudioSource.PlayClipAtPoint(activationSound, transform.position);
-        }
+        // Nessun effetto visivo/audio - è un oggetto empty
     }
     
     private void NotifySceneManager()
@@ -103,7 +69,6 @@ public class Checkpoint : MonoBehaviour
         // Notifica allo SceneManager appropriato basandosi sulla scena corrente
         if (currentScene == "00 - Landing in the Dreamworld")
         {
-            // Cerca SceneManager00 (se esiste)
             SceneManager00 sceneManager00 = FindFirstObjectByType<SceneManager00>();
             if (sceneManager00 != null)
             {
@@ -111,7 +76,6 @@ public class Checkpoint : MonoBehaviour
             }
             else
             {
-                // Fallback diretto al GameManager
                 NotifyGameManagerDirectly(currentScene);
             }
         }
@@ -128,7 +92,6 @@ public class Checkpoint : MonoBehaviour
         }
         else if (currentScene == "02 - Finding Pietro")
         {
-            // Cerca SceneManager02 (se esiste)
             SceneManager02 sceneManager02 = FindFirstObjectByType<SceneManager02>();
             if (sceneManager02 != null)
             {
@@ -141,14 +104,12 @@ public class Checkpoint : MonoBehaviour
         }
         else
         {
-            // Scena non riconosciuta, notifica diretta al GameManager
             NotifyGameManagerDirectly(currentScene);
         }
     }
     
     private void NotifyGameManagerDirectly(string sceneName)
     {
-        // Fallback: notifica diretta al GameManager se non c'è SceneManager
         if (GameManager.Instance != null)
         {
             GameManager.Instance.NotifySceneCheckpoint(sceneName, checkpointName);
@@ -172,9 +133,13 @@ public class Checkpoint : MonoBehaviour
     {
         if (!isActivated)
         {
-            ActivateCheckpoint(true);
+            ActivateCheckpoint();
             NotifySceneManager();
             Debug.Log($"[Checkpoint] {checkpointName} forzatamente attivato");
+        }
+        else
+        {
+            Debug.Log($"[Checkpoint] {checkpointName} già attivo - nessuna azione");
         }
     }
     
@@ -184,33 +149,7 @@ public class Checkpoint : MonoBehaviour
     public void ResetCheckpoint()
     {
         isActivated = false;
-        
-        // Ripristina materiale originale
-        if (checkpointRenderer != null && originalMaterial != null)
-        {
-            checkpointRenderer.material = originalMaterial;
-        }
-        
         Debug.Log($"[Checkpoint] {checkpointName} resetato");
-    }
-    
-    // ========== COMPATIBILITÀ CON VECCHIO CODICE ==========
-    
-    /// <summary>
-    /// Metodo per compatibilità con il vecchio sistema (deprecato)
-    /// </summary>
-    [System.Obsolete("Usa il nuovo sistema che passa attraverso gli SceneManager")]
-    private void SetCheckpointOldWay(Transform checkpointTransform)
-    {
-        if (GameManager.Instance != null)
-        {
-            // Il vecchio GameManager aveva questo metodo
-            // GameManager.Instance.SetCheckpoint(checkpointTransform);
-            
-            // Ora usiamo il nuovo sistema
-            string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            GameManager.Instance.NotifySceneCheckpoint(currentScene, checkpointName);
-        }
     }
     
     // ========== DEBUG ==========
@@ -240,70 +179,31 @@ public class Checkpoint : MonoBehaviour
                   $"Saved Checkpoint for Scene: {savedCheckpoint}\n" +
                   $"Is This Current Checkpoint: {savedCheckpoint == checkpointName}");
     }
-}
-
-// ========== SCRIPT AGGIUNTIVI PER LE ALTRE SCENE ==========
-
-// Se non hai ancora SceneManager00 e SceneManager02, ecco dei template base:
-
-public class SceneManager00 : MonoBehaviour
-{
-    [Header("Scene Configuration")]
-    [SerializeField] private string sceneName = "00 - Landing in the Dreamworld";
     
-    public static SceneManager00 Instance { get; private set; }
+    // ========== GIZMOS PER VISUALIZZARE IN EDITOR ==========
     
-    private void Awake()
+    private void OnDrawGizmos()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        // Visualizza l'area del checkpoint nell'editor
+        Gizmos.color = isActivated ? Color.green : Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, 1f);
+        
+        // Icona checkpoint
+        Gizmos.color = isActivated ? Color.green : Color.white;
+        Gizmos.DrawWireCube(transform.position + Vector3.up * 2f, Vector3.one * 0.5f);
     }
     
-    public void OnCheckpointReached(string checkpointName)
+    private void OnDrawGizmosSelected()
     {
-        if (GameManager.Instance != null)
+        // Mostra informazioni dettagliate quando selezionato
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, 2f);
+        
+        // Nome del checkpoint
+        if (!string.IsNullOrEmpty(checkpointName))
         {
-            GameManager.Instance.NotifySceneCheckpoint(sceneName, checkpointName);
-        }
-        Debug.Log($"[SceneManager00] Checkpoint {checkpointName} raggiunto");
-    }
-    
-    // Altri metodi per memorie, etc...
-}
-
-public class SceneManager02 : MonoBehaviour
-{
-    [Header("Scene Configuration")]
-    [SerializeField] private string sceneName = "02 - Finding Pietro";
-    
-    public static SceneManager02 Instance { get; private set; }
-    
-    private void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
+            Vector3 labelPos = transform.position + Vector3.up * 3f;
+            // Il nome viene mostrato tramite i gizmos (visibile solo nell'editor)
         }
     }
-    
-    public void OnCheckpointReached(string checkpointName)
-    {
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.NotifySceneCheckpoint(sceneName, checkpointName);
-        }
-        Debug.Log($"[SceneManager02] Checkpoint {checkpointName} raggiunto");
-    }
-    
-    // Altri metodi per memorie, etc...
 }
