@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
+using System.Text.RegularExpressions;
 
 public class PlayerUI : MonoBehaviour
 {
@@ -11,26 +12,47 @@ public class PlayerUI : MonoBehaviour
     [Header("Mana/Power UI")]
     public Image powerFill;
 
-    [Header("Memory Counter UI")]
+    [Header("Scene Collectibles UI")]
     public TextMeshProUGUI memoryCounterText;
+    public TextMeshProUGUI presentCounterText;
     public Image memoryIcon; // opzionale, icona della memoria
+    public Image presentIcon; // opzionale, icona del present
     
-    [Header("Memory Animation (opzionale)")]
-    public bool animateMemoryOnCollect = true;
-    public float memoryPunchScale = 1.2f;
-    public float memoryAnimationDuration = 0.3f;
+    [Header("Collectible Panels Animation")]
+    public GameObject memoryPanel; // Panel che contiene memoryCounterText e memoryIcon
+    public GameObject presentPanel; // Panel che contiene presentCounterText e presentIcon
+    
+    [Header("Panel Animation Settings")]
+    public bool showPanelsOnCollect = true;
+    public float panelShowDuration = 3f; // Quanto tempo mostrare il panel
+    public float panelAnimationSpeed = 0.5f; // Velocità animazione entrata/uscita
+    public AnimationCurve panelEaseInOut = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    
+    [Header("Collectibles Animation")]
+    public bool animateOnCollect = true;
+    public float punchScale = 1.2f;
+    public float animationDuration = 0.3f;
 
     [Header("Player References")]
     public ThirdPersonController playerController;
     public PlayerPowerUp playerPowerUp;
-    public PlayerCollectibleTracker memoryCollector;
 
     [Header("Ability Icons")]
-    public UIEffectHandler[] abilityIcons; // Un singolo array invece di due separati
+    public UIEffectHandler[] abilityIcons;
 
     private bool useGamepad = false;
-    private int currentMemories = 0;
-    private int totalMemories = 0;
+    
+    // Scene collectibles tracking
+    private int currentSceneMemories = 0;
+    private int totalSceneMemories = 0;
+    private int currentScenePresents = 0;
+    private int totalScenePresents = 0;
+    
+    // Template strings per preservare la formattazione
+    private string memoryTextTemplate = "";
+    private string presentTextTemplate = "";
+    private Color originalMemoryColor;
+    private Color originalPresentColor;
 
     public static PlayerUI Instance { get; private set; }
 
@@ -46,63 +68,138 @@ public class PlayerUI : MonoBehaviour
 
     private void Start()
     {
-        InitializeMemorySystem();
+        // Salva i template di testo e colori originali PRIMA di inizializzare
+        SaveOriginalTextFormats();
+        
+        // Nascondi i pannelli all'inizio
+        HidePanelsAtStart();
+        
+        InitializeCollectibleSystem();
     }
-
-    private void InitializeMemorySystem()
+    
+    private void HidePanelsAtStart()
     {
-        // Trova automaticamente il memory collector se non assegnato
-        if (memoryCollector == null)
+        // Nascondi i pannelli dei collectibles all'inizio del gioco
+        if (memoryPanel != null)
         {
-            memoryCollector = PlayerCollectibleTracker.Instance;
-            if (memoryCollector == null)
-            {
-                memoryCollector = Object.FindFirstObjectByType<PlayerCollectibleTracker>();
-            }
+            memoryPanel.SetActive(false);
+        }
+        else if (memoryCounterText != null)
+        {
+            memoryCounterText.gameObject.SetActive(false);
         }
         
-        // Collegati agli eventi del memory collector
-        if (memoryCollector != null)
+        if (presentPanel != null)
+        {
+            presentPanel.SetActive(false);
+        }
+        else if (presentCounterText != null)
+        {
+            presentCounterText.gameObject.SetActive(false);
+        }
+        
+        Debug.Log("[PlayerUI] Pannelli collectibles nascosti all'avvio");
+    }
+    
+    private void SaveOriginalTextFormats()
+    {
+        // Salva il template per le memories
+        if (memoryCounterText != null)
+        {
+            memoryTextTemplate = memoryCounterText.text;
+            originalMemoryColor = memoryCounterText.color;
+            
+            // Se il testo è vuoto o non contiene numeri, usa un template di default
+            if (string.IsNullOrEmpty(memoryTextTemplate) || !memoryTextTemplate.Contains("/"))
+            {
+                memoryTextTemplate = "Memories: 0/0";
+            }
+            
+            Debug.Log($"[PlayerUI] Memory template salvato: '{memoryTextTemplate}' - Colore: {originalMemoryColor}");
+        }
+        
+        // Salva il template per i presents
+        if (presentCounterText != null)
+        {
+            presentTextTemplate = presentCounterText.text;
+            originalPresentColor = presentCounterText.color;
+            
+            // Se il testo è vuoto o non contiene numeri, usa un template di default
+            if (string.IsNullOrEmpty(presentTextTemplate) || !presentTextTemplate.Contains("/"))
+            {
+                presentTextTemplate = "Presents: 0/0";
+            }
+            
+            Debug.Log($"[PlayerUI] Present template salvato: '{presentTextTemplate}' - Colore: {originalPresentColor}");
+        }
+    }
+
+    private void InitializeCollectibleSystem()
+    {
+        // Collegati al SceneManager01 per i dati della scena corrente
+        if (SceneManager01.Instance != null)
         {
             // Disconnetti eventuali vecchi eventi
-            memoryCollector.OnMemoryCollected -= UpdateMemoryCounter;
-            memoryCollector.OnMemoriesInitialized -= InitializeMemoryCounter;
-            memoryCollector.OnAllMemoriesCollected -= OnAllMemoriesCompleted;
+            CleanupSceneManagerEvents();
             
-            // Connetti i nuovi eventi
-            memoryCollector.OnMemoryCollected += UpdateMemoryCounter;
-            memoryCollector.OnMemoriesInitialized += InitializeMemoryCounter;
-            memoryCollector.OnAllMemoriesCollected += OnAllMemoriesCompleted;
+            // Connetti ai nuovi eventi
+            SceneManager01.Instance.OnMemoryCountChanged.AddListener(UpdateSceneMemoryCounter);
+            SceneManager01.Instance.OnPresentCountChanged.AddListener(UpdateScenePresentCounter);
+            SceneManager01.Instance.OnAllMemoriesCollected.AddListener(OnAllSceneMemoriesCompleted);
+            SceneManager01.Instance.OnAllPresentsCollected.AddListener(OnAllScenePresentsCompleted);
+            SceneManager01.Instance.OnAllCollectiblesCompleted.AddListener(OnAllSceneCollectiblesCompleted);
             
             // Inizializza subito se i dati sono già disponibili
-            if (memoryCollector.GetTotalMemories() > 0)
-            {
-                currentMemories = memoryCollector.GetCollectedMemories();
-                totalMemories = memoryCollector.GetTotalMemories();
-                UpdateMemoryCounterDisplay();
-                Debug.Log($"[PlayerUI] Inizializzato da collector esistente: {currentMemories}/{totalMemories}");
-            }
+            currentSceneMemories = SceneManager01.Instance.GetCollectedMemories();
+            totalSceneMemories = SceneManager01.Instance.GetTotalMemories();
+            currentScenePresents = SceneManager01.Instance.GetCollectedPresents();
+            totalScenePresents = SceneManager01.Instance.GetTotalPresents();
+            
+            UpdateAllCounterDisplays();
+            
+            Debug.Log($"[PlayerUI] Inizializzato da SceneManager - Memories: {currentSceneMemories}/{totalSceneMemories}, Presents: {currentScenePresents}/{totalScenePresents}");
         }
         else
         {
-            Debug.LogWarning("[PlayerUI] PlayerMemoryCollector non trovato!");
-            // Fallback con SceneManager
-            TryInitializeFromSceneManager();
+            Debug.LogWarning("[PlayerUI] SceneManager01 non trovato! Provo con PlayerCollectibleTracker come fallback...");
+            TryInitializeFromTracker();
         }
     }
     
-    private void TryInitializeFromSceneManager()
+    private void TryInitializeFromTracker()
     {
-        if (SceneManager01.Instance != null)
+        // Fallback con PlayerCollectibleTracker
+        PlayerCollectibleTracker tracker = PlayerCollectibleTracker.Instance;
+        if (tracker == null)
         {
-            // Collegati direttamente al SceneManager come fallback
-            SceneManager01.Instance.OnMemoryCountChanged.AddListener(UpdateMemoryCounter);
+            tracker = Object.FindFirstObjectByType<PlayerCollectibleTracker>();
+        }
+        
+        if (tracker != null)
+        {
+            // Disconnetti eventuali vecchi eventi
+            CleanupTrackerEvents(tracker);
             
-            totalMemories = SceneManager01.Instance.GetTotalMemories();
-            currentMemories = SceneManager01.Instance.GetCurrentMemories();
-            UpdateMemoryCounterDisplay();
+            // Connetti agli eventi del tracker
+            tracker.OnMemoryCollected += UpdateSceneMemoryCounter;
+            tracker.OnPresentCollected += UpdateScenePresentCounter;
+            tracker.OnAllMemoriesCollected += OnAllSceneMemoriesCompleted;
+            tracker.OnAllPresentsCollected += OnAllScenePresentsCompleted;
+            tracker.OnAllCollectiblesCompleted += OnAllSceneCollectiblesCompleted;
             
-            Debug.Log($"[PlayerUI] Fallback: Inizializzato da SceneManager: {currentMemories}/{totalMemories}");
+            // Inizializza i valori
+            currentSceneMemories = tracker.GetCollectedMemories();
+            totalSceneMemories = tracker.GetTotalMemories();
+            currentScenePresents = tracker.GetCollectedPresents();
+            totalScenePresents = tracker.GetTotalPresents();
+            
+            UpdateAllCounterDisplays();
+            
+            Debug.Log($"[PlayerUI] Fallback con Tracker - Memories: {currentSceneMemories}/{totalSceneMemories}, Presents: {currentScenePresents}/{totalScenePresents}");
+        }
+        else
+        {
+            Debug.LogError("[PlayerUI] Nessun sistema di tracking collectibles trovato!");
         }
     }
 
@@ -120,18 +217,37 @@ public class PlayerUI : MonoBehaviour
     
     private void CleanupEvents()
     {
-        // Disconnetti gli eventi per evitare memory leaks
-        if (memoryCollector != null)
-        {
-            memoryCollector.OnMemoryCollected -= UpdateMemoryCounter;
-            memoryCollector.OnMemoriesInitialized -= InitializeMemoryCounter;
-            memoryCollector.OnAllMemoriesCollected -= OnAllMemoriesCompleted;
-        }
+        CleanupSceneManagerEvents();
         
-        // Cleanup SceneManager events
+        // Cleanup Tracker events
+        PlayerCollectibleTracker tracker = PlayerCollectibleTracker.Instance;
+        if (tracker != null)
+        {
+            CleanupTrackerEvents(tracker);
+        }
+    }
+    
+    private void CleanupSceneManagerEvents()
+    {
         if (SceneManager01.Instance != null)
         {
-            SceneManager01.Instance.OnMemoryCountChanged.RemoveListener(UpdateMemoryCounter);
+            SceneManager01.Instance.OnMemoryCountChanged.RemoveListener(UpdateSceneMemoryCounter);
+            SceneManager01.Instance.OnPresentCountChanged.RemoveListener(UpdateScenePresentCounter);
+            SceneManager01.Instance.OnAllMemoriesCollected.RemoveListener(OnAllSceneMemoriesCompleted);
+            SceneManager01.Instance.OnAllPresentsCollected.RemoveListener(OnAllScenePresentsCompleted);
+            SceneManager01.Instance.OnAllCollectiblesCompleted.RemoveListener(OnAllSceneCollectiblesCompleted);
+        }
+    }
+    
+    private void CleanupTrackerEvents(PlayerCollectibleTracker tracker)
+    {
+        if (tracker != null)
+        {
+            tracker.OnMemoryCollected -= UpdateSceneMemoryCounter;
+            tracker.OnPresentCollected -= UpdateScenePresentCounter;
+            tracker.OnAllMemoriesCollected -= OnAllSceneMemoriesCompleted;
+            tracker.OnAllPresentsCollected -= OnAllScenePresentsCompleted;
+            tracker.OnAllCollectiblesCompleted -= OnAllSceneCollectiblesCompleted;
         }
     }
 
@@ -148,9 +264,6 @@ public class PlayerUI : MonoBehaviour
         bool wasGamepad = useGamepad;
         useGamepad = Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame;
 
-        // Non serve più attivare/disattivare UIKeyboard/UIController
-
-        // Aggiorna il testo di tutte le icone quando cambia il tipo di input
         if (wasGamepad != useGamepad && abilityIcons != null)
         {
             for (int i = 0; i < abilityIcons.Length; i++)
@@ -163,103 +276,308 @@ public class PlayerUI : MonoBehaviour
         }
     }
 
-    // === MEMORY COUNTER METHODS ===
+    // ========== SCENE COLLECTIBLES COUNTER METHODS ==========
     
-    public void InitializeMemoryCounter(int total)
+    public void UpdateSceneMemoryCounter(int collected, int total)
     {
-        totalMemories = total;
-        currentMemories = 0;
+        currentSceneMemories = collected;
+        totalSceneMemories = total;
         UpdateMemoryCounterDisplay();
         
-        Debug.Log($"[PlayerUI] Memory counter inizializzato: 0/{total}");
-    }
-    
-    public void UpdateMemoryCounter(int collected, int total)
-    {
-        currentMemories = collected;
-        totalMemories = total;
-        UpdateMemoryCounterDisplay();
+        // Mostra il pannello con animazione quando viene raccolta una memory
+        if (showPanelsOnCollect)
+        {
+            ShowMemoryPanel();
+        }
         
-        if (animateMemoryOnCollect)
+        if (animateOnCollect)
         {
             AnimateMemoryCounter();
         }
         
-        Debug.Log($"[PlayerUI] Memory counter aggiornato: {currentMemories}/{totalMemories}");
+        Debug.Log($"[PlayerUI] Scene memory counter aggiornato: {currentSceneMemories}/{totalSceneMemories}");
+    }
+    
+    public void UpdateScenePresentCounter(int collected, int total)
+    {
+        currentScenePresents = collected;
+        totalScenePresents = total;
+        UpdatePresentCounterDisplay();
+        
+        // Mostra il pannello con animazione quando viene raccolto un present
+        if (showPanelsOnCollect)
+        {
+            ShowPresentPanel();
+        }
+        
+        if (animateOnCollect)
+        {
+            AnimatePresentCounter();
+        }
+        
+        Debug.Log($"[PlayerUI] Scene present counter aggiornato: {currentScenePresents}/{totalScenePresents}");
     }
     
     private void UpdateMemoryCounterDisplay()
     {
-        if (memoryCounterText != null)
+        if (memoryCounterText != null && totalSceneMemories > 0)
         {
-            memoryCounterText.text = $"Memories collected {currentMemories}/{totalMemories}";
+            // Usa il template salvato e sostituisci solo i numeri, preservando la formattazione
+            string updatedText = UpdateNumbersInTemplate(memoryTextTemplate, currentSceneMemories, totalSceneMemories);
+            memoryCounterText.text = updatedText;
             
-            // Cambia colore se tutte raccolte
-            if (currentMemories >= totalMemories && totalMemories > 0)
+            // Cambia colore se tutte raccolte, altrimenti usa il colore originale
+            if (currentSceneMemories >= totalSceneMemories)
             {
                 memoryCounterText.color = Color.green;
-                
-                // Anima icona se presente
-                if (memoryIcon != null)
-                {
-                    AnimateMemoryIcon();
-                }
             }
             else
             {
-                memoryCounterText.color = Color.white;
+                memoryCounterText.color = originalMemoryColor;
             }
+            
+            Debug.Log($"[PlayerUI] Memory text aggiornato: '{updatedText}'");
         }
     }
     
-    private void OnAllMemoriesCompleted()
+    private void UpdatePresentCounterDisplay()
     {
-        Debug.Log("[PlayerUI] Tutte le memorie completate! Attivando celebrazione UI");
+        if (presentCounterText != null && totalScenePresents > 0)
+        {
+            // Usa il template salvato e sostituisci solo i numeri, preservando la formattazione
+            string updatedText = UpdateNumbersInTemplate(presentTextTemplate, currentScenePresents, totalScenePresents);
+            presentCounterText.text = updatedText;
+            
+            // Cambia colore se tutti raccolti, altrimenti usa il colore originale
+            if (currentScenePresents >= totalScenePresents)
+            {
+                presentCounterText.color = Color.green;
+            }
+            else
+            {
+                presentCounterText.color = originalPresentColor;
+            }
+            
+            Debug.Log($"[PlayerUI] Present text aggiornato: '{updatedText}'");
+        }
+    }
+    
+    // Metodo helper per aggiornare solo i numeri nel template, preservando tutta la formattazione TMP
+    private string UpdateNumbersInTemplate(string template, int current, int total)
+    {
+        // Metodo semplice: cerca il pattern X/Y e sostituiscilo
+        if (template.Contains("/"))
+        {
+            // Usa Regex per trovare e sostituire numeri nel formato X/Y
+            string result = Regex.Replace(template, @"\d+/\d+", $"{current}/{total}");
+            Debug.Log($"[PlayerUI] Template aggiornato: '{template}' -> '{result}'");
+            return result;
+        }
         
-        // Effetti speciali quando tutte le memorie sono raccolte
+        // Se non trova il pattern, aggiungi alla fine
+        string fallbackResult = template.TrimEnd() + $" {current}/{total}";
+        Debug.Log($"[PlayerUI] Fallback: '{template}' -> '{fallbackResult}'");
+        return fallbackResult;
+    }
+    
+    // ========== PANEL ANIMATION METHODS ==========
+    
+    private void ShowMemoryPanel()
+    {
+        GameObject targetPanel = memoryPanel != null ? memoryPanel : memoryCounterText?.gameObject;
+        if (targetPanel != null)
+        {
+            StartCoroutine(ShowPanelWithAnimation(targetPanel));
+        }
+    }
+    
+    private void ShowPresentPanel()
+    {
+        GameObject targetPanel = presentPanel != null ? presentPanel : presentCounterText?.gameObject;
+        if (targetPanel != null)
+        {
+            StartCoroutine(ShowPanelWithAnimation(targetPanel));
+        }
+    }
+    
+    private System.Collections.IEnumerator ShowPanelWithAnimation(GameObject panel)
+    {
+        if (panel == null) yield break;
+        
+        // Ferma eventuali animazioni precedenti su questo pannello
+        StopCoroutine(nameof(HidePanelWithAnimation));
+        
+        // Attiva il pannello e prepara l'animazione
+        panel.SetActive(true);
+        Transform panelTransform = panel.transform;
+        Vector3 originalScale = panelTransform.localScale;
+        CanvasGroup canvasGroup = panel.GetComponent<CanvasGroup>();
+        
+        // Se non ha un CanvasGroup, aggiungilo per l'animazione di fade
+        if (canvasGroup == null)
+        {
+            canvasGroup = panel.AddComponent<CanvasGroup>();
+        }
+        
+        // Inizia l'animazione di entrata (scale + fade)
+        float elapsed = 0f;
+        panelTransform.localScale = Vector3.zero;
+        canvasGroup.alpha = 0f;
+        
+        Debug.Log($"[PlayerUI] Showing panel with animation: {panel.name}");
+        
+        // Animazione di entrata
+        while (elapsed < panelAnimationSpeed)
+        {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / panelAnimationSpeed;
+            float easedProgress = panelEaseInOut.Evaluate(progress);
+            
+            panelTransform.localScale = Vector3.Lerp(Vector3.zero, originalScale, easedProgress);
+            canvasGroup.alpha = Mathf.Lerp(0f, 1f, easedProgress);
+            
+            yield return null;
+        }
+        
+        // Assicura che sia completamente visibile
+        panelTransform.localScale = originalScale;
+        canvasGroup.alpha = 1f;
+        
+        // Aspetta il tempo di visualizzazione
+        yield return new WaitForSeconds(panelShowDuration);
+        
+        // Inizia l'animazione di uscita
+        StartCoroutine(HidePanelWithAnimation(panel));
+    }
+    
+    private System.Collections.IEnumerator HidePanelWithAnimation(GameObject panel)
+    {
+        if (panel == null || !panel.activeInHierarchy) yield break;
+        
+        Transform panelTransform = panel.transform;
+        Vector3 originalScale = panelTransform.localScale;
+        CanvasGroup canvasGroup = panel.GetComponent<CanvasGroup>();
+        
+        if (canvasGroup == null) yield break;
+        
+        Debug.Log($"[PlayerUI] Hiding panel with animation: {panel.name}");
+        
+        // Animazione di uscita
+        float elapsed = 0f;
+        
+        while (elapsed < panelAnimationSpeed)
+        {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / panelAnimationSpeed;
+            float easedProgress = panelEaseInOut.Evaluate(progress);
+            
+            panelTransform.localScale = Vector3.Lerp(originalScale, Vector3.zero, easedProgress);
+            canvasGroup.alpha = Mathf.Lerp(1f, 0f, easedProgress);
+            
+            yield return null;
+        }
+        
+        // Nascondi completamente il pannello
+        panelTransform.localScale = Vector3.zero;
+        canvasGroup.alpha = 0f;
+        panel.SetActive(false);
+        
+        // Ripristina la scala originale per la prossima volta
+        panelTransform.localScale = originalScale;
+        
+        Debug.Log($"[PlayerUI] Panel hidden: {panel.name}");
+    }
+    
+    private void UpdateAllCounterDisplays()
+    {
+        UpdateMemoryCounterDisplay();
+        UpdatePresentCounterDisplay();
+    }
+    
+    
+    // Metodo per forzare la visualizzazione di un pannello (per debug)
+    [ContextMenu("Show Memory Panel")]
+    public void DebugShowMemoryPanel()
+    {
+        ShowMemoryPanel();
+    }
+    
+    [ContextMenu("Show Present Panel")]  
+    public void DebugShowPresentPanel()
+    {
+        ShowPresentPanel();
+    }
+    
+    private void OnAllSceneMemoriesCompleted()
+    {
+        Debug.Log("[PlayerUI] Tutte le memorie della scena completate!");
+        
         if (memoryCounterText != null)
         {
             memoryCounterText.color = new Color(1f, 0.84f, 0f, 1f); // Colore oro
-            StartCoroutine(CelebrationTextEffect());
+            StartCoroutine(CelebrationEffect(memoryCounterText.transform, memoryIcon?.transform));
         }
+    }
+    
+    private void OnAllScenePresentsCompleted()
+    {
+        Debug.Log("[PlayerUI] Tutti i presents della scena completati!");
         
-        if (memoryIcon != null)
+        if (presentCounterText != null)
         {
-            StartCoroutine(CelebrationIconEffect());
+            presentCounterText.color = new Color(1f, 0.84f, 0f, 1f); // Colore oro
+            StartCoroutine(CelebrationEffect(presentCounterText.transform, presentIcon?.transform));
         }
+    }
+    
+    private void OnAllSceneCollectiblesCompleted()
+    {
+        Debug.Log("[PlayerUI] TUTTI i collectibles della scena completati! 🎉");
+        
+        // Celebrazione completa
+        StartCoroutine(FullSceneCelebration());
     }
     
     private void AnimateMemoryCounter()
     {
         if (memoryCounterText != null)
         {
-            Transform textTransform = memoryCounterText.transform;
-            Vector3 originalScale = textTransform.localScale;
-            StartCoroutine(SimpleScaleAnimation(textTransform, originalScale));
+            StartCoroutine(SimpleScaleAnimation(memoryCounterText.transform));
         }
-    }
-    
-    private void AnimateMemoryIcon()
-    {
+        
         if (memoryIcon != null)
         {
-            Transform iconTransform = memoryIcon.transform;
-            Vector3 originalScale = iconTransform.localScale;
-            StartCoroutine(SimpleScaleAnimation(iconTransform, originalScale));
+            StartCoroutine(SimpleScaleAnimation(memoryIcon.transform));
         }
     }
     
-    private System.Collections.IEnumerator SimpleScaleAnimation(Transform target, Vector3 originalScale)
+    private void AnimatePresentCounter()
     {
+        if (presentCounterText != null)
+        {
+            StartCoroutine(SimpleScaleAnimation(presentCounterText.transform));
+        }
+        
+        if (presentIcon != null)
+        {
+            StartCoroutine(SimpleScaleAnimation(presentIcon.transform));
+        }
+    }
+    
+    private System.Collections.IEnumerator SimpleScaleAnimation(Transform target)
+    {
+        if (target == null) yield break;
+        
+        Vector3 originalScale = target.localScale;
         float elapsed = 0f;
-        float halfDuration = memoryAnimationDuration * 0.5f;
+        float halfDuration = animationDuration * 0.5f;
         
         // Scale up
         while (elapsed < halfDuration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / halfDuration;
-            target.localScale = Vector3.Lerp(originalScale, originalScale * memoryPunchScale, t);
+            target.localScale = Vector3.Lerp(originalScale, originalScale * punchScale, t);
             yield return null;
         }
         
@@ -270,64 +588,94 @@ public class PlayerUI : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float t = elapsed / halfDuration;
-            target.localScale = Vector3.Lerp(originalScale * memoryPunchScale, originalScale, t);
+            target.localScale = Vector3.Lerp(originalScale * punchScale, originalScale, t);
             yield return null;
         }
         
         target.localScale = originalScale;
     }
     
-    private System.Collections.IEnumerator CelebrationTextEffect()
+    private System.Collections.IEnumerator CelebrationEffect(Transform textTransform, Transform iconTransform)
     {
-        if (memoryCounterText == null) yield break;
-        
-        Transform textTransform = memoryCounterText.transform;
-        Vector3 originalScale = textTransform.localScale;
-        
-        // Effetto di celebrazione più lungo
+        // Effetto di celebrazione multiplo
         for (int i = 0; i < 3; i++)
         {
-            yield return StartCoroutine(SimpleScaleAnimation(textTransform, originalScale));
-            yield return new WaitForSeconds(0.1f);
+            if (textTransform != null)
+                StartCoroutine(SimpleScaleAnimation(textTransform));
+                
+            if (iconTransform != null)
+                StartCoroutine(RotationEffect(iconTransform));
+                
+            yield return new WaitForSeconds(0.2f);
         }
     }
     
-    private System.Collections.IEnumerator CelebrationIconEffect()
+    private System.Collections.IEnumerator FullSceneCelebration()
     {
-        if (memoryIcon == null) yield break;
+        // Celebrazione completa per tutti i collectibles
+        if (memoryCounterText != null && memoryCounterText.gameObject.activeInHierarchy)
+        {
+            StartCoroutine(CelebrationEffect(memoryCounterText.transform, memoryIcon?.transform));
+        }
         
-        // Effetto di rotazione per l'icona
-        Transform iconTransform = memoryIcon.transform;
+        yield return new WaitForSeconds(0.1f);
+        
+        if (presentCounterText != null && presentCounterText.gameObject.activeInHierarchy)
+        {
+            StartCoroutine(CelebrationEffect(presentCounterText.transform, presentIcon?.transform));
+        }
+    }
+    
+    private System.Collections.IEnumerator RotationEffect(Transform target)
+    {
+        if (target == null) yield break;
+        
         float elapsed = 0f;
-        float duration = 1f;
+        float duration = 0.5f;
         
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float rotation = Mathf.Lerp(0f, 360f, elapsed / duration);
-            iconTransform.rotation = Quaternion.Euler(0, 0, rotation);
+            target.rotation = Quaternion.Euler(0, 0, rotation);
             yield return null;
         }
         
-        iconTransform.rotation = Quaternion.identity;
+        target.rotation = Quaternion.identity;
     }
     
     // Metodo per reinizializzare quando cambi scena
     public void OnSceneChanged()
     {
-        currentMemories = 0;
-        totalMemories = 0;
-        InitializeMemorySystem();
+        currentSceneMemories = 0;
+        totalSceneMemories = 0;
+        currentScenePresents = 0;
+        totalScenePresents = 0;
+        
+        // Risalva i template per la nuova scena
+        SaveOriginalTextFormats();
+        
+        InitializeCollectibleSystem();
+        
+        Debug.Log("[PlayerUI] Reinizializzato per nuova scena");
     }
-
-    // === EXISTING METHODS ===
+    
+    // ========== GETTERS PUBBLICI ==========
+    
+    public int GetCurrentSceneMemories() => currentSceneMemories;
+    public int GetTotalSceneMemories() => totalSceneMemories;
+    public int GetCurrentScenePresents() => currentScenePresents;
+    public int GetTotalScenePresents() => totalScenePresents;
+    public int GetCurrentSceneCollectibles() => currentSceneMemories + currentScenePresents;
+    public int GetTotalSceneCollectibles() => totalSceneMemories + totalScenePresents;
+    
+    // ========== EXISTING METHODS ==========
 
     public void UpdateAbilityIconState(int index, bool canActivate)
     {
         if (abilityIcons != null && index >= 0 && index < abilityIcons.Length && abilityIcons[index] != null)
         {
             abilityIcons[index].SetGrayscale(!canActivate);
-            // Aggiorna il testo in base al tipo di input
             abilityIcons[index].UpdateInputText(useGamepad);
         }
     }

@@ -1,113 +1,182 @@
-
 using UnityEngine;
+using UnityEngine.Events;
 
-public class Presents : Collectibles
+public class Presents : MonoBehaviour
 {
     [Header("Present Specific Settings")]
-    [SerializeField] private bool customRotationSpeed = false;
-    [SerializeField] private float presentRotationSpeed = 60f;
-    [SerializeField] private bool customFloatSettings = false;
-    [SerializeField] private float presentFloatSpeed = 2.5f;
-    [SerializeField] private float presentFloatStrength = 0.4f;
+    [SerializeField] private string presentName;
+    [SerializeField] private bool isCollected = false;
+    [SerializeField] private int presentValue = 10;
+    
+    [Header("Present Animation")]
+    [SerializeField] private bool enableRotation = true;
+    [SerializeField] private float rotationSpeed = 45f;
+    [SerializeField] private bool enableFloating = true;
+    [SerializeField] private float floatSpeed = 2f;
+    [SerializeField] private float floatStrength = 0.3f;
     
     [Header("Present Effects")]
     [SerializeField] private GameObject presentCollectionParticles;
     [SerializeField] private AudioClip presentJingleSound;
+    [SerializeField] private GameObject collectEffect;
+    
+    [Header("Present Events")]
+    public UnityEvent<Presents> OnPresentCollected;
+    
+    private Vector3 startPosition;
+    private bool presentInitialized = false;
     
     private void Awake()
     {
-        // Forza il tipo a Present e configura le impostazioni di base
-        SetCollectibleType(CollectibleType.Present);
+        // Salva la posizione iniziale
+        startPosition = transform.position;
         
-        // Assicurati che i present non usino mai il billboard
-        SetBillboardEnabled(false);
+        // Auto-assign name se non impostato
+        if (string.IsNullOrEmpty(presentName))
+        {
+            presentName = gameObject.name;
+        }
         
-        // Configura impostazioni specifiche per i present se personalizzate
-        ApplyPresentSettings();
-        
-        Debug.Log($"[Presents] Configurazione Awake completata per {gameObject.name}");
+        Debug.Log($"[Presents] Awake completato per {presentName} alla posizione {startPosition}");
     }
     
     private void Start()
     {
-        // Registrati al SceneManager01 se disponibile
+        InitializePresent();
         RegisterWithSceneManager();
         
-        // Sottoscrivi all'evento di raccolta per logica specifica dei present
-        OnCollected.AddListener(OnPresentCollected);
-        
-        Debug.Log($"[Presents] '{GetName()}' inizializzato - Valore: {GetValue()}");
+        Debug.Log($"[Presents] '{presentName}' inizializzato come Present");
     }
     
-    private void ApplyPresentSettings()
+    private void Update()
     {
-        if (customRotationSpeed)
+        if (!isCollected)
         {
-            SetRotationSpeed(presentRotationSpeed);
+            // Animazione rotazione
+            if (enableRotation)
+            {
+                transform.Rotate(Vector3.up * rotationSpeed * Time.deltaTime);
+            }
+            
+            // Animazione floating
+            if (enableFloating)
+            {
+                FloatAnimation();
+            }
         }
-        else
+    }
+    
+    private void InitializePresent()
+    {
+        if (presentInitialized) return;
+        
+        presentInitialized = true;
+        
+        // Assicurati che l'oggetto sia attivo
+        gameObject.SetActive(true);
+        
+        // Verifica che la posizione sia corretta
+        if (Vector3.Distance(transform.position, startPosition) > 0.1f)
         {
-            // Impostazioni default per present
-            SetRotationSpeed(45f);
+            transform.position = startPosition;
+            Debug.Log($"[Presents] Posizione corretta a {startPosition}");
         }
         
-        if (customFloatSettings)
-        {
-            SetFloatSettings(presentFloatSpeed, presentFloatStrength);
-        }
-        else
-        {
-            // Impostazioni default per present
-            SetFloatSettings(2f, 0.3f);
-        }
-        
-        // Assicura che i present ruotino e fluttuino
-        SetRotationEnabled(true);
-        SetFloatEnabled(true);
+        Debug.Log($"[Presents] Inizializzazione specifica completata per {presentName}");
+    }
+    
+    private void FloatAnimation()
+    {
+        // Animazione floating - solo sull'asse Y
+        float newY = startPosition.y + Mathf.Sin(Time.time * floatSpeed) * floatStrength;
+        transform.position = new Vector3(startPosition.x, newY, startPosition.z);
     }
     
     private void RegisterWithSceneManager()
     {
-        if (!IsCollected() && SceneManager01.Instance != null)
+        // Registra con lo SceneManager appropriato (solo per scena 01)
+        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        
+        if (currentScene == "01 - Party in Lukelandia" && SceneManager01.Instance != null)
         {
-            SceneManager01.Instance.RegisterCollectible(this);
-            Debug.Log($"[Presents] Registrato con SceneManager01: {GetName()}");
+            // Per la scena 01, usa il sistema Collectibles
+            Collectibles collectible = gameObject.GetComponent<Collectibles>();
+            if (collectible == null)
+            {
+                // Aggiungi componente Collectibles se non presente
+                collectible = gameObject.AddComponent<Collectibles>();
+                collectible.SetCollectibleName(presentName);
+                collectible.SetCollectibleType(CollectibleType.Present);
+            }
+            
+            SceneManager01.Instance.RegisterCollectible(collectible);
+            Debug.Log($"[Presents] Registrato con SceneManager01: {presentName}");
+        }
+        else if (currentScene != "01 - Party in Lukelandia")
+        {
+            Debug.LogWarning($"[Presents] Present trovato nella scena '{currentScene}' - i Present dovrebbero essere solo nella scena 01!");
         }
         else
         {
-            Debug.LogWarning($"[Presents] SceneManager01 non trovato per {GetName()}");
+            Debug.LogWarning($"[Presents] SceneManager01 non trovato per {presentName}");
         }
     }
     
-    private void OnPresentCollected(Collectibles collectible)
+    // ========== INTERAZIONE PRESENT ==========
+    
+    private void OnTriggerEnter(Collider other)
     {
-        Debug.Log($"[Presents] Present '{GetName()}' raccolto! Valore: {GetValue()}");
-        
-        // La notifica al PlayerCollectibleTracker viene gestita automaticamente 
-        // dalla classe base Collectibles nel metodo NotifyManagers()
-        
-        // Logica specifica per i present
-        HandlePresentSpecificLogic();
+        if (other.CompareTag("Player") && !isCollected)
+        {
+            CollectPresent();
+        }
     }
     
-    private void HandlePresentSpecificLogic()
+    private void OnMouseDown()
     {
-        // Effetti specifici per present
-        PlayPresentCollectionEffect();
-        
-        // Integrazione con altri sistemi
-        NotifyGameSystems();
-        
-        Debug.Log($"[Presents] Logica specifica eseguita per {GetName()}");
+        if (!isCollected)
+        {
+            CollectPresent();
+        }
     }
     
-    private void PlayPresentCollectionEffect()
+    public void CollectPresent()
     {
-        // Effetti visivi specifici per present
+        if (isCollected)
+        {
+            Debug.LogWarning($"Present {presentName} già raccolto!");
+            return;
+        }
+        
+        isCollected = true;
+        
+        // Feedback visivo/audio
+        PlayPresentFeedback();
+        
+        // Notifica allo SceneManager
+        NotifySceneManager();
+        
+        // Eventi
+        OnPresentCollected?.Invoke(this);
+        
+        // Nascondi dopo un breve delay
+        StartCoroutine(HideAfterEffect());
+        
+        Debug.Log($"[Presents] Present '{presentName}' raccolto! Valore: {presentValue}");
+    }
+    
+    private void PlayPresentFeedback()
+    {
+        // Effetti visivi specifici per i present
         if (presentCollectionParticles != null)
         {
             GameObject particles = Instantiate(presentCollectionParticles, transform.position, Quaternion.identity);
-            Destroy(particles, 3f); // Pulisci dopo 3 secondi
+            Destroy(particles, 3f);
+        }
+        else if (collectEffect != null)
+        {
+            GameObject effect = Instantiate(collectEffect, transform.position, Quaternion.identity);
+            Destroy(effect, 2f);
         }
         
         // Audio specifico per present
@@ -116,37 +185,73 @@ public class Presents : Collectibles
             AudioSource.PlayClipAtPoint(presentJingleSound, transform.position, 0.7f);
         }
         
-        Debug.Log($"[Presents] Effetti presente riprodotti per {GetName()}");
+        Debug.Log($"[Presents] Effetti present riprodotti per {presentName}");
     }
     
-    private void NotifyGameSystems()
+    private void NotifySceneManager()
     {
-        // Notifica sistemi di gioco specifici per present
+        // Solo la scena 01 dovrebbe avere presents
+        if (SceneManager01.Instance != null)
+        {
+            SceneManager01.Instance.NotifyPresentCollected(presentName);
+        }
+        else
+        {
+            // Fallback diretto al GameManager
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnScene01PresentCollected(presentName);
+            }
+        }
         
-        // Esempio: Sistema punteggio
-        // if (GameManager.Instance != null)
-        // {
-        //     GameManager.Instance.AddScore(GetValue() * 10);
-        // }
-        
-        // Esempio: Sistema achievement
-        // if (AchievementManager.Instance != null)
-        // {
-        //     AchievementManager.Instance.NotifyPresentCollected(GetName());
-        // }
-        
-        // Esempio: Sistema audio globale
-        // if (AudioManager.Instance != null)
-        // {
-        //     AudioManager.Instance.PlayPresentJingle();
-        // }
+        Debug.Log($"[Presents] Notifica inviata per present '{presentName}'");
     }
     
-    // Configurazioni preset per diversi tipi di present
+    private System.Collections.IEnumerator HideAfterEffect()
+    {
+        yield return new WaitForSeconds(1f);
+        gameObject.SetActive(false);
+    }
+    
+    // ========== GETTERS E SETTERS ==========
+    
+    public string GetPresentName() => presentName;
+    public bool IsCollected() => isCollected;
+    public int GetPresentValue() => presentValue;
+    
+    public void SetPresentName(string name)
+    {
+        presentName = name;
+    }
+    
+    public void SetPresentValue(int value)
+    {
+        presentValue = value;
+    }
+    
+    public void SetRotationSpeed(float speed)
+    {
+        rotationSpeed = speed;
+    }
+    
+    public void SetFloatSettings(float speed, float strength)
+    {
+        floatSpeed = speed;
+        floatStrength = strength;
+    }
+    
+    public void SetAnimationEnabled(bool rotation, bool floating)
+    {
+        enableRotation = rotation;
+        enableFloating = floating;
+    }
+    
+    // ========== CONFIGURAZIONI PRESET ==========
+    
     public void ConfigureAsChristmasPresent()
     {
-        SetName("Christmas Gift");
-        SetValue(10);
+        SetPresentName("Christmas Gift");
+        SetPresentValue(10);
         SetRotationSpeed(30f);
         SetFloatSettings(1.5f, 0.25f);
         Debug.Log("[Presents] Configurato come regalo di Natale");
@@ -154,8 +259,8 @@ public class Presents : Collectibles
     
     public void ConfigureAsBirthdayPresent()
     {
-        SetName("Birthday Gift");
-        SetValue(15);
+        SetPresentName("Birthday Gift");
+        SetPresentValue(15);
         SetRotationSpeed(45f);
         SetFloatSettings(2.5f, 0.4f);
         Debug.Log("[Presents] Configurato come regalo di compleanno");
@@ -163,59 +268,119 @@ public class Presents : Collectibles
     
     public void ConfigureAsSpecialPresent()
     {
-        SetName("Special Gift");
-        SetValue(25);
+        SetPresentName("Special Gift");
+        SetPresentValue(25);
         SetRotationSpeed(60f);
         SetFloatSettings(3f, 0.5f);
         Debug.Log("[Presents] Configurato come regalo speciale");
     }
     
-    // Metodo per cambiare dinamicamente le proprietà
-    public void SetPresentProperties(string newName, int newValue, float rotSpeed = 45f)
+    // ========== UTILITY METHODS ==========
+    
+    public void ResetPresent()
     {
-        SetName(newName);
-        SetValue(newValue);
-        SetRotationSpeed(rotSpeed);
+        isCollected = false;
+        transform.position = startPosition;
+        gameObject.SetActive(true);
+        Debug.Log($"[Presents] Present {presentName} resetato");
     }
     
-    private void OnDestroy()
+    public void ForceCollect()
     {
-        // Cleanup dell'evento
-        OnCollected.RemoveListener(OnPresentCollected);
-        Debug.Log($"[Presents] Cleanup eventi per {GetName()}");
+        if (!isCollected)
+        {
+            CollectPresent();
+        }
     }
     
-    // Debug e utility
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    // ========== DEBUG ==========
+    
+    [ContextMenu("Force Collect")]
+    public void DebugForceCollect()
+    {
+        ForceCollect();
+    }
+    
+    [ContextMenu("Reset Present")]
+    public void DebugResetPresent()
+    {
+        ResetPresent();
+    }
+    
+    [ContextMenu("Configure as Christmas Present")]
+    public void DebugConfigureChristmas()
+    {
+        ConfigureAsChristmasPresent();
+    }
+    
+    [ContextMenu("Configure as Birthday Present")]
+    public void DebugConfigureBirthday()
+    {
+        ConfigureAsBirthdayPresent();
+    }
+    
+    [ContextMenu("Configure as Special Present")]
+    public void DebugConfigureSpecial()
+    {
+        ConfigureAsSpecialPresent();
+    }
+    
+    // ========== GIZMOS ==========
+    
     private void OnDrawGizmos()
     {
-        // Gizmo per area di raccolta
+        // Area di raccolta
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, 1f);
+        
+        // Posizione iniziale
+        if (Application.isPlaying)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireCube(startPosition, Vector3.one * 0.2f);
+        }
         
         // Indicatore Present
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireCube(transform.position + Vector3.up * 2f, Vector3.one * 0.3f);
+        
+        // Warning se invisibile
+        if (!gameObject.activeInHierarchy)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position, 2f);
+        }
     }
     
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void OnDrawGizmosSelected()
     {
         // Info dettagliate quando selezionato
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, 1.5f);
         
-        // Visualizza movimento float
-        if (Application.isPlaying)
+        // Visualizza movimento float se abilitato
+        if (Application.isPlaying && enableFloating)
         {
-            Vector3 currentPos = transform.position;
-            Vector3 maxFloatPos = currentPos;
-            maxFloatPos.y += presentFloatStrength;
-            Vector3 minFloatPos = currentPos;
-            minFloatPos.y -= presentFloatStrength;
+            Vector3 maxFloatPos = startPosition;
+            maxFloatPos.y += floatStrength;
+            Vector3 minFloatPos = startPosition;
+            minFloatPos.y -= floatStrength;
             
             Gizmos.color = Color.cyan;
             Gizmos.DrawLine(minFloatPos, maxFloatPos);
+        }
+        
+        // Visualizza rotazione se abilitata
+        if (enableRotation)
+        {
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireSphere(transform.position, 0.5f);
+            
+            // Frecce per indicare la rotazione
+            Vector3 right = transform.right * 0.8f;
+            Vector3 forward = transform.forward * 0.8f;
+            Gizmos.DrawRay(transform.position, right);
+            Gizmos.DrawRay(transform.position, forward);
         }
     }
 }

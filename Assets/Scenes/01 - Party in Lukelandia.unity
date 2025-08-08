@@ -10566,7 +10566,7 @@ PrefabInstance:
       addedObject: {fileID: 1545644148}
     - targetCorrespondingSourceObject: {fileID: 2967237182864389378, guid: a6a89012043608a48bc2996e7cfe9bb4, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2043536318}
+      addedObject: {fileID: 2043536315}
     - targetCorrespondingSourceObject: {fileID: 700840406982002809, guid: a6a89012043608a48bc2996e7cfe9bb4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 802641766}
@@ -16312,6 +16312,10 @@ PrefabInstance:
     - target: {fileID: 1413690013802106895, guid: b1a37d89003d9e14497536affc3dd78a, type: 3}
       propertyPath: m_Name
       value: Wall_Village
+      objectReference: {fileID: 0}
+    - target: {fileID: 1413690013802106895, guid: b1a37d89003d9e14497536affc3dd78a, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2563859604322590693, guid: b1a37d89003d9e14497536affc3dd78a, type: 3}
       propertyPath: m_LocalScale.x
@@ -173723,8 +173727,8 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 2967237182864389378, guid: a6a89012043608a48bc2996e7cfe9bb4, type: 3}
   m_PrefabInstance: {fileID: 73884602}
   m_PrefabAsset: {fileID: 0}
---- !u!135 &2043536318
-SphereCollider:
+--- !u!64 &2043536315
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -173741,9 +173745,10 @@ SphereCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.0325
-  m_Center: {x: 0.000000029802322, y: 0.00000011920929, z: 0.01554688}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -8803937527578110353, guid: 7a0127c50fef0cd4682ecda668e2d778, type: 3}
 --- !u!1001 &2060981655
 PrefabInstance:
   m_ObjectHideFlags: 0
