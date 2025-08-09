@@ -2,801 +2,550 @@ using UnityEngine;
 using UnityEngine.Events;
 
 /// <summary>
-/// Classe per i Present che eredita da Collectibles.
-/// Usa il sistema audio unificato della classe base per evitare conflitti.
+/// Classe Present COMPLETAMENTE COMPATIBILE con la nuova classe base Collectibles.
+/// Sistema audio PURO: usa solo AudioSource configurati direttamente nell'Inspector.
+/// NON modifica mai parametri degli AudioSource (volume, distanze, 3D) - rispetta configurazione Inspector.
+/// NON disattiva mai l'intero GameObject - solo nasconde mesh e avvia effetti.
 /// </summary>
 public class Presents : Collectibles
 {
-    [Header("Present Specific Animation")]
-    [SerializeField] private bool enableRotation = true;
-    [SerializeField] private float rotationSpeed = 45f;
+    [Header("Present Events (Optional)")]
+    [SerializeField] private bool enablePresentEvents = false;
+    [SerializeField] private UnityEvent<Presents> OnPresentCollected;
+
+    [Header("Present Debug")]
+    [SerializeField] private bool enableDetailedLogs = false;
     
-    [Header("Present Particle Effects")]
-    [SerializeField] private ParticleSystem preCollectionEffect; // Effetto pre-raccolta (sempre attivo)
-    [SerializeField] private ParticleSystem postCollectionEffect1; // Primo effetto post-raccolta
-    [SerializeField] private ParticleSystem postCollectionEffect2; // Secondo effetto post-raccolta
-    [SerializeField] private float postEffectDuration = 3f; // Durata effetti post-raccolta
+    [Header("Present Specific Settings")]
+    [SerializeField] private PresentSize presentSize = PresentSize.Medium;
     
-    [Header("Legacy Effects (Fallback)")]
-    [SerializeField] private GameObject presentCollectionParticles; // Legacy - GameObject con particelle
-    [SerializeField] private AudioClip presentJingleSound; // Legacy - suono jingle (ora usa il sistema base)
-    
-    [Header("Present Events")]
-    public UnityEvent<Presents> OnPresentCollected;
-    
-    [Header("Present Components")]
-    [SerializeField] private Transform visualContainer; // Container per le mesh/LOD
-    [SerializeField] private Transform effectsContainer; // Container per effetti
-    [SerializeField] private Collider presentCollider; // Reference al collider
-    [SerializeField] private LODGroup lodGroup; // Reference al LOD Group
-    
-    // Cache dei renderer per gestione visibilità
-    private Renderer[] childRenderers;
-    
+    // Enum per le dimensioni dei regali
+    public enum PresentSize
+    {
+        Small,   // Effetti veloci, raccolta rapida
+        Medium,  // Comportamento standard
+        Large    // Effetti prolungati, più spettacolari
+    }
+
     protected override void Awake()
     {
-        // Imposta il tipo come Present prima di chiamare il base Awake
+        // FASE 1: Imposta tipo Present PRIMA del base Awake
         collectibleType = CollectibleType.Present;
         
-        // Imposta default specifici per i Present
-        if (collectibleValue == 1) // Se è ancora il valore di default
+        // FASE 2: Abilita debug se richiesto
+        if (enableDetailedLogs)
         {
-            collectibleValue = 10; // I Present valgono di più di default
+            Debug.Log($"[Presents] Debug abilitato per {gameObject.name}");
         }
         
-        // Abilita floating per default nei Present
-        enableFloating = true;
-        floatSpeed = 2f;
-        floatStrength = 0.3f;
+        LogDebug($"Present Awake - inizio configurazione per {gameObject.name}");
         
-        // CONFIGURA AUDIO TRAMITE SISTEMA BASE (evita conflitti!)
-        enableBackgroundLoop = true; // Abilita il loop di background per i Present
-        use3DAudio = true; // Audio 3D per i Present
-        
-        // Se hai audio legacy, mappali al sistema base
-        if (presentJingleSound != null && collectSound == null)
-        {
-            collectSound = presentJingleSound; // Usa il jingle come suono di raccolta
-        }
-        
-        // Chiama il base Awake che configurerà il sistema audio
+        // FASE 3: Chiama il base Awake (gestisce auto-detection, configurazioni default e audio)
         base.Awake();
         
-        // Setup specifico dei Present
-        CacheChildComponents();
+        // FASE 4: Configurazioni specifiche Present DOPO il setup base
+        ConfigurePresentDefaults();
         
-        Debug.Log($"[Presents] Present Awake completato per {collectibleName}");
+        LogDebug($"Present Awake completato per {collectibleName}");
     }
-    
-    protected override void Start()
-    {
-        base.Start();
-        
-        // Avvia effetti pre-raccolta specifici dei Present
-        StartPreCollectionEffects();
-        
-        Debug.Log($"[Presents] Present '{collectibleName}' inizializzato");
-    }
-    
-    protected override void Update()
-    {
-        base.Update();
-        
-        if (!isCollected)
-        {
-            // Animazione rotazione - applica al visual container se presente, altrimenti al parent
-            if (enableRotation)
-            {
-                Transform targetTransform = visualContainer != null ? visualContainer : transform;
-                targetTransform.Rotate(Vector3.up * rotationSpeed * Time.deltaTime);
-            }
-        }
-    }
-    
-    private void CacheChildComponents()
-    {
-        // Auto-trova i componenti se non assegnati manualmente
-        if (presentCollider == null)
-        {
-            presentCollider = GetComponent<Collider>();
-            if (presentCollider == null)
-            {
-                presentCollider = GetComponentInChildren<Collider>();
-            }
-        }
-        
-        if (lodGroup == null)
-        {
-            lodGroup = GetComponent<LODGroup>();
-            if (lodGroup == null)
-            {
-                lodGroup = GetComponentInChildren<LODGroup>();
-            }
-        }
-        
-        // Auto-trova i container
-        if (visualContainer == null)
-        {
-            Transform found = transform.Find("Visual_Container");
-            if (found == null) found = transform.Find("Visuals");
-            if (found == null) found = transform.Find("Mesh");
-            visualContainer = found;
-        }
-        
-        if (effectsContainer == null)
-        {
-            Transform found = transform.Find("Effects_Container");
-            if (found == null) found = transform.Find("Effects");
-            effectsContainer = found;
-        }
-        
-        // Cache tutti i renderer per gestione visibilità (escludendo i ParticleSystemRenderer)
-        Renderer[] allRenderers = GetComponentsInChildren<Renderer>(true);
-        System.Collections.Generic.List<Renderer> validRenderers = new System.Collections.Generic.List<Renderer>();
-        
-        foreach (var renderer in allRenderers)
-        {
-            // Esclude i ParticleSystemRenderer dalla cache per evitare di disabilitarli involontariamente
-            if (!(renderer is ParticleSystemRenderer))
-            {
-                validRenderers.Add(renderer);
-            }
-        }
-        
-        childRenderers = validRenderers.ToArray();
-        
-        Debug.Log($"[Presents] Componenti cachati: Collider={presentCollider != null}, LOD={lodGroup != null}, " +
-                  $"Renderers validi={childRenderers.Length}/{allRenderers.Length} (esclusi ParticleSystemRenderer)");
-    }
-    
-    private void StartPreCollectionEffects()
-    {
-        Debug.Log($"[Presents] === AVVIO EFFETTI PRE-RACCOLTA PRESENT per {collectibleName} ===");
-        
-        // Avvia effetto particellare pre-raccolta
-        if (preCollectionEffect != null)
-        {
-            if (preCollectionEffect.gameObject.activeInHierarchy)
-            {
-                if (!preCollectionEffect.isPlaying)
-                {
-                    preCollectionEffect.Clear();
-                    preCollectionEffect.Play();
-                    Debug.Log($"[Presents] ✅ Effetto pre-raccolta AVVIATO per {collectibleName}");
-                }
-                else
-                {
-                    Debug.Log($"[Presents] ⚠️ Effetto pre-raccolta già in riproduzione per {collectibleName}");
-                }
-            }
-            else
-            {
-                Debug.LogError($"[Presents] ❌ GameObject dell'effetto pre-raccolta NON ATTIVO per {collectibleName}! " +
-                              $"Path: {GetParticleSystemPath(preCollectionEffect)}");
-            }
-        }
-        else
-        {
-            Debug.LogWarning($"[Presents] ❌ Effetto pre-raccolta NON ASSEGNATO per {collectibleName}");
-        }
-        
-        // L'audio di background è ora gestito automaticamente dalla classe base!
-        Debug.Log($"[Presents] Audio di background gestito dalla classe base Collectibles");
-        
-        Debug.Log($"[Presents] === FINE AVVIO EFFETTI PRE-RACCOLTA PRESENT ===");
-    }
-    
-    private void StopPreCollectionEffects()
-    {
-        Debug.Log($"[Presents] === STOP EFFETTI PRE-RACCOLTA PRESENT per {collectibleName} ===");
-        
-        if (preCollectionEffect != null)
-        {
-            if (preCollectionEffect.isPlaying)
-            {
-                preCollectionEffect.Stop();
-                Debug.Log($"[Presents] ✅ Effetto pre-raccolta FERMATO per {collectibleName}");
-            }
-        }
-        
-        // L'audio di background è ora gestito automaticamente dalla classe base!
-        Debug.Log($"[Presents] Audio di background fermato dalla classe base Collectibles");
-    }
-    
-    // Helper per debug path dei ParticleSystem
-    private string GetParticleSystemPath(ParticleSystem ps)
-    {
-        if (ps == null) return "NULL";
-        
-        string path = ps.name;
-        Transform current = ps.transform.parent;
-        while (current != null)
-        {
-            path = current.name + "/" + path;
-            current = current.parent;
-        }
-        return path;
-    }
-    
-    // ========== OVERRIDE METODI BASE ==========
-    
+
     /// <summary>
-    /// Override del metodo virtuale chiamato quando l'item viene raccolto
+    /// Configurazioni default specifiche per i Present
+    /// NON tocca le impostazioni audio che sono gestite completamente dalla classe base
+    /// </summary>
+    protected virtual void ConfigurePresentDefaults()
+    {
+        LogDebug($"Configurazione defaults per Present size: {presentSize}");
+        
+        // Configurazioni basate sulla dimensione del presente
+        switch (presentSize)
+        {
+            case PresentSize.Small:
+                rotationSpeed = 60f;
+                rotationAxis = Vector3.up;
+                floatSpeed = 3f;
+                floatStrength = 0.2f;
+                if (collectibleValue == 1) collectibleValue = 5; // Small = 5 points
+                effectDuration = 1.5f;
+                break;
+                
+            case PresentSize.Medium:
+                rotationSpeed = 45f;
+                rotationAxis = Vector3.up;
+                floatSpeed = 2.5f;
+                floatStrength = 0.3f;
+                if (collectibleValue == 1) collectibleValue = 10; // Medium = 10 points
+                effectDuration = 2f;
+                break;
+                
+            case PresentSize.Large:
+                rotationSpeed = 30f;
+                rotationAxis = Vector3.up;
+                floatSpeed = 2f;
+                floatStrength = 0.4f;
+                if (collectibleValue == 1) collectibleValue = 20; // Large = 20 points
+                effectDuration = 3f;
+                break;
+        }
+        
+        // Configurazioni specifiche Present
+        canBeClickedToCollect = false; // Solo trigger per Present
+        canBeTriggerToCollect = true;
+        enableRotation = true;
+        enableFloating = true;
+        
+        // ⭐ IMPORTANTE: NON tocchiamo audio - è gestito dalla classe base ⭐
+        // enablePreAudioLoop è già impostato a TRUE per Present da ConfigureDefaultsForType()
+        
+        LogDebug($"Present {collectibleName} configurato come {presentSize} (Value: {collectibleValue}, Loop: {enablePreAudioLoop})");
+    }
+
+    /// <summary>
+    /// Override del metodo di raccolta con logging specifico Present
+    /// </summary>
+    public override void CollectItem()
+    {
+        LogDebug($"=== INIZIO RACCOLTA PRESENT {collectibleName} ===");
+        
+        // Verifica componenti prima della raccolta (solo se debug attivo)
+        if (enableDetailedLogs)
+        {
+            ValidatePresentComponentsQuick();
+        }
+        
+        // Chiama il base CollectItem che gestisce tutto (audio, effetti, mesh, etc.)
+        base.CollectItem();
+        
+        LogDebug($"=== FINE RACCOLTA PRESENT {collectibleName} ===");
+    }
+
+    /// <summary>
+    /// Hook specifico Present per eventi post-raccolta
     /// </summary>
     protected override void OnItemCollected()
     {
-        // Evento specifico Present
-        OnPresentCollected?.Invoke(this);
-    }
-    
-    /// <summary>
-    /// Override del feedback di raccolta per aggiungere effetti specifici dei Present
-    /// </summary>
-    protected override void PlayCollectionFeedback()
-    {
-        Debug.Log($"[Presents] === FEEDBACK PRESENT SPECIFICO per {collectibleName} ===");
+        LogDebug($"Present {collectibleName} raccolto con successo!");
         
-        // Ferma effetti pre-raccolta specifici dei Present
-        StopPreCollectionEffects();
-        
-        // Posizione per gli effetti - preferisce il centro visuale
-        Vector3 effectPosition = visualContainer != null ? visualContainer.position : transform.position;
-        
-        // ========== NUOVI EFFETTI PARTICELLARI PRESENT ==========
-        
-        // Avvia primo effetto post-raccolta
-        if (postCollectionEffect1 != null)
+        // Log stato componenti (solo se debug attivo)
+        if (enableDetailedLogs)
         {
-            if (postCollectionEffect1.gameObject.activeInHierarchy)
+            LogCollectionState();
+        }
+        
+        // Invoca eventi Present specifici
+        if (enablePresentEvents)
+        {
+            try
             {
-                postCollectionEffect1.Clear();
-                postCollectionEffect1.Play();
-                
-                if (postCollectionEffect1.isPlaying)
-                {
-                    Debug.Log($"[Presents] ✅ Primo effetto post-raccolta CONFERMATO ATTIVO per {collectibleName}");
-                }
-                else
-                {
-                    Debug.LogError($"[Presents] ❌ Primo effetto post-raccolta NON SI AVVIA per {collectibleName}!");
-                }
-                
-                StartCoroutine(StopParticleEffectAfterDelay(postCollectionEffect1, postEffectDuration, "Primo"));
+                OnPresentCollected?.Invoke(this);
+                LogDebug($"Evento OnPresentCollected invocato per {collectibleName}");
             }
-            else
+            catch (System.Exception e)
             {
-                Debug.LogError($"[Presents] ❌ GameObject del primo effetto NON ATTIVO! Path: {GetParticleSystemPath(postCollectionEffect1)}");
+                Debug.LogError($"[Presents] Errore nell'invocare OnPresentCollected per {collectibleName}: {e.Message}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Validazione rapida dei componenti (solo per debug)
+    /// </summary>
+    private void ValidatePresentComponentsQuick()
+    {
+        if (meshContainer == null && (meshRenderers == null || meshRenderers.Length == 0))
+        {
+            LogDebug($"⚠️ ATTENZIONE: Nessun mesh configurato per nascondere!");
+        }
+        
+        if (preCollectionEffects == null || preCollectionEffects.Length == 0)
+        {
+            LogDebug($"⚠️ ATTENZIONE: Nessun effetto pre-raccolta configurato!");
+        }
+        
+        if (postCollectionEffects == null || postCollectionEffects.Length == 0)
+        {
+            LogDebug($"⚠️ ATTENZIONE: Nessun effetto post-raccolta configurato!");
+        }
+        
+        if (GetPreAudioSource() == null)
+        {
+            LogDebug($"⚠️ ATTENZIONE: Pre AudioSource non assegnato!");
+        }
+        
+        if (GetPostAudioSource() == null)
+        {
+            LogDebug($"⚠️ ATTENZIONE: Post AudioSource non assegnato!");
+        }
+    }
+
+    /// <summary>
+    /// Log dello stato dopo la raccolta (solo per debug)
+    /// </summary>
+    private void LogCollectionState()
+    {
+        LogDebug($"Stato Componenti Post-Raccolta:");
+        LogDebug($"  - Mesh Container Active: {(meshContainer != null ? meshContainer.gameObject.activeInHierarchy.ToString() : "N/A")}");
+        LogDebug($"  - Effects Container Active: {(effectsContainer != null ? effectsContainer.gameObject.activeInHierarchy.ToString() : "N/A")}");
+        LogDebug($"  - Pre Effects Playing: {(preCollectionEffects != null ? CountPlayingEffects(preCollectionEffects).ToString() : "N/A")}");
+        LogDebug($"  - Post Effects Playing: {(postCollectionEffects != null ? CountPlayingEffects(postCollectionEffects).ToString() : "N/A")}");
+        LogDebug($"  - Collider Enabled: {(mainCollider != null ? mainCollider.enabled.ToString() : "N/A")}");
+        LogDebug($"  - GameObject Active: {gameObject.activeInHierarchy}");
+        LogDebug($"  - Pre Audio Playing: {IsPreAudioPlaying()}");
+    }
+
+    private int CountPlayingEffects(ParticleSystem[] effects)
+    {
+        int count = 0;
+        foreach (var effect in effects)
+        {
+            if (effect != null && effect.isPlaying)
+                count++;
+        }
+        return count;
+    }
+
+    // ========== CONFIGURAZIONI PRESET (AGGIORNATE) ==========
+
+    public void ConfigureAsChristmasPresent()
+    {
+        ConfigurePreset("Christmas Gift", PresentSize.Medium, 15, 40f, 2f, 0.3f, "Regalo di Natale trovato!");
+        LogDebug("Configurato come regalo di Natale");
+    }
+
+    public void ConfigureAsBirthdayPresent()
+    {
+        ConfigurePreset("Birthday Gift", PresentSize.Large, 25, 50f, 2.5f, 0.4f, "Buon compleanno! Regalo trovato!");
+        delayBeforeHiding = 5f; // Più tempo per i compleanni
+        LogDebug("Configurato come regalo di compleanno");
+    }
+
+    public void ConfigureAsSpecialPresent()
+    {
+        ConfigurePreset("Special Gift", PresentSize.Large, 35, 25f, 1.5f, 0.5f, "Regalo speciale scoperto!");
+        delayBeforeHiding = 6f; // Massimo tempo per regali speciali
+        LogDebug("Configurato come regalo speciale");
+    }
+
+    public void ConfigureAsSmallSurprise()
+    {
+        ConfigurePreset("Small Surprise", PresentSize.Small, 8, 80f, 4f, 0.15f, "Piccola sorpresa!");
+        delayBeforeHiding = 1.5f; // Veloce per piccole sorprese
+        LogDebug("Configurato come piccola sorpresa");
+    }
+
+    private void ConfigurePreset(string name, PresentSize size, int value, float rotSpeed, float floatSpd, float floatStr, string message)
+    {
+        collectibleName = name;
+        presentSize = size;
+        collectibleValue = value;
+        rotationSpeed = rotSpeed;
+        rotationAxis = Vector3.up;
+        floatSpeed = floatSpd;
+        floatStrength = floatStr;
+        displayMessage = message;
+        
+        // Riapplica le configurazioni basate sulla size
+        ConfigurePresentDefaults();
+    }
+
+    // ========== VALIDAZIONE COMPLETA PRESENT ==========
+
+    /// <summary>
+    /// Verifica che i componenti Present siano correttamente configurati
+    /// </summary>
+    public bool ValidatePresentComponents()
+    {
+        bool valid = true;
+        
+        LogDebug($"=== VALIDAZIONE COMPONENTI PRESENT {collectibleName} ===");
+        
+        // Usa il metodo di validazione della classe base
+        bool baseValid = ValidateComponents();
+        valid = valid && baseValid;
+        
+        // Validazioni specifiche Present
+        if (presentSize < PresentSize.Small || presentSize > PresentSize.Large)
+        {
+            LogDebug("❌ Present Size non valido!");
+            valid = false;
         }
         else
         {
-            Debug.LogWarning($"[Presents] ❌ Primo effetto post-raccolta NON ASSEGNATO per {collectibleName}");
+            LogDebug($"✅ Present Size: {presentSize}");
         }
         
-        // Avvia secondo effetto post-raccolta
-        if (postCollectionEffect2 != null)
+        // Verifica che enablePreAudioLoop sia true per Present
+        if (!IsPreAudioLoopEnabled())
         {
-            if (postCollectionEffect2.gameObject.activeInHierarchy)
-            {
-                postCollectionEffect2.Clear();
-                postCollectionEffect2.Play();
-                
-                if (postCollectionEffect2.isPlaying)
-                {
-                    Debug.Log($"[Presents] ✅ Secondo effetto post-raccolta CONFERMATO ATTIVO per {collectibleName}");
-                }
-                else
-                {
-                    Debug.LogError($"[Presents] ❌ Secondo effetto post-raccolta NON SI AVVIA per {collectibleName}!");
-                }
-                
-                StartCoroutine(StopParticleEffectAfterDelay(postCollectionEffect2, postEffectDuration, "Secondo"));
-            }
-            else
-            {
-                Debug.LogError($"[Presents] ❌ GameObject del secondo effetto NON ATTIVO! Path: {GetParticleSystemPath(postCollectionEffect2)}");
-            }
+            LogDebug("⚠️ ATTENZIONE: enablePreAudioLoop dovrebbe essere TRUE per i Present!");
         }
         else
         {
-            Debug.LogWarning($"[Presents] ❌ Secondo effetto post-raccolta NON ASSEGNATO per {collectibleName}");
+            LogDebug($"✅ Pre Audio Loop: {IsPreAudioLoopEnabled()}");
         }
         
-        // ========== EFFETTI LEGACY COME FALLBACK ==========
-        
-        bool needsLegacyEffects = (postCollectionEffect1 == null && postCollectionEffect2 == null);
-        
-        if (needsLegacyEffects)
+        // Verifica che non sia configurato per click (solo trigger)
+        if (canBeClickedToCollect)
         {
-            Debug.Log($"[Presents] Usando effetti LEGACY per {collectibleName}");
-            
-            if (presentCollectionParticles != null)
-            {
-                GameObject particles = Instantiate(presentCollectionParticles, effectPosition, Quaternion.identity);
-                Destroy(particles, 3f);
-                Debug.Log($"[Presents] ✅ Effetto legacy particelle creato");
-            }
+            LogDebug("⚠️ ATTENZIONE: Present dovrebbe essere solo trigger-collectable!");
+        }
+        else
+        {
+            LogDebug($"✅ Collect Mode: Solo Trigger");
         }
         
-        // ========== CHIAMA IL FEEDBACK BASE ==========
-        // Questo gestirà automaticamente:
-        // - L'effetto visivo base (se presente)
-        // - L'audio di raccolta tramite il sistema unificato
-        // - Il messaggio UI
-        base.PlayCollectionFeedback();
-        
-        Debug.Log($"[Presents] === FINE FEEDBACK PRESENT SPECIFICO ===");
+        LogDebug($"Validazione Present completata - Risultato: {(valid ? "VALIDO" : "PROBLEMI TROVATI")}");
+        return valid;
     }
-    
+
     /// <summary>
-    /// Override del metodo HideAfterEffect per gestire meglio i Present
+    /// Test del ciclo di vita completo del Present
     /// </summary>
-    protected override System.Collections.IEnumerator HideAfterEffect()
+    public void TestPresentCycle()
     {
-        // Disabilita IMMEDIATAMENTE solo i renderer per feedback visivo immediato
-        SetChildVisibility(false);
+        LogDebug($"=== TEST CICLO PRESENT {collectibleName} ===");
         
-        // Disabilita anche il collider per evitare multiple collezioni
-        if (presentCollider != null)
+        // Se già raccolto, resetta prima
+        if (IsCollected())
         {
-            presentCollider.enabled = false;
+            ResetCollected();
+            LogDebug("✅ Reset completato");
         }
         
-        Debug.Log($"[Presents] Renderer disabilitati per {collectibleName}, oggetto rimane attivo per effetti");
+        // Validazione componenti
+        ValidatePresentComponents();
         
-        // Calcola tempo massimo di attesa
-        float maxEffectTime = Mathf.Max(effectDuration * 0.5f, postEffectDuration);
+        // Simula raccolta
+        LogDebug("🎁 Simulazione raccolta...");
+        ForceCollect();
         
-        // Considera anche l'audio di raccolta gestito dalla classe base
-        if (GetCollectionAudioSource() != null && GetCollectionAudioSource().isPlaying && GetCollectionAudioSource().clip != null)
+        LogDebug("=== TEST CICLO COMPLETATO ===");
+    }
+
+    // ========== GETTERS SPECIFICI PRESENT ==========
+
+    public bool IsDetailedLogsEnabled() => enableDetailedLogs;
+    public bool ArePresentEventsEnabled() => enablePresentEvents;
+    public PresentSize GetPresentSize() => presentSize;
+    
+    public string GetPresentSizeString() => presentSize.ToString();
+    public int GetPresentValueBySize()
+    {
+        return presentSize switch
         {
-            float audioLength = GetCollectionAudioSource().clip.length;
-            maxEffectTime = Mathf.Max(maxEffectTime, audioLength);
-        }
-        
-        Debug.Log($"[Presents] Aspettando {maxEffectTime} secondi per completare tutti gli effetti");
-        
-        yield return new WaitForSeconds(maxEffectTime + 0.5f); // +0.5f di buffer
-        
-        // Ora disattiva completamente l'oggetto
-        gameObject.SetActive(false);
-        
-        Debug.Log($"[Presents] Oggetto {collectibleName} completamente disabilitato dopo effetti");
+            PresentSize.Small => 5,
+            PresentSize.Medium => 10,
+            PresentSize.Large => 20,
+            _ => GetCollectibleValue()
+        };
+    }
+
+    // ========== SETTERS SPECIFICI PRESENT ==========
+
+    public void SetDetailedLogs(bool enabled) 
+    { 
+        enableDetailedLogs = enabled;
+        LogDebug($"Detailed logs {(enabled ? "abilitati" : "disabilitati")}");
     }
     
-    private System.Collections.IEnumerator StopParticleEffectAfterDelay(ParticleSystem particleSystem, float delay, string effectName = "Unknown")
-    {
-        Debug.Log($"[Presents] Aspettando {delay} secondi prima di fermare {effectName} effetto per {collectibleName}");
-        
-        yield return new WaitForSeconds(delay);
-        
-        if (particleSystem != null && particleSystem.isPlaying)
-        {
-            particleSystem.Stop();
-            Debug.Log($"[Presents] {effectName} effetto fermato per {collectibleName}");
-        }
+    public void SetPresentEventsEnabled(bool enabled) 
+    { 
+        enablePresentEvents = enabled;
+        LogDebug($"Present events {(enabled ? "abilitati" : "disabilitati")}");
     }
     
-    private void SetChildVisibility(bool visible)
-    {
-        if (childRenderers != null)
-        {
-            foreach (var renderer in childRenderers)
-            {
-                if (renderer != null)
-                {
-                    renderer.enabled = visible;
-                }
-            }
-        }
-        
-        if (lodGroup != null)
-        {
-            lodGroup.enabled = visible;
-        }
-        
-        Debug.Log($"[Presents] Visibilità renderer impostata a {visible} per {collectibleName}");
+    public void SetPresentSize(PresentSize size) 
+    { 
+        presentSize = size;
+        ConfigurePresentDefaults(); // Riapplica configurazioni
+        LogDebug($"Present size cambiato a: {size}");
     }
-    
-    // ========== GESTIONE EFFETTI ON DESTROY/DISABLE ==========
-    
-    protected override void OnDestroy()
-    {
-        StopAllPresentEffects();
-        base.OnDestroy(); // Chiama anche il metodo della classe base
-    }
-    
-    protected override void OnDisable()
-    {
-        StopAllPresentEffects();
-        base.OnDisable(); // Chiama anche il metodo della classe base
-    }
-    
-    private void StopAllPresentEffects()
-    {
-        StopPreCollectionEffects();
-        
-        if (postCollectionEffect1 != null && postCollectionEffect1.isPlaying)
-        {
-            postCollectionEffect1.Stop();
-        }
-        
-        if (postCollectionEffect2 != null && postCollectionEffect2.isPlaying)
-        {
-            postCollectionEffect2.Stop();
-        }
-        
-        // L'audio è ora gestito automaticamente dalla classe base
-        Debug.Log($"[Presents] Effetti particellari Present fermati per {collectibleName}");
-    }
-    
-    // ========== OVERRIDE RESET ==========
-    
-    public override void ResetCollected()
-    {
-        base.ResetCollected(); // Questo resetterà anche l'audio automaticamente
-        
-        // Reset specifico dei Present
-        SetChildVisibility(true);
-        
-        if (presentCollider != null)
-        {
-            presentCollider.enabled = true;
-        }
-        
-        // Reset rotazione del visual container se presente
-        if (visualContainer != null)
-        {
-            visualContainer.rotation = Quaternion.identity;
-        }
-        
-        // Ferma tutti gli effetti Present prima di riavviare quelli pre-raccolta
-        StopAllPresentEffects();
-        
-        // Riavvia effetti pre-raccolta Present
-        StartPreCollectionEffects();
-        
-        Debug.Log($"[Presents] Present {collectibleName} resetato completamente");
-    }
-    
-    // ========== GETTERS E SETTERS SPECIFICI ==========
-    
-    public Collider GetCollider() => presentCollider;
-    public LODGroup GetLODGroup() => lodGroup;
-    public Transform GetVisualContainer() => visualContainer;
-    public Transform GetEffectsContainer() => effectsContainer;
-    
-    public void SetRotationSpeed(float speed)
-    {
-        rotationSpeed = speed;
-    }
-    
+
     public void SetAnimationEnabled(bool rotation, bool floating)
     {
         enableRotation = rotation;
-        SetFloatingEnabled(floating);
+        enableFloating = floating;
+        LogDebug($"Animazioni: Rotation={rotation}, Floating={floating}");
     }
-    
-    /// <summary>
-    /// Usa il sistema audio unificato della classe base
-    /// </summary>
-    public void SetPresentAudioVolumes(float backgroundVol, float collectionVol)
-    {
-        SetAudioVolumes(backgroundVol, collectionVol);
-    }
-    
-    public void SetPostEffectDuration(float duration)
-    {
-        postEffectDuration = duration;
-    }
-    
-    // ========== CONFIGURAZIONI PRESET ==========
-    
-    public void ConfigureAsChristmasPresent()
-    {
-        SetCollectibleName("Christmas Gift");
-        SetCollectibleValue(10);
-        SetRotationSpeed(30f);
-        SetFloatSettings(1.5f, 0.25f);
-        SetAudioVolumes(0.2f, 0.6f);
-        SetDisplayMessage("Regalo di Natale!");
-        Debug.Log("[Presents] Configurato come regalo di Natale");
-    }
-    
-    public void ConfigureAsBirthdayPresent()
-    {
-        SetCollectibleName("Birthday Gift");
-        SetCollectibleValue(15);
-        SetRotationSpeed(45f);
-        SetFloatSettings(2.5f, 0.4f);
-        SetAudioVolumes(0.3f, 0.7f);
-        SetDisplayMessage("Regalo di compleanno!");
-        Debug.Log("[Presents] Configurato come regalo di compleanno");
-    }
-    
-    public void ConfigureAsSpecialPresent()
-    {
-        SetCollectibleName("Special Gift");
-        SetCollectibleValue(25);
-        SetRotationSpeed(60f);
-        SetFloatSettings(3f, 0.5f);
-        SetAudioVolumes(0.4f, 0.8f);
-        SetDisplayMessage("Regalo speciale!");
-        Debug.Log("[Presents] Configurato come regalo speciale");
-    }
-    
-    // ========== LOD MANAGEMENT ==========
-    
-    public void ForceLODLevel(int lodLevel)
-    {
-        if (lodGroup != null)
-        {
-            lodGroup.ForceLOD(lodLevel);
-        }
-    }
-    
-    public void EnableAutoLOD()
-    {
-        if (lodGroup != null)
-        {
-            lodGroup.ForceLOD(-1); // -1 = automatic
-        }
-    }
-    
-    // ========== METODI PER COMPATIBILITÀ CON VECCHIO CODICE ==========
-    
-    /// <summary>
-    /// Compatibilità con il vecchio metodo CollectPresent
-    /// </summary>
-    public void CollectPresent()
-    {
-        CollectItem();
-    }
-    
-    /// <summary>
-    /// Compatibilità con il vecchio metodo GetPresentName
-    /// </summary>
+
+    // ========== METODI PER COMPATIBILITÀ ==========
+
+    public void CollectPresent() => CollectItem();
     public string GetPresentName() => GetName();
-    
-    /// <summary>
-    /// Compatibilità con il vecchio metodo GetPresentValue
-    /// </summary>
     public int GetPresentValue() => GetCollectibleValue();
-    
-    /// <summary>
-    /// Compatibilità con il vecchio metodo SetPresentName
-    /// </summary>
-    public void SetPresentName(string name)
+    public void SetPresentName(string name) => collectibleName = name;
+    public void SetPresentValue(int value) => collectibleValue = value;
+    public void ResetPresent() => ResetCollected();
+
+    // ========== DEBUG METHODS ==========
+
+    private void LogDebug(string message)
     {
-        SetCollectibleName(name);
+        if (enableDetailedLogs)
+            Debug.Log($"[Presents] {message}");
     }
-    
-    /// <summary>
-    /// Compatibilità con il vecchio metodo SetPresentValue
-    /// </summary>
-    public void SetPresentValue(int value)
+
+    [ContextMenu("🎄 Configure as Christmas Present")]
+    public void DebugConfigureChristmas() => ConfigureAsChristmasPresent();
+
+    [ContextMenu("🎂 Configure as Birthday Present")]
+    public void DebugConfigureBirthday() => ConfigureAsBirthdayPresent();
+
+    [ContextMenu("⭐ Configure as Special Present")]
+    public void DebugConfigureSpecial() => ConfigureAsSpecialPresent();
+
+    [ContextMenu("🎁 Configure as Small Surprise")]
+    public void DebugConfigureSmallSurprise() => ConfigureAsSmallSurprise();
+
+    [ContextMenu("📝 Toggle Detailed Logs")]
+    public void DebugToggleDetailedLogs()
     {
-        SetCollectibleValue(value);
+        SetDetailedLogs(!enableDetailedLogs);
+        Debug.Log($"[Presents] Detailed Logs per {collectibleName}: {(enableDetailedLogs ? "ABILITATI" : "DISABILITATI")}");
     }
-    
-    /// <summary>
-    /// Compatibilità - alias per ResetCollected
-    /// </summary>
-    public void ResetPresent()
+
+    [ContextMenu("🎉 Toggle Present Events")]
+    public void DebugTogglePresentEvents()
     {
-        ResetCollected();
+        enablePresentEvents = !enablePresentEvents;
+        Debug.Log($"[Presents] Present Events per {collectibleName}: {(enablePresentEvents ? "ABILITATI" : "DISABILITATI")}");
     }
-    
-    /// <summary>
-    /// Metodo per compatibilità con sistemi esterni che chiamano OnPresentCollected
-    /// </summary>
-    public void TriggerPresentCollection()
-    {
-        CollectItem();
-    }
-    
-    // ========== CONTROLLO EFFETTI MANUALI ==========
-    
-    [ContextMenu("Test Pre-Collection Effects")]
-    public void TestPreCollectionEffects()
-    {
-        StartPreCollectionEffects();
-    }
-    
-    [ContextMenu("Test Post-Collection Effects")]
-    public void TestPostCollectionEffects()
-    {
-        PlayCollectionFeedback();
-    }
-    
-    [ContextMenu("Stop Present Effects")]
-    public void ManualStopPresentEffects()
-    {
-        StopAllPresentEffects();
-    }
-    
-    // ========== DEBUG PRESENT-SPECIFIC ==========
-    
-    [ContextMenu("Debug Present State")]
+
+    [ContextMenu("✅ Validate Present Components")]
+    public void DebugValidatePresentComponents() => ValidatePresentComponents();
+
+    [ContextMenu("🔄 Test Present Cycle")]
+    public void DebugTestPresentCycle() => TestPresentCycle();
+
+    [ContextMenu("📊 Debug Present State")]
     public void DebugPresentState()
     {
-        Debug.Log($"=== STATO PRESENT {collectibleName} ===\n" +
-                  $"Is Collected: {isCollected}\n" +
-                  $"GameObject Active: {gameObject.activeInHierarchy}\n" +
-                  $"Pre Effect: {(preCollectionEffect != null ? (preCollectionEffect.gameObject.activeInHierarchy ? "Active" : "Inactive GameObject") : "NULL")}\n" +
-                  $"Pre Effect Playing: {(preCollectionEffect != null ? preCollectionEffect.isPlaying : false)}\n" +
-                  $"Post Effect 1: {(postCollectionEffect1 != null ? (postCollectionEffect1.gameObject.activeInHierarchy ? "Active" : "Inactive GameObject") : "NULL")}\n" +
-                  $"Post Effect 2: {(postCollectionEffect2 != null ? (postCollectionEffect2.gameObject.activeInHierarchy ? "Active" : "Inactive GameObject") : "NULL")}\n" +
-                  $"Background Audio (base): {IsBackgroundAudioPlaying()}\n" +
-                  $"Background Clip (base): {(GetBackgroundLoopSound() != null ? GetBackgroundLoopSound().name : "NULL")}\n" +
-                  $"Collection Clip (base): {(GetCollectSound() != null ? GetCollectSound().name : "NULL")}");
+        string state = $"=== STATO PRESENT {collectibleName} ===\n" +
+                      $"Present Size: {presentSize}\n" +
+                      $"Is Collected: {IsCollected()}\n" +
+                      $"GameObject Active: {gameObject.activeInHierarchy}\n" +
+                      $"Mesh Container: {(meshContainer != null ? meshContainer.name + " (Active: " + meshContainer.gameObject.activeInHierarchy + ")" : "NULL")}\n" +
+                      $"Effects Container: {(effectsContainer != null ? effectsContainer.name + " (Active: " + effectsContainer.gameObject.activeInHierarchy + ")" : "NULL")}\n" +
+                      $"Pre Effects: {(preCollectionEffects != null ? preCollectionEffects.Length + " (" + CountPlayingEffects(preCollectionEffects) + " playing)" : "NULL")}\n" +
+                      $"Post Effects: {(postCollectionEffects != null ? postCollectionEffects.Length + " (" + CountPlayingEffects(postCollectionEffects) + " playing)" : "NULL")}\n" +
+                      $"Main Collider: {(mainCollider != null ? mainCollider.GetType().Name + " (enabled: " + mainCollider.enabled + ")" : "NULL")}\n" +
+                      $"🔊 Audio Settings:\n" +
+                      $"   - Pre AudioSource: {(GetPreAudioSource() != null ? GetPreAudioSource().name : "NULL")}\n" +
+                      $"   - Post AudioSource: {(GetPostAudioSource() != null ? GetPostAudioSource().name : "NULL")}\n" +
+                      $"   - Pre Audio Clip: {(GetPreAudioSource()?.clip != null ? GetPreAudioSource().clip.name : "NULL")}\n" +
+                      $"   - Post Audio Clip: {(GetPostAudioSource()?.clip != null ? GetPostAudioSource().clip.name : "NULL")}\n" +
+                      $"   - Max Distance: {GetAudioMaxDistance()}\n" +
+                      $"   - Pre Audio Loop Enabled: {IsPreAudioLoopEnabled()}\n" +
+                      $"   - Pre Audio Playing: {IsPreAudioPlaying()}\n" +
+                      $"Rotation Enabled: {enableRotation}\n" +
+                      $"Rotation Speed: {rotationSpeed}\n" +
+                      $"Present Events Enabled: {enablePresentEvents}\n" +
+                      $"Detailed Logs: {enableDetailedLogs}\n" +
+                      $"Delay Before Hiding: {delayBeforeHiding}s\n" +
+                      $"Collectible Value: {collectibleValue}\n" +
+                      $"Expected Value by Size: {GetPresentValueBySize()}\n" +
+                      $"Will Disable GameObject After Collection: {WillDisableGameObjectAfterCollection()}\n" +
+                      $"Will Hide Mesh Immediately: {WillHideMeshImmediately()}";
+
+        Debug.Log(state);
     }
-    
-    [ContextMenu("Configure as Christmas Present")]
-    public void DebugConfigureChristmas()
+
+    [ContextMenu("📐 Cycle Present Size")]
+    public void DebugCyclePresentSize()
     {
-        ConfigureAsChristmasPresent();
-    }
-    
-    [ContextMenu("Configure as Birthday Present")]
-    public void DebugConfigureBirthday()
-    {
-        ConfigureAsBirthdayPresent();
-    }
-    
-    [ContextMenu("Configure as Special Present")]
-    public void DebugConfigureSpecial()
-    {
-        ConfigureAsSpecialPresent();
-    }
-    
-    [ContextMenu("Cache Components")]
-    public void DebugCacheComponents()
-    {
-        CacheChildComponents();
-    }
-    
-    [ContextMenu("Force LOD 0")]
-    public void DebugForceLOD0()
-    {
-        ForceLODLevel(0);
-    }
-    
-    [ContextMenu("Enable Auto LOD")]
-    public void DebugEnableAutoLOD()
-    {
-        EnableAutoLOD();
-    }
-    
-    public override void DebugInfo()
-    {
-        base.DebugInfo();
-        Debug.Log($"=== Present Specific Info ===\n" +
-                  $"Rotation Enabled: {enableRotation}\n" +
-                  $"Rotation Speed: {rotationSpeed}\n" +
-                  $"Has Pre Effect: {preCollectionEffect != null}\n" +
-                  $"Has Post Effect 1: {postCollectionEffect1 != null}\n" +
-                  $"Has Post Effect 2: {postCollectionEffect2 != null}\n" +
-                  $"Post Effect Duration: {postEffectDuration}\n" +
-                  $"Visual Container: {visualContainer != null}\n" +
-                  $"Effects Container: {effectsContainer != null}\n" +
-                  $"LOD Group: {lodGroup != null}\n" +
-                  $"Cached Renderers: {(childRenderers != null ? childRenderers.Length : 0)}\n" +
-                  $"Legacy Particles: {presentCollectionParticles != null}\n" +
-                  $"Legacy Jingle: {presentJingleSound != null}");
-    }
-    
-    // ========== GIZMOS PRESENT-SPECIFIC ==========
-    
-    protected override void OnDrawGizmos()
-    {
-        base.OnDrawGizmos();
-        
-        // Indicatore Present specifico
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireCube(transform.position + Vector3.up * 2f, Vector3.one * 0.3f);
-        
-        // Indicatori per containers
-        if (visualContainer != null)
+        PresentSize newSize = presentSize switch
         {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireCube(visualContainer.position, Vector3.one * 0.1f);
+            PresentSize.Small => PresentSize.Medium,
+            PresentSize.Medium => PresentSize.Large,
+            PresentSize.Large => PresentSize.Small,
+            _ => PresentSize.Medium
+        };
+        
+        SetPresentSize(newSize);
+        Debug.Log($"[Presents] {collectibleName} size cambiata a: {newSize} (Value: {GetPresentValueBySize()})");
+    }
+
+    [ContextMenu("🔊 Test Present Audio")]
+    public void DebugTestPresentAudio()
+    {
+        Debug.Log($"🔊 === TEST AUDIO PRESENT {collectibleName} ===");
+        
+        // Validazione AudioSource
+        if (GetPreAudioSource() == null)
+        {
+            Debug.LogError($"❌ Pre AudioSource NON assegnato per {collectibleName}! Assegnare nell'Inspector.");
+            return;
         }
         
-        if (effectsContainer != null)
+        if (GetPostAudioSource() == null)
         {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireCube(effectsContainer.position, Vector3.one * 0.1f);
+            Debug.LogError($"❌ Post AudioSource NON assegnato per {collectibleName}! Assegnare nell'Inspector.");
+            return;
         }
         
-        // Indicatori per effetti particellari
-        if (preCollectionEffect != null)
+        // Test pre-audio
+        var preSource = GetPreAudioSource();
+        if (preSource.clip != null)
         {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(preCollectionEffect.transform.position, 0.3f);
-        }
-        
-        if (postCollectionEffect1 != null)
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(postCollectionEffect1.transform.position, 0.2f);
-        }
-        
-        if (postCollectionEffect2 != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(postCollectionEffect2.transform.position, 0.2f);
-        }
-    }
-    
-    protected override void OnDrawGizmosSelected()
-    {
-        base.OnDrawGizmosSelected();
-        
-        // Area di raccolta dettagliata per Present
-        Gizmos.color = Color.red;
-        if (presentCollider != null)
-        {
-            if (presentCollider is SphereCollider sphereCol)
+            Debug.Log($"🎵 Pre-Audio Test: Source={preSource.name}, Clip={preSource.clip.name}, Loop={preSource.loop}");
+            
+            if (!IsPreAudioPlaying() && IsPreAudioLoopEnabled())
             {
-                Gizmos.DrawWireSphere(transform.position + sphereCol.center, sphereCol.radius * 1.2f);
+                Debug.Log($"🔄 Avvio pre-audio manualmente...");
+                DebugForcePlayPreAudio();
             }
-            else if (presentCollider is BoxCollider boxCol)
+            else
             {
-                Gizmos.matrix = Matrix4x4.TRS(transform.position + boxCol.center, transform.rotation, boxCol.size * 1.2f);
-                Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
-                Gizmos.matrix = Matrix4x4.identity;
+                Debug.Log($"ℹ️ Pre-audio status: Playing={IsPreAudioPlaying()}, Loop={IsPreAudioLoopEnabled()}");
             }
         }
         else
         {
-            Gizmos.DrawWireSphere(transform.position, 1.5f);
+            Debug.LogError($"❌ Pre-audio clip NON assegnato su AudioSource {preSource.name}!");
         }
         
-        // Visualizza rotazione se abilitata
-        if (enableRotation)
+        // Test post-audio
+        var postSource = GetPostAudioSource();
+        if (postSource.clip != null)
         {
-            Transform rotatingTransform = visualContainer != null ? visualContainer : transform;
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(rotatingTransform.position, 0.5f);
-            
-            // Frecce per indicare la rotazione
-            Vector3 right = rotatingTransform.right * 0.8f;
-            Vector3 forward = rotatingTransform.forward * 0.8f;
-            Gizmos.DrawRay(rotatingTransform.position, right);
-            Gizmos.DrawRay(rotatingTransform.position, forward);
+            Debug.Log($"🎵 Post-Audio Test: Source={postSource.name}, Clip={postSource.clip.name}");
+            Debug.Log($"🔄 Test post-audio...");
+            DebugForcePlayPostAudio();
+        }
+        else
+        {
+            Debug.LogError($"❌ Post-audio clip NON assegnato su AudioSource {postSource.name}!");
         }
         
-        // Connessioni tra parent e container
-        if (visualContainer != null)
-        {
-            Gizmos.color = Color.green;
-            Gizmos.DrawLine(transform.position, visualContainer.position);
-        }
-        
-        if (effectsContainer != null)
-        {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawLine(transform.position, effectsContainer.position);
-        }
-        
-        // Connessioni agli effetti particellari
-        if (preCollectionEffect != null)
-        {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(transform.position, preCollectionEffect.transform.position);
-        }
-        
-        if (postCollectionEffect1 != null)
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawLine(transform.position, postCollectionEffect1.transform.position);
-        }
-        
-        if (postCollectionEffect2 != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawLine(transform.position, postCollectionEffect2.transform.position);
-        }
+        // Test distanza dalla classe base
+        DebugTestAudioDistance();
+    }
+
+    [ContextMenu("📋 Show Audio Setup Instructions")]
+    new public void DebugShowAudioInstructions()
+    {
+        Debug.Log($"📋 === SETUP AUDIO per PRESENT {collectibleName} ===\n" +
+                  $"🎯 PRINCIPIO: Configura TUTTO direttamente sugli AudioSource!\n\n" +
+                  $"🔧 SETUP CONSIGLIATO:\n" +
+                  $"1. Crea Audio_Container sotto il prefab Present\n" +
+                  $"2. Crea PreAudio_Source + aggiungi AudioSource component\n" +
+                  $"3. Crea PostAudio_Source + aggiungi AudioSource component\n" +
+                  $"4. CONFIGURA COMPLETAMENTE ogni AudioSource nell'Inspector:\n" +
+                  $"   ✅ Audio Clip (NECESSARIO!)\n" +
+                  $"   ✅ Volume: PreAudio=0.8-0.9, PostAudio=1.0\n" +
+                  $"   ✅ Spatial Blend: 1.0 per 3D\n" +
+                  $"   ✅ Min Distance: 0.5\n" +
+                  $"   ✅ Max Distance: 25-30\n" +
+                  $"   ✅ Rolloff Mode: Linear\n" +
+                  $"   ✅ Loop: PreAudio=TRUE, PostAudio=FALSE\n" +
+                  $"   ✅ Play On Awake: FALSE (sempre!)\n" +
+                  $"5. Assegna i due AudioSource nei campi Inspector del Collectibles\n" +
+                  $"6. Imposta 'Enable Pre Audio Loop' = TRUE per Present\n" +
+                  $"7. Test con '🔊 Test Present Audio'\n\n" +
+                  $"⚠️ IMPORTANTE per PRESENT:\n" +
+                  $"- Pre-audio DEVE essere in loop (suona continuamente)\n" +
+                  $"- Post-audio NON deve essere in loop (suona solo alla raccolta)\n" +
+                  $"- Present NON si disattiva mai (solo nasconde mesh)\n" +
+                  $"- Usa solo trigger per la raccolta (non click)");
     }
 }

@@ -27,9 +27,10 @@ public class SceneManager01 : MonoBehaviour
     
     [Header("Settings")]
     [SerializeField] private bool enableDebugLogs = true;
+    
     [Header("Development Mode")]
-[SerializeField] private bool developmentMode = true; // ← ATTIVA QUESTO DURANTE LO SVILUPPO
-[SerializeField] private bool skipSyncOnStart = true; // ← E ANCHE QUESTO
+    [SerializeField] private bool developmentMode = true;
+    [SerializeField] private bool skipSyncOnStart = true;
     
     // Tracking degli oggetti raccolti per nome (per GameManager)
     private List<string> collectedPresentNames = new List<string>();
@@ -91,76 +92,70 @@ public class SceneManager01 : MonoBehaviour
         sceneInitialized = true;
     }
     
-   private void InitializeWithGameManager()
-{
-    if (!gameManagerReady || !sceneInitialized || GameManager.Instance == null) return;
-    
-    // Crea liste di nomi per GameManager (basati sui GameObject trovati)
-    List<string> allMemoryNames = GetAllMemoryNames();
-    List<string> allPresentNames = GetAllPresentNames();
-    
-    // Notifica al GameManager i totali di questa scena
-    GameManager.Instance.InitializeSceneMemories(sceneName, totalMemories, allMemoryNames);
-    GameManager.Instance.InitializeScene01Presents(totalPresents, allPresentNames);
-    
-    // 🔧 MODALITÀ SVILUPPO: Salta la sincronizzazione se richiesto
-    if (developmentMode && skipSyncOnStart)
+    private void InitializeWithGameManager()
     {
-        DebugLog("🔧 [DEV MODE] Sincronizzazione saltata - tutti i regali saranno visibili");
+        if (!gameManagerReady || !sceneInitialized || GameManager.Instance == null) return;
+        
+        // Crea liste di nomi per GameManager (basati sui GameObject trovati)
+        List<string> allMemoryNames = GetAllMemoryNames();
+        List<string> allPresentNames = GetAllPresentNames();
+        
+        // Notifica al GameManager i totali di questa scena
+        GameManager.Instance.InitializeSceneMemories(sceneName, totalMemories, allMemoryNames);
+        GameManager.Instance.InitializeScene01Presents(totalPresents, allPresentNames);
+        
+        // 🔧 MODALITÀ SVILUPPO: Salta la sincronizzazione se richiesto
+        if (developmentMode && skipSyncOnStart)
+        {
+            DebugLog("🔧 [DEV MODE] Sincronizzazione saltata - tutti i regali saranno visibili");
+        }
+        else
+        {
+            // ⭐ SOLO SINCRONIZZA I CONTATORI - NON TOCCARE I GAMEOBJECT ⭐
+            SyncCountersWithGameManager();
+        }
+        
+        DebugLog($"[SceneManager01] Sincronizzazione con GameManager completata");
+        
+        // Aggiorna l'UI iniziale
+        UpdateUI();
     }
-    else
-    {
-        // Sincronizza con i dati già raccolti dal GameManager
-        SyncWithGameManager();
-    }
     
-    DebugLog($"[SceneManager01] Sincronizzazione con GameManager completata");
-    
-    // Aggiorna l'UI iniziale
-    UpdateUI();
-}
-    
-    private void SyncWithGameManager()
+    /// <summary>
+    /// ⭐ VERSIONE CORRETTA: Sincronizza SOLO i contatori, NON modifica i GameObject ⭐
+    /// </summary>
+    private void SyncCountersWithGameManager()
     {
         if (GameManager.Instance == null) return;
         
-        // Sincronizza le memorie già raccolte
+        DebugLog("[SceneManager01] === SINCRONIZZAZIONE CONTATORI (NO GAMEOBJECT MODIFICATION) ===");
+        
+        // Sincronizza SOLO i contatori delle memorie già raccolte
         List<string> globalCollectedMemories = GameManager.Instance.GetCollectedMemoriesNamesInScene(sceneName);
         foreach (string memoryName in globalCollectedMemories)
         {
             if (!collectedMemoryNames.Contains(memoryName))
             {
                 collectedMemoryNames.Add(memoryName);
-                
-                // Nascondi l'oggetto se esiste
-                GameObject memoryObj = GameObject.Find(memoryName);
-                if (memoryObj != null)
-                {
-                    memoryObj.SetActive(false);
-                }
+                DebugLog($"[SceneManager01] ✅ Memory già raccolta registrata: {memoryName}");
             }
         }
         collectedMemories = collectedMemoryNames.Count;
         
-        // Sincronizza i presents già raccolti
+        // Sincronizza SOLO i contatori dei presents già raccolti
         List<string> globalCollectedPresents = GameManager.Instance.GetCollectedScene01PresentNames();
         foreach (string presentName in globalCollectedPresents)
         {
             if (!collectedPresentNames.Contains(presentName))
             {
                 collectedPresentNames.Add(presentName);
-                
-                // Nascondi l'oggetto se esiste
-                GameObject presentObj = GameObject.Find(presentName);
-                if (presentObj != null)
-                {
-                    presentObj.SetActive(false);
-                }
+                DebugLog($"[SceneManager01] ✅ Present già raccolto registrato: {presentName}");
             }
         }
         collectedPresents = collectedPresentNames.Count;
         
-        DebugLog($"[SceneManager01] Sincronizzazione: {collectedMemories} memories e {collectedPresents} presents già raccolti");
+        DebugLog($"[SceneManager01] ✅ Sincronizzazione contatori completata: {collectedMemories} memories e {collectedPresents} presents");
+        DebugLog("[SceneManager01] ⚠️ NOTA: I GameObject rimangono ATTIVI - la visibilità è gestita dalle classi Collectibles");
     }
     
     private List<string> GetAllMemoryNames()
@@ -266,6 +261,9 @@ public class SceneManager01 : MonoBehaviour
     
     // ========== METODI CHIAMATI DAL PLAYER/COLLECTIBLES ==========
     
+    /// <summary>
+    /// ⭐ VERSIONE CORRETTA: Solo tracking, NO gestione GameObject ⭐
+    /// </summary>
     public void NotifyPresentCollected(string presentName = "")
     {
         // Se non viene fornito un nome, genera uno generico
@@ -284,7 +282,7 @@ public class SceneManager01 : MonoBehaviour
         collectedPresentNames.Add(presentName);
         collectedPresents++;
         
-        DebugLog($"[SceneManager01] Present '{presentName}' raccolto! Progresso: {collectedPresents}/{totalPresents}");
+        DebugLog($"[SceneManager01] ✅ Present '{presentName}' TRACCIATO come raccolto! Progresso: {collectedPresents}/{totalPresents}");
         
         // Notifica al GameManager
         if (GameManager.Instance != null)
@@ -292,12 +290,9 @@ public class SceneManager01 : MonoBehaviour
             GameManager.Instance.OnScene01PresentCollected(presentName);
         }
         
-        // Nascondi l'oggetto
-        GameObject presentObj = GameObject.Find(presentName);
-        if (presentObj != null)
-        {
-            presentObj.SetActive(false);
-        }
+        // ⭐ RIMOSSO: NON disattiviamo più il GameObject! ⭐
+        // La classe Collectibles gestisce da sola la propria visibilità
+        DebugLog($"[SceneManager01] ℹ️ GameObject {presentName} rimane ATTIVO - gestione visibilità delegata alla classe Collectibles");
         
         // Eventi per la UI
         OnPresentCountChanged?.Invoke(collectedPresents, totalPresents);
@@ -305,7 +300,7 @@ public class SceneManager01 : MonoBehaviour
         // Controlla se tutti i presents sono stati raccolti
         if (collectedPresents >= totalPresents && totalPresents > 0)
         {
-            DebugLog("[SceneManager01] Tutti i presents raccolti!");
+            DebugLog("[SceneManager01] 🎉 Tutti i presents raccolti!");
             OnAllPresentsCollected?.Invoke();
             CheckAllCollectiblesCompletion();
         }
@@ -313,6 +308,9 @@ public class SceneManager01 : MonoBehaviour
         UpdateUI();
     }
     
+    /// <summary>
+    /// ⭐ VERSIONE CORRETTA: Solo tracking, NO gestione GameObject ⭐
+    /// </summary>
     public void NotifyMemoryCollected(string memoryName = "")
     {
         // Se non viene fornito un nome, genera uno generico
@@ -331,7 +329,7 @@ public class SceneManager01 : MonoBehaviour
         collectedMemoryNames.Add(memoryName);
         collectedMemories++;
         
-        DebugLog($"[SceneManager01] Memory '{memoryName}' raccolta! Progresso: {collectedMemories}/{totalMemories}");
+        DebugLog($"[SceneManager01] ✅ Memory '{memoryName}' TRACCIATA come raccolta! Progresso: {collectedMemories}/{totalMemories}");
         
         // Notifica al GameManager
         if (GameManager.Instance != null)
@@ -339,12 +337,9 @@ public class SceneManager01 : MonoBehaviour
             GameManager.Instance.OnSceneMemoryCollected(sceneName, memoryName);
         }
         
-        // Nascondi l'oggetto
-        GameObject memoryObj = GameObject.Find(memoryName);
-        if (memoryObj != null)
-        {
-            memoryObj.SetActive(false);
-        }
+        // ⭐ RIMOSSO: NON disattiviamo più il GameObject! ⭐
+        // La classe Collectibles gestisce da sola la propria visibilità
+        DebugLog($"[SceneManager01] ℹ️ GameObject {memoryName} rimane ATTIVO - gestione visibilità delegata alla classe Collectibles");
         
         // Eventi per la UI
         OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
@@ -352,7 +347,7 @@ public class SceneManager01 : MonoBehaviour
         // Controlla se tutte le memories sono state raccolte
         if (collectedMemories >= totalMemories && totalMemories > 0)
         {
-            DebugLog("[SceneManager01] Tutte le memories raccolte!");
+            DebugLog("[SceneManager01] 🎉 Tutte le memories raccolte!");
             OnAllMemoriesCollected?.Invoke();
             CheckAllCollectiblesCompletion();
         }
@@ -388,7 +383,7 @@ public class SceneManager01 : MonoBehaviour
         
         if (presentsComplete && memoriesComplete && (totalPresents > 0 || totalMemories > 0))
         {
-            DebugLog("[SceneManager01] TUTTI i collectibles completati!");
+            DebugLog("[SceneManager01] 🏆 TUTTI i collectibles completati!");
             OnAllCollectiblesCompleted?.Invoke();
         }
     }
@@ -444,7 +439,7 @@ public class SceneManager01 : MonoBehaviour
         // Re-sincronizza con GameManager se necessario
         if (GameManager.Instance != null && gameManagerReady)
         {
-            SyncWithGameManager();
+            SyncCountersWithGameManager();
         }
         
         UpdateUI();
@@ -483,11 +478,14 @@ public class SceneManager01 : MonoBehaviour
     
     /// <summary>
     /// Metodo che i collectibles possono chiamare per notificare la raccolta
+    /// ⭐ SOLO TRACKING - NO GESTIONE GAMEOBJECT ⭐
     /// </summary>
     /// <param name="collectibleName">Nome dell'oggetto raccolto</param>
     /// <param name="collectibleType">Tipo di collectible</param>
     public void OnCollectibleCollected(string collectibleName, CollectibleType collectibleType)
     {
+        DebugLog($"[SceneManager01] ✅ Collectible raccolto notificato: {collectibleName} ({collectibleType})");
+        
         switch (collectibleType)
         {
             case CollectibleType.Present:
@@ -499,7 +497,7 @@ public class SceneManager01 : MonoBehaviour
                 break;
                 
             default:
-                DebugLog($"[SceneManager01] Tipo collectible non riconosciuto: {collectibleType}");
+                DebugLog($"[SceneManager01] ⚠️ Tipo collectible non riconosciuto: {collectibleType}");
                 break;
         }
     }
@@ -532,7 +530,8 @@ public class SceneManager01 : MonoBehaviour
                   $"Collected Memories: [{memoriesList}]\n" +
                   $"Total: {GetTotalCollected()}/{GetTotalAvailable()} ({GetOverallCompletionPercentage():F1}%)\n" +
                   $"All Complete: {AreAllCollectiblesCompleted()}\n" +
-                  $"GameManager Ready: {gameManagerReady}");
+                  $"GameManager Ready: {gameManagerReady}\n" +
+                  $"⚠️ NOTA: SceneManager01 traccia SOLO i contatori - GameObject gestiti dalle classi Collectibles");
     }
     
     [ContextMenu("Refresh Scene Counts")]

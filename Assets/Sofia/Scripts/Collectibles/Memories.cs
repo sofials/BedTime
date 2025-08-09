@@ -3,22 +3,28 @@ using UnityEngine.Events;
 
 /// <summary>
 /// Classe per le Memory che eredita da Collectibles.
-/// Usa il sistema audio unificato della classe base per evitare conflitti.
-/// Aggiunge funzionalità specifiche per le memorie come glow, echoes, e categorizzazione.
+/// COMPLETAMENTE COMPATIBILE con la nuova classe base con sistema audio puro.
+/// Sistema audio: usa SOLO AudioSource configurati direttamente nell'Inspector.
+/// NON modifica mai parametri degli AudioSource - rispetta la configurazione originale.
+/// Gestisce immagini 2D billboard, effetti, categorizzazione e glow.
 /// </summary>
 public class Memories : Collectibles
 {
     [Header("Memory Specific Settings")]
-    [SerializeField] private Color memoryGlowColor = Color.cyan;
     [SerializeField] private MemoryCategory memoryCategory = MemoryCategory.Story;
+    [SerializeField] private Color memoryGlowColor = Color.cyan;
     
-    [Header("Memory Specific Effects")]
-    [SerializeField] private GameObject memoryCollectionAura;
-    [SerializeField] private AudioClip memoryEchoSound; // Ora usa il sistema base
-    [SerializeField] private ParticleSystem memoryGlowEffect;
+    [Header("Memory Billboard System - Manual Assignment")]
+    [SerializeField] private Transform billboardImage; // Immagine 2D da orientare verso camera
+    [SerializeField] private Camera targetCamera; // Camera verso cui orientarsi (se null usa Camera.main)
+    [SerializeField] private bool enableBillboard = true; // Abilita orientamento billboard
+    [SerializeField] private bool lockYAxis = true; // Blocca rotazione asse Y per billboard
     
     [Header("Memory Events")]
     public UnityEvent<Memories> OnMemoryCollected;
+    
+    [Header("Memory Debug")]
+    [SerializeField] private bool enableDetailedLogs = true; // Per debug dettagliato
     
     // Enum per categorie di memorie
     public enum MemoryCategory
@@ -29,61 +35,220 @@ public class Memories : Collectibles
         Character   // Memorie dei personaggi
     }
     
-    private Renderer[] memoryRenderers;
-    private Material[] originalMaterials;
-    private Material[] glowMaterials;
+    // Cache per billboard
+    private Transform cachedCameraTransform;
     
     protected override void Awake()
     {
-        // Imposta il tipo come Memory prima di chiamare il base Awake
+        // FASE 1: Imposta il tipo come Memory PRIMA del base Awake
         collectibleType = CollectibleType.Memory;
         
-        // Imposta default specifici per le Memory
+        // FASE 2: Imposta default specifici per le Memory
         if (collectibleValue == 1) // Se è ancora il valore di default
         {
             collectibleValue = GetDefaultValueForCategory();
         }
         
-        // Abilita floating per default nelle Memory
+        // FASE 3: Configurazioni animazione specifiche Memory
         enableFloating = true;
-        floatSpeed = 2f;
-        floatStrength = 0.5f;
+        floatSpeed = 1.5f;
+        floatStrength = 0.4f;
         
-        // CONFIGURA AUDIO TRAMITE SISTEMA BASE (evita conflitti!)
-        enableBackgroundLoop = false; // Le Memory di default non hanno loop di background
-        use3DAudio = true; // Audio 3D per le Memory
+        LogDebug($"Memory Awake - inizio configurazione per {gameObject.name}");
         
-        // Mappa l'audio legacy al sistema base
-        if (memoryEchoSound != null && collectSound == null)
-        {
-            collectSound = memoryEchoSound; // Usa l'echo come suono di raccolta
-        }
-        
-        // Chiama il base Awake che configurerà il sistema audio
+        // FASE 4: Chiama il base Awake che configurerà tutto tramite auto-detection
+        // La classe base imposterà automaticamente enablePreAudioLoop=false per Memory
         base.Awake();
         
-        // Setup specifico delle Memory
-        SetupMemoryRenderers();
+        // FASE 5: Setup specifico delle Memory
+        SetupBillboardSystem();
+        ValidateMemoryConfiguration();
         
-        Debug.Log($"[Memories] Memory Awake completato per {collectibleName} - Categoria: {memoryCategory}");
+        LogDebug($"Memory Awake completato per {collectibleName} - Categoria: {memoryCategory}");
     }
     
     protected override void Start()
     {
         base.Start();
         
-        // Avvia effetti specifici delle Memory
-        StartMemoryEffects();
-        
-        Debug.Log($"[Memories] Memory '{collectibleName}' inizializzata come {memoryCategory} Memory");
+        LogDebug($"Memory '{collectibleName}' inizializzata come {memoryCategory} Memory");
     }
     
     protected override void Update()
     {
         base.Update();
         
-        // Aggiorna effetti specifici delle Memory se necessario
-        UpdateMemoryEffects();
+        if (!isCollected)
+        {
+            // Sistema Billboard - orienta l'immagine verso la camera
+            if (enableBillboard && billboardImage != null)
+            {
+                UpdateBillboardRotation();
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Valida che tutti i componenti necessari siano assegnati
+    /// </summary>
+    private void ValidateMemoryConfiguration()
+    {
+        LogDebug($"=== VALIDAZIONE CONFIGURAZIONE MEMORY {collectibleName} ===");
+        
+        // Valida componenti dalla classe base
+        if (meshContainer == null && (meshRenderers == null || meshRenderers.Length == 0))
+        {
+            Debug.LogWarning($"[Memories] ⚠️ Nessun Mesh Container o Mesh Renderers trovato per {collectibleName}! " +
+                           "Verifica la gerarchia o assegna manualmente nell'Inspector.");
+        }
+        else
+        {
+            LogDebug($"✅ Mesh system configurato correttamente");
+        }
+        
+        // Valida collider principale
+        if (mainCollider == null)
+        {
+            Debug.LogWarning($"[Memories] ⚠️ Nessun Main Collider trovato per {collectibleName}! " +
+                           "Assicurati che ci sia un Collider sul GameObject principale.");
+        }
+        else
+        {
+            LogDebug($"✅ Main Collider trovato: {mainCollider.GetType().Name}");
+        }
+        
+        // Valida billboard image
+        if (billboardImage == null)
+        {
+            Debug.LogWarning($"[Memories] ⚠️ Nessun Billboard Image assegnato per {collectibleName}! " +
+                           "Assegna il Transform dell'immagine 2D nell'Inspector.");
+        }
+        else
+        {
+            LogDebug($"✅ Billboard Image assegnato: {billboardImage.name}");
+        }
+        
+        // Valida effetti dalla classe base
+        if (preCollectionEffects == null || preCollectionEffects.Length == 0)
+        {
+            Debug.LogWarning($"[Memories] ⚠️ Nessun Pre-Collection Effect trovato per {collectibleName}! " +
+                           "Verifica la gerarchia Effects_Container o assegna manualmente.");
+        }
+        else
+        {
+            LogDebug($"✅ Pre-Collection Effects: {preCollectionEffects.Length} effetti");
+        }
+        
+        if (postCollectionEffects == null || postCollectionEffects.Length == 0)
+        {
+            Debug.LogWarning($"[Memories] ⚠️ Nessun Post-Collection Effect trovato per {collectibleName}! " +
+                           "Verifica la gerarchia Effects_Container o assegna manualmente.");
+        }
+        else
+        {
+            LogDebug($"✅ Post-Collection Effects: {postCollectionEffects.Length} effetti");
+        }
+        
+        // ⭐ VALIDAZIONE AUDIO PURA - SOLO AudioSource ⭐
+        if (GetPreAudioSource() == null)
+        {
+            Debug.LogWarning($"[Memories] ⚠️ Nessun Pre AudioSource assegnato per {collectibleName}! " +
+                           "Assegna l'AudioSource pre-raccolta nell'Inspector.");
+        }
+        else
+        {
+            if (GetPreAudioSource().clip == null)
+            {
+                Debug.LogError($"[Memories] ❌ Pre AudioSource '{GetPreAudioSource().name}' non ha AudioClip assegnato! " +
+                             "Assegna il clip direttamente sull'AudioSource nell'Inspector.");
+            }
+            else
+            {
+                LogDebug($"✅ Pre AudioSource configurato: {GetPreAudioSource().name} con clip {GetPreAudioSource().clip.name}");
+                LogDebug($"   - Volume: {GetPreAudioSource().volume} (configurato sull'AudioSource)");
+                LogDebug($"   - 3D: {GetPreAudioSource().spatialBlend} (configurato sull'AudioSource)");
+                LogDebug($"   - Max Distance: {GetPreAudioSource().maxDistance} (configurato sull'AudioSource)");
+                LogDebug($"   - Loop: {GetPreAudioSource().loop} (dovrebbe essere FALSE per Memory)");
+            }
+        }
+        
+        if (GetPostAudioSource() == null)
+        {
+            Debug.LogWarning($"[Memories] ⚠️ Nessun Post AudioSource assegnato per {collectibleName}! " +
+                           "Assegna l'AudioSource post-raccolta nell'Inspector.");
+        }
+        else
+        {
+            if (GetPostAudioSource().clip == null)
+            {
+                Debug.LogError($"[Memories] ❌ Post AudioSource '{GetPostAudioSource().name}' non ha AudioClip assegnato! " +
+                             "Assegna il clip direttamente sull'AudioSource nell'Inspector.");
+            }
+            else
+            {
+                LogDebug($"✅ Post AudioSource configurato: {GetPostAudioSource().name} con clip {GetPostAudioSource().clip.name}");
+                LogDebug($"   - Volume: {GetPostAudioSource().volume} (configurato sull'AudioSource)");
+                LogDebug($"   - 3D: {GetPostAudioSource().spatialBlend} (configurato sull'AudioSource)");
+                LogDebug($"   - Max Distance: {GetPostAudioSource().maxDistance} (configurato sull'AudioSource)");
+                LogDebug($"   - Loop: {GetPostAudioSource().loop} (dovrebbe essere FALSE)");
+            }
+        }
+        
+        LogDebug($"=== FINE VALIDAZIONE CONFIGURAZIONE ===");
+    }
+    
+    /// <summary>
+    /// Setup del sistema billboard per orientare l'immagine verso la camera
+    /// </summary>
+    private void SetupBillboardSystem()
+    {
+        LogDebug($"=== SETUP BILLBOARD SYSTEM per {collectibleName} ===");
+        
+        // Auto-trova la camera se non assegnata
+        if (targetCamera == null)
+        {
+            targetCamera = Camera.main;
+            if (targetCamera == null)
+            {
+                targetCamera = FindFirstObjectByType<Camera>();
+            }
+        }
+        
+        if (targetCamera != null)
+        {
+            cachedCameraTransform = targetCamera.transform;
+            LogDebug($"✅ Camera target trovata: {targetCamera.name}");
+        }
+        else
+        {
+            Debug.LogWarning($"[Memories] ❌ Nessuna camera trovata per billboard di {collectibleName}!");
+        }
+        
+        LogDebug($"=== FINE SETUP BILLBOARD SYSTEM ===");
+    }
+    
+    /// <summary>
+    /// Aggiorna la rotazione del billboard per guardare sempre la camera
+    /// </summary>
+    private void UpdateBillboardRotation()
+    {
+        if (cachedCameraTransform == null || billboardImage == null) return;
+        
+        // Calcola direzione verso la camera
+        Vector3 directionToCamera = cachedCameraTransform.position - billboardImage.position;
+        
+        if (lockYAxis)
+        {
+            // Blocca l'asse Y per evitare inclinazioni strane
+            directionToCamera.y = 0;
+        }
+        
+        if (directionToCamera != Vector3.zero)
+        {
+            // Orienta verso la camera
+            Quaternion targetRotation = Quaternion.LookRotation(directionToCamera);
+            billboardImage.rotation = targetRotation;
+        }
     }
     
     private int GetDefaultValueForCategory()
@@ -98,96 +263,6 @@ public class Memories : Collectibles
         };
     }
     
-    private void SetupMemoryRenderers()
-    {
-        // Cache dei renderer per effetti glow
-        memoryRenderers = GetComponentsInChildren<Renderer>();
-        
-        if (memoryRenderers.Length > 0)
-        {
-            originalMaterials = new Material[memoryRenderers.Length];
-            glowMaterials = new Material[memoryRenderers.Length];
-            
-            for (int i = 0; i < memoryRenderers.Length; i++)
-            {
-                if (memoryRenderers[i] != null && !(memoryRenderers[i] is ParticleSystemRenderer))
-                {
-                    originalMaterials[i] = memoryRenderers[i].material;
-                    // Qui potresti creare materiali glow se necessario
-                    glowMaterials[i] = originalMaterials[i]; // Per ora usa lo stesso
-                }
-            }
-        }
-        
-        Debug.Log($"[Memories] Setup {memoryRenderers.Length} renderer per {collectibleName}");
-    }
-    
-    private void StartMemoryEffects()
-    {
-        Debug.Log($"[Memories] === AVVIO EFFETTI MEMORY per {collectibleName} ===");
-        
-        // Avvia effetto glow se presente
-        if (memoryGlowEffect != null)
-        {
-            if (memoryGlowEffect.gameObject.activeInHierarchy)
-            {
-                if (!memoryGlowEffect.isPlaying)
-                {
-                    memoryGlowEffect.Clear();
-                    memoryGlowEffect.Play();
-                    Debug.Log($"[Memories] ✅ Effetto glow AVVIATO per {collectibleName}");
-                }
-                else
-                {
-                    Debug.Log($"[Memories] ⚠️ Effetto glow già in riproduzione per {collectibleName}");
-                }
-            }
-            else
-            {
-                Debug.LogError($"[Memories] ❌ GameObject dell'effetto glow NON ATTIVO per {collectibleName}!");
-            }
-        }
-        else
-        {
-            Debug.LogWarning($"[Memories] ❌ Effetto glow NON ASSEGNATO per {collectibleName}");
-        }
-        
-        // L'audio di background è ora gestito automaticamente dalla classe base!
-        Debug.Log($"[Memories] Audio gestito dalla classe base Collectibles");
-        
-        Debug.Log($"[Memories] === FINE AVVIO EFFETTI MEMORY ===");
-    }
-    
-    private void UpdateMemoryEffects()
-    {
-        // Qui puoi aggiungere effetti continui come pulsing, color changing, etc.
-        // Per esempio, un glow pulsante basato sul tempo
-        if (!isCollected && memoryRenderers != null)
-        {
-            // Effetto glow pulsante (esempio)
-            // float pulse = (Mathf.Sin(Time.time * 2f) + 1f) * 0.5f;
-            // ApplyGlowIntensity(pulse);
-        }
-    }
-    
-    private void StopMemoryEffects()
-    {
-        Debug.Log($"[Memories] === STOP EFFETTI MEMORY per {collectibleName} ===");
-        
-        // Ferma effetto glow se presente
-        if (memoryGlowEffect != null)
-        {
-            if (memoryGlowEffect.isPlaying)
-            {
-                memoryGlowEffect.Stop();
-                Debug.Log($"[Memories] ✅ Effetto glow FERMATO per {collectibleName}");
-            }
-        }
-        
-        // L'audio è ora gestito automaticamente dalla classe base!
-        Debug.Log($"[Memories] Audio fermato dalla classe base Collectibles");
-    }
-    
     // ========== OVERRIDE METODI BASE ==========
     
     /// <summary>
@@ -195,104 +270,51 @@ public class Memories : Collectibles
     /// </summary>
     protected override void OnItemCollected()
     {
+        // Nasconde il billboard quando viene raccolto
+        if (billboardImage != null)
+        {
+            billboardImage.gameObject.SetActive(false);
+            LogDebug($"✅ Billboard nascosto per {collectibleName}");
+        }
+        
         // Evento specifico Memory
-        OnMemoryCollected?.Invoke(this);
-    }
-    
-    /// <summary>
-    /// Override del feedback di raccolta per aggiungere effetti specifici delle Memory
-    /// </summary>
-    protected override void PlayCollectionFeedback()
-    {
-        Debug.Log($"[Memories] === FEEDBACK MEMORY SPECIFICO per {collectibleName} ===");
-        
-        // Ferma effetti specifici delle Memory
-        StopMemoryEffects();
-        
-        // ========== EFFETTI VISIVI SPECIFICI MEMORY ==========
-        
-        // Effetto visivo specifico per le memorie
-        if (memoryCollectionAura != null)
+        try
         {
-            GameObject aura = Instantiate(memoryCollectionAura, transform.position, Quaternion.identity);
-            Destroy(aura, 5f);
-            Debug.Log($"[Memories] ✅ Aura memory creata");
+            OnMemoryCollected?.Invoke(this);
+            LogDebug($"Evento OnMemoryCollected invocato per {collectibleName}");
         }
-        else
+        catch (System.Exception e)
         {
-            Debug.LogWarning($"[Memories] ❌ Memory collection aura NON ASSEGNATA per {collectibleName}");
+            Debug.LogError($"[Memories] Errore nell'invocare OnMemoryCollected per {collectibleName}: {e.Message}");
         }
-        
-        // ========== CHIAMA IL FEEDBACK BASE ==========
-        // Questo gestirà automaticamente:
-        // - L'effetto visivo base (se presente) come fallback
-        // - L'audio di raccolta tramite il sistema unificato (memoryEchoSound mappato in collectSound)
-        // - Il messaggio UI specifico delle Memory
-        base.PlayCollectionFeedback();
-        
-        Debug.Log($"[Memories] === FINE FEEDBACK MEMORY SPECIFICO ===");
-    }
-    
-    /// <summary>
-    /// Override del metodo HideAfterEffect per gestire meglio le Memory
-    /// </summary>
-    protected override System.Collections.IEnumerator HideAfterEffect()
-    {
-        Debug.Log($"[Memories] Aspettando prima di nascondere Memory {collectibleName}");
-        
-        // Aspetta un po' di più per le Memory per permettere agli effetti di completarsi
-        float waitTime = Mathf.Max(effectDuration * 0.5f, 1.5f);
-        
-        // Considera anche l'audio di raccolta gestito dalla classe base
-        if (GetCollectionAudioSource() != null && GetCollectionAudioSource().isPlaying && GetCollectionAudioSource().clip != null)
-        {
-            float audioLength = GetCollectionAudioSource().clip.length;
-            waitTime = Mathf.Max(waitTime, audioLength);
-        }
-        
-        Debug.Log($"[Memories] Aspettando {waitTime} secondi per completare tutti gli effetti");
-        
-        yield return new WaitForSeconds(waitTime);
-        
-        gameObject.SetActive(false);
-        Debug.Log($"[Memories] Memory {collectibleName} nascosta dopo effetti");
-    }
-    
-    // ========== GESTIONE EFFETTI ON DESTROY/DISABLE ==========
-    
-    protected override void OnDestroy()
-    {
-        StopAllMemoryEffects();
-        base.OnDestroy(); // Chiama anche il metodo della classe base
-    }
-    
-    protected override void OnDisable()
-    {
-        StopAllMemoryEffects();
-        base.OnDisable(); // Chiama anche il metodo della classe base
-    }
-    
-    private void StopAllMemoryEffects()
-    {
-        StopMemoryEffects();
-        Debug.Log($"[Memories] Tutti gli effetti Memory fermati per {collectibleName}");
     }
     
     // ========== OVERRIDE RESET ==========
     
     public override void ResetCollected()
     {
-        base.ResetCollected(); // Questo resetterà anche l'audio automaticamente
+        // Chiama il reset della classe base
+        base.ResetCollected();
         
         // Reset specifico delle Memory
-        StartMemoryEffects();
         
-        Debug.Log($"[Memories] Memory {collectibleName} resetata con effetti");
+        // Riattiva billboard se presente
+        if (billboardImage != null)
+        {
+            billboardImage.gameObject.SetActive(true);
+            LogDebug($"✅ Billboard riattivato per {collectibleName}");
+        }
+        
+        LogDebug($"Memory {collectibleName} resetata completamente");
     }
     
-    // ========== METODI SPECIFICI MEMORY ==========
+    // ========== GETTERS E SETTERS SPECIFICI ==========
     
     public MemoryCategory GetMemoryCategory() => memoryCategory;
+    public Color GetMemoryGlowColor() => memoryGlowColor;
+    public Transform GetBillboardImage() => billboardImage;
+    public Camera GetTargetCamera() => targetCamera;
+    public bool IsDetailedLogsEnabled() => enableDetailedLogs;
     
     public void SetMemoryCategory(MemoryCategory category)
     {
@@ -303,265 +325,325 @@ public class Memories : Collectibles
         {
             collectibleValue = GetDefaultValueForCategory();
         }
+        
+        LogDebug($"Memory category cambiata a: {category}");
     }
     
     public void SetMemoryGlowColor(Color color)
     {
         memoryGlowColor = color;
         
-        // Applica il colore al glow effect se presente
-        if (memoryGlowEffect != null)
+        // Applica il colore agli effetti se presenti
+        if (preCollectionEffects != null)
         {
-            var main = memoryGlowEffect.main;
-            main.startColor = color;
+            foreach (var effect in preCollectionEffects)
+            {
+                if (effect != null)
+                {
+                    var main = effect.main;
+                    main.startColor = color;
+                }
+            }
+        }
+        
+        if (postCollectionEffects != null)
+        {
+            foreach (var effect in postCollectionEffects)
+            {
+                if (effect != null)
+                {
+                    var main = effect.main;
+                    main.startColor = color;
+                }
+            }
+        }
+        
+        LogDebug($"Glow color cambiato a: {color}");
+    }
+    
+    public void SetBillboardImage(Transform billboard)
+    {
+        billboardImage = billboard;
+        LogDebug($"Billboard image assegnato: {billboard?.name ?? "NULL"}");
+    }
+    
+    public void SetTargetCamera(Camera camera)
+    {
+        targetCamera = camera;
+        if (camera != null)
+        {
+            cachedCameraTransform = camera.transform;
+            LogDebug($"Target camera impostata: {camera.name}");
         }
     }
     
-    public void SetMemoryEchoSound(AudioClip echoClip)
+    public void SetBillboardSettings(bool enableBill, bool lockY)
     {
-        memoryEchoSound = echoClip;
-        // Aggiorna anche il sistema audio base
-        SetCollectSound(echoClip);
+        enableBillboard = enableBill;
+        lockYAxis = lockY;
+        LogDebug($"Billboard settings: Enabled={enableBill}, LockY={lockY}");
     }
     
-    /// <summary>
-    /// Abilita/disabilita un eventuale background loop per Memory speciali
-    /// </summary>
-    public void SetMemoryBackgroundLoop(AudioClip loopClip, bool enabled = true)
+    public void SetDetailedLogs(bool enabled)
     {
-        if (loopClip != null)
-        {
-            SetBackgroundLoopSound(loopClip);
-        }
-        SetBackgroundLoopEnabled(enabled);
+        enableDetailedLogs = enabled;
+        LogDebug($"Detailed logs {(enabled ? "abilitati" : "disabilitati")}");
     }
     
-    // ========== CONFIGURAZIONI PRESET ==========
+    // ========== CONFIGURAZIONI PRESET (AGGIORNATE) ==========
     
     public void ConfigureAsStoryMemory()
     {
         SetMemoryCategory(MemoryCategory.Story);
-        SetCollectibleName("Story Fragment");
-        SetCollectibleValue(1);
-        SetFloatSettings(3f, 0.8f);
+        collectibleName = "Story Fragment";
+        collectibleValue = 1;
+        floatSpeed = 2f;
+        floatStrength = 0.6f;
         SetMemoryGlowColor(Color.cyan);
-        SetDisplayMessage("Storia recuperata!");
-        SetAudioVolumes(0.2f, 0.6f); // Volume basso per story memory
-        Debug.Log("[Memories] Configurata come memory narrativa");
+        displayMessage = "Storia recuperata!";
+        delayBeforeHiding = 3f;
+        
+        LogDebug("Configurata come memory narrativa");
     }
     
     public void ConfigureAsLoreMemory()
     {
         SetMemoryCategory(MemoryCategory.Lore);
-        SetCollectibleName("Ancient Knowledge");
-        SetCollectibleValue(5);
-        SetFloatSettings(5f, 1.2f);
+        collectibleName = "Ancient Knowledge";
+        collectibleValue = 5;
+        floatSpeed = 3f;
+        floatStrength = 0.8f;
         SetMemoryGlowColor(Color.magenta);
-        SetDisplayMessage("Antica conoscenza acquisita!");
-        SetAudioVolumes(0.3f, 0.7f); // Volume medio per lore memory
-        Debug.Log("[Memories] Configurata come memory lore");
+        displayMessage = "Antica conoscenza acquisita!";
+        delayBeforeHiding = 4f;
+        
+        LogDebug("Configurata come memory lore");
     }
     
     public void ConfigureAsSecretMemory()
     {
         SetMemoryCategory(MemoryCategory.Secret);
-        SetCollectibleName("Hidden Truth");
-        SetCollectibleValue(10);
-        SetFloatSettings(6f, 1.5f);
+        collectibleName = "Hidden Truth";
+        collectibleValue = 10;
+        floatSpeed = 4f;
+        floatStrength = 1.0f;
         SetMemoryGlowColor(Color.yellow);
-        SetDisplayMessage("Verità nascosta rivelata!");
-        SetAudioVolumes(0.4f, 0.8f); // Volume alto per secret memory
-        Debug.Log("[Memories] Configurata come memory segreta");
+        displayMessage = "Verità nascosta rivelata!";
+        delayBeforeHiding = 5f;
+        
+        LogDebug("Configurata come memory segreta");
     }
     
     public void ConfigureAsCharacterMemory(string characterName = "Unknown")
     {
         SetMemoryCategory(MemoryCategory.Character);
-        SetCollectibleName($"{characterName} Memory");
-        SetCollectibleValue(3);
-        SetFloatSettings(4f, 1.0f);
+        collectibleName = $"{characterName} Memory";
+        collectibleValue = 3;
+        floatSpeed = 2.5f;
+        floatStrength = 0.7f;
         SetMemoryGlowColor(Color.green);
-        SetDisplayMessage($"Ricordo di {characterName} recuperato!");
-        SetAudioVolumes(0.25f, 0.65f); // Volume medio-basso per character memory
-        Debug.Log($"[Memories] Configurata come memory di {characterName}");
+        displayMessage = $"Ricordo di {characterName} recuperato!";
+        delayBeforeHiding = 3.5f;
+        
+        LogDebug($"Configurata come memory di {characterName}");
     }
     
     // ========== METODI PER COMPATIBILITÀ CON VECCHIO CODICE ==========
     
-    /// <summary>
-    /// Compatibilità con il vecchio metodo CollectMemory
-    /// </summary>
-    public void CollectMemory()
-    {
-        CollectItem();
-    }
-    
-    /// <summary>
-    /// Compatibilità con il vecchio metodo GetMemoryName
-    /// </summary>
+    public void CollectMemory() => CollectItem();
     public string GetMemoryName() => GetName();
-    
-    /// <summary>
-    /// Compatibilità con il vecchio metodo GetMemoryValue
-    /// </summary>
     public int GetMemoryValue() => GetCollectibleValue();
+    public void SetMemoryName(string name) => collectibleName = name;
+    public void SetMemoryValue(int value) => collectibleValue = value;
+    public void ResetMemory() => ResetCollected();
+    public void TriggerMemoryCollection() => CollectItem();
     
-    /// <summary>
-    /// Compatibilità con il vecchio metodo SetMemoryName
-    /// </summary>
-    public void SetMemoryName(string name)
+    // ========== DEBUG METHODS AGGIORNATI ==========
+    
+    private void LogDebug(string message)
     {
-        SetCollectibleName(name);
+        if (enableDetailedLogs)
+            Debug.Log($"[Memories] {message}");
     }
     
-    /// <summary>
-    /// Compatibilità con il vecchio metodo SetMemoryValue
-    /// </summary>
-    public void SetMemoryValue(int value)
+    [ContextMenu("🔄 Test Memory Collection")]
+    public void TestMemoryCollection() => ForceCollect();
+    
+    [ContextMenu("🔍 Validate Configuration")]
+    public void ManualValidateConfiguration() => ValidateMemoryConfiguration();
+    
+    [ContextMenu("🔄 Test Billboard Rotation")]
+    public void TestBillboardRotation()
     {
-        SetCollectibleValue(value);
+        if (billboardImage != null && enableBillboard)
+        {
+            UpdateBillboardRotation();
+            Debug.Log($"[Memories] Billboard aggiornato per {collectibleName}");
+        }
+        else
+        {
+            Debug.LogWarning($"[Memories] Billboard non configurato per {collectibleName}");
+        }
     }
     
-    /// <summary>
-    /// Compatibilità - alias per ResetCollected
-    /// </summary>
-    public void ResetMemory()
+    [ContextMenu("📖 Configure as Story Memory")]
+    public void DebugConfigureStory() => ConfigureAsStoryMemory();
+    
+    [ContextMenu("🔮 Configure as Lore Memory")]
+    public void DebugConfigureLore() => ConfigureAsLoreMemory();
+    
+    [ContextMenu("🤫 Configure as Secret Memory")]
+    public void DebugConfigureSecret() => ConfigureAsSecretMemory();
+    
+    [ContextMenu("👤 Configure as Character Memory")]
+    public void DebugConfigureCharacter() => ConfigureAsCharacterMemory("TestCharacter");
+    
+    [ContextMenu("📝 Toggle Detailed Logs")]
+    public void DebugToggleDetailedLogs()
     {
-        ResetCollected();
+        SetDetailedLogs(!enableDetailedLogs);
+        Debug.Log($"[Memories] Detailed Logs per {collectibleName}: {(enableDetailedLogs ? "ABILITATI" : "DISABILITATI")}");
     }
     
-    /// <summary>
-    /// Metodo per compatibilità con sistemi esterni che chiamano OnMemoryCollected
-    /// </summary>
-    public void TriggerMemoryCollection()
+    [ContextMenu("📱 Toggle Billboard")]
+    public void DebugToggleBillboard()
     {
-        CollectItem();
+        enableBillboard = !enableBillboard;
+        Debug.Log($"[Memories] Billboard per {collectibleName}: {(enableBillboard ? "ABILITATO" : "DISABILITATO")}");
     }
     
-    // ========== CONTROLLO EFFETTI MANUALI ==========
-    
-    [ContextMenu("Test Memory Glow")]
-    public void TestMemoryGlow()
+    [ContextMenu("🔊 Test Memory Audio")]
+    public void DebugTestMemoryAudio()
     {
-        StartMemoryEffects();
+        Debug.Log($"🔊 === TEST AUDIO MEMORY {collectibleName} ===");
+        
+        if (GetPreAudioSource() == null)
+        {
+            Debug.LogError($"❌ Pre AudioSource NON assegnato per {collectibleName}! Assegnare nell'Inspector.");
+            return;
+        }
+        
+        if (GetPostAudioSource() == null)
+        {
+            Debug.LogError($"❌ Post AudioSource NON assegnato per {collectibleName}! Assegnare nell'Inspector.");
+            return;
+        }
+        
+        // Test pre-audio (Memory non hanno loop di default)
+        var preSource = GetPreAudioSource();
+        if (preSource.clip != null)
+        {
+            Debug.Log($"🎵 Pre-Audio Test: Source={preSource.name}, Clip={preSource.clip.name}, Loop={preSource.loop}");
+            
+            if (!IsPreAudioPlaying())
+            {
+                Debug.Log($"🔄 Test pre-audio manualmente (Memory non hanno loop di default)...");
+                DebugForcePlayPreAudio();
+            }
+        }
+        else
+        {
+            Debug.LogError($"❌ Pre-audio clip NON assegnato su AudioSource {preSource.name}!");
+        }
+        
+        // Test post-audio
+        var postSource = GetPostAudioSource();
+        if (postSource.clip != null)
+        {
+            Debug.Log($"🎵 Post-Audio Test: Source={postSource.name}, Clip={postSource.clip.name}");
+            Debug.Log($"🔄 Test post-audio...");
+            DebugForcePlayPostAudio();
+        }
+        else
+        {
+            Debug.LogError($"❌ Post-audio clip NON assegnato su AudioSource {postSource.name}!");
+        }
+        
+        // Test distanza dalla classe base
+        DebugTestAudioDistance();
     }
     
-    [ContextMenu("Stop Memory Effects")]
-    public void ManualStopMemoryEffects()
-    {
-        StopAllMemoryEffects();
-    }
-    
-    [ContextMenu("Test Memory Collection")]
-    public void TestMemoryCollection()
-    {
-        PlayCollectionFeedback();
-    }
-    
-    // ========== DEBUG MEMORY-SPECIFIC ==========
-    
-    [ContextMenu("Debug Memory State")]
+    [ContextMenu("📊 Debug Memory State")]
     public void DebugMemoryState()
     {
-        Debug.Log($"=== STATO MEMORY {collectibleName} ===\n" +
-                  $"Is Collected: {isCollected}\n" +
-                  $"GameObject Active: {gameObject.activeInHierarchy}\n" +
-                  $"Category: {memoryCategory}\n" +
-                  $"Glow Color: {memoryGlowColor}\n" +
-                  $"Glow Effect: {(memoryGlowEffect != null ? (memoryGlowEffect.gameObject.activeInHierarchy ? "Active" : "Inactive GameObject") : "NULL")}\n" +
-                  $"Glow Playing: {(memoryGlowEffect != null ? memoryGlowEffect.isPlaying : false)}\n" +
-                  $"Memory Aura: {(memoryCollectionAura != null ? "Assigned" : "NULL")}\n" +
-                  $"Echo Sound (base): {(GetCollectSound() != null ? GetCollectSound().name : "NULL")}\n" +
-                  $"Background Audio: {IsBackgroundAudioPlaying()}");
+        string state = $"=== STATO MEMORY {collectibleName} ===\n" +
+                      $"Memory Category: {memoryCategory}\n" +
+                      $"Memory Glow Color: {memoryGlowColor}\n" +
+                      $"Is Collected: {IsCollected()}\n" +
+                      $"GameObject Active: {gameObject.activeInHierarchy}\n" +
+                      $"Billboard Image: {(billboardImage != null ? billboardImage.name + " (Active: " + billboardImage.gameObject.activeInHierarchy + ")" : "NULL")}\n" +
+                      $"Enable Billboard: {enableBillboard}\n" +
+                      $"Lock Y Axis: {lockYAxis}\n" +
+                      $"Target Camera: {(targetCamera != null ? targetCamera.name : "NULL")}\n" +
+                      $"Mesh Container: {(meshContainer != null ? meshContainer.name + " (Active: " + meshContainer.gameObject.activeInHierarchy + ")" : "NULL")}\n" +
+                      $"Effects Container: {(effectsContainer != null ? effectsContainer.name + " (Active: " + effectsContainer.gameObject.activeInHierarchy + ")" : "NULL")}\n" +
+                      $"Pre Effects: {(preCollectionEffects != null ? preCollectionEffects.Length.ToString() : "NULL")}\n" +
+                      $"Post Effects: {(postCollectionEffects != null ? postCollectionEffects.Length.ToString() : "NULL")}\n" +
+                      $"Main Collider: {(mainCollider != null ? mainCollider.GetType().Name + " (enabled: " + mainCollider.enabled + ")" : "NULL")}\n" +
+                      $"🔊 Audio Settings:\n" +
+                      $"   - Pre AudioSource: {(GetPreAudioSource() != null ? GetPreAudioSource().name : "NULL")}\n" +
+                      $"   - Post AudioSource: {(GetPostAudioSource() != null ? GetPostAudioSource().name : "NULL")}\n" +
+                      $"   - Pre Audio Clip: {(GetPreAudioSource()?.clip != null ? GetPreAudioSource().clip.name : "NULL")}\n" +
+                      $"   - Post Audio Clip: {(GetPostAudioSource()?.clip != null ? GetPostAudioSource().clip.name : "NULL")}\n" +
+                      $"   - Max Distance: {GetAudioMaxDistance()}\n" +
+                      $"   - Pre Audio Loop Enabled: {IsPreAudioLoopEnabled()}\n" +
+                      $"   - Pre Audio Playing: {IsPreAudioPlaying()}\n" +
+                      $"Floating Enabled: {enableFloating}\n" +
+                      $"Float Speed: {floatSpeed}\n" +
+                      $"Float Strength: {floatStrength}\n" +
+                      $"Rotation Enabled: {enableRotation}\n" +
+                      $"Detailed Logs: {enableDetailedLogs}\n" +
+                      $"Delay Before Hiding: {delayBeforeHiding}s\n" +
+                      $"Collectible Value: {collectibleValue}\n" +
+                      $"Expected Value by Category: {GetDefaultValueForCategory()}\n" +
+                      $"Will Disable GameObject After Collection: {WillDisableGameObjectAfterCollection()}\n" +
+                      $"Will Hide Mesh Immediately: {WillHideMeshImmediately()}";
+
+        Debug.Log(state);
     }
     
-    [ContextMenu("Configure as Story Memory")]
-    public void DebugConfigureStory()
+    [ContextMenu("📐 Cycle Memory Category")]
+    public void DebugCycleMemoryCategory()
     {
-        ConfigureAsStoryMemory();
-    }
-    
-    [ContextMenu("Configure as Lore Memory")]
-    public void DebugConfigureLore()
-    {
-        ConfigureAsLoreMemory();
-    }
-    
-    [ContextMenu("Configure as Secret Memory")]
-    public void DebugConfigureSecret()
-    {
-        ConfigureAsSecretMemory();
-    }
-    
-    [ContextMenu("Configure as Character Memory")]
-    public void DebugConfigureCharacter()
-    {
-        ConfigureAsCharacterMemory("TestCharacter");
-    }
-    
-    public override void DebugInfo()
-    {
-        base.DebugInfo();
-        Debug.Log($"=== Memory Specific Info ===\n" +
-                  $"Category: {memoryCategory}\n" +
-                  $"Glow Color: {memoryGlowColor}\n" +
-                  $"Has Memory Aura: {memoryCollectionAura != null}\n" +
-                  $"Has Echo Sound: {memoryEchoSound != null}\n" +
-                  $"Has Glow Effect: {memoryGlowEffect != null}\n" +
-                  $"Renderers Count: {(memoryRenderers != null ? memoryRenderers.Length : 0)}\n" +
-                  $"Original Materials: {(originalMaterials != null ? originalMaterials.Length : 0)}\n" +
-                  $"Glow Materials: {(glowMaterials != null ? glowMaterials.Length : 0)}");
-    }
-    
-    // ========== GIZMOS MEMORY-SPECIFIC ==========
-    
-    protected override void OnDrawGizmos()
-    {
-        base.OnDrawGizmos();
-        
-        // Indicatore specifico Memory con colore categoria
-        Color categoryColor = memoryCategory switch
+        MemoryCategory newCategory = memoryCategory switch
         {
-            MemoryCategory.Story => Color.cyan,
-            MemoryCategory.Lore => Color.magenta,
-            MemoryCategory.Secret => Color.yellow,
-            MemoryCategory.Character => Color.green,
-            _ => Color.white
+            MemoryCategory.Story => MemoryCategory.Lore,
+            MemoryCategory.Lore => MemoryCategory.Secret,
+            MemoryCategory.Secret => MemoryCategory.Character,
+            MemoryCategory.Character => MemoryCategory.Story,
+            _ => MemoryCategory.Story
         };
         
-        Gizmos.color = categoryColor;
-        Gizmos.matrix = Matrix4x4.TRS(transform.position + Vector3.up * 3f, 
-                                     Quaternion.Euler(0, Time.time * 45f, 0), 
-                                     Vector3.one * 0.3f);
-        Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
-        Gizmos.matrix = Matrix4x4.identity;
-        
-        // Indicatore glow effect
-        if (memoryGlowEffect != null)
-        {
-            Gizmos.color = memoryGlowColor;
-            Gizmos.DrawWireSphere(memoryGlowEffect.transform.position, 0.5f);
-        }
+        SetMemoryCategory(newCategory);
+        Debug.Log($"[Memories] {collectibleName} category cambiata a: {newCategory} (Value: {GetDefaultValueForCategory()})");
     }
     
-    protected override void OnDrawGizmosSelected()
+    [ContextMenu("📋 Show Audio Setup Instructions")]
+    new public void DebugShowAudioInstructions()
     {
-        base.OnDrawGizmosSelected();
-        
-        // Range effetti Memory
-        Gizmos.color = memoryGlowColor;
-        Gizmos.DrawWireSphere(transform.position, 3f);
-        
-        // Connessione al glow effect
-        if (memoryGlowEffect != null)
-        {
-            Gizmos.color = memoryGlowColor;
-            Gizmos.DrawLine(transform.position, memoryGlowEffect.transform.position);
-        }
-        
-        // Indicatore categoria nella visualizzazione
-        Gizmos.color = Color.white;
-        Vector3 labelPos = transform.position + Vector3.up * 4f;
-        // Qui potresti aggiungere una label se hai un sistema di debug GUI
+        Debug.Log($"📋 === SETUP AUDIO per MEMORY {collectibleName} ===\n" +
+                  $"🎯 PRINCIPIO: Configura TUTTO direttamente sugli AudioSource!\n\n" +
+                  $"🔧 SETUP CONSIGLIATO:\n" +
+                  $"1. Crea Audio_Container sotto il prefab Memory\n" +
+                  $"2. Crea PreAudio_Source + aggiungi AudioSource component\n" +
+                  $"3. Crea PostAudio_Source + aggiungi AudioSource component\n" +
+                  $"4. CONFIGURA COMPLETAMENTE ogni AudioSource nell'Inspector:\n" +
+                  $"   ✅ Audio Clip (NECESSARIO!)\n" +
+                  $"   ✅ Volume: PreAudio=0.7-0.8, PostAudio=0.9-1.0\n" +
+                  $"   ✅ Spatial Blend: 1.0 per 3D\n" +
+                  $"   ✅ Min Distance: 0.5\n" +
+                  $"   ✅ Max Distance: 20-30 (secondo categoria)\n" +
+                  $"   ✅ Rolloff Mode: Linear\n" +
+                  $"   ✅ Loop: FALSE (Memory NON hanno loop)\n" +
+                  $"   ✅ Play On Awake: FALSE (sempre!)\n" +
+                  $"5. Assegna i due AudioSource nei campi Inspector del Collectibles\n" +
+                  $"6. 'Enable Pre Audio Loop' sarà automaticamente FALSE per Memory\n" +
+                  $"7. Test con '🔊 Test Memory Audio'\n\n" +
+                  $"⚠️ IMPORTANTE per MEMORY:\n" +
+                  $"- Pre-audio NON deve essere in loop (silenzioso finché non attivato)\n" +
+                  $"- Post-audio NON deve essere in loop (suona solo alla raccolta)\n" +
+                  $"- Memory si disattivano dopo la raccolta (non come Present)\n" +
+                  $"- Usa trigger E/O click per la raccolta\n" +
+                  $"- Distanze audio variano per categoria (Secret=più lontane)");
     }
 }
