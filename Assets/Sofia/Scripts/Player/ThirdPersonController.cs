@@ -331,8 +331,6 @@ public class ThirdPersonController : MonoBehaviour
         _animator.SetFloat(VerticalVelocityHash, velocity.y);
     }
 
-    // PERFORM JUMP RIMOSSO - ora si chiama ExecuteJump
-
     private void ApplyGravity()
     {
         if (velocity.y < 0)
@@ -497,13 +495,14 @@ public class ThirdPersonController : MonoBehaviour
         playerVelocity += tempVector3;
     }
 
+    // ========== RESPAWN AGGIORNATO PER SCENEMANAGER ==========
+    
     public void Respawn()
     {
         controller.enabled = false;
 
-        Transform spawnPoint = GameManager.Instance.currentCheckpoint != null ?
-                               GameManager.Instance.currentCheckpoint :
-                               GameManager.Instance.levelStartPoint;
+        // NUOVO: Ottieni spawn point tramite GameManager (che ora gestisce i checkpoint per scena)
+        Transform spawnPoint = GetRespawnPoint();
 
         transform.position = spawnPoint.position;
         transform.rotation = Quaternion.Euler(0f, 0f, 0f);
@@ -531,6 +530,50 @@ public class ThirdPersonController : MonoBehaviour
         sprintFXActive = false;
 
         IsMovementLocked = false;
+        
+        Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
+    }
+    
+    /// <summary>
+    /// Ottieni il punto di spawn appropriato basato sulla scena corrente
+    /// </summary>
+    private Transform GetRespawnPoint()
+    {
+        if (GameManager.Instance == null)
+        {
+            Debug.LogWarning("[ThirdPersonController] GameManager non trovato, uso transform corrente");
+            return transform;
+        }
+
+        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        
+        // Controlla se c'è un checkpoint salvato per questa scena
+        if (GameManager.Instance.HasSceneCheckpoint(currentScene))
+        {
+            string checkpointName = GameManager.Instance.GetSceneCheckpoint(currentScene);
+            
+            // Cerca il checkpoint nella scena
+            GameObject checkpointObj = GameObject.Find(checkpointName);
+            if (checkpointObj != null)
+            {
+                Debug.Log($"[ThirdPersonController] Respawn al checkpoint: {checkpointName}");
+                return checkpointObj.transform;
+            }
+            else
+            {
+                Debug.LogWarning($"[ThirdPersonController] Checkpoint '{checkpointName}' non trovato nella scena, uso spawn di default");
+            }
+        }
+        
+        // Fallback al punto di spawn di default
+        if (GameManager.Instance.levelStartPoint != null)
+        {
+            Debug.Log($"[ThirdPersonController] Respawn al punto di partenza del livello");
+            return GameManager.Instance.levelStartPoint;
+        }
+        
+        Debug.LogWarning("[ThirdPersonController] Nessun punto di spawn trovato, uso posizione corrente");
+        return transform;
     }
 
     void OnControllerColliderHit(ControllerColliderHit hit)

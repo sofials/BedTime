@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8166049759326492}
   - component: {fileID: 1481684230545676647}
-  - component: {fileID: 9087071698991766238}
   m_Layer: 0
   m_Name: Mushroom_03_LODs
   m_TagString: Untagged
@@ -63,29 +62,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 2434798543856979595}
   m_Enabled: 1
---- !u!136 &9087071698991766238
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5812851946351237123}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 2.87
-  m_Height: 5.300703
-  m_Direction: 1
-  m_Center: {x: 0, y: 1.38, z: 0.03}
 --- !u!1001 &2120217944366338350
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -153,13 +129,44 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: a8bd1d401f88ad24884a238110d27a2d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 944795758466522521}
   m_SourcePrefab: {fileID: 100100000, guid: a8bd1d401f88ad24884a238110d27a2d, type: 3}
 --- !u!23 &769292403633802666 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: a8bd1d401f88ad24884a238110d27a2d, type: 3}
   m_PrefabInstance: {fileID: 2120217944366338350}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1273937247381515391 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: a8bd1d401f88ad24884a238110d27a2d, type: 3}
+  m_PrefabInstance: {fileID: 2120217944366338350}
+  m_PrefabAsset: {fileID: 0}
+--- !u!136 &944795758466522521
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1273937247381515391}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.14600308
+  m_Height: 0.23543489
+  m_Direction: 1
+  m_Center: {x: 0.0000021383166, y: 0.06, z: 0}
 --- !u!4 &1938306516450817733 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a8bd1d401f88ad24884a238110d27a2d, type: 3}

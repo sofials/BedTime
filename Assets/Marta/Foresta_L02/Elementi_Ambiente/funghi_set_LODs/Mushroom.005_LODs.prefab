@@ -182,7 +182,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3434211223922202321}
   - component: {fileID: 8267447972585233099}
-  - component: {fileID: 4400372185945749021}
   m_Layer: 0
   m_Name: Mushroom.005_LODs
   m_TagString: Untagged
@@ -235,29 +234,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 1026542135806529534}
   m_Enabled: 1
---- !u!136 &4400372185945749021
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8090406766750817906}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.23254326
-  m_Height: 3.674568
-  m_Direction: 1
-  m_Center: {x: -0.053492174, y: 1.337284, z: 0.106981896}
 --- !u!1 &8311787854654491302
 GameObject:
   m_ObjectHideFlags: 0
@@ -269,6 +245,7 @@ GameObject:
   - component: {fileID: 3038103421098403697}
   - component: {fileID: 4440832481692561397}
   - component: {fileID: 8364637451181017901}
+  - component: {fileID: 5773684241331154640}
   m_Layer: 0
   m_Name: Mushroom.005_LOD0
   m_TagString: Untagged
@@ -344,3 +321,26 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!136 &5773684241331154640
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8311787854654491302}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.0008
+  m_Height: 0.0033
+  m_Direction: 2
+  m_Center: {x: -0.00037467573, y: -0.00021633037, z: 0.0014925215}

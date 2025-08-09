@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5851987192447093729}
-  - component: {fileID: 3841719552174732602}
   - component: {fileID: 8080254380653787050}
   m_Layer: 0
   m_Name: verde_small
@@ -35,27 +34,6 @@ Transform:
   - {fileID: 5763127555397081337}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: -35.578, z: 0.257}
---- !u!65 &3841719552174732602
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9100664808520652747}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!205 &8080254380653787050
 LODGroup:
   m_ObjectHideFlags: 0
@@ -70,15 +48,15 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.09252508
+  - screenRelativeHeight: 0.04869332
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 445661370696218037}
-  - screenRelativeHeight: 0.013831876
+  - screenRelativeHeight: 0.017227141
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 6895452099067945878}
-  - screenRelativeHeight: 0.0069762506
+  - screenRelativeHeight: 0.017227141
     fadeTransitionWidth: 0
     renderers: []
   m_Enabled: 1
@@ -137,7 +115,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2dd56f74d5942664f9d8d1477843ef36, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8565001208436400833}
   m_SourcePrefab: {fileID: 100100000, guid: 2dd56f74d5942664f9d8d1477843ef36, type: 3}
 --- !u!23 &445661370696218037 stripped
 MeshRenderer:
@@ -149,6 +130,32 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 2dd56f74d5942664f9d8d1477843ef36, type: 3}
   m_PrefabInstance: {fileID: 1292210962334787889}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2103096191735141472 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 2dd56f74d5942664f9d8d1477843ef36, type: 3}
+  m_PrefabInstance: {fileID: 1292210962334787889}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &8565001208436400833
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2103096191735141472}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 5.0225353, y: 5.0242763, z: 4.101814}
+  m_Center: {x: 0.000666751, y: -0.00016780126, z: 0.18896858}
 --- !u!1001 &5219676947332218642
 PrefabInstance:
   m_ObjectHideFlags: 0

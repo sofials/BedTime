@@ -96,7 +96,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2330911527430645833}
   - component: {fileID: 101180353897977002}
-  - component: {fileID: 295578379356321170}
   m_Layer: 0
   m_Name: Mushroom.003_LODs
   m_TagString: Untagged
@@ -136,11 +135,11 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.07377486
+  - screenRelativeHeight: 0.17592469
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 1505971474907691710}
-  - screenRelativeHeight: 0.0391273
+  - screenRelativeHeight: 0.088106714
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 3626521663624277400}
@@ -149,29 +148,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 3288186661067381461}
   m_Enabled: 1
---- !u!136 &295578379356321170
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5408314924892741142}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.19
-  m_Height: 2.9043713
-  m_Direction: 1
-  m_Center: {x: 0, y: 0.81, z: 0}
 --- !u!1 &6105494412401605488
 GameObject:
   m_ObjectHideFlags: 0
@@ -269,6 +245,7 @@ GameObject:
   - component: {fileID: 6957782875209942543}
   - component: {fileID: 643693908578310252}
   - component: {fileID: 1505971474907691710}
+  - component: {fileID: 930755882015007404}
   m_Layer: 0
   m_Name: Mushroom.003LOD0
   m_TagString: Untagged
@@ -344,3 +321,26 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!136 &930755882015007404
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7690998008688018185}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.0006
+  m_Height: 0.0024
+  m_Direction: 2
+  m_Center: {x: 0.00019115739, y: 0.00014291359, z: 0.0010713544}

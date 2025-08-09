@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7606951173223103450}
-  - component: {fileID: 6656848643634931791}
   - component: {fileID: 295727341461971905}
   m_Layer: 0
   m_Name: fucsia_small
@@ -35,27 +34,6 @@ Transform:
   - {fileID: 5242819702036968830}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0.317}
---- !u!65 &6656848643634931791
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 857391569865871150}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 5.02, y: 4.97, z: 3.79}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!205 &295727341461971905
 LODGroup:
   m_ObjectHideFlags: 0
@@ -70,15 +48,15 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.03538944
+  - screenRelativeHeight: 0.052981466
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 4170865502433174192}
-  - screenRelativeHeight: 0.024906157
+  - screenRelativeHeight: 0.024640221
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 6379648357644291601}
-  - screenRelativeHeight: 0.014671624
+  - screenRelativeHeight: 0.024640221
     fadeTransitionWidth: 0
     renderers: []
   m_Enabled: 1
@@ -137,8 +115,37 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 63bb0ad6d5f75ae46b2884b4995da04b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8505707584908036550}
   m_SourcePrefab: {fileID: 100100000, guid: 63bb0ad6d5f75ae46b2884b4995da04b, type: 3}
+--- !u!1 &2513316883497370469 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 63bb0ad6d5f75ae46b2884b4995da04b, type: 3}
+  m_PrefabInstance: {fileID: 3323781535740952116}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &8505707584908036550
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2513316883497370469}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 5.0225315, y: 5.0242734, z: 4.1018114}
+  m_Center: {x: 0.00066292286, y: -0.0001678467, z: 0.18896091}
 --- !u!4 &3002432893691238879 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 63bb0ad6d5f75ae46b2884b4995da04b, type: 3}

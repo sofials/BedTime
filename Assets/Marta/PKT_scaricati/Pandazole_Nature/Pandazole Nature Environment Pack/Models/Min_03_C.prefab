@@ -49,15 +49,15 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.17598632
+  - screenRelativeHeight: 0.27584273
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 2402298435318085535}
-  - screenRelativeHeight: 0.135127
+  - screenRelativeHeight: 0.16920252
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 2678285069534256441}
-  - screenRelativeHeight: 0.12217021
+  - screenRelativeHeight: 0.062061813
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 7703879821540523593}
@@ -184,7 +184,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 6ba3a0d7067b8824a9c55ebfdcb7b6f2, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5019264732163224959}
   m_SourcePrefab: {fileID: 100100000, guid: 6ba3a0d7067b8824a9c55ebfdcb7b6f2, type: 3}
 --- !u!23 &2402298435318085535 stripped
 MeshRenderer:
@@ -196,6 +199,32 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6ba3a0d7067b8824a9c55ebfdcb7b6f2, type: 3}
   m_PrefabInstance: {fileID: 3933674454378277659}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &4203637199204505162 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 6ba3a0d7067b8824a9c55ebfdcb7b6f2, type: 3}
+  m_PrefabInstance: {fileID: 3933674454378277659}
+  m_PrefabAsset: {fileID: 0}
+--- !u!135 &5019264732163224959
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4203637199204505162}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.5
+  m_Center: {x: 0.1, y: 0.26, z: 0}
 --- !u!1001 &9018520104183947981
 PrefabInstance:
   m_ObjectHideFlags: 0
