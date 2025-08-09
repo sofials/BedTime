@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using TMPro;
 using System.Text.RegularExpressions;
 using System.Collections;
+using System.Reflection;
 
 public class PlayerUI : MonoBehaviour
 {
@@ -64,6 +65,11 @@ public class PlayerUI : MonoBehaviour
     // Flag per prevenire aggiornamenti multipli simultanei
     private bool isUpdatingMemoryUI = false;
     private bool isUpdatingPresentUI = false;
+    
+    // 🔥 UNIVERSAL SCENE MANAGER SUPPORT
+    private MonoBehaviour currentSceneManager = null;
+    private System.Type currentSceneManagerType = null;
+    private bool isConnectedToSceneManager = false;
     
     // 🔥 SALVATAGGIO POSIZIONI ORIGINALI - La chiave per risolvere il problema!
     private struct UIElementState
@@ -269,41 +275,249 @@ public class PlayerUI : MonoBehaviour
         }
     }
 
+    // 🔥 UNIVERSAL SCENE MANAGER INITIALIZATION
     private void InitializeCollectibleSystem()
     {
-        // Collegati al SceneManager01 per i dati della scena corrente
-        if (SceneManager01.Instance != null)
+        Debug.Log("[PlayerUI] 🌟 Inizializzazione sistema collectibles universale...");
+        
+        // Disconnetti vecchie connessioni
+        DisconnectFromAllSystems();
+        
+        // Prova prima con SceneManager specifici (SceneManager01, SceneManager02, etc.)
+        if (TryConnectToSceneManager())
         {
-            // Disconnetti eventuali vecchi eventi
-            CleanupSceneManagerEvents();
-            
-            // Connetti ai nuovi eventi
-            SceneManager01.Instance.OnMemoryCountChanged.AddListener(UpdateSceneMemoryCounter);
-            SceneManager01.Instance.OnPresentCountChanged.AddListener(UpdateScenePresentCounter);
-            SceneManager01.Instance.OnAllMemoriesCollected.AddListener(OnAllSceneMemoriesCompleted);
-            SceneManager01.Instance.OnAllPresentsCollected.AddListener(OnAllScenePresentsCompleted);
-            SceneManager01.Instance.OnAllCollectiblesCompleted.AddListener(OnAllSceneCollectiblesCompleted);
-            
-            // Inizializza subito se i dati sono già disponibili
-            currentSceneMemories = SceneManager01.Instance.GetCollectedMemories();
-            totalSceneMemories = SceneManager01.Instance.GetTotalMemories();
-            currentScenePresents = SceneManager01.Instance.GetCollectedPresents();
-            totalScenePresents = SceneManager01.Instance.GetTotalPresents();
-            
-            UpdateAllCounterDisplays();
-            
-            Debug.Log($"[PlayerUI] Inizializzato da SceneManager - Memories: {currentSceneMemories}/{totalSceneMemories}, Presents: {currentScenePresents}/{totalScenePresents}");
+            Debug.Log($"[PlayerUI] ✅ Connesso a {currentSceneManagerType.Name}");
+            return;
         }
-        else
+        
+        // Fallback con PlayerCollectibleTracker
+        if (TryConnectToCollectibleTracker())
         {
-            Debug.LogWarning("[PlayerUI] SceneManager01 non trovato! Provo con PlayerCollectibleTracker come fallback...");
-            TryInitializeFromTracker();
+            Debug.Log("[PlayerUI] ✅ Connesso a PlayerCollectibleTracker");
+            return;
+        }
+        
+        Debug.LogError("[PlayerUI] ❌ Nessun sistema di tracking collectibles trovato!");
+    }
+    
+    // 🔥 TROVA E CONNETTI A QUALSIASI SCENEMANAGER
+    private bool TryConnectToSceneManager()
+    {
+        // Lista di possibili SceneManager da cercare
+        string[] possibleSceneManagers = {
+            "SceneManager01", "SceneManager02", "SceneManager03", "SceneManager04", "SceneManager05",
+            "SceneManager", "LevelManager", "CollectibleManager", "GameSceneManager"
+        };
+        
+        foreach (string managerName in possibleSceneManagers)
+        {
+            // Cerca per nome del tipo
+            System.Type managerType = System.Type.GetType(managerName);
+            if (managerType != null)
+            {
+                MonoBehaviour manager = Object.FindFirstObjectByType(managerType) as MonoBehaviour;
+                if (manager != null)
+                {
+                    if (TryConnectToSpecificSceneManager(manager, managerType))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Se non trova nessuno specifico, cerca qualsiasi MonoBehaviour che ha "Instance" e i metodi giusti
+        return TryConnectToGenericSceneManager();
+    }
+    
+    // 🔥 CONNETTI A UN SCENE MANAGER SPECIFICO
+    private bool TryConnectToSpecificSceneManager(MonoBehaviour manager, System.Type managerType)
+    {
+        try
+        {
+            // Verifica che abbia una proprietà Instance
+            PropertyInfo instanceProperty = managerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            if (instanceProperty == null)
+            {
+                Debug.Log($"[PlayerUI] {managerType.Name} non ha proprietà Instance statica");
+                return false;
+            }
+            
+            object instance = instanceProperty.GetValue(null);
+            if (instance == null)
+            {
+                Debug.Log($"[PlayerUI] {managerType.Name}.Instance è null");
+                return false;
+            }
+            
+            // Verifica che abbia i metodi necessari
+            if (!HasRequiredSceneManagerMethods(managerType))
+            {
+                Debug.Log($"[PlayerUI] {managerType.Name} non ha tutti i metodi richiesti");
+                return false;
+            }
+            
+            // Connetti agli eventi
+            ConnectToSceneManagerEvents(instance, managerType);
+            InitializeFromSceneManager(instance, managerType);
+            
+            currentSceneManager = manager;
+            currentSceneManagerType = managerType;
+            isConnectedToSceneManager = true;
+            
+            Debug.Log($"[PlayerUI] ✅ Connesso con successo a {managerType.Name}");
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Errore connessione a {managerType.Name}: {e.Message}");
+            return false;
         }
     }
     
-    private void TryInitializeFromTracker()
+    // 🔥 CERCA SCENE MANAGER GENERICO
+    private bool TryConnectToGenericSceneManager()
     {
-        // Fallback con PlayerCollectibleTracker
+        // Cerca tutti i MonoBehaviour nella scena
+        MonoBehaviour[] allMonoBehaviours = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        
+        foreach (MonoBehaviour mb in allMonoBehaviours)
+        {
+            System.Type type = mb.GetType();
+            
+            // Salta se è PlayerCollectibleTracker (lo gestiamo separatamente)
+            if (type == typeof(PlayerCollectibleTracker)) continue;
+            
+            // Controlla se ha i metodi/proprietà che ci servono
+            if (HasRequiredSceneManagerMethods(type))
+            {
+                try
+                {
+                    // Prova a ottenere l'istanza
+                    PropertyInfo instanceProp = type.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+                    object instance = instanceProp?.GetValue(null) ?? mb;
+                    
+                    if (instance != null)
+                    {
+                        ConnectToSceneManagerEvents(instance, type);
+                        InitializeFromSceneManager(instance, type);
+                        
+                        currentSceneManager = mb;
+                        currentSceneManagerType = type;
+                        isConnectedToSceneManager = true;
+                        
+                        Debug.Log($"[PlayerUI] ✅ Connesso a SceneManager generico: {type.Name}");
+                        return true;
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[PlayerUI] Errore connessione a {type.Name}: {e.Message}");
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    // 🔥 VERIFICA SE UN TIPO HA I METODI RICHIESTI PER SCENE MANAGER
+    private bool HasRequiredSceneManagerMethods(System.Type type)
+    {
+        // Metodi essenziali per essere considerato un SceneManager compatibile
+        string[] requiredMethods = {
+            "GetCollectedMemories", "GetTotalMemories",
+            "GetCollectedPresents", "GetTotalPresents"
+        };
+        
+        foreach (string methodName in requiredMethods)
+        {
+            if (type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance) == null)
+            {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    // 🔥 CONNETTI AGLI EVENTI DI UN SCENE MANAGER
+    private void ConnectToSceneManagerEvents(object instance, System.Type managerType)
+    {
+        // Lista degli eventi da cercare e connettere
+        var eventConnections = new[]
+        {
+            ("OnMemoryCountChanged", "UpdateSceneMemoryCounter"),
+            ("OnPresentCountChanged", "UpdateScenePresentCounter"),
+            ("OnAllMemoriesCollected", "OnAllSceneMemoriesCompleted"),
+            ("OnAllPresentsCollected", "OnAllScenePresentsCompleted"),
+            ("OnAllCollectiblesCompleted", "OnAllSceneCollectiblesCompleted")
+        };
+        
+        foreach (var (eventName, handlerName) in eventConnections)
+        {
+            TryConnectEvent(instance, managerType, eventName, handlerName);
+        }
+    }
+    
+    // 🔥 CONNETTI UN SINGOLO EVENTO
+    private void TryConnectEvent(object instance, System.Type managerType, string eventName, string handlerName)
+    {
+        try
+        {
+            EventInfo eventInfo = managerType.GetEvent(eventName, BindingFlags.Public | BindingFlags.Instance);
+            if (eventInfo != null)
+            {
+                MethodInfo handlerMethod = this.GetType().GetMethod(handlerName, BindingFlags.NonPublic | BindingFlags.Instance);
+                if (handlerMethod != null)
+                {
+                    System.Delegate handler = System.Delegate.CreateDelegate(eventInfo.EventHandlerType, this, handlerMethod);
+                    eventInfo.AddEventHandler(instance, handler);
+                    Debug.Log($"[PlayerUI] Evento {eventName} connesso a {handlerName}");
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Impossibile connettere evento {eventName}: {e.Message}");
+        }
+    }
+    
+    // 🔥 INIZIALIZZA VALORI DA SCENE MANAGER
+    private void InitializeFromSceneManager(object instance, System.Type managerType)
+    {
+        try
+        {
+            // Ottieni i valori attuali usando reflection
+            MethodInfo getCollectedMemories = managerType.GetMethod("GetCollectedMemories");
+            MethodInfo getTotalMemories = managerType.GetMethod("GetTotalMemories");
+            MethodInfo getCollectedPresents = managerType.GetMethod("GetCollectedPresents");
+            MethodInfo getTotalPresents = managerType.GetMethod("GetTotalPresents");
+            
+            if (getCollectedMemories != null && getTotalMemories != null)
+            {
+                currentSceneMemories = (int)getCollectedMemories.Invoke(instance, null);
+                totalSceneMemories = (int)getTotalMemories.Invoke(instance, null);
+            }
+            
+            if (getCollectedPresents != null && getTotalPresents != null)
+            {
+                currentScenePresents = (int)getCollectedPresents.Invoke(instance, null);
+                totalScenePresents = (int)getTotalPresents.Invoke(instance, null);
+            }
+            
+            UpdateAllCounterDisplays();
+            
+            Debug.Log($"[PlayerUI] Valori inizializzati da {managerType.Name} - Memories: {currentSceneMemories}/{totalSceneMemories}, Presents: {currentScenePresents}/{totalScenePresents}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[PlayerUI] Errore inizializzazione da {managerType.Name}: {e.Message}");
+        }
+    }
+    
+    // 🔥 CONNETTI AL COLLECTIBLE TRACKER (FALLBACK)
+    private bool TryConnectToCollectibleTracker()
+    {
         PlayerCollectibleTracker tracker = PlayerCollectibleTracker.Instance;
         if (tracker == null)
         {
@@ -330,11 +544,92 @@ public class PlayerUI : MonoBehaviour
             
             UpdateAllCounterDisplays();
             
-            Debug.Log($"[PlayerUI] Fallback con Tracker - Memories: {currentSceneMemories}/{totalSceneMemories}, Presents: {currentScenePresents}/{totalScenePresents}");
+            Debug.Log($"[PlayerUI] Connesso a PlayerCollectibleTracker - Memories: {currentSceneMemories}/{totalSceneMemories}, Presents: {currentScenePresents}/{totalScenePresents}");
+            return true;
         }
-        else
+        
+        return false;
+    }
+    
+    // 🔥 DISCONNETTI DA TUTTI I SISTEMI
+    private void DisconnectFromAllSystems()
+    {
+        // Disconnetti da Scene Manager se connesso
+        if (isConnectedToSceneManager && currentSceneManager != null && currentSceneManagerType != null)
         {
-            Debug.LogError("[PlayerUI] Nessun sistema di tracking collectibles trovato!");
+            DisconnectFromSceneManager();
+        }
+        
+        // Disconnetti da Collectible Tracker
+        PlayerCollectibleTracker tracker = PlayerCollectibleTracker.Instance;
+        if (tracker != null)
+        {
+            CleanupTrackerEvents(tracker);
+        }
+        
+        // Reset flags
+        isConnectedToSceneManager = false;
+        currentSceneManager = null;
+        currentSceneManagerType = null;
+        
+        Debug.Log("[PlayerUI] Disconnesso da tutti i sistemi");
+    }
+    
+    // 🔥 DISCONNETTI DA SCENE MANAGER
+    private void DisconnectFromSceneManager()
+    {
+        if (currentSceneManagerType == null) return;
+        
+        try
+        {
+            PropertyInfo instanceProperty = currentSceneManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            if (instanceProperty != null)
+            {
+                object instance = instanceProperty.GetValue(null);
+                if (instance != null)
+                {
+                    // Disconnetti eventi
+                    var eventConnections = new[]
+                    {
+                        ("OnMemoryCountChanged", "UpdateSceneMemoryCounter"),
+                        ("OnPresentCountChanged", "UpdateScenePresentCounter"),
+                        ("OnAllMemoriesCollected", "OnAllSceneMemoriesCompleted"),
+                        ("OnAllPresentsCollected", "OnAllScenePresentsCompleted"),
+                        ("OnAllCollectiblesCompleted", "OnAllSceneCollectiblesCompleted")
+                    };
+                    
+                    foreach (var (eventName, handlerName) in eventConnections)
+                    {
+                        TryDisconnectEvent(instance, currentSceneManagerType, eventName, handlerName);
+                    }
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Errore durante disconnessione da {currentSceneManagerType.Name}: {e.Message}");
+        }
+    }
+    
+    // 🔥 DISCONNETTI UN SINGOLO EVENTO
+    private void TryDisconnectEvent(object instance, System.Type managerType, string eventName, string handlerName)
+    {
+        try
+        {
+            EventInfo eventInfo = managerType.GetEvent(eventName, BindingFlags.Public | BindingFlags.Instance);
+            if (eventInfo != null)
+            {
+                MethodInfo handlerMethod = this.GetType().GetMethod(handlerName, BindingFlags.NonPublic | BindingFlags.Instance);
+                if (handlerMethod != null)
+                {
+                    System.Delegate handler = System.Delegate.CreateDelegate(eventInfo.EventHandlerType, this, handlerMethod);
+                    eventInfo.RemoveEventHandler(instance, handler);
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Impossibile disconnettere evento {eventName}: {e.Message}");
         }
     }
 
@@ -345,21 +640,22 @@ public class PlayerUI : MonoBehaviour
     }
 
     private void OnDisable()
+{
+    // SAFETY CHECK: Non fare cleanup se stiamo inizializzando
+    if (Time.timeSinceLevelLoad < 1f)
     {
-        InputSystem.onActionChange -= OnInputActionChange;
-        CleanupEvents();
+        Debug.LogWarning("[PlayerUI] OnDisable chiamato troppo presto - SKIP cleanup per evitare distruzione");
+        return;
     }
+    
+    Debug.Log("[PlayerUI] OnDisable - Eseguendo cleanup normale");
+    InputSystem.onActionChange -= OnInputActionChange;
+    CleanupEvents();
+}
     
     private void CleanupEvents()
     {
-        CleanupSceneManagerEvents();
-        
-        // Cleanup Tracker events
-        PlayerCollectibleTracker tracker = PlayerCollectibleTracker.Instance;
-        if (tracker != null)
-        {
-            CleanupTrackerEvents(tracker);
-        }
+        DisconnectFromAllSystems();
         
         // Ferma tutte le animazioni attive e ripristina posizioni
         StopAllUIAnimations();
@@ -395,18 +691,6 @@ public class PlayerUI : MonoBehaviour
         RestoreAllOriginalStates();
         
         Debug.Log("[PlayerUI] Tutte le animazioni UI fermate e posizioni originali ripristinate");
-    }
-    
-    private void CleanupSceneManagerEvents()
-    {
-        if (SceneManager01.Instance != null)
-        {
-            SceneManager01.Instance.OnMemoryCountChanged.RemoveListener(UpdateSceneMemoryCounter);
-            SceneManager01.Instance.OnPresentCountChanged.RemoveListener(UpdateScenePresentCounter);
-            SceneManager01.Instance.OnAllMemoriesCollected.RemoveListener(OnAllSceneMemoriesCompleted);
-            SceneManager01.Instance.OnAllPresentsCollected.RemoveListener(OnAllScenePresentsCompleted);
-            SceneManager01.Instance.OnAllCollectiblesCompleted.RemoveListener(OnAllSceneCollectiblesCompleted);
-        }
     }
     
     private void CleanupTrackerEvents(PlayerCollectibleTracker tracker)
@@ -1002,6 +1286,96 @@ public class PlayerUI : MonoBehaviour
         Debug.Log("[PlayerUI] Reinizializzato per nuova scena con nuove posizioni originali");
     }
     
+    // ========== PUBLIC API METHODS FOR UNIVERSAL COMPATIBILITY ==========
+    
+    // 🔥 METODI PUBBLICI PER CONNESSIONE MANUALE DA QUALSIASI SCENE MANAGER
+    
+    /// <summary>
+    /// Connetti manualmente a un SceneManager specifico
+    /// Utile se il tuo SceneManager ha un nome diverso o logica particolare
+    /// </summary>
+    public bool ConnectToSceneManager(MonoBehaviour sceneManager)
+    {
+        if (sceneManager == null)
+        {
+            Debug.LogError("[PlayerUI] SceneManager fornito è null");
+            return false;
+        }
+        
+        // Disconnetti prima da eventuali connessioni esistenti
+        DisconnectFromAllSystems();
+        
+        System.Type managerType = sceneManager.GetType();
+        
+        // Verifica che abbia i metodi necessari
+        if (!HasRequiredSceneManagerMethods(managerType))
+        {
+            Debug.LogError($"[PlayerUI] {managerType.Name} non ha i metodi richiesti per essere compatibile");
+            return false;
+        }
+        
+        try
+        {
+            // Connetti agli eventi
+            ConnectToSceneManagerEvents(sceneManager, managerType);
+            InitializeFromSceneManager(sceneManager, managerType);
+            
+            currentSceneManager = sceneManager;
+            currentSceneManagerType = managerType;
+            isConnectedToSceneManager = true;
+            
+            Debug.Log($"[PlayerUI] ✅ Connesso manualmente a {managerType.Name}");
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[PlayerUI] Errore durante connessione manuale a {managerType.Name}: {e.Message}");
+            return false;
+        }
+    }
+    
+    /// <summary>
+    /// Aggiorna manualmente i contatori (utile per debug o casi speciali)
+    /// </summary>
+    public void UpdateCountersManually(int currentMemories, int totalMemories, int currentPresents, int totalPresents)
+    {
+        Debug.Log($"[PlayerUI] Aggiornamento manuale contatori: M={currentMemories}/{totalMemories}, P={currentPresents}/{totalPresents}");
+        
+        currentSceneMemories = currentMemories;
+        totalSceneMemories = totalMemories;
+        currentScenePresents = currentPresents;
+        totalScenePresents = totalPresents;
+        
+        UpdateAllCounterDisplays();
+    }
+    
+    /// <summary>
+    /// Verifica se il PlayerUI è attualmente connesso a un sistema di tracking
+    /// </summary>
+    public bool IsConnectedToTrackingSystem()
+    {
+        return isConnectedToSceneManager || PlayerCollectibleTracker.Instance != null;
+    }
+    
+    /// <summary>
+    /// Ottieni informazioni sul sistema di tracking attualmente connesso
+    /// </summary>
+    public string GetConnectedSystemInfo()
+    {
+        if (isConnectedToSceneManager && currentSceneManagerType != null)
+        {
+            return $"SceneManager: {currentSceneManagerType.Name}";
+        }
+        else if (PlayerCollectibleTracker.Instance != null)
+        {
+            return "PlayerCollectibleTracker";
+        }
+        else
+        {
+            return "Nessun sistema connesso";
+        }
+    }
+    
     // ========== GETTERS PUBBLICI ==========
     
     public int GetCurrentSceneMemories() => currentSceneMemories;
@@ -1012,6 +1386,23 @@ public class PlayerUI : MonoBehaviour
     public int GetTotalSceneCollectibles() => totalSceneMemories + totalScenePresents;
     
     // ========== DEBUG METHODS ==========
+    
+    [ContextMenu("🌟 Debug - Show Connected System")]
+    public void DebugShowConnectedSystem()
+    {
+        Debug.Log($"=== Sistema Connesso ===\n" +
+                  $"Connesso a: {GetConnectedSystemInfo()}\n" +
+                  $"Scene Manager Type: {currentSceneManagerType?.Name ?? "N/A"}\n" +
+                  $"Is Connected: {IsConnectedToTrackingSystem()}");
+    }
+    
+    [ContextMenu("🔄 Debug - Force Reconnect")]
+    public void DebugForceReconnect()
+    {
+        Debug.Log("[PlayerUI] Forzando riconnessione...");
+        InitializeCollectibleSystem();
+        DebugShowConnectedSystem();
+    }
     
     [ContextMenu("Debug - Force Update Present Counter")]
     public void DebugForceUpdatePresents()
@@ -1059,6 +1450,7 @@ public class PlayerUI : MonoBehaviour
     public void DebugShowInfo()
     {
         Debug.Log($"=== PlayerUI Debug Info ===\n" +
+                  $"Sistema Connesso: {GetConnectedSystemInfo()}\n" +
                   $"Memories: {currentSceneMemories}/{totalSceneMemories}\n" +
                   $"Presents: {currentScenePresents}/{totalScenePresents}\n" +
                   $"Memory Template: '{memoryTextTemplate}'\n" +

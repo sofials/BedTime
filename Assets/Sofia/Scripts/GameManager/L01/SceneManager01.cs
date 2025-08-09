@@ -5,7 +5,8 @@ using System.Collections.Generic;
 public class SceneManager01 : MonoBehaviour
 {
     [Header("Scene Configuration")]
-    [SerializeField] private string sceneName = "01 - Party in Lukelandia";
+    [SerializeField] private string sceneName;
+
     
     [Header("Current Scene Progress")]
     [SerializeField] private int totalPresents = 0;

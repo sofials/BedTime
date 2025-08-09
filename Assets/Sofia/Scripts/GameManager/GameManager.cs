@@ -11,7 +11,6 @@ public class GameManager : MonoBehaviour
 
     [Header("UI Menus")]
     public GameObject startMenu;
-    public GameObject pauseMenu;
     public PlayerAttack playerAttack;
 
     [Header("Respawn Settings")]
@@ -35,6 +34,20 @@ public class GameManager : MonoBehaviour
         "02 - Finding Pietro"
     };
 
+    [Header("SceneManager Configuration")]
+    [Tooltip("Configurazione degli SceneManager per ogni scena")]
+    [SerializeField] private Dictionary<string, string> expectedSceneManagers = new Dictionary<string, string>
+    {
+        ["00 - Landing in the Dreamworld"] = "SceneManager00",
+        ["01 - Party in Lukelandia"] = "SceneManager01",
+        ["02 - Finding Pietro"] = "SceneManager02"
+    };
+    
+    [Header("SceneManager Detection")]
+    [SerializeField] private float sceneManagerTimeout = 5f;
+    [SerializeField] private float sceneManagerCheckInterval = 0.1f;
+    [SerializeField] private bool waitForSceneManagerBeforeStart = true;
+
     [Header("Global Memories Tracking")]
     [SerializeField] private int totalGlobalMemories = 0;
     [SerializeField] private int collectedGlobalMemories = 0;
@@ -53,27 +66,52 @@ public class GameManager : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private bool enableCollectibleLogs = true;
     [SerializeField] private bool autoSaveOnCollection = true;
+    [SerializeField] private bool enablePeriodicAutoSave = true;
+    [SerializeField] private float autoSaveInterval = 30f;
 
     // Eventi per notificare altri sistemi
     public System.Action<string, string> OnMemoryCollected;
     public System.Action<string, int, int> OnSceneProgressUpdated;
     public System.Action<int, int> OnGlobalProgressUpdated;
+    public System.Action<string> OnSceneManagerFound;
+    public System.Action<string> OnSceneManagerTimeout;
+
+    [SerializeField] private GameObject levelTitleUI;
+    
+    // Variabili per tracking SceneManager
+    private bool sceneManagerFound = false;
+    private bool gameStarted = false;
+    private string currentSceneManagerName = "";
 
     private void Awake()
     {
+        Debug.Log($"[GameManager] === AWAKE CHIAMATO ===");
+        Debug.Log($"[GameManager] GameObject: {gameObject.name}");
+        Debug.Log($"[GameManager] startMenu assegnato: {startMenu != null}");
+        Debug.Log($"[GameManager] playerAttack assegnato: {playerAttack != null}");
+        Debug.Log($"[GameManager] Instance corrente: {Instance != null}");
+        
+        GameManager[] allManagers = FindObjectsByType<GameManager>(FindObjectsSortMode.None);
+        Debug.Log($"[GameManager] Totale GameManager nella scena: {allManagers.Length}");
+        
+        // ⭐ RIMUOVI DontDestroyOnLoad - ogni scena ha il suo GameManager ⭐
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
-            
+
             // Inizializza le strutture dati per le scene
             InitializeSceneData();
-            
-            // Carica i dati salvati
+            InitializeSceneManagerData();
+
+            // ⭐ CARICA SEMPRE i dati salvati all'avvio di ogni scena ⭐
             LoadGlobalData();
+
+            Debug.Log($"[GameManager] Inizializzato nella scena: {SceneManager.GetActiveScene().name}");
         }
         else
         {
+            // Se per qualche motivo esistono due GameManager nella stessa scena
+            Debug.LogWarning("[GameManager] GameManager duplicato nella stessa scena - distruggo il duplicato");
             Destroy(gameObject);
         }
     }
@@ -94,77 +132,263 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    [SerializeField] private GameObject levelTitleUI; // Aggiungi riferimento in inspector
+    private void InitializeSceneManagerData()
+    {
+        // Se expectedSceneManagers è vuoto, inizializza con i valori di default
+        if (expectedSceneManagers.Count == 0)
+        {
+            expectedSceneManagers["00 - Landing in the Dreamworld"] = "SceneManager00";
+            expectedSceneManagers["01 - Party in Lukelandia"] = "SceneManager01";
+            expectedSceneManagers["02 - Finding Pietro"] = "SceneManager02";
+        }
+    }
 
     private void Start()
     {
         string currentScene = SceneManager.GetActiveScene().name;
 
-        // Disattiva sempre il menu start
-        startMenu.SetActive(false);
-
-        // Disattiva il pause menu all'inizio
-        pauseMenu.SetActive(false);
-
-        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        // Gestione del menu start: mostralo solo nella Title Screen
+        if (currentScene == "Title Screen")
         {
-            // Disattiva la UI dei power up all'inizio
-            if (powerUp.powerUI != null)
-                powerUp.powerUI.SetActive(false);
-        }
-
-        // Mostra la UI del titolo per 2 secondi solo se siamo nella scena di gioco
-        if (currentScene != "00 - Landing in the Dreamworld")
-        {
-            StartCoroutine(ShowLevelTitleThenGameUI());
+            HandleTitleScreen();
         }
         else
         {
-            // Se vuoi, puoi gestire diversamente la scena 00 (menu start) oppure lasciare vuoto
+            HandleGameScene(currentScene);
         }
 
+        // Il fade è sempre attivo per tutte le scene
         if (fadeImage != null)
-            StartCoroutine(FadeIn());
-
-        NotifySceneManagersReady();
+        {
+            StartCoroutine(FadeInSafe());
+        }
+        
+        // ⭐ Auto-save periodico per sicurezza ⭐
+        if (enablePeriodicAutoSave && autoSaveOnCollection)
+        {
+            InvokeRepeating(nameof(AutoSave), autoSaveInterval, autoSaveInterval);
+        }
     }
 
-    private IEnumerator ShowLevelTitleThenGameUI()
+    private void HandleTitleScreen()
     {
-        // Mostra la UI titolo livello
-        levelTitleUI.SetActive(true);
+        if (startMenu != null)
+        {
+            startMenu.SetActive(true);
+        }
+        else
+        {
+            Debug.LogError("[GameManager] StartMenu non assegnato nella Title Screen!");
+        }
+        
+        // Nella title screen, nascondi il levelTitleUI
+        if (levelTitleUI != null)
+            levelTitleUI.SetActive(false);
+            
+        // Disattiva la UI dei power up nel menu
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUpTitle))
+        {
+            if (powerUpTitle.powerUI != null)
+                powerUpTitle.powerUI.SetActive(false);
+        }
+        
+        // Nel menu, il cursore deve essere visibile
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        
+        // Non serve aspettare SceneManager nella Title Screen
+        sceneManagerFound = true;
+        gameStarted = true;
+    }
 
-        // Aspetta 2 secondi
-        yield return new WaitForSeconds(2f);
+    private void HandleGameScene(string currentScene)
+    {
+        // ⭐ Nelle scene di gioco, startMenu semplicemente non esiste o è null ⭐
+        if (startMenu != null)
+        {
+            startMenu.SetActive(false);
+            Debug.Log($"[GameManager] StartMenu nascosto per la scena '{currentScene}'");
+        }
+        
+        // Nascondi sempre il levelTitleUI per tutte le scene di gioco
+        if (levelTitleUI != null)
+            levelTitleUI.SetActive(false);
 
-        // Nascondi la UI titolo
-        levelTitleUI.SetActive(false);
+        // ⭐ Verifica se dobbiamo aspettare uno SceneManager specifico ⭐
+        if (waitForSceneManagerBeforeStart && expectedSceneManagers.ContainsKey(currentScene))
+        {
+            string expectedManagerName = expectedSceneManagers[currentScene];
+            Debug.Log($"[GameManager] Scena '{currentScene}' richiede SceneManager: '{expectedManagerName}'");
+            StartCoroutine(WaitForSpecificSceneManager(expectedManagerName));
+        }
+        else
+        {
+            // Se non dobbiamo aspettare nessun SceneManager, avvia immediatamente
+            Debug.Log($"[GameManager] Scena '{currentScene}' non richiede SceneManager specifico - avvio immediato");
+            StartCoroutine(StartGameImmediately());
+        }
+    }
 
-        // Attiva la UI di gioco e power up
-        pauseMenu.SetActive(false);
+    // ⭐ NUOVO: Aspetta uno SceneManager specifico ⭐
+    private IEnumerator WaitForSpecificSceneManager(string expectedManagerName)
+    {
+        Debug.Log($"[GameManager] Inizio ricerca per SceneManager: '{expectedManagerName}'");
+        
+        float elapsedTime = 0f;
+        bool found = false;
 
+        while (elapsedTime < sceneManagerTimeout && !found)
+        {
+            // Cerca lo SceneManager specifico
+            GameObject sceneManagerObj = GameObject.Find(expectedManagerName);
+            
+            if (sceneManagerObj != null)
+            {
+                Debug.Log($"[GameManager] ✅ SceneManager '{expectedManagerName}' trovato!");
+                currentSceneManagerName = expectedManagerName;
+                sceneManagerFound = true;
+                found = true;
+                
+                // Notifica che abbiamo trovato lo SceneManager
+                OnSceneManagerFound?.Invoke(expectedManagerName);
+                
+                // Notifica lo SceneManager che siamo pronti
+                sceneManagerObj.SendMessage("OnGameManagerReady", SendMessageOptions.DontRequireReceiver);
+                
+                // Avvia il gioco
+                yield return StartCoroutine(StartGameImmediately());
+            }
+            else
+            {
+                elapsedTime += sceneManagerCheckInterval;
+                yield return new WaitForSeconds(sceneManagerCheckInterval);
+            }
+        }
+
+        if (!found)
+        {
+            Debug.LogWarning($"[GameManager] ⚠️ Timeout! SceneManager '{expectedManagerName}' non trovato dopo {sceneManagerTimeout}s");
+            OnSceneManagerTimeout?.Invoke(expectedManagerName);
+            
+            // Avvia comunque il gioco anche senza SceneManager
+            yield return StartCoroutine(StartGameImmediately());
+        }
+    }
+
+    // ⭐ Avvia immediatamente il gioco per TUTTE le scene diverse da Title Screen ⭐
+    private IEnumerator StartGameImmediately()
+    {
+        if (gameStarted)
+        {
+            Debug.Log("[GameManager] Gioco già avviato, skip");
+            yield break;
+        }
+
+        // Piccolo delay per permettere al fade di iniziare
+        yield return new WaitForSeconds(0.2f);
+
+        // Attiva immediatamente la UI di gioco
         if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
         {
             if (powerUp.powerUI != null)
-                powerUp.powerUI.SetActive(true);
-        }
-
-        // Assicurati che il tempo di gioco sia normale
-        Time.timeScale = 1f;
-    }
-
-    private void NotifySceneManagersReady()
-    {
-        // Invia un messaggio broadcast per notificare che il GameManager è pronto
-        GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-        
-        foreach (GameObject obj in allObjects)
-        {
-            if (obj.name.Contains("SceneManager"))
             {
-                obj.SendMessage("OnGameManagerReady", SendMessageOptions.DontRequireReceiver);
+                powerUp.powerUI.SetActive(true);
+                Debug.Log("[GameManager] UI PowerUp attivata immediatamente");
             }
         }
+
+        // Imposta il gioco come attivo
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        
+        gameStarted = true;
+        
+        string currentScene = SceneManager.GetActiveScene().name;
+        Debug.Log($"[GameManager] Scena '{currentScene}' avviata immediatamente");
+    }
+
+    // ⭐ FIX: Fade più sicuro con controlli ⭐
+    private IEnumerator FadeInSafe()
+    {
+        if (fadeImage == null)
+        {
+            Debug.LogWarning("[GameManager] FadeImage è null, skip fade");
+            yield break;
+        }
+
+        // Assicurati che il fade parta da opaco
+        SetFadeAlpha(1f);
+        
+        // Piccolo delay per permettere alla scena di caricarsi completamente
+        yield return new WaitForSeconds(0.1f);
+        
+        // Fade in normale
+        float t = fadeDuration;
+        while (t > 0)
+        {
+            t -= Time.unscaledDeltaTime;
+            SetFadeAlpha(t / fadeDuration);
+            yield return null;
+        }
+        SetFadeAlpha(0);
+        
+        Debug.Log("[GameManager] Fade in completato");
+    }
+
+    // ⭐ NUOVO: Metodi per gestire gli SceneManager ⭐
+    
+    /// <summary>
+    /// Verifica se lo SceneManager atteso è stato trovato
+    /// </summary>
+    public bool IsSceneManagerFound()
+    {
+        return sceneManagerFound;
+    }
+    
+    /// <summary>
+    /// Ottieni il nome dello SceneManager corrente
+    /// </summary>
+    public string GetCurrentSceneManagerName()
+    {
+        return currentSceneManagerName;
+    }
+    
+    /// <summary>
+    /// Ottieni il nome dello SceneManager atteso per la scena corrente
+    /// </summary>
+    public string GetExpectedSceneManagerName()
+    {
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (expectedSceneManagers.ContainsKey(currentScene))
+        {
+            return expectedSceneManagers[currentScene];
+        }
+        return "";
+    }
+    
+    /// <summary>
+    /// Forza la ricerca dello SceneManager se non è stato ancora trovato
+    /// </summary>
+    [ContextMenu("Force SceneManager Search")]
+    public void ForceSceneManagerSearch()
+    {
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (expectedSceneManagers.ContainsKey(currentScene) && !sceneManagerFound)
+        {
+            string expectedManagerName = expectedSceneManagers[currentScene];
+            StartCoroutine(WaitForSpecificSceneManager(expectedManagerName));
+        }
+    }
+    
+    /// <summary>
+    /// Configura un nuovo SceneManager atteso per una scena
+    /// </summary>
+    public void SetExpectedSceneManager(string sceneName, string sceneManagerName)
+    {
+        expectedSceneManagers[sceneName] = sceneManagerName;
+        Debug.Log($"[GameManager] Configurato SceneManager '{sceneManagerName}' per la scena '{sceneName}'");
     }
 
     // ========== GESTIONE MEMORIES PER SCENA ==========
@@ -452,15 +676,27 @@ public class GameManager : MonoBehaviour
     public int GetTotalCollectedItems() => collectedGlobalMemories + collectedScene01Presents;
     public int GetTotalAvailableItems() => totalGlobalMemories + totalScene01Presents;
 
-    // ========== MENU E GIOCO (mantenuto dal codice originale) ==========
+    // ========== MENU E GIOCO ==========
     
+    // ⭐ SEMPLIFICATO: StartGame ora gestisce solo Title Screen e pause ⭐
     public void StartGame()
     {
-        startMenu.SetActive(false);
+        string currentScene = SceneManager.GetActiveScene().name;
+        
+        // Se siamo nella Title Screen, carica la scena 00
+        if (currentScene == "Title Screen")
+        {
+            LoadSceneWithFade("00 - Landing in the Dreamworld");
+            return;
+        }
+        
+        // Per tutte le altre scene, riprendi semplicemente il gioco (caso di pausa)
+        if (startMenu != null)
+            startMenu.SetActive(false);
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-        Debug.Log("Gioco iniziato");
+        Debug.Log("Gioco ripreso");
 
         if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
             if (powerUp.powerUI != null)
@@ -480,26 +716,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void OpenPauseMenu()
-    {
-        pauseMenu.SetActive(true);
-        Time.timeScale = 0f;
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        Debug.Log("Menu pausa aperto");
-        IgnorePlayerAttackClick();
-    }
-
-    public void ResumeGame()
-    {
-        pauseMenu.SetActive(false);
-        Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-        Debug.Log("Gioco ripreso");
-        IgnorePlayerAttackClick();
-    }
-
     public void ExitGame()
     {
         Debug.Log("Uscita dal gioco");
@@ -510,20 +726,7 @@ public class GameManager : MonoBehaviour
 #endif
     }
 
-    private void IgnorePlayerAttackClick()
-    {
-        if (playerAttack != null)
-        {
-            playerAttack.IgnoreNextClick();
-            Debug.Log("IgnoreNextClick chiamato");
-        }
-        else
-        {
-            Debug.LogWarning("playerAttack non assegnato!");
-        }
-    }
-
-    // ========== FADE E SCENE LOADING (mantenuto) ==========
+    // ========== FADE E SCENE LOADING ==========
     
     public void LoadSceneWithFade(string sceneName)
     {
@@ -710,6 +913,27 @@ public class GameManager : MonoBehaviour
         
         CollectibleLog($"Dati globali caricati - Memories: {collectedGlobalMemories}/{totalGlobalMemories}, Presents S01: {collectedScene01Presents}/{totalScene01Presents}, Archivio: {collectedMemoryNames.Count}, Checkpoints: {sceneCheckpoints.Count}");
     }
+
+    // ⭐ Auto-save periodico per sicurezza ⭐
+    private void AutoSave()
+    {
+        SaveGlobalData();
+        Debug.Log("[GameManager] Auto-save periodico completato");
+    }
+    
+    // ========== NUOVO: Salva automaticamente quando cambi scena ⭐
+    private void OnDestroy()
+    {
+        // Salva i dati prima che questo GameManager venga distrutto
+        SaveGlobalData();
+        Debug.Log($"[GameManager] Dati salvati prima della distruzione nella scena: {SceneManager.GetActiveScene().name}");
+        
+        // Reset del singleton
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
     
     // ========== RESET E DEBUG ==========
     
@@ -730,6 +954,11 @@ public class GameManager : MonoBehaviour
             memoriesByScene[sceneName].Clear();
             totalMemoriesByScene[sceneName] = 0;
         }
+        
+        // Reset SceneManager tracking
+        sceneManagerFound = false;
+        gameStarted = false;
+        currentSceneManagerName = "";
         
         // Cancella tutti i dati salvati
         PlayerPrefs.DeleteAll();
@@ -768,19 +997,163 @@ public class GameManager : MonoBehaviour
             sceneMemoriesInfo += $"  {sceneName}: {collected}/{total}\n";
         }
         
+        string sceneManagerInfo = "";
+        string currentScene = SceneManager.GetActiveScene().name;
+        string expectedManager = GetExpectedSceneManagerName();
+        sceneManagerInfo = $"Scena: {currentScene}\n" +
+                          $"SceneManager atteso: {expectedManager}\n" +
+                          $"SceneManager trovato: {sceneManagerFound}\n" +
+                          $"Nome corrente: {currentSceneManagerName}\n" +
+                          $"Gioco avviato: {gameStarted}\n";
+        
         Debug.Log($"=== GameManager Global State ===\n" +
+                  $"{sceneManagerInfo}" +
                   $"Global Memories: {collectedGlobalMemories}/{totalGlobalMemories} ({GetGlobalMemoriesProgress():P1})\n" +
                   $"Scene 01 Presents: {collectedScene01Presents}/{totalScene01Presents} ({GetScene01PresentsProgress():P1})\n" +
                   $"Memory Archive: {GetMemoryArchiveCount()} entries\n" +
                   $"Archive: [{string.Join(", ", collectedMemoryNames)}]\n" +
                   $"Total Items: {GetTotalCollectedItems()}/{GetTotalAvailableItems()}\n" +
                   $"Memories by Scene:\n{sceneMemoriesInfo}" +
-                  $"Scene Checkpoints:\n{checkpointsInfo}");
+                  $"Scene Checkpoints:\n{checkpointsInfo}" +
+                  $"Auto-Save: {autoSaveOnCollection} | Periodic: {enablePeriodicAutoSave} ({autoSaveInterval}s)\n" +
+                  $"Wait for SceneManager: {waitForSceneManagerBeforeStart} | Timeout: {sceneManagerTimeout}s");
+    }
+    
+    [ContextMenu("Debug SceneManager Configuration")]
+    public void DebugSceneManagerConfiguration()
+    {
+        string configInfo = "=== SceneManager Configuration ===\n";
+        
+        foreach (var kvp in expectedSceneManagers)
+        {
+            configInfo += $"Scena: '{kvp.Key}' -> SceneManager: '{kvp.Value}'\n";
+        }
+        
+        string currentScene = SceneManager.GetActiveScene().name;
+        string expectedManager = GetExpectedSceneManagerName();
+        
+        configInfo += $"\n--- Stato Corrente ---\n";
+        configInfo += $"Scena attiva: {currentScene}\n";
+        configInfo += $"SceneManager atteso: {(string.IsNullOrEmpty(expectedManager) ? "NESSUNO" : expectedManager)}\n";
+        configInfo += $"SceneManager trovato: {sceneManagerFound}\n";
+        configInfo += $"Nome SceneManager corrente: {(string.IsNullOrEmpty(currentSceneManagerName) ? "NESSUNO" : currentSceneManagerName)}\n";
+        configInfo += $"Aspetta SceneManager: {waitForSceneManagerBeforeStart}\n";
+        configInfo += $"Timeout: {sceneManagerTimeout}s\n";
+        configInfo += $"Intervallo controllo: {sceneManagerCheckInterval}s\n";
+        
+        Debug.Log(configInfo);
     }
     
     [ContextMenu("Reset All Global Data")]
     public void DebugResetGlobalData()
     {
         ResetGlobalData();
+    }
+    
+    [ContextMenu("Force Save Data")]
+    public void DebugForceSave()
+    {
+        SaveGlobalData();
+        Debug.Log("[GameManager] Salvataggio forzato completato!");
+    }
+    
+    [ContextMenu("Force Load Data")]
+    public void DebugForceLoad()
+    {
+        LoadGlobalData();
+        Debug.Log("[GameManager] Caricamento forzato completato!");
+    }
+    
+    // ========== METODI UTILITY PER DEBUG ==========
+    
+    public void PrintDetailedState()
+    {
+        Debug.Log("=== DETTAGLIO COMPLETO GAMEMANAGER ===");
+        Debug.Log($"Scena: {SceneManager.GetActiveScene().name}");
+        Debug.Log($"Singleton Instance: {(Instance != null ? "OK" : "NULL")}");
+        Debug.Log($"StartMenu: {(startMenu != null ? "Assegnato" : "NULL")}");
+        Debug.Log($"PlayerAttack: {(playerAttack != null ? "Assegnato" : "NULL")}");
+        Debug.Log($"FadeImage: {(fadeImage != null ? "Assegnato" : "NULL")}");
+        Debug.Log($"LevelTitleUI: {(levelTitleUI != null ? "Assegnato" : "NULL")}");
+        
+        Debug.Log("\n--- SCENEMANAGER ---");
+        Debug.Log($"SceneManager atteso: {GetExpectedSceneManagerName()}");
+        Debug.Log($"SceneManager trovato: {sceneManagerFound}");
+        Debug.Log($"Nome corrente: {currentSceneManagerName}");
+        Debug.Log($"Gioco avviato: {gameStarted}");
+        Debug.Log($"Aspetta prima di avviare: {waitForSceneManagerBeforeStart}");
+        
+        Debug.Log("\n--- MEMORIES ---");
+        foreach (string sceneName in supportedScenes)
+        {
+            int collected = GetCollectedMemoriesInScene(sceneName);
+            int total = GetTotalMemoriesInScene(sceneName);
+            List<string> names = GetCollectedMemoriesNamesInScene(sceneName);
+            Debug.Log($"{sceneName}: {collected}/{total} [{string.Join(", ", names)}]");
+        }
+        
+        Debug.Log($"\n--- PRESENTS ---");
+        Debug.Log($"Scene 01: {collectedScene01Presents}/{totalScene01Presents} [{string.Join(", ", collectedScene01PresentNames)}]");
+        
+        Debug.Log($"\n--- CHECKPOINTS ---");
+        foreach (var kvp in sceneCheckpoints)
+        {
+            Debug.Log($"{kvp.Key}: {kvp.Value}");
+        }
+        
+        Debug.Log($"\n--- SETTINGS ---");
+        Debug.Log($"CollectibleLogs: {enableCollectibleLogs}");
+        Debug.Log($"AutoSave: {autoSaveOnCollection}");
+        Debug.Log($"PeriodicAutoSave: {enablePeriodicAutoSave} ({autoSaveInterval}s)");
+        Debug.Log($"SceneManagerTimeout: {sceneManagerTimeout}s");
+        Debug.Log($"CheckInterval: {sceneManagerCheckInterval}s");
+    }
+    
+    // ========== METODI PER TESTING ==========
+    
+    [ContextMenu("Simulate Memory Collection")]
+    public void DebugSimulateMemoryCollection()
+    {
+        string currentScene = SceneManager.GetActiveScene().name;
+        string testMemoryName = $"TestMemory_{System.DateTime.Now.Ticks}";
+        
+        OnSceneMemoryCollected(currentScene, testMemoryName);
+        Debug.Log($"[DEBUG] Simulata raccolta memory '{testMemoryName}' nella scena '{currentScene}'");
+    }
+    
+    [ContextMenu("Simulate Present Collection")]
+    public void DebugSimulatePresentCollection()
+    {
+        string testPresentName = $"TestPresent_{System.DateTime.Now.Ticks}";
+        
+        OnScene01PresentCollected(testPresentName);
+        Debug.Log($"[DEBUG] Simulata raccolta present '{testPresentName}' nella scena 01");
+    }
+    
+    [ContextMenu("Test SceneManager Search")]
+    public void DebugTestSceneManagerSearch()
+    {
+        string currentScene = SceneManager.GetActiveScene().name;
+        Debug.Log($"[DEBUG] Test ricerca SceneManager per la scena '{currentScene}'");
+        
+        if (expectedSceneManagers.ContainsKey(currentScene))
+        {
+            string expectedManagerName = expectedSceneManagers[currentScene];
+            Debug.Log($"[DEBUG] Cercando SceneManager: '{expectedManagerName}'");
+            
+            GameObject sceneManagerObj = GameObject.Find(expectedManagerName);
+            if (sceneManagerObj != null)
+            {
+                Debug.Log($"[DEBUG] ✅ SceneManager '{expectedManagerName}' TROVATO!");
+            }
+            else
+            {
+                Debug.Log($"[DEBUG] ❌ SceneManager '{expectedManagerName}' NON trovato!");
+            }
+        }
+        else
+        {
+            Debug.Log($"[DEBUG] ℹ️ Nessun SceneManager configurato per la scena '{currentScene}'");
+        }
     }
 }

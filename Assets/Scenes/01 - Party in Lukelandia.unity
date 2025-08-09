@@ -108862,11 +108862,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -3898657473553432656, guid: 7a0127c50fef0cd4682ecda668e2d778, type: 3}
---- !u!1 &1230977995 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3032303813181180217, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
-  m_PrefabInstance: {fileID: 1691136967}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1231626889
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -139320,11 +139315,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
---- !u!1 &1615541862 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 8007287829594996990, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
-  m_PrefabInstance: {fileID: 1691136967}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &1616589158 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8012286391203894788, guid: da499df60e2573f4097f64b4dbb23b03, type: 3}
@@ -140140,6 +140130,10 @@ PrefabInstance:
     - target: {fileID: 7432582258484171537, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8266660246662087331, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8531983554210713303, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -155329,6 +155323,11 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
     vectorLabel1_3: W
+--- !u!1 &1767861725 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2005096378865185867, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
+  m_PrefabInstance: {fileID: 1691136967}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1776963184
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -173668,11 +173667,11 @@ PrefabInstance:
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: pauseMenu
       value: 
-      objectReference: {fileID: 1615541862}
+      objectReference: {fileID: 0}
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: startMenu
       value: 
-      objectReference: {fileID: 1230977995}
+      objectReference: {fileID: 1767861725}
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: playerAttack
       value: 
