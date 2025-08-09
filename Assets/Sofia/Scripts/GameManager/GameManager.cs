@@ -29,6 +29,7 @@ public class GameManager : MonoBehaviour
     [Tooltip("Scene attualmente supportate dal gioco")]
     public List<string> supportedScenes = new List<string>
     {
+        "Title Screen",
         "00 - Landing in the Dreamworld",
         "01 - Party in Lukelandia", 
         "02 - Finding Pietro"
@@ -93,39 +94,66 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    [SerializeField] private GameObject levelTitleUI; // Aggiungi riferimento in inspector
+
     private void Start()
     {
         string currentScene = SceneManager.GetActiveScene().name;
 
-        if (currentScene == "00 - Landing in the Dreamworld")
-        {
-            Time.timeScale = 0f;
-            startMenu.SetActive(true);
-            pauseMenu.SetActive(false);
+        // Disattiva sempre il menu start
+        startMenu.SetActive(false);
 
-            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-                if (powerUp.powerUI != null)
-                    powerUp.powerUI.SetActive(false);
+        // Disattiva il pause menu all'inizio
+        pauseMenu.SetActive(false);
+
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        {
+            // Disattiva la UI dei power up all'inizio
+            if (powerUp.powerUI != null)
+                powerUp.powerUI.SetActive(false);
+        }
+
+        // Mostra la UI del titolo per 2 secondi solo se siamo nella scena di gioco
+        if (currentScene != "00 - Landing in the Dreamworld")
+        {
+            StartCoroutine(ShowLevelTitleThenGameUI());
         }
         else
         {
-            Time.timeScale = 1f;
-            startMenu.SetActive(false);
-            pauseMenu.SetActive(false);
-
-            if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-                if (powerUp.powerUI != null)
-                    powerUp.powerUI.SetActive(true);
+            // Se vuoi, puoi gestire diversamente la scena 00 (menu start) oppure lasciare vuoto
         }
 
         if (fadeImage != null)
             StartCoroutine(FadeIn());
 
-        // Notifica agli SceneManager che il GameManager è pronto
         NotifySceneManagersReady();
     }
 
-   private void NotifySceneManagersReady()
+    private IEnumerator ShowLevelTitleThenGameUI()
+    {
+        // Mostra la UI titolo livello
+        levelTitleUI.SetActive(true);
+
+        // Aspetta 2 secondi
+        yield return new WaitForSeconds(2f);
+
+        // Nascondi la UI titolo
+        levelTitleUI.SetActive(false);
+
+        // Attiva la UI di gioco e power up
+        pauseMenu.SetActive(false);
+
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        {
+            if (powerUp.powerUI != null)
+                powerUp.powerUI.SetActive(true);
+        }
+
+        // Assicurati che il tempo di gioco sia normale
+        Time.timeScale = 1f;
+    }
+
+    private void NotifySceneManagersReady()
     {
         // Invia un messaggio broadcast per notificare che il GameManager è pronto
         GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
