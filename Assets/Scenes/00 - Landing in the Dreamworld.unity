@@ -3159,11 +3159,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3567efae3302f2f4cb4783ae955b5883, type: 3}
---- !u!1 &215925207 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2005096378865185867, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
-  m_PrefabInstance: {fileID: 1011903263}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &219829142 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3941898101947402816, guid: 2a13b79db919e7944bd723977ecd7918, type: 3}
@@ -15784,7 +15779,8 @@ PrefabInstance:
       value: 0.85236406
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 2005096378865185867, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
@@ -21482,7 +21478,7 @@ PrefabInstance:
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: startMenu
       value: 
-      objectReference: {fileID: 215925207}
+      objectReference: {fileID: 0}
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: playerAttack
       value: 
