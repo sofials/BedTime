@@ -677,42 +677,55 @@ public class Collectibles : MonoBehaviour
         // Implementazione base vuota - le classi derivate possono sovrascrivere
     }
     
-    protected virtual void NotifySceneManager()
+   protected virtual void NotifySceneManager()
+{
+    string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+    
+    // ⭐ AGGIUNTO: Notifica sempre il PlayerCollectibleTracker per tutti i collectibles ⭐
+    if (PlayerCollectibleTracker.Instance != null)
     {
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        PlayerCollectibleTracker.Instance.NotifyCollectibleCollected(collectibleType);
+        Debug.Log($"[Collectibles] ✅ PlayerCollectibleTracker notificato per {collectibleType} '{collectibleName}'");
+    }
+    else
+    {
+        Debug.LogWarning($"[Collectibles] ⚠️ PlayerCollectibleTracker.Instance è NULL!");
+    }
+    
+    // Notifiche specifiche per scena (mantieni la logica esistente)
+    if (currentScene == "01 - Party in Lukelandia" && SceneManager01.Instance != null)
+    {
+        SceneManager01.Instance.OnCollectibleCollected(collectibleName, collectibleType);
         
-        if (currentScene == "01 - Party in Lukelandia" && SceneManager01.Instance != null)
+        switch (collectibleType)
         {
-            SceneManager01.Instance.OnCollectibleCollected(collectibleName, collectibleType);
-            
+            case CollectibleType.Memory:
+                SceneManager01.Instance.NotifyMemoryCollected(collectibleName);
+                break;
+            case CollectibleType.Present:
+                SceneManager01.Instance.NotifyPresentCollected(collectibleName);
+                break;
+        }
+    }
+    else
+    {
+        // Fallback al GameManager se non c'è scene manager specifico
+        if (GameManager.Instance != null)
+        {
             switch (collectibleType)
             {
                 case CollectibleType.Memory:
-                    SceneManager01.Instance.NotifyMemoryCollected(collectibleName);
+                    GameManager.Instance.OnSceneMemoryCollected(currentScene, collectibleName);
                     break;
                 case CollectibleType.Present:
-                    SceneManager01.Instance.NotifyPresentCollected(collectibleName);
+                    GameManager.Instance.OnScene01PresentCollected(collectibleName);
                     break;
             }
         }
-        else
-        {
-            if (GameManager.Instance != null)
-            {
-                switch (collectibleType)
-                {
-                    case CollectibleType.Memory:
-                        GameManager.Instance.OnSceneMemoryCollected(currentScene, collectibleName);
-                        break;
-                    case CollectibleType.Present:
-                        GameManager.Instance.OnScene01PresentCollected(collectibleName);
-                        break;
-                }
-            }
-        }
-        
-        Debug.Log($"[Collectibles] Notifica inviata per {collectibleType} '{collectibleName}'");
     }
+    
+    Debug.Log($"[Collectibles] Notifica completa inviata per {collectibleType} '{collectibleName}'");
+}
     
     /// <summary>
     /// Solo per Memory e altri che devono essere disattivati

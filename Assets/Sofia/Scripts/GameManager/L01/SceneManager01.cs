@@ -62,10 +62,53 @@ public class SceneManager01 : MonoBehaviour
     {
         InitializeScene();
         
+        // 🔥 NOTIFICA AL PLAYERUI CHE SIAMO PRONTI
+        NotifyPlayerUIConnection();
+        
         // Controlla se GameManager è già pronto
         if (GameManager.Instance != null)
         {
             InitializeWithGameManager();
+        }
+    }
+    
+    // 🔥 NUOVO METODO: Notifica al PlayerUI che siamo disponibili
+    private void NotifyPlayerUIConnection()
+    {
+        // Aspetta un frame per assicurarsi che tutto sia inizializzato
+        StartCoroutine(NotifyPlayerUIAfterFrame());
+    }
+    
+    private System.Collections.IEnumerator NotifyPlayerUIAfterFrame()
+    {
+        yield return null; // Aspetta 1 frame
+        
+        // Cerca il PlayerUI e connettilo manualmente
+        PlayerUI playerUI = PlayerUI.Instance;
+        if (playerUI == null)
+        {
+            playerUI = Object.FindFirstObjectByType<PlayerUI>();
+        }
+        
+        if (playerUI != null)
+        {
+            // Usa il metodo di connessione manuale del PlayerUI
+            bool connected = playerUI.ConnectToSceneManager(this);
+            if (connected)
+            {
+                DebugLog($"[SceneManager01] ✅ PlayerUI connesso manualmente con successo!");
+                
+                // Forza un update iniziale dell'UI
+                playerUI.UpdateCountersManually(collectedMemories, totalMemories, collectedPresents, totalPresents);
+            }
+            else
+            {
+                DebugLog($"[SceneManager01] ❌ Fallita connessione manuale con PlayerUI");
+            }
+        }
+        else
+        {
+            DebugLog($"[SceneManager01] ⚠️ PlayerUI non trovato nella scena!");
         }
     }
     
@@ -295,6 +338,9 @@ public class SceneManager01 : MonoBehaviour
         // La classe Collectibles gestisce da sola la propria visibilità
         DebugLog($"[SceneManager01] ℹ️ GameObject {presentName} rimane ATTIVO - gestione visibilità delegata alla classe Collectibles");
         
+        // 🔥 FORZA L'AGGIORNAMENTO UI IMMEDIATO
+        ForceUIUpdate();
+        
         // Eventi per la UI
         OnPresentCountChanged?.Invoke(collectedPresents, totalPresents);
         
@@ -342,6 +388,9 @@ public class SceneManager01 : MonoBehaviour
         // La classe Collectibles gestisce da sola la propria visibilità
         DebugLog($"[SceneManager01] ℹ️ GameObject {memoryName} rimane ATTIVO - gestione visibilità delegata alla classe Collectibles");
         
+        // 🔥 FORZA L'AGGIORNAMENTO UI IMMEDIATO
+        ForceUIUpdate();
+        
         // Eventi per la UI
         OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
         
@@ -354,6 +403,22 @@ public class SceneManager01 : MonoBehaviour
         }
         
         UpdateUI();
+    }
+    
+    // 🔥 NUOVO METODO: Forza aggiornamento UI immediato
+    private void ForceUIUpdate()
+    {
+        PlayerUI playerUI = PlayerUI.Instance;
+        if (playerUI != null)
+        {
+            // Aggiorna manualmente i contatori nel PlayerUI
+            playerUI.UpdateCountersManually(collectedMemories, totalMemories, collectedPresents, totalPresents);
+            DebugLog($"[SceneManager01] 🔥 UI aggiornata forzatamente: M={collectedMemories}/{totalMemories}, P={collectedPresents}/{totalPresents}");
+        }
+        else
+        {
+            DebugLog("[SceneManager01] ⚠️ PlayerUI non trovato per aggiornamento forzato");
+        }
     }
     
     // Metodi di compatibilità per il codice esistente
@@ -395,6 +460,9 @@ public class SceneManager01 : MonoBehaviour
         int totalAvailable = totalPresents + totalMemories;
         
         OnAllCollectiblesCountChanged?.Invoke(totalCollected, totalAvailable);
+        
+        // 🔥 ASSICURATI CHE ANCHE IL PLAYERUI SIA AGGIORNATO
+        ForceUIUpdate();
     }
     
     // ========== GETTERS - PRESENTS ==========
@@ -533,6 +601,19 @@ public class SceneManager01 : MonoBehaviour
                   $"All Complete: {AreAllCollectiblesCompleted()}\n" +
                   $"GameManager Ready: {gameManagerReady}\n" +
                   $"⚠️ NOTA: SceneManager01 traccia SOLO i contatori - GameObject gestiti dalle classi Collectibles");
+    }
+    
+    [ContextMenu("🔥 Debug - Force UI Update")]
+    public void DebugForceUIUpdate()
+    {
+        ForceUIUpdate();
+        DebugCurrentState();
+    }
+    
+    [ContextMenu("🔥 Debug - Reconnect PlayerUI")]
+    public void DebugReconnectPlayerUI()
+    {
+        StartCoroutine(NotifyPlayerUIAfterFrame());
     }
     
     [ContextMenu("Refresh Scene Counts")]

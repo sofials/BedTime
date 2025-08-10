@@ -66,10 +66,11 @@ public class PlayerUI : MonoBehaviour
     private bool isUpdatingMemoryUI = false;
     private bool isUpdatingPresentUI = false;
     
-    // 🔥 UNIVERSAL SCENE MANAGER SUPPORT
+    // 🔥 UNIVERSAL SCENE MANAGER SUPPORT - OTTIMIZZATO
     private MonoBehaviour currentSceneManager = null;
     private System.Type currentSceneManagerType = null;
     private bool isConnectedToSceneManager = false;
+    private string currentSceneManagerName = "";
     
     // 🔥 SALVATAGGIO POSIZIONI ORIGINALI - La chiave per risolvere il problema!
     private struct UIElementState
@@ -185,7 +186,6 @@ public class PlayerUI : MonoBehaviour
             }
         }
         
-        Debug.Log("[PlayerUI] 🔥 Stati originali UI cachati!");
     }
     
     // 🔥 METODO CHIAVE: Ripristina ESATTAMENTE lo stato originale
@@ -201,8 +201,6 @@ public class PlayerUI : MonoBehaviour
         {
             canvas.alpha = originalState.alpha;
         }
-        
-        Debug.Log($"[PlayerUI] Ripristinato stato originale per {rect.name}: pos={originalState.anchoredPosition}, scale={originalState.localScale}");
     }
     
     private void RestoreAllOriginalStates()
@@ -215,7 +213,6 @@ public class PlayerUI : MonoBehaviour
         RestoreUIElementState(memoryIconRect, memoryIconOriginalState);
         RestoreUIElementState(presentIconRect, presentIconOriginalState);
         
-        Debug.Log("[PlayerUI] 🔥 TUTTI gli stati originali ripristinati!");
     }
     
     private void HidePanelsAtStart()
@@ -239,140 +236,161 @@ public class PlayerUI : MonoBehaviour
             presentCounterText.gameObject.SetActive(false);
         }
         
-        Debug.Log("[PlayerUI] Pannelli collectibles nascosti all'avvio");
     }
     
-    private void SaveOriginalTextFormats()
+   private void SaveOriginalTextFormats()
+{
+    // Salva il template per le memories
+    if (memoryCounterText != null)
     {
-        // Salva il template per le memories
-        if (memoryCounterText != null)
-        {
-            memoryTextTemplate = memoryCounterText.text;
-            originalMemoryColor = memoryCounterText.color;
-            
-            // Se il testo è vuoto o non contiene numeri, usa un template di default
-            if (string.IsNullOrEmpty(memoryTextTemplate) || !memoryTextTemplate.Contains("/"))
-            {
-                memoryTextTemplate = "Memories: 0/0";
-            }
-            
-            Debug.Log($"[PlayerUI] Memory template salvato: '{memoryTextTemplate}' - Colore: {originalMemoryColor}");
-        }
+        memoryTextTemplate = memoryCounterText.text;
+        originalMemoryColor = memoryCounterText.color;
         
-        // Salva il template per i presents
-        if (presentCounterText != null)
+        // Se il testo è vuoto o non contiene il pattern X/Y, usa un template di default
+        if (string.IsNullOrEmpty(memoryTextTemplate) || !Regex.IsMatch(memoryTextTemplate, @"\d+/\d+"))
         {
-            presentTextTemplate = presentCounterText.text;
-            originalPresentColor = presentCounterText.color;
-            
-            // Se il testo è vuoto o non contiene numeri, usa un template di default
-            if (string.IsNullOrEmpty(presentTextTemplate) || !presentTextTemplate.Contains("/"))
-            {
-                presentTextTemplate = "Presents: 0/0";
-            }
-            
-            Debug.Log($"[PlayerUI] Present template salvato: '{presentTextTemplate}' - Colore: {originalPresentColor}");
+            memoryTextTemplate = "Memories: 0/0";
         }
     }
+    
+    // 🔥 FIXED: Standardized template for presents like the 3rd present
+    if (presentCounterText != null)
+    {
+        originalPresentColor = presentCounterText.color;
+        
+        // 🎯 FORCE a standardized template for all presents
+        // This ensures consistent display format for all present counters
+        presentTextTemplate = "presents 0/0";
+        
+        Debug.Log($"[PlayerUI] Present template standardized to: '{presentTextTemplate}'");
+    }
+}
 
-    // 🔥 UNIVERSAL SCENE MANAGER INITIALIZATION
+
+    // 🔥 UNIVERSAL SCENE MANAGER INITIALIZATION - OTTIMIZZATO
     private void InitializeCollectibleSystem()
     {
-        Debug.Log("[PlayerUI] 🌟 Inizializzazione sistema collectibles universale...");
+     
         
         // Disconnetti vecchie connessioni
         DisconnectFromAllSystems();
         
-        // Prova prima con SceneManager specifici (SceneManager01, SceneManager02, etc.)
-        if (TryConnectToSceneManager())
+        // 🔥 STRATEGIA OTTIMIZZATA: Prova connessioni in ordine di priorità
+        if (TryConnectToUniversalSceneManager())
         {
-            Debug.Log($"[PlayerUI] ✅ Connesso a {currentSceneManagerType.Name}");
+         
             return;
         }
         
         // Fallback con PlayerCollectibleTracker
         if (TryConnectToCollectibleTracker())
         {
-            Debug.Log("[PlayerUI] ✅ Connesso a PlayerCollectibleTracker");
+          
             return;
         }
         
-        Debug.LogError("[PlayerUI] ❌ Nessun sistema di tracking collectibles trovato!");
+      
     }
     
-    // 🔥 TROVA E CONNETTI A QUALSIASI SCENEMANAGER
-    private bool TryConnectToSceneManager()
+    // 🔥 NUOVO METODO UNIVERSALE: Trova e connetti a qualsiasi SceneManager
+    private bool TryConnectToUniversalSceneManager()
     {
-        // Lista di possibili SceneManager da cercare
-        string[] possibleSceneManagers = {
-            "SceneManager01", "SceneManager02", "SceneManager03", "SceneManager04", "SceneManager05",
-            "SceneManager", "LevelManager", "CollectibleManager", "GameSceneManager"
-        };
-        
-        foreach (string managerName in possibleSceneManagers)
+        // 🎯 STRATEGIA 1: Cerca SceneManager numerati (SceneManager00, 01, 02, etc.)
+        for (int i = 0; i <= 99; i++)
         {
-            // Cerca per nome del tipo
-            System.Type managerType = System.Type.GetType(managerName);
-            if (managerType != null)
+            string managerName = $"SceneManager{i:D2}"; // 00, 01, 02, etc.
+            if (TryConnectToSceneManagerByName(managerName))
             {
-                MonoBehaviour manager = Object.FindFirstObjectByType(managerType) as MonoBehaviour;
-                if (manager != null)
-                {
-                    if (TryConnectToSpecificSceneManager(manager, managerType))
-                    {
-                        return true;
-                    }
-                }
+                return true;
             }
         }
         
-        // Se non trova nessuno specifico, cerca qualsiasi MonoBehaviour che ha "Instance" e i metodi giusti
+        // 🎯 STRATEGIA 2: Cerca SceneManager con nomi comuni
+        string[] commonNames = {
+            "SceneManager", "LevelManager", "CollectibleManager", 
+            "GameSceneManager", "SceneController", "LevelController"
+        };
+        
+        foreach (string name in commonNames)
+        {
+            if (TryConnectToSceneManagerByName(name))
+            {
+                return true;
+            }
+        }
+        
+        // 🎯 STRATEGIA 3: Cerca qualsiasi MonoBehaviour con i metodi richiesti
         return TryConnectToGenericSceneManager();
     }
     
-    // 🔥 CONNETTI A UN SCENE MANAGER SPECIFICO
+    // 🔥 CONNETTI A SCENE MANAGER PER NOME
+    private bool TryConnectToSceneManagerByName(string typeName)
+    {
+        System.Type managerType = System.Type.GetType(typeName);
+        if (managerType != null)
+        {
+            MonoBehaviour manager = Object.FindFirstObjectByType(managerType) as MonoBehaviour;
+            if (manager != null)
+            {
+                return TryConnectToSpecificSceneManager(manager, managerType);
+            }
+        }
+        return false;
+    }
+    
+    // 🔥 CONNETTI A UN SCENE MANAGER SPECIFICO - OTTIMIZZATO
     private bool TryConnectToSpecificSceneManager(MonoBehaviour manager, System.Type managerType)
     {
         try
         {
-            // Verifica che abbia una proprietà Instance
-            PropertyInfo instanceProperty = managerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-            if (instanceProperty == null)
+            // Verifica che sia un singleton valido
+            if (!VerifySceneManagerSingleton(managerType))
             {
-                Debug.Log($"[PlayerUI] {managerType.Name} non ha proprietà Instance statica");
-                return false;
-            }
-            
-            object instance = instanceProperty.GetValue(null);
-            if (instance == null)
-            {
-                Debug.Log($"[PlayerUI] {managerType.Name}.Instance è null");
+               
                 return false;
             }
             
             // Verifica che abbia i metodi necessari
             if (!HasRequiredSceneManagerMethods(managerType))
             {
-                Debug.Log($"[PlayerUI] {managerType.Name} non ha tutti i metodi richiesti");
+                
                 return false;
             }
             
-            // Connetti agli eventi
-            ConnectToSceneManagerEvents(instance, managerType);
-            InitializeFromSceneManager(instance, managerType);
+            // 🔥 CONNESSIONE OTTIMIZZATA: UnityEvent vs C# Events
+            bool connected = ConnectToSceneManagerEventsOptimized(manager, managerType);
+            if (!connected)
+            {
+                
+                return false;
+            }
+            
+            // Inizializza valori
+            InitializeFromSceneManager(manager, managerType);
             
             currentSceneManager = manager;
             currentSceneManagerType = managerType;
+            currentSceneManagerName = managerType.Name;
             isConnectedToSceneManager = true;
             
-            Debug.Log($"[PlayerUI] ✅ Connesso con successo a {managerType.Name}");
+           
             return true;
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"[PlayerUI] Errore connessione a {managerType.Name}: {e.Message}");
+            
             return false;
         }
+    }
+    
+    // 🔥 VERIFICA SINGLETON
+    private bool VerifySceneManagerSingleton(System.Type managerType)
+    {
+        PropertyInfo instanceProperty = managerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+        if (instanceProperty == null) return false;
+        
+        object instance = instanceProperty.GetValue(null);
+        return instance != null;
     }
     
     // 🔥 CERCA SCENE MANAGER GENERICO
@@ -391,29 +409,7 @@ public class PlayerUI : MonoBehaviour
             // Controlla se ha i metodi/proprietà che ci servono
             if (HasRequiredSceneManagerMethods(type))
             {
-                try
-                {
-                    // Prova a ottenere l'istanza
-                    PropertyInfo instanceProp = type.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-                    object instance = instanceProp?.GetValue(null) ?? mb;
-                    
-                    if (instance != null)
-                    {
-                        ConnectToSceneManagerEvents(instance, type);
-                        InitializeFromSceneManager(instance, type);
-                        
-                        currentSceneManager = mb;
-                        currentSceneManagerType = type;
-                        isConnectedToSceneManager = true;
-                        
-                        Debug.Log($"[PlayerUI] ✅ Connesso a SceneManager generico: {type.Name}");
-                        return true;
-                    }
-                }
-                catch (System.Exception e)
-                {
-                    Debug.LogWarning($"[PlayerUI] Errore connessione a {type.Name}: {e.Message}");
-                }
+                return TryConnectToSpecificSceneManager(mb, type);
             }
         }
         
@@ -440,27 +436,164 @@ public class PlayerUI : MonoBehaviour
         return true;
     }
     
-    // 🔥 CONNETTI AGLI EVENTI DI UN SCENE MANAGER
-    private void ConnectToSceneManagerEvents(object instance, System.Type managerType)
+    // 🔥 CONNESSIONE EVENTI OTTIMIZZATA: UnityEvent + C# Events
+    private bool ConnectToSceneManagerEventsOptimized(MonoBehaviour manager, System.Type managerType)
     {
-        // Lista degli eventi da cercare e connettere
-        var eventConnections = new[]
-        {
-            ("OnMemoryCountChanged", "UpdateSceneMemoryCounter"),
-            ("OnPresentCountChanged", "UpdateScenePresentCounter"),
-            ("OnAllMemoriesCollected", "OnAllSceneMemoriesCompleted"),
-            ("OnAllPresentsCollected", "OnAllScenePresentsCompleted"),
-            ("OnAllCollectiblesCompleted", "OnAllSceneCollectiblesCompleted")
-        };
+      
         
-        foreach (var (eventName, handlerName) in eventConnections)
+        // 🎯 STRATEGIA 1: Prova connessione UnityEvent (per SceneManager00, 01, 02, etc.)
+        if (TryConnectUnityEvents(manager, managerType))
         {
-            TryConnectEvent(instance, managerType, eventName, handlerName);
+          
+            return true;
+        }
+        
+        // 🎯 STRATEGIA 2: Fallback a C# Events via Reflection
+        if (TryConnectCSharpEvents(manager, managerType))
+        {
+           
+            return true;
+        }
+        
+      
+        return false;
+    }
+    
+    // 🔥 CONNETTI UNITY EVENTS (per SceneManager00, 01, 02, etc.)
+    private bool TryConnectUnityEvents(MonoBehaviour manager, System.Type managerType)
+    {
+        try
+        {
+            // Cerca campi UnityEvent nel tipo
+            var memoryEvent = managerType.GetField("OnMemoryCountChanged", BindingFlags.Public | BindingFlags.Instance);
+            var presentEvent = managerType.GetField("OnPresentCountChanged", BindingFlags.Public | BindingFlags.Instance);
+            var allMemoriesEvent = managerType.GetField("OnAllMemoriesCollected", BindingFlags.Public | BindingFlags.Instance);
+            var allPresentsEvent = managerType.GetField("OnAllPresentsCollected", BindingFlags.Public | BindingFlags.Instance);
+            var allCollectiblesEvent = managerType.GetField("OnAllCollectiblesCompleted", BindingFlags.Public | BindingFlags.Instance);
+            
+            bool hasUnityEvents = false;
+            
+            // Connetti OnMemoryCountChanged
+            if (memoryEvent != null && memoryEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = memoryEvent.GetValue(manager) as UnityEngine.Events.UnityEvent<int, int>;
+                if (unityEvent != null)
+                {
+                    unityEvent.AddListener(UpdateSceneMemoryCounter);
+                    hasUnityEvents = true;
+                    Debug.Log("[PlayerUI] ✅ OnMemoryCountChanged UnityEvent connesso");
+                }
+            }
+            
+            // Connetti OnPresentCountChanged
+            if (presentEvent != null && presentEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = presentEvent.GetValue(manager) as UnityEngine.Events.UnityEvent<int, int>;
+                if (unityEvent != null)
+                {
+                    unityEvent.AddListener(UpdateScenePresentCounter);
+                    hasUnityEvents = true;
+                    Debug.Log("[PlayerUI] ✅ OnPresentCountChanged UnityEvent connesso");
+                }
+            }
+            
+            // Connetti OnAllMemoriesCollected
+            if (allMemoriesEvent != null && allMemoriesEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = allMemoriesEvent.GetValue(manager) as UnityEngine.Events.UnityEvent;
+                if (unityEvent != null)
+                {
+                    unityEvent.AddListener(OnAllSceneMemoriesCompleted);
+                    hasUnityEvents = true;
+                    Debug.Log("[PlayerUI] ✅ OnAllMemoriesCollected UnityEvent connesso");
+                }
+            }
+            
+            // Connetti OnAllPresentsCollected
+            if (allPresentsEvent != null && allPresentsEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = allPresentsEvent.GetValue(manager) as UnityEngine.Events.UnityEvent;
+                if (unityEvent != null)
+                {
+                    unityEvent.AddListener(OnAllScenePresentsCompleted);
+                    hasUnityEvents = true;
+                    Debug.Log("[PlayerUI] ✅ OnAllPresentsCollected UnityEvent connesso");
+                }
+            }
+            
+            // Connetti OnAllCollectiblesCompleted
+            if (allCollectiblesEvent != null && allCollectiblesEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = allCollectiblesEvent.GetValue(manager) as UnityEngine.Events.UnityEvent;
+                if (unityEvent != null)
+                {
+                    unityEvent.AddListener(OnAllSceneCollectiblesCompleted);
+                    hasUnityEvents = true;
+                    Debug.Log("[PlayerUI] ✅ OnAllCollectiblesCompleted UnityEvent connesso");
+                }
+            }
+            
+            return hasUnityEvents;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Errore connessione UnityEvent: {e.Message}");
+            return false;
         }
     }
     
+    // 🔥 CONNETTI C# EVENTS (fallback)
+    private bool TryConnectCSharpEvents(MonoBehaviour manager, System.Type managerType)
+    {
+        try
+        {
+            object instance = GetSceneManagerInstance(manager, managerType);
+            if (instance == null) return false;
+            
+            var eventConnections = new[]
+            {
+                ("OnMemoryCountChanged", "UpdateSceneMemoryCounter"),
+                ("OnPresentCountChanged", "UpdateScenePresentCounter"),
+                ("OnAllMemoriesCollected", "OnAllSceneMemoriesCompleted"),
+                ("OnAllPresentsCollected", "OnAllScenePresentsCompleted"),
+                ("OnAllCollectiblesCompleted", "OnAllSceneCollectiblesCompleted")
+            };
+            
+            bool hasEvents = false;
+            foreach (var (eventName, handlerName) in eventConnections)
+            {
+                if (TryConnectEvent(instance, managerType, eventName, handlerName))
+                {
+                    hasEvents = true;
+                }
+            }
+            
+            return hasEvents;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Errore connessione C# Events: {e.Message}");
+            return false;
+        }
+    }
+    
+    // 🔥 OTTIENI ISTANZA SCENE MANAGER
+    private object GetSceneManagerInstance(MonoBehaviour manager, System.Type managerType)
+    {
+        // Prova prima con proprietà Instance
+        PropertyInfo instanceProperty = managerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+        if (instanceProperty != null)
+        {
+            object instance = instanceProperty.GetValue(null);
+            if (instance != null) return instance;
+        }
+        
+        // Fallback: usa il MonoBehaviour direttamente
+        return manager;
+    }
+    
     // 🔥 CONNETTI UN SINGOLO EVENTO
-    private void TryConnectEvent(object instance, System.Type managerType, string eventName, string handlerName)
+    private bool TryConnectEvent(object instance, System.Type managerType, string eventName, string handlerName)
     {
         try
         {
@@ -473,20 +606,26 @@ public class PlayerUI : MonoBehaviour
                     System.Delegate handler = System.Delegate.CreateDelegate(eventInfo.EventHandlerType, this, handlerMethod);
                     eventInfo.AddEventHandler(instance, handler);
                     Debug.Log($"[PlayerUI] Evento {eventName} connesso a {handlerName}");
+                    return true;
                 }
             }
+            return false;
         }
         catch (System.Exception e)
         {
             Debug.LogWarning($"[PlayerUI] Impossibile connettere evento {eventName}: {e.Message}");
+            return false;
         }
     }
     
     // 🔥 INIZIALIZZA VALORI DA SCENE MANAGER
-    private void InitializeFromSceneManager(object instance, System.Type managerType)
+    private void InitializeFromSceneManager(MonoBehaviour manager, System.Type managerType)
     {
         try
         {
+            object instance = GetSceneManagerInstance(manager, managerType);
+            if (instance == null) return;
+            
             // Ottieni i valori attuali usando reflection
             MethodInfo getCollectedMemories = managerType.GetMethod("GetCollectedMemories");
             MethodInfo getTotalMemories = managerType.GetMethod("GetTotalMemories");
@@ -555,9 +694,9 @@ public class PlayerUI : MonoBehaviour
     private void DisconnectFromAllSystems()
     {
         // Disconnetti da Scene Manager se connesso
-        if (isConnectedToSceneManager && currentSceneManager != null && currentSceneManagerType != null)
+        if (isConnectedToSceneManager && currentSceneManager != null)
         {
-            DisconnectFromSceneManager();
+            DisconnectFromSceneManagerOptimized();
         }
         
         // Disconnetti da Collectible Tracker
@@ -571,48 +710,136 @@ public class PlayerUI : MonoBehaviour
         isConnectedToSceneManager = false;
         currentSceneManager = null;
         currentSceneManagerType = null;
+        currentSceneManagerName = "";
         
         Debug.Log("[PlayerUI] Disconnesso da tutti i sistemi");
     }
     
-    // 🔥 DISCONNETTI DA SCENE MANAGER
-    private void DisconnectFromSceneManager()
+    // 🔥 DISCONNETTI DA SCENE MANAGER OTTIMIZZATO
+    private void DisconnectFromSceneManagerOptimized()
     {
-        if (currentSceneManagerType == null) return;
+        if (currentSceneManagerType == null || currentSceneManager == null) return;
         
         try
         {
-            PropertyInfo instanceProperty = currentSceneManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-            if (instanceProperty != null)
+            Debug.Log($"[PlayerUI] Disconnessione da {currentSceneManagerName}");
+            
+            // 🎯 STRATEGIA 1: Disconnetti UnityEvent
+            if (TryDisconnectUnityEvents(currentSceneManager, currentSceneManagerType))
             {
-                object instance = instanceProperty.GetValue(null);
-                if (instance != null)
-                {
-                    // Disconnetti eventi
-                    var eventConnections = new[]
-                    {
-                        ("OnMemoryCountChanged", "UpdateSceneMemoryCounter"),
-                        ("OnPresentCountChanged", "UpdateScenePresentCounter"),
-                        ("OnAllMemoriesCollected", "OnAllSceneMemoriesCompleted"),
-                        ("OnAllPresentsCollected", "OnAllScenePresentsCompleted"),
-                        ("OnAllCollectiblesCompleted", "OnAllSceneCollectiblesCompleted")
-                    };
-                    
-                    foreach (var (eventName, handlerName) in eventConnections)
-                    {
-                        TryDisconnectEvent(instance, currentSceneManagerType, eventName, handlerName);
-                    }
-                }
+                Debug.Log($"[PlayerUI] ✅ UnityEvent disconnessi da {currentSceneManagerName}");
+                return;
             }
+            
+            // 🎯 STRATEGIA 2: Disconnetti C# Events
+            if (TryDisconnectCSharpEvents(currentSceneManager, currentSceneManagerType))
+            {
+                Debug.Log($"[PlayerUI] ✅ C# Events disconnessi da {currentSceneManagerName}");
+                return;
+            }
+            
+            Debug.LogWarning($"[PlayerUI] ⚠️ Impossibile disconnettere eventi da {currentSceneManagerName}");
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"[PlayerUI] Errore durante disconnessione da {currentSceneManagerType.Name}: {e.Message}");
+            Debug.LogWarning($"[PlayerUI] Errore durante disconnessione da {currentSceneManagerName}: {e.Message}");
+        }
+    }
+    
+    // 🔥 DISCONNETTI UNITY EVENTS
+    private bool TryDisconnectUnityEvents(MonoBehaviour manager, System.Type managerType)
+    {
+        try
+        {
+            var memoryEvent = managerType.GetField("OnMemoryCountChanged", BindingFlags.Public | BindingFlags.Instance);
+            var presentEvent = managerType.GetField("OnPresentCountChanged", BindingFlags.Public | BindingFlags.Instance);
+            var allMemoriesEvent = managerType.GetField("OnAllMemoriesCollected", BindingFlags.Public | BindingFlags.Instance);
+            var allPresentsEvent = managerType.GetField("OnAllPresentsCollected", BindingFlags.Public | BindingFlags.Instance);
+            var allCollectiblesEvent = managerType.GetField("OnAllCollectiblesCompleted", BindingFlags.Public | BindingFlags.Instance);
+            
+            bool hasUnityEvents = false;
+            
+            if (memoryEvent != null && memoryEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = memoryEvent.GetValue(manager) as UnityEngine.Events.UnityEvent<int, int>;
+                unityEvent?.RemoveListener(UpdateSceneMemoryCounter);
+                hasUnityEvents = true;
+            }
+            
+            if (presentEvent != null && presentEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = presentEvent.GetValue(manager) as UnityEngine.Events.UnityEvent<int, int>;
+                unityEvent?.RemoveListener(UpdateScenePresentCounter);
+                hasUnityEvents = true;
+            }
+            
+            if (allMemoriesEvent != null && allMemoriesEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = allMemoriesEvent.GetValue(manager) as UnityEngine.Events.UnityEvent;
+                unityEvent?.RemoveListener(OnAllSceneMemoriesCompleted);
+                hasUnityEvents = true;
+            }
+            
+            if (allPresentsEvent != null && allPresentsEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = allPresentsEvent.GetValue(manager) as UnityEngine.Events.UnityEvent;
+                unityEvent?.RemoveListener(OnAllScenePresentsCompleted);
+                hasUnityEvents = true;
+            }
+            
+            if (allCollectiblesEvent != null && allCollectiblesEvent.FieldType.Name.Contains("UnityEvent"))
+            {
+                var unityEvent = allCollectiblesEvent.GetValue(manager) as UnityEngine.Events.UnityEvent;
+                unityEvent?.RemoveListener(OnAllSceneCollectiblesCompleted);
+                hasUnityEvents = true;
+            }
+            
+            return hasUnityEvents;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Errore disconnessione UnityEvent: {e.Message}");
+            return false;
+        }
+    }
+    
+    // 🔥 DISCONNETTI C# EVENTS
+    private bool TryDisconnectCSharpEvents(MonoBehaviour manager, System.Type managerType)
+    {
+        try
+        {
+            object instance = GetSceneManagerInstance(manager, managerType);
+            if (instance == null) return false;
+            
+            var eventConnections = new[]
+            {
+                ("OnMemoryCountChanged", "UpdateSceneMemoryCounter"),
+                ("OnPresentCountChanged", "UpdateScenePresentCounter"),
+                ("OnAllMemoriesCollected", "OnAllSceneMemoriesCompleted"),
+                ("OnAllPresentsCollected", "OnAllScenePresentsCompleted"),
+                ("OnAllCollectiblesCompleted", "OnAllSceneCollectiblesCompleted")
+            };
+            
+            bool hasEvents = false;
+            foreach (var (eventName, handlerName) in eventConnections)
+            {
+                if (TryDisconnectEvent(instance, managerType, eventName, handlerName))
+                {
+                    hasEvents = true;
+                }
+            }
+            
+            return hasEvents;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[PlayerUI] Errore disconnessione C# Events: {e.Message}");
+            return false;
         }
     }
     
     // 🔥 DISCONNETTI UN SINGOLO EVENTO
-    private void TryDisconnectEvent(object instance, System.Type managerType, string eventName, string handlerName)
+    private bool TryDisconnectEvent(object instance, System.Type managerType, string eventName, string handlerName)
     {
         try
         {
@@ -624,12 +851,16 @@ public class PlayerUI : MonoBehaviour
                 {
                     System.Delegate handler = System.Delegate.CreateDelegate(eventInfo.EventHandlerType, this, handlerMethod);
                     eventInfo.RemoveEventHandler(instance, handler);
+                    Debug.Log($"[PlayerUI] Evento {eventName} disconnesso da {handlerName}");
+                    return true;
                 }
             }
+            return false;
         }
         catch (System.Exception e)
         {
             Debug.LogWarning($"[PlayerUI] Impossibile disconnettere evento {eventName}: {e.Message}");
+            return false;
         }
     }
 
@@ -640,18 +871,18 @@ public class PlayerUI : MonoBehaviour
     }
 
     private void OnDisable()
-{
-    // SAFETY CHECK: Non fare cleanup se stiamo inizializzando
-    if (Time.timeSinceLevelLoad < 1f)
     {
-        Debug.LogWarning("[PlayerUI] OnDisable chiamato troppo presto - SKIP cleanup per evitare distruzione");
-        return;
+        // SAFETY CHECK: Non fare cleanup se stiamo inizializzando
+        if (Time.timeSinceLevelLoad < 1f)
+        {
+            Debug.LogWarning("[PlayerUI] OnDisable chiamato troppo presto - SKIP cleanup per evitare distruzione");
+            return;
+        }
+        
+        Debug.Log("[PlayerUI] OnDisable - Eseguendo cleanup normale");
+        InputSystem.onActionChange -= OnInputActionChange;
+        CleanupEvents();
     }
-    
-    Debug.Log("[PlayerUI] OnDisable - Eseguendo cleanup normale");
-    InputSystem.onActionChange -= OnInputActionChange;
-    CleanupEvents();
-}
     
     private void CleanupEvents()
     {
@@ -732,12 +963,15 @@ public class PlayerUI : MonoBehaviour
 
     // ========== SCENE COLLECTIBLES COUNTER METHODS ==========
     
-    public void UpdateSceneMemoryCounter(int collected, int total)
+    // 🔥 HANDLER UNIVERSALI PER QUALSIASI SCENEMANAGER
+    private void UpdateSceneMemoryCounter(int collected, int total)
     {
+      
+        
         // Previeni aggiornamenti multipli simultanei
         if (isUpdatingMemoryUI)
         {
-            Debug.Log("[PlayerUI] Memory UI già in aggiornamento, ignorato");
+            
             return;
         }
         
@@ -757,19 +991,20 @@ public class PlayerUI : MonoBehaviour
         {
             AnimateMemoryCounter();
         }
-        
-        Debug.Log($"[PlayerUI] Scene memory counter aggiornato: {currentSceneMemories}/{totalSceneMemories}");
+    
         
         // Libera il flag dopo un breve delay
         StartCoroutine(ReleaseMemoryUILock());
     }
     
-    public void UpdateScenePresentCounter(int collected, int total)
+    private void UpdateScenePresentCounter(int collected, int total)
     {
+       
+        
         // Previeni aggiornamenti multipli simultanei
         if (isUpdatingPresentUI)
         {
-            Debug.Log("[PlayerUI] Present UI già in aggiornamento, ignorato");
+           
             return;
         }
         
@@ -779,10 +1014,11 @@ public class PlayerUI : MonoBehaviour
         totalScenePresents = total;
         UpdatePresentCounterDisplay();
         
-        // Mostra il pannello con animazione quando viene raccolto un present
+        // 🔥 QUESTA È LA PARTE IMPORTANTE: Mostra il pannello con animazione!
         if (showPanelsOnCollect)
         {
             ShowPresentPanel();
+           
         }
         
         if (animateOnCollect)
@@ -790,7 +1026,6 @@ public class PlayerUI : MonoBehaviour
             AnimatePresentCounter();
         }
         
-        Debug.Log($"[PlayerUI] Scene present counter aggiornato: {currentScenePresents}/{totalScenePresents}");
         
         // Libera il flag dopo un breve delay
         StartCoroutine(ReleasePresentUILock());
@@ -808,66 +1043,136 @@ public class PlayerUI : MonoBehaviour
         isUpdatingPresentUI = false;
     }
     
-    private void UpdateMemoryCounterDisplay()
+  private void UpdateMemoryCounterDisplay()
+{
+    if (memoryCounterText != null && totalSceneMemories >= 0) // Cambiato da > 0 a >= 0
     {
-        if (memoryCounterText != null && totalSceneMemories > 0)
+       
+        
+        // USA SEMPRE IL TEMPLATE ORIGINALE, non il testo corrente
+        string updatedText = UpdateNumbersInTemplate(memoryTextTemplate, currentSceneMemories, totalSceneMemories);
+        memoryCounterText.text = updatedText;
+        
+        // Cambia colore se tutte raccolte, altrimenti usa il colore originale
+        if (currentSceneMemories >= totalSceneMemories && totalSceneMemories > 0)
         {
-            // USA SEMPRE IL TEMPLATE ORIGINALE, non il testo corrente
-            string updatedText = UpdateNumbersInTemplate(memoryTextTemplate, currentSceneMemories, totalSceneMemories);
-            memoryCounterText.text = updatedText;
-            
-            // Cambia colore se tutte raccolte, altrimenti usa il colore originale
-            if (currentSceneMemories >= totalSceneMemories)
-            {
-                memoryCounterText.color = Color.green;
-            }
-            else
-            {
-                memoryCounterText.color = originalMemoryColor;
-            }
-            
-            Debug.Log($"[PlayerUI] Memory text aggiornato: '{updatedText}'");
+            memoryCounterText.color = Color.green;
         }
-    }
-    
-    private void UpdatePresentCounterDisplay()
-    {
-        if (presentCounterText != null && totalScenePresents > 0)
+        else
         {
-            // USA SEMPRE IL TEMPLATE ORIGINALE, non il testo corrente
-            string updatedText = UpdateNumbersInTemplate(presentTextTemplate, currentScenePresents, totalScenePresents);
-            presentCounterText.text = updatedText;
-            
-            // Cambia colore se tutti raccolti, altrimenti usa il colore originale
-            if (currentScenePresents >= totalScenePresents)
-            {
-                presentCounterText.color = Color.green;
-            }
-            else
-            {
-                presentCounterText.color = originalPresentColor;
-            }
-            
-            Debug.Log($"[PlayerUI] Present text aggiornato: '{updatedText}'");
-        }
-    }
-    
-    private string UpdateNumbersInTemplate(string template, int current, int total)
-    {
-        // Metodo semplice: cerca il pattern X/Y e sostituiscilo
-        if (template.Contains("/"))
-        {
-            // Usa Regex per trovare e sostituire numeri nel formato X/Y
-            string result = Regex.Replace(template, @"\d+/\d+", $"{current}/{total}");
-            Debug.Log($"[PlayerUI] Template aggiornato: '{template}' -> '{result}'");
-            return result;
+            memoryCounterText.color = originalMemoryColor;
         }
         
-        // Se non trova il pattern, aggiungi alla fine
-        string fallbackResult = template.TrimEnd() + $" {current}/{total}";
-        Debug.Log($"[PlayerUI] Fallback: '{template}' -> '{fallbackResult}'");
-        return fallbackResult;
+      
     }
+    else
+    {
+      
+    }
+}
+
+    
+   private void UpdatePresentCounterDisplay()
+{
+    if (presentCounterText != null && totalScenePresents >= 0)
+    {
+        Debug.Log($"[PlayerUI] Updating present display: {currentScenePresents}/{totalScenePresents}");
+        
+        // 🔥 ALWAYS use standardized format: "presents X/Y"
+        string updatedText = $"presents {currentScenePresents}/{totalScenePresents}";
+        presentCounterText.text = updatedText;
+        
+        // 🎯 Color logic: White for all, GREEN only when ALL presents are collected
+        if (currentScenePresents >= totalScenePresents && totalScenePresents > 0)
+        {
+            presentCounterText.color = Color.green; // Green when complete
+            Debug.Log($"[PlayerUI] All presents collected! Setting green color");
+        }
+        else
+        {
+            presentCounterText.color = Color.white; // White for all other cases
+            Debug.Log($"[PlayerUI] Presents in progress, setting white color");
+        }
+        
+        Debug.Log($"[PlayerUI] Present counter updated: '{updatedText}' with color {presentCounterText.color}");
+    }
+    else
+    {
+        Debug.Log($"[PlayerUI] Cannot update present display - presentCounterText: {presentCounterText != null}, totalScenePresents: {totalScenePresents}");
+    }
+}
+
+
+private string UpdateNumbersInTemplate(string template, int current, int total)
+{
+    // 🔥 SPECIAL HANDLING: For presents, always use standardized format
+    if (template.ToLower().Contains("present"))
+    {
+        return $"presents {current}/{total}";
+    }
+    
+    // For memories, use the existing logic
+    if (string.IsNullOrEmpty(template))
+    {
+        return $"{current}/{total}";
+    }
+    
+    // Metodo migliorato: cerca il pattern X/Y e sostituiscilo mantenendo il resto del testo
+    if (Regex.IsMatch(template, @"\d+/\d+"))
+    {
+        string result = Regex.Replace(template, @"\d+/\d+", $"{current}/{total}");
+        return result;
+    }
+    
+    // Se non trova il pattern numerico, cerca solo il simbolo "/" e ricostruisce
+    if (template.Contains("/"))
+    {
+        // Trova la posizione del "/" e ricostruisce mantenendo il resto del testo
+        int slashIndex = template.IndexOf('/');
+        
+        // Trova i numeri prima e dopo lo slash
+        string beforeSlash = "";
+        string afterSlash = "";
+        
+        // Cerca il numero prima dello slash
+        for (int i = slashIndex - 1; i >= 0; i--)
+        {
+            if (char.IsDigit(template[i]))
+            {
+                beforeSlash = template[i] + beforeSlash;
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        // Cerca il numero dopo lo slash
+        for (int i = slashIndex + 1; i < template.Length; i++)
+        {
+            if (char.IsDigit(template[i]))
+            {
+                afterSlash += template[i];
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        if (!string.IsNullOrEmpty(beforeSlash) && !string.IsNullOrEmpty(afterSlash))
+        {
+            string oldPattern = beforeSlash + "/" + afterSlash;
+            string newPattern = current + "/" + total;
+            string result = template.Replace(oldPattern, newPattern);
+            return result;
+        }
+    }
+    
+    // Fallback finale: se tutto fallisce, aggiungi alla fine
+    string fallbackResult = template.TrimEnd() + $" {current}/{total}";
+    return fallbackResult;
+}
     
     // ========== PANEL ANIMATION METHODS ==========
     
@@ -906,7 +1211,7 @@ public class PlayerUI : MonoBehaviour
     {
         if (panel == null) yield break;
         
-        Debug.Log($"[PlayerUI] Avvio animazione {panelType} panel: {panel.name}");
+        Debug.Log($"[PlayerUI] Avvio animazione {panelType} panel: {panel.name} per {currentSceneManagerName}");
         
         // 🔥 PRIMO: Ripristina lo stato originale PRIMA di iniziare l'animazione
         RectTransform panelRect = panel.GetComponent<RectTransform>();
@@ -1065,7 +1370,7 @@ public class PlayerUI : MonoBehaviour
     
     private void OnAllSceneMemoriesCompleted()
     {
-        Debug.Log("[PlayerUI] Tutte le memorie della scena completate!");
+        Debug.Log($"[PlayerUI] Tutte le memorie della scena completate! ({currentSceneManagerName})");
         
         if (memoryCounterText != null)
         {
@@ -1076,7 +1381,7 @@ public class PlayerUI : MonoBehaviour
     
     private void OnAllScenePresentsCompleted()
     {
-        Debug.Log("[PlayerUI] Tutti i presents della scena completati!");
+        Debug.Log($"[PlayerUI] Tutti i presents della scena completati! ({currentSceneManagerName})");
         
         if (presentCounterText != null)
         {
@@ -1087,7 +1392,7 @@ public class PlayerUI : MonoBehaviour
     
     private void OnAllSceneCollectiblesCompleted()
     {
-        Debug.Log("[PlayerUI] TUTTI i collectibles della scena completati! 🎉");
+        Debug.Log($"[PlayerUI] TUTTI i collectibles della scena completati! 🎉 ({currentSceneManagerName})");
         
         // Celebrazione completa
         StartCoroutine(FullSceneCelebration());
@@ -1314,24 +1619,7 @@ public class PlayerUI : MonoBehaviour
             return false;
         }
         
-        try
-        {
-            // Connetti agli eventi
-            ConnectToSceneManagerEvents(sceneManager, managerType);
-            InitializeFromSceneManager(sceneManager, managerType);
-            
-            currentSceneManager = sceneManager;
-            currentSceneManagerType = managerType;
-            isConnectedToSceneManager = true;
-            
-            Debug.Log($"[PlayerUI] ✅ Connesso manualmente a {managerType.Name}");
-            return true;
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[PlayerUI] Errore durante connessione manuale a {managerType.Name}: {e.Message}");
-            return false;
-        }
+        return TryConnectToSpecificSceneManager(sceneManager, managerType);
     }
     
     /// <summary>
@@ -1362,9 +1650,9 @@ public class PlayerUI : MonoBehaviour
     /// </summary>
     public string GetConnectedSystemInfo()
     {
-        if (isConnectedToSceneManager && currentSceneManagerType != null)
+        if (isConnectedToSceneManager && !string.IsNullOrEmpty(currentSceneManagerName))
         {
-            return $"SceneManager: {currentSceneManagerType.Name}";
+            return $"SceneManager: {currentSceneManagerName}";
         }
         else if (PlayerCollectibleTracker.Instance != null)
         {
@@ -1393,6 +1681,7 @@ public class PlayerUI : MonoBehaviour
         Debug.Log($"=== Sistema Connesso ===\n" +
                   $"Connesso a: {GetConnectedSystemInfo()}\n" +
                   $"Scene Manager Type: {currentSceneManagerType?.Name ?? "N/A"}\n" +
+                  $"Scene Manager Name: {currentSceneManagerName}\n" +
                   $"Is Connected: {IsConnectedToTrackingSystem()}");
     }
     
@@ -1402,6 +1691,72 @@ public class PlayerUI : MonoBehaviour
         Debug.Log("[PlayerUI] Forzando riconnessione...");
         InitializeCollectibleSystem();
         DebugShowConnectedSystem();
+    }
+    
+    [ContextMenu("🔥 Debug - Test Present Collection")]
+    public void DebugTestPresentCollection()
+    {
+        Debug.Log("[PlayerUI] 🔥 Test simulazione raccolta present...");
+        
+        // Simula la raccolta di un present
+        UpdateScenePresentCounter(currentScenePresents + 1, totalScenePresents > 0 ? totalScenePresents : 5);
+        
+        Debug.Log($"[PlayerUI] Simulazione completata: {currentScenePresents}/{totalScenePresents}");
+    }
+    
+    [ContextMenu("🔥 Debug - Test Memory Collection")]
+    public void DebugTestMemoryCollection()
+    {
+        Debug.Log("[PlayerUI] 🔥 Test simulazione raccolta memory...");
+        
+        // Simula la raccolta di una memory
+        UpdateSceneMemoryCounter(currentSceneMemories + 1, totalSceneMemories > 0 ? totalSceneMemories : 5);
+        
+        Debug.Log($"[PlayerUI] Simulazione completata: {currentSceneMemories}/{totalSceneMemories}");
+    }
+    
+    [ContextMenu("🔥 Debug - Check SceneManager Connection")]
+    public void DebugCheckSceneManagerConnection()
+    {
+        if (currentSceneManager != null && currentSceneManagerType != null)
+        {
+            Debug.Log($"[PlayerUI] ✅ {currentSceneManagerName} trovato e connesso!");
+            
+            // Prova a testare i metodi
+            try
+            {
+                object instance = GetSceneManagerInstance(currentSceneManager, currentSceneManagerType);
+                if (instance != null)
+                {
+                    var getMemories = currentSceneManagerType.GetMethod("GetCollectedMemories");
+                    var getTotalMemories = currentSceneManagerType.GetMethod("GetTotalMemories");
+                    var getPresents = currentSceneManagerType.GetMethod("GetCollectedPresents");
+                    var getTotalPresents = currentSceneManagerType.GetMethod("GetTotalPresents");
+                    
+                    if (getMemories != null && getTotalMemories != null)
+                    {
+                        int mem = (int)getMemories.Invoke(instance, null);
+                        int totMem = (int)getTotalMemories.Invoke(instance, null);
+                        Debug.Log($"[PlayerUI] Memories dal SceneManager: {mem}/{totMem}");
+                    }
+                    
+                    if (getPresents != null && getTotalPresents != null)
+                    {
+                        int pres = (int)getPresents.Invoke(instance, null);
+                        int totPres = (int)getTotalPresents.Invoke(instance, null);
+                        Debug.Log($"[PlayerUI] Presents dal SceneManager: {pres}/{totPres}");
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[PlayerUI] Errore test connessione: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogError("[PlayerUI] ❌ Nessun SceneManager connesso!");
+        }
     }
     
     [ContextMenu("Debug - Force Update Present Counter")]
@@ -1451,6 +1806,7 @@ public class PlayerUI : MonoBehaviour
     {
         Debug.Log($"=== PlayerUI Debug Info ===\n" +
                   $"Sistema Connesso: {GetConnectedSystemInfo()}\n" +
+                  $"Scene Manager: {currentSceneManagerName}\n" +
                   $"Memories: {currentSceneMemories}/{totalSceneMemories}\n" +
                   $"Presents: {currentScenePresents}/{totalScenePresents}\n" +
                   $"Memory Template: '{memoryTextTemplate}'\n" +
