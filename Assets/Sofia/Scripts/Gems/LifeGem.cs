@@ -10,6 +10,11 @@ public class LifeGem : MonoBehaviour
     [Header("Gameplay")]
     [SerializeField] private float healAmount      = 25f;
 
+    /* ───────────────── Audio ──────────────────── */
+    [Header("Audio")]
+    [SerializeField] private AudioClip collectSound;
+    private AudioSource audioSource;
+
     /* ───────────────── Appearance ─────────────── */
     [Header("Material & Fade‑In")]
     [SerializeField] private Color baseColor       = Color.green;
@@ -38,6 +43,14 @@ public class LifeGem : MonoBehaviour
         /* Collider trigger */
         Collider coll = GetComponent<Collider>();
         coll.isTrigger = true;
+
+        /* AudioSource setup */
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
 
         /* Material setup (URP Lit → Transparent) */
         mat = GetComponent<Renderer>().material;
@@ -115,6 +128,43 @@ public class LifeGem : MonoBehaviour
         ThirdPersonController player = other.GetComponentInParent<ThirdPersonController>();
         if (player != null) player.Heal(healAmount);
 
+        StartCoroutine(CollectSequence());
+    }
+
+    /* ───────────────── Collect Sequence ──────── */
+    private IEnumerator CollectSequence()
+    {
+        // Disabilita immediatamente collider per evitare doppie raccolte
+        GetComponent<Collider>().enabled = false;
+        
+        // Nascondi TUTTI gli effetti visivi sincronizzati
+        Renderer[] allRenderers = GetComponentsInChildren<Renderer>(includeInactive: false);
+        foreach (var renderer in allRenderers)
+        {
+            renderer.enabled = false;
+        }
+        
+        Light[] allLights = GetComponentsInChildren<Light>(includeInactive: false);
+        foreach (var light in allLights)
+        {
+            light.enabled = false;
+        }
+        
+        // Disabilita anche eventuali particle systems
+        ParticleSystem[] allParticles = GetComponentsInChildren<ParticleSystem>(includeInactive: false);
+        foreach (var particles in allParticles)
+        {
+            particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+
+        // SUONA ESATTAMENTE QUANDO TUTTO SPARISCE
+        if (collectSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(collectSound, 0.1f);
+            // Aspetta che il suono finisca prima di distruggere
+            yield return new WaitForSeconds(collectSound.length);
+        }
+        
         Destroy(gameObject);
     }
 }
