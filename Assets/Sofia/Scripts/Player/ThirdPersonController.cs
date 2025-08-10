@@ -74,6 +74,10 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 externalPush = Vector3.zero;
     [SerializeField] private float pushRecoverySpeed = 0.2f;
 
+    // NUOVE VARIABILI PER ATTACK VELOCITY
+    private Vector3 attackVelocity = Vector3.zero;
+    [SerializeField] private float attackVelocityDecay = 8f; // Velocità di decadimento della attack velocity
+
     private PlayerControls controls;
     private Vector2 moveInput;
     private bool jumpInput;
@@ -95,6 +99,7 @@ public class ThirdPersonController : MonoBehaviour
             {
                 moveInput = Vector2.zero;
                 playerVelocity = Vector3.zero;
+                attackVelocity = Vector3.zero; // Reset anche attack velocity
                 _animator.SetFloat(SpeedHash, 0f);
             }
         }
@@ -107,6 +112,13 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 tempVector3;
 
     public bool IsGrounded() => controller.isGrounded;
+
+    // NUOVO METODO: Aggiungi velocità di attacco
+    public void AddAttackVelocity(Vector3 velocity)
+    {
+        attackVelocity += velocity;
+        Debug.Log($"Attack velocity aggiunta: {velocity}, totale: {attackVelocity}");
+    }
 
     private void Awake()
     {
@@ -131,17 +143,14 @@ public class ThirdPersonController : MonoBehaviour
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
     
     // SISTEMA INPUT IMMEDIATO
-    private void OnJumpStarted(InputAction.CallbackContext ctx)
-    {
-        jumpBufferCounter = jumpBufferTime;
-        isHoldingJump = true;
-        
-        // PROVA SUBITO A SALTARE
-        TryJump();
-        
-        Debug.Log("INPUT SALTO RICEVUTO");
-    }
+  private void OnJumpStarted(InputAction.CallbackContext ctx)
+{
+    jumpBufferCounter = jumpBufferTime;
+    isHoldingJump = true;
     
+    // NON provare a saltare qui, lascia che sia Update() a gestirlo
+    Debug.Log($"INPUT SALTO RICEVUTO - Buffer: {jumpBufferCounter}");
+}
     private void OnJumpCanceled(InputAction.CallbackContext ctx)
     {
         isHoldingJump = false;
@@ -167,67 +176,93 @@ public class ThirdPersonController : MonoBehaviour
     }
 
     private void Update()
+{
+    UpdatePlatformVelocity();
+    HandleMovement();
+    UpdateJumpTimers();
+    
+    // GESTISCI SALTO PRIMA DELLA FISICA - NUOVO ORDINE
+    HandleJumpInput();
+    HandleJump();
+
+    // GESTISCI ATTACK VELOCITY DECAY
+    HandleAttackVelocity();
+
+    if (currentPlatform != null && controller.enabled)
     {
-        UpdatePlatformVelocity();
-        HandleMovement();
-        UpdateJumpTimers();
-        
-        // PROVA A SALTARE SE C'È BUFFER ATTIVO
-        if (jumpBufferCounter > 0)
-        {
-            TryJump();
-        }
-        
-        HandleJump();
+        controller.Move(platformDeltaPos);
+        if (platformDeltaRot != Quaternion.identity)
+            transform.rotation = platformDeltaRot * transform.rotation;
 
-        if (currentPlatform != null && controller.enabled)
-        {
-            controller.Move(platformDeltaPos);
-            if (platformDeltaRot != Quaternion.identity)
-                transform.rotation = platformDeltaRot * transform.rotation;
-
-            if (controller.isGrounded)
-                velocity.y = Mathf.Max(platformDeltaPos.y, velocity.y);
-        }
-
-        if (controller.enabled)
-        {
-            // OTTIMIZZAZIONE: Riusa variabile temporanea
-            tempVector3.Set(playerVelocity.x + externalPush.x, velocity.y, playerVelocity.z + externalPush.z);
-            controller.Move(tempVector3 * Time.deltaTime);
-        }
-
-        externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
-
-        UpdateGroundedState();
-        HandleFalling();
-        HandleAirControl();
-        HandleSprintFX();
+        if (controller.isGrounded)
+            velocity.y = Mathf.Max(platformDeltaPos.y, velocity.y);
     }
+
+    if (controller.enabled)
+    {
+        // APPLICA ANCHE ATTACK VELOCITY AL MOVIMENTO FINALE
+        tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x, 
+                       velocity.y, 
+                       playerVelocity.z + externalPush.z + attackVelocity.z);
+        controller.Move(tempVector3 * Time.deltaTime);
+    }
+
+    externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
+
+    UpdateGroundedState();
+    HandleFalling();
+    HandleAirControl();
+    HandleSprintFX();
+}
+
+
+    // NUOVO METODO: Gestisce il decadimento della attack velocity
+    private void HandleAttackVelocity()
+    {
+        if (attackVelocity.magnitude > 0.01f)
+        {
+            attackVelocity = Vector3.Lerp(attackVelocity, Vector3.zero, Time.deltaTime * attackVelocityDecay);
+            
+            // Azzera se è molto piccola per evitare floating point precision issues
+            if (attackVelocity.magnitude < 0.01f)
+                attackVelocity = Vector3.zero;
+        }
+    }
+private void HandleJumpInput()
+{
+    if (jumpBufferCounter > 0 && !IsMovementLocked)
+    {
+        if (TryJump())
+        {
+            jumpBufferCounter = 0; // Consuma buffer solo se il salto è andato a buon fine
+        }
+    }
+}
+
 
     // OTTIMIZZAZIONE: Sistema di grounding migliorato
     private void UpdateGroundedState()
     {
         bool grounded = controller.isGrounded;
-        
+
         if (!grounded)
         {
             tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
             int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.1f);
-            
+
             if (hitCount > 0)
             {
                 grounded = true;
             }
         }
-        
+
         _animator.SetBool(IsGroundedHash, grounded);
 
         if (grounded && !wasGroundedLastFrame)
         {
             OnLanding();
         }
-        
+
         wasGroundedLastFrame = grounded;
     }
 
@@ -259,35 +294,35 @@ public class ThirdPersonController : MonoBehaviour
     }
 
     // METODO UNIFICATO PER TENTARE IL SALTO
-    private void TryJump()
+   private bool TryJump()
+{
+    bool grounded = IsGroundedAccurate(); // Usa controllo più accurato
+    bool canJump = false;
+    bool isFirstJump = false;
+
+    // PRIMO SALTO: da terra o coyote time
+    if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
     {
-        if (IsMovementLocked) return;
-        
-        bool grounded = controller.isGrounded;
-        bool canJump = false;
-        bool isFirstJump = false;
-
-        // PRIMO SALTO: da terra o coyote time
-        if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
-        {
-            canJump = true;
-            isFirstJump = true;
-        }
-        // SALTI MULTIPLI: in aria
-        else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
-        {
-            canJump = true;
-            isFirstJump = false;
-        }
-
-        if (canJump)
-        {
-            ExecuteJump(isFirstJump);
-            // CONSUMA il buffer quando salti
-            jumpBufferCounter = 0;
-            Debug.Log($"SALTO ESEGUITO! Primo: {isFirstJump}, Count: {jumpCount}");
-        }
+        canJump = true;
+        isFirstJump = true;
     }
+    // SALTI MULTIPLI: in aria
+    else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
+    {
+        canJump = true;
+        isFirstJump = false;
+    }
+
+    if (canJump)
+    {
+        ExecuteJump(isFirstJump);
+        Debug.Log($"SALTO ESEGUITO! Primo: {isFirstJump}, Count: {jumpCount}");
+        return true;
+    }
+    
+    return false;
+}
+
 
     // SISTEMA DI SALTO RIDOTTO (solo gravità)
     private void HandleJump()
@@ -324,8 +359,18 @@ public class ThirdPersonController : MonoBehaviour
         currentPlatform = null;
         fallingTimer = 0f;
     }
-
-    private void UpdateJumpAnimations()
+   private bool IsGroundedAccurate()
+{
+    // Combina il controllo del CharacterController con un raycast
+    if (controller.isGrounded) return true;
+    
+    // Raycast aggiuntivo per casi edge
+    tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
+    int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.15f);
+    
+    return hitCount > 0;
+}
+private void UpdateJumpAnimations()
     {
         // Mantieni solo l'aggiornamento della velocità verticale
         _animator.SetFloat(VerticalVelocityHash, velocity.y);
@@ -419,7 +464,9 @@ public class ThirdPersonController : MonoBehaviour
         float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
         playerVelocity = moveDir * targetSpeed;
 
-        float speedNormalized = Mathf.Clamp01(playerVelocity.magnitude / sprintSpeed);
+        // CONSIDERA ANCHE ATTACK VELOCITY NEL CALCOLO DELLA VELOCITÀ PER L'ANIMATORE
+        Vector3 totalVelocity = playerVelocity + attackVelocity;
+        float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
         _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
     }
 
@@ -508,6 +555,7 @@ public class ThirdPersonController : MonoBehaviour
         transform.rotation = Quaternion.Euler(0f, 0f, 0f);
 
         velocity = Vector3.zero;
+        attackVelocity = Vector3.zero; // Reset attack velocity al respawn
         controller.enabled = true;
 
         // OTTIMIZZAZIONE: Usa hash precalcolati
