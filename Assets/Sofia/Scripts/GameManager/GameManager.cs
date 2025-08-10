@@ -84,37 +84,38 @@ public class GameManager : MonoBehaviour
     private string currentSceneManagerName = "";
 
     private void Awake()
+{
+    Debug.Log($"[GameManager] === AWAKE CHIAMATO ===");
+    Debug.Log($"[GameManager] GameObject: {gameObject.name}");
+    Debug.Log($"[GameManager] startMenu assegnato: {startMenu != null}");
+    Debug.Log($"[GameManager] playerAttack assegnato: {playerAttack != null}");
+    Debug.Log($"[GameManager] Instance corrente: {Instance != null}");
+    
+    GameManager[] allManagers = FindObjectsByType<GameManager>(FindObjectsSortMode.None);
+    Debug.Log($"[GameManager] Totale GameManager nella scena: {allManagers.Length}");
+    
+    // ⭐ FIX: Forza la distruzione di GameManager duplicati ⭐
+    if (Instance != null && Instance != this)
     {
-        Debug.Log($"[GameManager] === AWAKE CHIAMATO ===");
-        Debug.Log($"[GameManager] GameObject: {gameObject.name}");
-        Debug.Log($"[GameManager] startMenu assegnato: {startMenu != null}");
-        Debug.Log($"[GameManager] playerAttack assegnato: {playerAttack != null}");
-        Debug.Log($"[GameManager] Instance corrente: {Instance != null}");
-        
-        GameManager[] allManagers = FindObjectsByType<GameManager>(FindObjectsSortMode.None);
-        Debug.Log($"[GameManager] Totale GameManager nella scena: {allManagers.Length}");
-        
-        // ⭐ RIMUOVI DontDestroyOnLoad - ogni scena ha il suo GameManager ⭐
-        if (Instance == null)
-        {
-            Instance = this;
-
-            // Inizializza le strutture dati per le scene
-            InitializeSceneData();
-            InitializeSceneManagerData();
-
-            // ⭐ CARICA SEMPRE i dati salvati all'avvio di ogni scena ⭐
-            LoadGlobalData();
-
-            Debug.Log($"[GameManager] Inizializzato nella scena: {SceneManager.GetActiveScene().name}");
-        }
-        else
-        {
-            // Se per qualche motivo esistono due GameManager nella stessa scena
-            Debug.LogWarning("[GameManager] GameManager duplicato nella stessa scena - distruggo il duplicato");
-            Destroy(gameObject);
-        }
+        Debug.LogWarning("[GameManager] GameManager duplicato trovato - distruggo il duplicato");
+        Destroy(gameObject);
+        return;
     }
+    
+    if (Instance == null)
+    {
+        Instance = this;
+
+        // Inizializza le strutture dati per le scene
+        InitializeSceneData();
+        InitializeSceneManagerData();
+
+        // ⭐ CARICA SEMPRE i dati salvati all'avvio di ogni scena ⭐
+        LoadGlobalData();
+
+        Debug.Log($"[GameManager] Inizializzato nella scena: {SceneManager.GetActiveScene().name}");
+    }
+}
 
     private void InitializeSceneData()
     {
@@ -202,33 +203,52 @@ public class GameManager : MonoBehaviour
         gameStarted = true;
     }
 
-    private void HandleGameScene(string currentScene)
+   private void HandleGameScene(string currentScene)
+{
+    // ⭐ FIX: Forza la disattivazione del startMenu in TUTTE le scene di gioco ⭐
+    if (startMenu != null)
     {
-        // ⭐ Nelle scene di gioco, startMenu semplicemente non esiste o è null ⭐
-        if (startMenu != null)
+        startMenu.SetActive(false);
+        Debug.Log($"[GameManager] StartMenu forzatamente disattivato per la scena '{currentScene}'");
+    }
+    
+    // ⭐ FIX: Cerca e disattiva TUTTI i possibili menu nella scena ⭐
+    GameObject[] allStartMenus = GameObject.FindGameObjectsWithTag("StartMenu"); // Se usi tag
+    for (int i = 0; i < allStartMenus.Length; i++)
+    {
+        allStartMenus[i].SetActive(false);
+        Debug.Log($"[GameManager] Menu extra disattivato: {allStartMenus[i].name}");
+    }
+    
+    // Alternativa se non usi tag:
+    GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+    foreach (GameObject obj in allObjects)
+    {
+        if (obj.name.Contains("StartMenu") || obj.name.Contains("MainMenu") || obj.name.Contains("TitleMenu"))
         {
-            startMenu.SetActive(false);
-            Debug.Log($"[GameManager] StartMenu nascosto per la scena '{currentScene}'");
-        }
-        
-        // Nascondi sempre il levelTitleUI per tutte le scene di gioco
-        if (levelTitleUI != null)
-            levelTitleUI.SetActive(false);
-
-        // ⭐ Verifica se dobbiamo aspettare uno SceneManager specifico ⭐
-        if (waitForSceneManagerBeforeStart && expectedSceneManagers.ContainsKey(currentScene))
-        {
-            string expectedManagerName = expectedSceneManagers[currentScene];
-            Debug.Log($"[GameManager] Scena '{currentScene}' richiede SceneManager: '{expectedManagerName}'");
-            StartCoroutine(WaitForSpecificSceneManager(expectedManagerName));
-        }
-        else
-        {
-            // Se non dobbiamo aspettare nessun SceneManager, avvia immediatamente
-            Debug.Log($"[GameManager] Scena '{currentScene}' non richiede SceneManager specifico - avvio immediato");
-            StartCoroutine(StartGameImmediately());
+            obj.SetActive(false);
+            Debug.Log($"[GameManager] Menu trovato e disattivato: {obj.name}");
         }
     }
+    
+    // Nascondi sempre il levelTitleUI per tutte le scene di gioco
+    if (levelTitleUI != null)
+        levelTitleUI.SetActive(false);
+
+    // ⭐ Verifica se dobbiamo aspettare uno SceneManager specifico ⭐
+    if (waitForSceneManagerBeforeStart && expectedSceneManagers.ContainsKey(currentScene))
+    {
+        string expectedManagerName = expectedSceneManagers[currentScene];
+        Debug.Log($"[GameManager] Scena '{currentScene}' richiede SceneManager: '{expectedManagerName}'");
+        StartCoroutine(WaitForSpecificSceneManager(expectedManagerName));
+    }
+    else
+    {
+        // Se non dobbiamo aspettare nessun SceneManager, avvia immediatamente
+        Debug.Log($"[GameManager] Scena '{currentScene}' non richiede SceneManager specifico - avvio immediato");
+        StartCoroutine(StartGameImmediately());
+    }
+}
 
     // ⭐ NUOVO: Aspetta uno SceneManager specifico ⭐
     private IEnumerator WaitForSpecificSceneManager(string expectedManagerName)
@@ -679,42 +699,37 @@ public class GameManager : MonoBehaviour
     // ========== MENU E GIOCO ==========
     
     // ⭐ SEMPLIFICATO: StartGame ora gestisce solo Title Screen e pause ⭐
-    public void StartGame()
+  public void StartGame()
+{
+    string currentScene = SceneManager.GetActiveScene().name;
+    
+    // Se siamo nella Title Screen, carica la scena 00
+    if (currentScene == "Title Screen")
     {
-        string currentScene = SceneManager.GetActiveScene().name;
-        
-        // Se siamo nella Title Screen, carica la scena 00
-        if (currentScene == "Title Screen")
-        {
-            LoadSceneWithFade("00 - Landing in the Dreamworld");
-            return;
-        }
-        
-        // Per tutte le altre scene, riprendi semplicemente il gioco (caso di pausa)
+        // ⭐ Disattiva immediatamente il menu prima del cambio scena ⭐
         if (startMenu != null)
-            startMenu.SetActive(false);
-        Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-        Debug.Log("Gioco ripreso");
-
-        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-            if (powerUp.powerUI != null)
-                powerUp.powerUI.SetActive(true);
-
-        StartCoroutine(DelayedIgnoreClick());
-    }
-
-    private IEnumerator DelayedIgnoreClick()
-    {
-        yield return new WaitForSecondsRealtime(0.1f);
-        
-        if (playerAttack != null)
         {
-            playerAttack.IgnoreNextClick();
-            Debug.Log("IgnoreNextClick chiamato dopo delay");
+            startMenu.SetActive(false);
+            Debug.Log("[GameManager] StartMenu disattivato prima del cambio scena");
         }
+        
+        LoadSceneWithFade("00 - Landing in the Dreamworld");
+        return;
     }
+    
+    // Per tutte le altre scene, riprendi semplicemente il gioco (caso di pausa)
+    if (startMenu != null)
+        startMenu.SetActive(false);
+    Time.timeScale = 1f;
+    Cursor.lockState = CursorLockMode.Locked;
+    Cursor.visible = false;
+    Debug.Log("Gioco ripreso");
+
+    if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        if (powerUp.powerUI != null)
+            powerUp.powerUI.SetActive(true);
+}
+
 
     public void ExitGame()
     {
@@ -733,14 +748,21 @@ public class GameManager : MonoBehaviour
         StartCoroutine(FadeAndLoad(sceneName));
     }
 
-    private IEnumerator FadeAndLoad(string sceneName)
+   private IEnumerator FadeAndLoad(string sceneName)
+{
+    yield return StartCoroutine(FadeOut());
+    
+    // ⭐ Reset del singleton prima del cambio scena ⭐
+    if (Instance == this)
     {
-        yield return StartCoroutine(FadeOut());
-        SceneManager.LoadScene(sceneName);
-        yield return new WaitForSeconds(0.1f);
-        StartCoroutine(FadeIn());
+        Instance = null;
+        Debug.Log("[GameManager] Singleton resettato prima del cambio scena");
     }
-
+    
+    SceneManager.LoadScene(sceneName);
+    yield return new WaitForSeconds(0.1f);
+    StartCoroutine(FadeIn());
+}
     private IEnumerator FadeOut()
     {
         float t = 0;

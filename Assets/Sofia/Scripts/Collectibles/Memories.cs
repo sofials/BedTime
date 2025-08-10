@@ -269,25 +269,61 @@ public class Memories : Collectibles
     /// Override del metodo virtuale chiamato quando l'item viene raccolto
     /// </summary>
     protected override void OnItemCollected()
+{
+    // ⭐ SINCRONIZZAZIONE IMMEDIATA: Ferma gli effetti pre-raccolta SUBITO
+    // Prima di qualsiasi altra operazione
+    if (preCollectionEffects != null && preCollectionEffects.Length > 0)
     {
-        // Nasconde il billboard quando viene raccolto
-        if (billboardImage != null)
+        foreach (var effect in preCollectionEffects)
         {
-            billboardImage.gameObject.SetActive(false);
-            LogDebug($"✅ Billboard nascosto per {collectibleName}");
-        }
-        
-        // Evento specifico Memory
-        try
-        {
-            OnMemoryCollected?.Invoke(this);
-            LogDebug($"Evento OnMemoryCollected invocato per {collectibleName}");
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[Memories] Errore nell'invocare OnMemoryCollected per {collectibleName}: {e.Message}");
+            if (effect != null)
+            {
+                // Stop immediato dell'emissione
+                var emission = effect.emission;
+                emission.enabled = false;
+                
+                // Stop completo del sistema particellare
+                effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                
+                LogDebug($"✅ Pre-effect {effect.name} fermato immediatamente");
+            }
         }
     }
+    
+    // Nasconde il billboard quando viene raccolto (sincronizzato con mesh)
+    if (billboardImage != null)
+    {
+        billboardImage.gameObject.SetActive(false);
+        LogDebug($"✅ Billboard nascosto per {collectibleName}");
+    }
+    
+    // ⭐ OPZIONE AGGIUNTIVA: Forza disattivazione container effetti se necessario
+    if (effectsContainer != null)
+    {
+        // Opzione 1: Disattiva solo i pre-effects
+        var preEffectsContainer = effectsContainer.Find("PreEffects_Container");
+        if (preEffectsContainer != null)
+        {
+            preEffectsContainer.gameObject.SetActive(false);
+            LogDebug($"✅ Pre-effects container disattivato immediatamente");
+        }
+        
+        // Opzione 2: Se vuoi essere ancora più aggressivo, disattiva tutto il container
+        // (sconsigliato se hai post-effects che devono rimanere visibili)
+        // effectsContainer.gameObject.SetActive(false);
+    }
+    
+    // Evento specifico Memory
+    try
+    {
+        OnMemoryCollected?.Invoke(this);
+        LogDebug($"Evento OnMemoryCollected invocato per {collectibleName}");
+    }
+    catch (System.Exception e)
+    {
+        Debug.LogError($"[Memories] Errore nell'invocare OnMemoryCollected per {collectibleName}: {e.Message}");
+    }
+}
     
     // ========== OVERRIDE RESET ==========
     
