@@ -1920,7 +1920,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &736546971
 Transform:
   m_ObjectHideFlags: 0
@@ -2875,11 +2875,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1248828814}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &1250919162 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 8007287829594996990, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
-  m_PrefabInstance: {fileID: 1657927759}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1268062672
 GameObject:
   m_ObjectHideFlags: 0
@@ -4220,6 +4215,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: UI
       objectReference: {fileID: 0}
+    - target: {fileID: 2270859757909599730, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7432582258484171537, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
       propertyPath: m_LocalPosition.x
       value: 960
@@ -4584,11 +4583,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e97db0d6d1e219e4bbf94786e7a6488c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &1917742538 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3032303813181180217, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
-  m_PrefabInstance: {fileID: 1657927759}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1973998887
 GameObject:
   m_ObjectHideFlags: 0
@@ -5685,7 +5679,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!1001 &875890123243557825
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6793,6 +6787,10 @@ PrefabInstance:
       propertyPath: PlatformSpawnerForwardAbility
       value: 
       objectReference: {fileID: 5816166183444723655}
+    - target: {fileID: 1461636381478073155, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: attackIcon
       value: 
@@ -7181,6 +7179,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Manager
       objectReference: {fileID: 0}
+    - target: {fileID: 6174482844057815405, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6276483153386166101, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: 'splineContainers.Array.data[0]'
       value: 
@@ -7208,11 +7210,11 @@ PrefabInstance:
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: pauseMenu
       value: 
-      objectReference: {fileID: 1250919162}
+      objectReference: {fileID: 0}
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: startMenu
       value: 
-      objectReference: {fileID: 1917742538}
+      objectReference: {fileID: 0}
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: playerAttack
       value: 

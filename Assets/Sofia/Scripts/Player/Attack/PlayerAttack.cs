@@ -12,9 +12,13 @@ public class PlayerAttack : MonoBehaviour
     private bool attackInput;
     private int ignoreFrames = 0;
 
-    [Header("UI Effect")]
-    public UIEffectHandler attackIcon; // Modificato per usare una sola icona
-    public int effectIconIndex = 0; // Indice dell'icona nell'array di PlayerUI
+    public UIEffectHandler attackIconKeyboard;
+    public UIEffectHandler attackIconController;
+
+    private UIEffectHandler currentEffectIcon =>
+        Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame
+            ? attackIconController
+            : attackIconKeyboard;
 
     public ParticleSystem punchEffect;            // Effetto generale del pugno (da inspector)
     public CFXR_EffectController punchImpactFX;   // Effetto specifico per impatto con nemici
@@ -31,6 +35,18 @@ public class PlayerAttack : MonoBehaviour
     private int attackId = 0;
     public int AttackId => attackId;
 
+    [Header("Attack Movement")]
+    [SerializeField] private float attackAdvanceDistance = 2f; // Distanza da percorrere durante l'attacco
+    [SerializeField] private AnimationCurve attackAdvanceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1); // Curva per il movimento
+    [SerializeField] private float attackAdvanceDuration = 0.4f; // Durata del movimento di avanzamento
+    
+    // Riferimenti per il movimento
+    private ThirdPersonController playerController;
+    private bool isAdvancing = false;
+    private float advanceTimer = 0f;
+    private Vector3 advanceDirection;
+    private Vector3 startPosition;
+
     private void Awake()
     {
         controls = new PlayerControls();
@@ -44,38 +60,13 @@ public class PlayerAttack : MonoBehaviour
         };
     }
 
-    private void OnEnable()
-    {
-        controls.Gameplay.Enable();
-        // Sottoscrivi all'evento di cambio input
-        InputSystem.onActionChange += OnInputActionChange;
-    }
-
-    private void OnDisable()
-    {
-        controls.Gameplay.Disable();
-        // Rimuovi la sottoscrizione
-        InputSystem.onActionChange -= OnInputActionChange;
-    }
-
-    private void OnInputActionChange(object obj, InputActionChange change)
-    {
-        if (change == InputActionChange.ActionPerformed)
-        {
-            bool wasGamepad = useGamepad;
-            useGamepad = Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame;
-
-            // Aggiorna il testo dell'icona se � cambiato il tipo di input
-            if (wasGamepad != useGamepad && attackIcon != null)
-            {
-                attackIcon.UpdateInputText(useGamepad);
-            }
-        }
-    }
+    private void OnEnable() => controls.Gameplay.Enable();
+    private void OnDisable() => controls.Gameplay.Disable();
 
     private void Start()
     {
         animator = GetComponentInChildren<Animator>();
+        playerController = GetComponent<ThirdPersonController>();
         
         // Assicurati che gli effetti siano spenti all'inizio
         if (punchEffect != null)
@@ -87,9 +78,13 @@ public class PlayerAttack : MonoBehaviour
             punchImpactFX.StopEffect();
             effectCurrentlyPlaying = false;
         }
-    }
 
-    private bool useGamepad = false; // Nuova variabile per tenere traccia del tipo di input
+        // Crea una curva di default se non è stata impostata
+        if (attackAdvanceCurve == null || attackAdvanceCurve.keys.Length == 0)
+        {
+            attackAdvanceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+        }
+    }
 
     private void Update()
     {
@@ -114,11 +109,8 @@ public class PlayerAttack : MonoBehaviour
             {
                 animator.SetTrigger("Attack");
 
-                // Usa l'indice per aggiornare l'icona tramite PlayerUI
-                if (PlayerUI.Instance != null && effectIconIndex >= 0)
-                {
-                    PlayerUI.Instance.PulseIconAt(effectIconIndex);
-                }
+                if (currentEffectIcon != null)
+                    currentEffectIcon.PulseIcon();
 
                 isAttacking = true;
                 attackTimer = attackDuration;
@@ -126,6 +118,9 @@ public class PlayerAttack : MonoBehaviour
 
                 attackId++; // Incrementa ID attacco per segnalare nuovo swing
                 hitConfirmedThisSwing = false; // Reset hit confirmation per nuovo attacco
+
+                // Inizia il movimento di avanzamento
+                StartAttackAdvance();
             }
             attackInput = false;
         }
@@ -138,11 +133,58 @@ public class PlayerAttack : MonoBehaviour
                 isAttacking = false;
             }
         }
+
+        // Gestisci il movimento di avanzamento
+        HandleAttackAdvance();
+    }
+
+    private void StartAttackAdvance()
+    {
+        if (playerController == null) return;
+
+        // Calcola la direzione di avanzamento basata sulla rotazione del player
+        advanceDirection = transform.forward;
+        startPosition = transform.position;
+        
+        isAdvancing = true;
+        advanceTimer = 0f;
+
+        Debug.Log($"Iniziato avanzamento attacco: direzione {advanceDirection}, distanza {attackAdvanceDistance}");
+    }
+
+    private void HandleAttackAdvance()
+    {
+        if (!isAdvancing || playerController == null) return;
+
+        advanceTimer += Time.deltaTime;
+        float normalizedTime = Mathf.Clamp01(advanceTimer / attackAdvanceDuration);
+
+        if (normalizedTime >= 1f)
+        {
+            // Movimento completato
+            isAdvancing = false;
+            return;
+        }
+
+        // Calcola la velocità di avanzamento basata sulla curva
+        float curveValue = attackAdvanceCurve.Evaluate(normalizedTime);
+        float nextCurveValue = attackAdvanceCurve.Evaluate(Mathf.Clamp01((advanceTimer + Time.deltaTime) / attackAdvanceDuration));
+        float speedMultiplier = (nextCurveValue - curveValue) / Time.deltaTime;
+        
+        // Calcola la velocità di avanzamento per questo frame
+        Vector3 advanceVelocity = advanceDirection * (attackAdvanceDistance * speedMultiplier);
+        
+        // Applica direttamente la velocità di avanzamento al player
+        // Manteniamo solo la componente orizzontale per non interferire con gravità/salti
+        advanceVelocity.y = 0f;
+        
+        // Aggiungi la velocità di avanzamento alla playerVelocity esistente
+        playerController.AddAttackVelocity(advanceVelocity);
     }
 
     public void IgnoreNextClick()
     {
-        ignoreFrames = 2;
+        ignoreFrames = 5;
     }
 
     // Chiamato dall'animazione per attivare l'effetto generale del pugno
@@ -203,5 +245,23 @@ public class PlayerAttack : MonoBehaviour
             effectCurrentlyPlaying = false;
             Debug.Log("PunchEffect forzatamente fermato");
         }
+    }
+
+    // Metodo pubblico per fermare manualmente l'avanzamento (se necessario)
+    public void StopAttackAdvance()
+    {
+        isAdvancing = false;
+        advanceTimer = 0f;
+    }
+
+    // Metodi per impostare i parametri dell'avanzamento da altri script se necessario
+    public void SetAttackAdvanceDistance(float distance)
+    {
+        attackAdvanceDistance = distance;
+    }
+
+    public void SetAttackAdvanceDuration(float duration)
+    {
+        attackAdvanceDuration = duration;
     }
 }
