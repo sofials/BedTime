@@ -5,7 +5,8 @@ using System.Collections.Generic;
 public class SceneManager02 : MonoBehaviour
 {
     [Header("Scene Configuration")]
-    [SerializeField] private string sceneName = "02 - Finding Pietro";
+    [SerializeField] private string sceneName;
+
     
     [Header("Current Scene Progress")]
     [SerializeField] private int totalMemories = 0;
@@ -15,11 +16,12 @@ public class SceneManager02 : MonoBehaviour
     public UnityEvent<int, int> OnMemoryCountChanged; // collected, total
     public UnityEvent OnAllMemoriesCollected;
     
-    [Header("Pietro Events")]
-    public UnityEvent OnPietroFound; // Evento speciale per quando Pietro viene trovato
-    
     [Header("Settings")]
     [SerializeField] private bool enableDebugLogs = true;
+    
+    [Header("Development Mode")]
+    [SerializeField] private bool developmentMode = true;
+    [SerializeField] private bool skipSyncOnStart = true;
     
     // Tracking degli oggetti raccolti per nome (per GameManager)
     private List<string> collectedMemoryNames = new List<string>();
@@ -30,7 +32,6 @@ public class SceneManager02 : MonoBehaviour
     // Flag per sapere se il GameManager è pronto
     private bool gameManagerReady = false;
     private bool sceneInitialized = false;
-    private bool pietroFound = false;
     
     private void Awake()
     {
@@ -50,10 +51,53 @@ public class SceneManager02 : MonoBehaviour
     {
         InitializeScene();
         
+        // 🔥 NOTIFICA AL PLAYERUI CHE SIAMO PRONTI
+        NotifyPlayerUIConnection();
+        
         // Controlla se GameManager è già pronto
         if (GameManager.Instance != null)
         {
             InitializeWithGameManager();
+        }
+    }
+    
+    // 🔥 NUOVO METODO: Notifica al PlayerUI che siamo disponibili
+    private void NotifyPlayerUIConnection()
+    {
+        // Aspetta un frame per assicurarsi che tutto sia inizializzato
+        StartCoroutine(NotifyPlayerUIAfterFrame());
+    }
+    
+    private System.Collections.IEnumerator NotifyPlayerUIAfterFrame()
+    {
+        yield return null; // Aspetta 1 frame
+        
+        // Cerca il PlayerUI e connettilo manualmente
+        PlayerUI playerUI = PlayerUI.Instance;
+        if (playerUI == null)
+        {
+            playerUI = Object.FindFirstObjectByType<PlayerUI>();
+        }
+        
+        if (playerUI != null)
+        {
+            // Usa il metodo di connessione manuale del PlayerUI
+            bool connected = playerUI.ConnectToSceneManager(this);
+            if (connected)
+            {
+                DebugLog($"[SceneManager02] ✅ PlayerUI connesso manualmente con successo!");
+                
+                // Forza un update iniziale dell'UI
+                playerUI.UpdateCountersManually(collectedMemories, totalMemories, 0, 0);
+            }
+            else
+            {
+                DebugLog($"[SceneManager02] ❌ Fallita connessione manuale con PlayerUI");
+            }
+        }
+        else
+        {
+            DebugLog($"[SceneManager02] ⚠️ PlayerUI non trovato nella scena!");
         }
     }
     
@@ -71,10 +115,9 @@ public class SceneManager02 : MonoBehaviour
         // Reset contatori per la scena corrente
         collectedMemories = 0;
         collectedMemoryNames.Clear();
-        pietroFound = false;
         
         // Conta gli oggetti usando i tag
-        CountMemoriesByTags();
+        CountCollectiblesByTags();
         
         DebugLog($"[SceneManager02] Scena inizializzata: {totalMemories} memories");
         sceneInitialized = true;
@@ -84,14 +127,22 @@ public class SceneManager02 : MonoBehaviour
     {
         if (!gameManagerReady || !sceneInitialized || GameManager.Instance == null) return;
         
-        // Crea lista di nomi per GameManager (basati sui GameObject trovati)
+        // Crea liste di nomi per GameManager (basati sui GameObject trovati)
         List<string> allMemoryNames = GetAllMemoryNames();
         
         // Notifica al GameManager i totali di questa scena
         GameManager.Instance.InitializeSceneMemories(sceneName, totalMemories, allMemoryNames);
         
-        // Sincronizza con i dati già raccolti dal GameManager
-        SyncWithGameManager();
+        // 🔧 MODALITÀ SVILUPPO: Salta la sincronizzazione se richiesto
+        if (developmentMode && skipSyncOnStart)
+        {
+            DebugLog("🔧 [DEV MODE] Sincronizzazione saltata - tutte le memorie saranno visibili");
+        }
+        else
+        {
+            // ⭐ SOLO SINCRONIZZA I CONTATORI - NON TOCCARE I GAMEOBJECT ⭐
+            SyncCountersWithGameManager();
+        }
         
         DebugLog($"[SceneManager02] Sincronizzazione con GameManager completata");
         
@@ -99,43 +150,29 @@ public class SceneManager02 : MonoBehaviour
         UpdateUI();
     }
     
-    private void SyncWithGameManager()
+    /// <summary>
+    /// ⭐ VERSIONE CORRETTA: Sincronizza SOLO i contatori, NON modifica i GameObject ⭐
+    /// </summary>
+    private void SyncCountersWithGameManager()
     {
         if (GameManager.Instance == null) return;
         
-        // Sincronizza le memorie già raccolte
+        DebugLog("[SceneManager02] === SINCRONIZZAZIONE CONTATORI (NO GAMEOBJECT MODIFICATION) ===");
+        
+        // Sincronizza SOLO i contatori delle memorie già raccolte
         List<string> globalCollectedMemories = GameManager.Instance.GetCollectedMemoriesNamesInScene(sceneName);
         foreach (string memoryName in globalCollectedMemories)
         {
             if (!collectedMemoryNames.Contains(memoryName))
             {
                 collectedMemoryNames.Add(memoryName);
-                
-                // Nascondi l'oggetto se esiste
-                GameObject memoryObj = GameObject.Find(memoryName);
-                if (memoryObj != null)
-                {
-                    memoryObj.SetActive(false);
-                }
+                DebugLog($"[SceneManager02] ✅ Memory già raccolta registrata: {memoryName}");
             }
         }
         collectedMemories = collectedMemoryNames.Count;
         
-        // Controlla se Pietro era già stato trovato
-        CheckIfPietroAlreadyFound();
-        
-        DebugLog($"[SceneManager02] Sincronizzazione: {collectedMemories} memories già raccolte");
-    }
-    
-    private void CheckIfPietroAlreadyFound()
-    {
-        // Controlla se c'è un checkpoint "Pietro_Found" per determinare se Pietro è già stato trovato
-        string pietroCheckpoint = GameManager.Instance.GetSceneCheckpoint(sceneName);
-        if (pietroCheckpoint != null && pietroCheckpoint.Contains("Pietro_Found"))
-        {
-            pietroFound = true;
-            DebugLog("[SceneManager02] Pietro era già stato trovato");
-        }
+        DebugLog($"[SceneManager02] ✅ Sincronizzazione contatori completata: {collectedMemories} memories");
+        DebugLog("[SceneManager02] ⚠️ NOTA: I GameObject rimangono ATTIVI - la visibilità è gestita dalle classi Collectibles");
     }
     
     private List<string> GetAllMemoryNames()
@@ -149,7 +186,7 @@ public class SceneManager02 : MonoBehaviour
             memoryNames.Add(obj.name);
         }
         
-        // Fallback con classe Collectibles se non trova niente con i tag
+        // Fallback con classe Collectibles
         if (memoryNames.Count == 0)
         {
             Collectibles[] allCollectibles = FindObjectsByType<Collectibles>(FindObjectsSortMode.None);
@@ -165,7 +202,7 @@ public class SceneManager02 : MonoBehaviour
         return memoryNames;
     }
     
-    private void CountMemoriesByTags()
+    private void CountCollectiblesByTags()
     {
         // Conta le Memories usando il tag
         GameObject[] memoryObjects = GameObject.FindGameObjectsWithTag("Memories");
@@ -176,11 +213,11 @@ public class SceneManager02 : MonoBehaviour
         // Se non troviamo niente con i tag, prova con le classi come fallback
         if (totalMemories == 0)
         {
-            CountMemoriesByClass();
+            CountCollectiblesByClass();
         }
     }
     
-    private void CountMemoriesByClass()
+    private void CountCollectiblesByClass()
     {
         // Fallback: conta usando la classe Collectibles
         Collectibles[] allCollectibles = FindObjectsByType<Collectibles>(FindObjectsSortMode.None);
@@ -202,57 +239,11 @@ public class SceneManager02 : MonoBehaviour
         DebugLog($"[SceneManager02] Fallback conteggio con classe: {totalMemories} memories");
     }
     
-    // ========== GESTIONE CHECKPOINT ==========
-    
-    public void OnCheckpointReached(string checkpointName)
-    {
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.NotifySceneCheckpoint(sceneName, checkpointName);
-        }
-        
-        // Controlla se questo è il checkpoint di Pietro trovato
-        if (checkpointName.Contains("Pietro_Found") && !pietroFound)
-        {
-            HandlePietroFound();
-        }
-        
-        DebugLog($"[SceneManager02] Checkpoint {checkpointName} raggiunto");
-    }
-    
-    // ========== GESTIONE PIETRO ==========
+    // ========== METODI CHIAMATI DAL PLAYER/COLLECTIBLES ==========
     
     /// <summary>
-    /// Metodo speciale chiamato quando Pietro viene trovato
+    /// ⭐ VERSIONE CORRETTA: Solo tracking, NO gestione GameObject ⭐
     /// </summary>
-    public void HandlePietroFound()
-    {
-        if (pietroFound) return;
-        
-        pietroFound = true;
-        
-        DebugLog("[SceneManager02] 🎉 Pietro è stato trovato!");
-        
-        // Attiva checkpoint speciale
-        OnCheckpointReached("Pietro_Found");
-        
-        // Lancia evento
-        OnPietroFound?.Invoke();
-        
-        // Potrebbero esserci altre logiche speciali qui:
-        // - Attivare una cutscene
-        // - Completare una quest
-        // - Sbloccare un achievement
-        // - Cambiare la musica di sottofondo
-    }
-    
-    /// <summary>
-    /// Verifica se Pietro è già stato trovato
-    /// </summary>
-    public bool IsPietroFound() => pietroFound;
-    
-    // ========== GESTIONE MEMORIE ==========
-    
     public void NotifyMemoryCollected(string memoryName = "")
     {
         // Se non viene fornito un nome, genera uno generico
@@ -271,7 +262,7 @@ public class SceneManager02 : MonoBehaviour
         collectedMemoryNames.Add(memoryName);
         collectedMemories++;
         
-        DebugLog($"[SceneManager02] Memory '{memoryName}' raccolta! Progresso: {collectedMemories}/{totalMemories}");
+        DebugLog($"[SceneManager02] ✅ Memory '{memoryName}' TRACCIATA come raccolta! Progresso: {collectedMemories}/{totalMemories}");
         
         // Notifica al GameManager
         if (GameManager.Instance != null)
@@ -279,12 +270,12 @@ public class SceneManager02 : MonoBehaviour
             GameManager.Instance.OnSceneMemoryCollected(sceneName, memoryName);
         }
         
-        // Nascondi l'oggetto
-        GameObject memoryObj = GameObject.Find(memoryName);
-        if (memoryObj != null)
-        {
-            memoryObj.SetActive(false);
-        }
+        // ⭐ RIMOSSO: NON disattiviamo più il GameObject! ⭐
+        // La classe Collectibles gestisce da sola la propria visibilità
+        DebugLog($"[SceneManager02] ℹ️ GameObject {memoryName} rimane ATTIVO - gestione visibilità delegata alla classe Collectibles");
+        
+        // 🔥 FORZA L'AGGIORNAMENTO UI IMMEDIATO
+        ForceUIUpdate();
         
         // Eventi per la UI
         OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
@@ -292,43 +283,52 @@ public class SceneManager02 : MonoBehaviour
         // Controlla se tutte le memories sono state raccolte
         if (collectedMemories >= totalMemories && totalMemories > 0)
         {
-            DebugLog("[SceneManager02] Tutte le memories raccolte!");
+            DebugLog("[SceneManager02] 🎉 Tutte le memories raccolte!");
             OnAllMemoriesCollected?.Invoke();
         }
         
         UpdateUI();
     }
     
-    // Metodo per collectibles esterni
-    public void OnCollectibleCollected(string collectibleName, CollectibleType collectibleType)
+    // 🔥 NUOVO METODO: Forza aggiornamento UI immediato
+    private void ForceUIUpdate()
     {
-        switch (collectibleType)
+        PlayerUI playerUI = PlayerUI.Instance;
+        if (playerUI != null)
         {
-            case CollectibleType.Memory:
-                NotifyMemoryCollected(collectibleName);
-                break;
-                
-            default:
-                DebugLog($"[SceneManager02] Tipo collectible non riconosciuto: {collectibleType}");
-                break;
+            // Aggiorna manualmente i contatori nel PlayerUI
+            playerUI.UpdateCountersManually(collectedMemories, totalMemories, 0, 0);
+            DebugLog($"[SceneManager02] 🔥 UI aggiornata forzatamente: M={collectedMemories}/{totalMemories}");
+        }
+        else
+        {
+            DebugLog("[SceneManager02] ⚠️ PlayerUI non trovato per aggiornamento forzato");
         }
     }
     
-    // Metodo chiamato dai collectibles per registrarsi
-    public void RegisterCollectible(Collectibles collectible)
+    // Metodi di compatibilità per il codice esistente
+    public void NotifyMemoryCollected()
     {
-        if (collectible == null) return;
-        
-        DebugLog($"[SceneManager02] Collectible registrato: {collectible.GetName()} (Tipo: {collectible.GetCollectibleType()})");
+        NotifyMemoryCollected("");
+    }
+    
+    // Metodo per notificare checkpoint
+    public void OnCheckpointReached(string checkpointName)
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.NotifySceneCheckpoint(sceneName, checkpointName);
+        }
+        DebugLog($"[SceneManager02] Checkpoint {checkpointName} raggiunto");
     }
     
     private void UpdateUI()
     {
-        // Aggiorna UI se necessario
-        OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
+        // 🔥 ASSICURATI CHE ANCHE IL PLAYERUI SIA AGGIORNATO
+        ForceUIUpdate();
     }
     
-    // ========== GETTERS ==========
+    // ========== GETTERS - MEMORIES ==========
     
     public int GetCollectedMemories() => collectedMemories;
     public int GetTotalMemories() => totalMemories;
@@ -337,16 +337,25 @@ public class SceneManager02 : MonoBehaviour
     public bool AreAllMemoriesCollected() => collectedMemories >= totalMemories && totalMemories > 0;
     public List<string> GetCollectedMemoryNames() => new List<string>(collectedMemoryNames);
     
+    // ========== GETTERS - OVERALL ==========
+    
+    public int GetTotalCollected() => collectedMemories;
+    public int GetTotalAvailable() => totalMemories;
+    public float GetOverallProgress() => GetMemoriesProgress();
+    public float GetOverallCompletionPercentage() => GetMemoriesCompletionPercentage();
+    public bool AreAllCollectiblesCompleted() => AreAllMemoriesCollected();
+    
     // ========== UTILITY METHODS ==========
     
     public void RefreshSceneCounts()
     {
         DebugLog("[SceneManager02] Aggiornamento conteggi scena");
-        CountMemoriesByTags();
+        CountCollectiblesByTags();
         
+        // Re-sincronizza con GameManager se necessario
         if (GameManager.Instance != null && gameManagerReady)
         {
-            SyncWithGameManager();
+            SyncCountersWithGameManager();
         }
         
         UpdateUI();
@@ -357,31 +366,50 @@ public class SceneManager02 : MonoBehaviour
         DebugLog("[SceneManager02] Reset progresso scena");
         collectedMemories = 0;
         collectedMemoryNames.Clear();
-        pietroFound = false;
         UpdateUI();
     }
     
-    // ========== METODI SPECIALI PER PIETRO ==========
-    
-    /// <summary>
-    /// Forza il ritrovamento di Pietro (per testing o eventi speciali)
-    /// </summary>
-    public void ForcePietroFound()
+    public void ResetAndRefresh()
     {
-        if (!pietroFound)
-        {
-            HandlePietroFound();
-            DebugLog("[SceneManager02] Pietro forzatamente trovato");
-        }
+        DebugLog("[SceneManager02] Reset completo e refresh");
+        ResetSceneProgress();
+        RefreshSceneCounts();
     }
     
-    /// <summary>
-    /// Reset dello stato di Pietro (per testing)
-    /// </summary>
-    public void ResetPietroStatus()
+    // ========== REGISTRAZIONE COLLECTIBLES ==========
+    
+    // Metodo chiamato dai collectibles per registrarsi (per compatibilità)
+    public void RegisterCollectible(Collectibles collectible)
     {
-        pietroFound = false;
-        DebugLog("[SceneManager02] Stato di Pietro resetato");
+        if (collectible == null) return;
+        
+        // Questo metodo esiste per compatibilità con il codice esistente
+        // ma il conteggio principale avviene tramite tag
+        DebugLog($"[SceneManager02] Collectible registrato: {collectible.GetName()} (Tipo: {collectible.GetCollectibleType()})");
+    }
+    
+    // ========== METODI PER COLLECTIBLES ESTERNI ==========
+    
+    /// <summary>
+    /// Metodo che i collectibles possono chiamare per notificare la raccolta
+    /// ⭐ SOLO TRACKING - NO GESTIONE GAMEOBJECT ⭐
+    /// </summary>
+    /// <param name="collectibleName">Nome dell'oggetto raccolto</param>
+    /// <param name="collectibleType">Tipo di collectible</param>
+    public void OnCollectibleCollected(string collectibleName, CollectibleType collectibleType)
+    {
+        DebugLog($"[SceneManager02] ✅ Collectible raccolto notificato: {collectibleName} ({collectibleType})");
+        
+        switch (collectibleType)
+        {
+            case CollectibleType.Memory:
+                NotifyMemoryCollected(collectibleName);
+                break;
+                
+            default:
+                DebugLog($"[SceneManager02] ⚠️ Tipo collectible non supportato in questa scena: {collectibleType}");
+                break;
+        }
     }
     
     // ========== DEBUG ==========
@@ -407,9 +435,22 @@ public class SceneManager02 : MonoBehaviour
         Debug.Log($"=== SceneManager02 State ===\n" +
                   $"Memories: {collectedMemories}/{totalMemories} ({GetMemoriesCompletionPercentage():F1}%)\n" +
                   $"Collected Memories: [{memoriesList}]\n" +
-                  $"Pietro Found: {pietroFound}\n" +
-                  $"All Memories Complete: {AreAllMemoriesCollected()}\n" +
-                  $"GameManager Ready: {gameManagerReady}");
+                  $"All Complete: {AreAllMemoriesCollected()}\n" +
+                  $"GameManager Ready: {gameManagerReady}\n" +
+                  $"⚠️ NOTA: SceneManager02 traccia SOLO i contatori - GameObject gestiti dalle classi Collectibles");
+    }
+    
+    [ContextMenu("🔥 Debug - Force UI Update")]
+    public void DebugForceUIUpdate()
+    {
+        ForceUIUpdate();
+        DebugCurrentState();
+    }
+    
+    [ContextMenu("🔥 Debug - Reconnect PlayerUI")]
+    public void DebugReconnectPlayerUI()
+    {
+        StartCoroutine(NotifyPlayerUIAfterFrame());
     }
     
     [ContextMenu("Refresh Scene Counts")]
@@ -426,16 +467,17 @@ public class SceneManager02 : MonoBehaviour
         DebugCurrentState();
     }
     
-    [ContextMenu("Force Pietro Found")]
-    public void DebugForcePietroFound()
+    [ContextMenu("Force GameManager Sync")]
+    public void DebugForceGameManagerSync()
     {
-        ForcePietroFound();
-    }
-    
-    [ContextMenu("Reset Pietro Status")]
-    public void DebugResetPietroStatus()
-    {
-        ResetPietroStatus();
+        if (GameManager.Instance != null)
+        {
+            InitializeWithGameManager();
+        }
+        else
+        {
+            Debug.LogWarning("GameManager non trovato!");
+        }
     }
     
     // ========== CLEANUP ==========
