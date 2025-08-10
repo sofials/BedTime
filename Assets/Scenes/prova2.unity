@@ -252,7 +252,6 @@ GameObject:
   m_Component:
   - component: {fileID: 150112122}
   - component: {fileID: 150112121}
-  - component: {fileID: 150112120}
   - component: {fileID: 150112119}
   - component: {fileID: 150112118}
   m_Layer: 0
@@ -338,14 +337,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!81 &150112120
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 150112117}
-  m_Enabled: 1
 --- !u!20 &150112121
 Camera:
   m_ObjectHideFlags: 0
@@ -6787,21 +6778,13 @@ PrefabInstance:
       propertyPath: PlatformSpawnerForwardAbility
       value: 
       objectReference: {fileID: 5816166183444723655}
-    - target: {fileID: 1461636381478073155, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: m_ApplyRootMotion
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: attackIcon
-      value: 
-      objectReference: {fileID: 1056192725}
-    - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: attackAdvanceDistance
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 4530120001442678975, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_Name
       value: Luke
+      objectReference: {fileID: 0}
+    - target: {fileID: 4652904574282377536, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.x
