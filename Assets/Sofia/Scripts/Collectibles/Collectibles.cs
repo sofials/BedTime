@@ -229,8 +229,8 @@ public class Collectibles : MonoBehaviour
                 hideMeshImmediately = true;
                 disableGameObjectAfterCollection = true;
                 delayBeforeHiding = 0f;
-                enableRotation = true;
-                enablePreAudioLoop = false; // Memory non ha loop
+                enableRotation = false;
+                enablePreAudioLoop = true; // Memory non ha loop
                 break;
                 
             case CollectibleType.Present:
@@ -238,7 +238,6 @@ public class Collectibles : MonoBehaviour
                 disableGameObjectAfterCollection = false; // GameObject resta ATTIVO per effetti
                 delayBeforeHiding = 3f;
                 enablePreAudioLoop = true; // ⭐ IMPORTANTE: Abilita il loop per Present
-                canBeClickedToCollect = false; // Solo trigger
                 enableRotation = true;
                 break;
                 

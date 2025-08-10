@@ -30354,6 +30354,7 @@ GameObject:
   - component: {fileID: 2431887308047467736}
   - component: {fileID: 328773549392567367}
   - component: {fileID: 4652904574282377536}
+  - component: {fileID: 4076577389577326063}
   m_Layer: 6
   m_Name: Luke
   m_TagString: Player
@@ -30518,9 +30519,15 @@ MonoBehaviour:
   collectedMemories: 0
   totalPresents: 0
   collectedPresents: 0
-  useSceneManagerIntegration: 1
-  autoFindCollectiblesInScene: 1
-  trackCombinedProgress: 1
+  enableDebugLogs: 1
+--- !u!81 &4076577389577326063
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4530120001442678975}
+  m_Enabled: 1
 --- !u!1 &4640162231798183033
 GameObject:
   m_ObjectHideFlags: 0
