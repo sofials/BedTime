@@ -13,6 +13,7 @@ public enum CollectibleType
 /// Gestisce automaticamente la gerarchia: Mesh_Container, Effects_Container
 /// AUDIO: USA SOLO AudioSource assegnati dall'Inspector (rispetta la loro configurazione)
 /// NON modifica mai i parametri degli AudioSource - usa quello che è configurato nell'Inspector
+/// ⭐ AGGIORNATA per comunicare direttamente con CollectiblesManager ⭐
 /// </summary>
 public class Collectibles : MonoBehaviour
 {
@@ -230,7 +231,7 @@ public class Collectibles : MonoBehaviour
                 disableGameObjectAfterCollection = true;
                 delayBeforeHiding = 0f;
                 enableRotation = false;
-                enablePreAudioLoop = true; // Memory non ha loop
+                enablePreAudioLoop = false; // Memory non ha loop
                 break;
                 
             case CollectibleType.Present:
@@ -256,7 +257,7 @@ public class Collectibles : MonoBehaviour
     protected virtual void Start()
     {
         InitializeCollectible();
-        RegisterWithSceneManager();
+        RegisterWithCollectiblesManager();
         
         // ⭐ SOLO aggiorna il loop sui pre-audio (se necessario) ⭐
         // Tutto il resto (volume, distanze, 3D, etc.) è configurato direttamente sugli AudioSource
@@ -494,14 +495,26 @@ public class Collectibles : MonoBehaviour
         }
     }
     
-    protected virtual void RegisterWithSceneManager()
+    /// <summary>
+    /// ⭐ AGGIORNATO: Registrazione diretta con CollectiblesManager ⭐
+    /// </summary>
+    protected virtual void RegisterWithCollectiblesManager()
     {
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        
-        if (currentScene == "01 - Party in Lukelandia" && SceneManager01.Instance != null)
+        // ⭐ REGISTRAZIONE DIRETTA CON COLLECTIBLESMANAGER ⭐
+        CollectiblesManager collectiblesManager = CollectiblesManager.Instance;
+        if (collectiblesManager == null)
         {
-            SceneManager01.Instance.RegisterCollectible(this);
-            Debug.Log($"[Collectibles] Registrato con SceneManager01: {collectibleName}");
+            collectiblesManager = Object.FindFirstObjectByType<CollectiblesManager>();
+        }
+        
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.RegisterCollectible(this);
+            Debug.Log($"[Collectibles] ✅ Registrato con CollectiblesManager: {collectibleName}");
+        }
+        else
+        {
+            Debug.LogError($"[Collectibles] ❌ CollectiblesManager non trovato! Assicurati che sia presente nella scena.");
         }
     }
     
@@ -570,7 +583,7 @@ public class Collectibles : MonoBehaviour
         PlayCollectionFeedback();
         
         // Fase 9: Notifica manager
-        NotifySceneManager();
+        NotifyCollectiblesManager();
         
         // Fase 10: Hook per classi derivate
         OnItemCollected();
@@ -676,55 +689,28 @@ public class Collectibles : MonoBehaviour
         // Implementazione base vuota - le classi derivate possono sovrascrivere
     }
     
-   protected virtual void NotifySceneManager()
-{
-    string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-    
-    // ⭐ AGGIUNTO: Notifica sempre il PlayerCollectibleTracker per tutti i collectibles ⭐
-    if (PlayerCollectibleTracker.Instance != null)
+    /// <summary>
+    /// ⭐ AGGIORNATO: Comunicazione diretta con CollectiblesManager ⭐
+    /// </summary>
+    protected virtual void NotifyCollectiblesManager()
     {
-        PlayerCollectibleTracker.Instance.NotifyCollectibleCollected(collectibleType);
-        Debug.Log($"[Collectibles] ✅ PlayerCollectibleTracker notificato per {collectibleType} '{collectibleName}'");
-    }
-    else
-    {
-        Debug.LogWarning($"[Collectibles] ⚠️ PlayerCollectibleTracker.Instance è NULL!");
-    }
-    
-    // Notifiche specifiche per scena (mantieni la logica esistente)
-    if (currentScene == "01 - Party in Lukelandia" && SceneManager01.Instance != null)
-    {
-        SceneManager01.Instance.OnCollectibleCollected(collectibleName, collectibleType);
+        // ⭐ COMUNICAZIONE DIRETTA CON COLLECTIBLESMANAGER ⭐
+        CollectiblesManager collectiblesManager = CollectiblesManager.Instance;
+        if (collectiblesManager == null)
+        {
+            collectiblesManager = Object.FindFirstObjectByType<CollectiblesManager>();
+        }
         
-        switch (collectibleType)
+        if (collectiblesManager != null)
         {
-            case CollectibleType.Memory:
-                SceneManager01.Instance.NotifyMemoryCollected(collectibleName);
-                break;
-            case CollectibleType.Present:
-                SceneManager01.Instance.NotifyPresentCollected(collectibleName);
-                break;
+            collectiblesManager.OnCollectibleCollected(collectibleName, collectibleType);
+            Debug.Log($"[Collectibles] ✅ CollectiblesManager notificato per {collectibleType} '{collectibleName}'");
+        }
+        else
+        {
+            Debug.LogError($"[Collectibles] ❌ CollectiblesManager non trovato! Assicurati che sia presente nella scena.");
         }
     }
-    else
-    {
-        // Fallback al GameManager se non c'è scene manager specifico
-        if (GameManager.Instance != null)
-        {
-            switch (collectibleType)
-            {
-                case CollectibleType.Memory:
-                    GameManager.Instance.OnSceneMemoryCollected(currentScene, collectibleName);
-                    break;
-                case CollectibleType.Present:
-                    GameManager.Instance.OnScene01PresentCollected(collectibleName);
-                    break;
-            }
-        }
-    }
-    
-    Debug.Log($"[Collectibles] Notifica completa inviata per {collectibleType} '{collectibleName}'");
-}
     
     /// <summary>
     /// Solo per Memory e altri che devono essere disattivati
@@ -1013,6 +999,32 @@ public class Collectibles : MonoBehaviour
     [ContextMenu("↩️ Reset Collected")]
     public void DebugResetCollected() => ResetCollected();
     
+    [ContextMenu("🔍 Debug Manager Connections")]
+    public void DebugManagerConnections()
+    {
+        Debug.Log($"🔍 === CONNESSIONI MANAGER per {collectibleName} ===");
+        
+        // Verifica CollectiblesManager
+        CollectiblesManager collectiblesManager = CollectiblesManager.Instance;
+        if (collectiblesManager == null)
+        {
+            collectiblesManager = Object.FindFirstObjectByType<CollectiblesManager>();
+        }
+        
+        if (collectiblesManager != null)
+        {
+            Debug.Log($"✅ CollectiblesManager: TROVATO ({collectiblesManager.name})");
+            Debug.Log($"   - Total Presents: {collectiblesManager.GetTotalPresents()}");
+            Debug.Log($"   - Total Memories: {collectiblesManager.GetTotalMemories()}");
+            Debug.Log($"   - Collected Presents: {collectiblesManager.GetCollectedPresents()}");
+            Debug.Log($"   - Collected Memories: {collectiblesManager.GetCollectedMemories()}");
+        }
+        else
+        {
+            Debug.LogError($"❌ CollectiblesManager: NON TROVATO - Assicurati che sia presente nella scena!");
+        }
+    }
+    
     [ContextMenu("🔊 Force Play Pre Audio")]
     public void DebugForcePlayPreAudio()
     {
@@ -1173,7 +1185,7 @@ public class Collectibles : MonoBehaviour
                   $"6. Imposta 'Enable Pre Audio Loop' = {(collectibleType == CollectibleType.Present ? "TRUE" : "FALSE")} per {collectibleType}\n\n" +
                   $"✅ VANTAGGI:\n" +
                   $"- Controllo totale su ogni AudioSource\n" +
-                  $"- Configurazione visiva diretta\n" +
+                  $"- Configurazione visuale diretta\n" +
                   $"- Nessuna sovrascrittura automatica\n" +
                   $"- Sistema più semplice e prevedibile");
     }
@@ -1183,5 +1195,38 @@ public class Collectibles : MonoBehaviour
     {
         SetEnablePreAudioLoop(!enablePreAudioLoop);
         Debug.Log($"[Collectibles] 🔄 Pre Audio Loop toggled a {enablePreAudioLoop} per {collectibleName}");
+    }
+    
+    [ContextMenu("🎯 Test CollectiblesManager Connection")]
+    public void DebugTestCollectiblesManagerConnection()
+    {
+        Debug.Log($"🎯 === TEST CONNESSIONE COLLECTIBLESMANAGER per {collectibleName} ===");
+        
+        CollectiblesManager collectiblesManager = CollectiblesManager.Instance;
+        if (collectiblesManager == null)
+        {
+            collectiblesManager = Object.FindFirstObjectByType<CollectiblesManager>();
+        }
+        
+        if (collectiblesManager != null)
+        {
+            Debug.Log($"✅ CollectiblesManager trovato: {collectiblesManager.name}");
+            Debug.Log($"   - Test notifica diretta...");
+            
+            // Test della notifica
+            collectiblesManager.OnCollectibleCollected(collectibleName + "_TEST", collectibleType);
+            Debug.Log($"   - Notifica TEST inviata per {collectibleType}");
+            
+            // Test della registrazione
+            collectiblesManager.RegisterCollectible(this);
+            Debug.Log($"   - Registrazione TEST completata");
+        }
+        else
+        {
+            Debug.LogError($"❌ CollectiblesManager NON TROVATO!");
+            Debug.LogError($"   - Assicurati che CollectiblesManager sia presente nella scena");
+            Debug.LogError($"   - Verifica che abbia il Component CollectiblesManager");
+            Debug.LogError($"   - Controlla che sia attivo nell'hierarchy");
+        }
     }
 }

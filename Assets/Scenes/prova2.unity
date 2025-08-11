@@ -1692,11 +1692,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1268062674}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &507114972 stripped
-AudioSource:
-  m_CorrespondingSourceObject: {fileID: 8905953896649756250, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-  m_PrefabInstance: {fileID: 4837375641533117133}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &580649927
 GameObject:
   m_ObjectHideFlags: 0
@@ -4272,11 +4267,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
---- !u!82 &1772939503 stripped
-AudioSource:
-  m_CorrespondingSourceObject: {fileID: 6918633739983646162, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-  m_PrefabInstance: {fileID: 4837375641533117133}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &1783219418 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 9137466081210971103, guid: 7c3ed024afbfb38498afd5bef9a4d217, type: 3}
@@ -4935,11 +4925,6 @@ Transform:
   - {fileID: 1162929469}
   m_Father: {fileID: 432319732}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &2004907440 stripped
-AudioSource:
-  m_CorrespondingSourceObject: {fileID: 3170591309977901219, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-  m_PrefabInstance: {fileID: 4837375641533117133}
-  m_PrefabAsset: {fileID: 0}
 --- !u!43 &2058761036
 Mesh:
   m_ObjectHideFlags: 0
@@ -6801,14 +6786,6 @@ PrefabInstance:
       propertyPath: PlatformSpawnerForwardAbility
       value: 
       objectReference: {fileID: 5816166183444723655}
-    - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: punchAudioSource
-      value: 
-      objectReference: {fileID: 1772939503}
-    - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: punchImpactAudioSource
-      value: 
-      objectReference: {fileID: 2004907440}
     - target: {fileID: 4530120001442678975, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_Name
       value: Luke
@@ -6865,86 +6842,6 @@ PrefabInstance:
       propertyPath: cameraTransform
       value: 
       objectReference: {fileID: 150112122}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: runStepInterval
-      value: 0.4
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: footstepVolumeRun
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: footstepVolumeWalk
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: sprintStepInterval
-      value: 0.2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: footstepAudioSource
-      value: 
-      objectReference: {fileID: 507114972}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: footstepVolumeSprint
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: ledgeLayerMask.m_Bits
-      value: 4294967295
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: ledgeDetectionDistance
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: runFootsteps.Array.size
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: walkFootsteps.Array.size
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'runFootsteps.Array.data[0]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 1f77c3fcd86b6ca44ab5373a6c6e0213, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'runFootsteps.Array.data[1]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 2740e00e904dd4d4c828efefd028d498, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'runFootsteps.Array.data[2]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 7cee4b9cd4cd86a499db253e3497bbd5, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: sprintFootsteps.Array.size
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'walkFootsteps.Array.data[0]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 1f77c3fcd86b6ca44ab5373a6c6e0213, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'walkFootsteps.Array.data[1]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 2740e00e904dd4d4c828efefd028d498, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'walkFootsteps.Array.data[2]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 7cee4b9cd4cd86a499db253e3497bbd5, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'sprintFootsteps.Array.data[0]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 1f77c3fcd86b6ca44ab5373a6c6e0213, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'sprintFootsteps.Array.data[1]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 2740e00e904dd4d4c828efefd028d498, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: 'sprintFootsteps.Array.data[2]'
-      value: 
-      objectReference: {fileID: 8300000, guid: 7cee4b9cd4cd86a499db253e3497bbd5, type: 3}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

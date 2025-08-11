@@ -1,32 +1,39 @@
 using UnityEngine;
 using UnityEngine.Events;
-using System.Collections.Generic;
+using System.Collections;
 
+/// <summary>
+/// SceneManager semplificato che usa CheckpointManager e CollectiblesManager
+/// Molto più leggero e modulare del precedente
+/// </summary>
 public class SceneManager00 : MonoBehaviour
 {
     [Header("Scene Configuration")]
-    [SerializeField] private string sceneName = "00 - Landing in the Dreamworld";
+    [SerializeField] private string sceneName = "00 - Intro";
     
-    [Header("Current Scene Progress")]
-    [SerializeField] private int totalMemories = 0;
-    [SerializeField] private int collectedMemories = 0;
+    [Header("Manager References")]
+    [SerializeField] private CheckpointManager checkpointManager;
+    [SerializeField] private CollectiblesManager collectiblesManager;
     
-    [Header("Memory Events")]
-    public UnityEvent<int, int> OnMemoryCountChanged; // collected, total
-    public UnityEvent OnAllMemoriesCollected;
+    [Header("Auto-Setup")]
+    [SerializeField] private bool autoFindManagers = true;
+    [SerializeField] private bool createManagersIfMissing = true;
     
-    [Header("Settings")]
+    [Header("Development Mode")]
+    [SerializeField] private bool developmentMode = true;
     [SerializeField] private bool enableDebugLogs = true;
     
-    // Tracking degli oggetti raccolti per nome (per GameManager)
-    private List<string> collectedMemoryNames = new List<string>();
+    [Header("Scene Events")]
+    public UnityEvent OnSceneInitialized;
+    public UnityEvent OnSceneReady;
+    public UnityEvent OnSceneCompleted;
     
     // Singleton pattern
     public static SceneManager00 Instance { get; private set; }
     
-    // Flag per sapere se il GameManager è pronto
-    private bool gameManagerReady = false;
+    // Stato interno
     private bool sceneInitialized = false;
+    private bool managersReady = false;
     
     private void Awake()
     {
@@ -40,267 +47,405 @@ public class SceneManager00 : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+        
+        DebugLog($"[SceneManager00] Inizializzazione per '{sceneName}'");
     }
     
     private void Start()
     {
+        StartCoroutine(InitializeSceneCoroutine());
+    }
+    
+    private IEnumerator InitializeSceneCoroutine()
+    {
+        yield return null; // Aspetta un frame
+        
+        // 1. Setup dei manager
+        SetupManagers();
+        
+        // 2. Inizializza la scena
         InitializeScene();
         
-        // Controlla se GameManager è già pronto
-        if (GameManager.Instance != null)
+        // 3. Connetti i manager
+        ConnectManagers();
+        
+        // 4. Finalizza
+        FinalizeSceneSetup();
+    }
+    
+    // ========== SETUP MANAGER ==========
+    
+    private void SetupManagers()
+    {
+        DebugLog("[SceneManager00] Setup manager...");
+        
+        // Auto-trova i manager se abilitato
+        if (autoFindManagers)
         {
-            InitializeWithGameManager();
+            FindManagers();
+        }
+        
+        // Crea i manager se mancanti e abilitato
+        if (createManagersIfMissing)
+        {
+            CreateMissingManagers();
+        }
+        
+        // Configura i manager trovati/creati
+        ConfigureManagers();
+        
+        managersReady = checkpointManager != null && collectiblesManager != null;
+        DebugLog($"[SceneManager00] Manager pronti: {managersReady}");
+    }
+    
+    private void FindManagers()
+    {
+        if (checkpointManager == null)
+        {
+            checkpointManager = CheckpointManager.Instance;
+            if (checkpointManager == null)
+            {
+                checkpointManager = Object.FindFirstObjectByType<CheckpointManager>();
+            }
+        }
+        
+        if (collectiblesManager == null)
+        {
+            collectiblesManager = CollectiblesManager.Instance;
+            if (collectiblesManager == null)
+            {
+                collectiblesManager = Object.FindFirstObjectByType<CollectiblesManager>();
+            }
+        }
+        
+        DebugLog($"[SceneManager00] Manager trovati - Checkpoint: {checkpointManager != null}, Collectibles: {collectiblesManager != null}");
+    }
+    
+    private void CreateMissingManagers()
+    {
+        // Crea CheckpointManager se mancante
+        if (checkpointManager == null)
+        {
+            GameObject checkpointGO = new GameObject("CheckpointManager");
+            checkpointGO.transform.parent = transform;
+            checkpointManager = checkpointGO.AddComponent<CheckpointManager>();
+            DebugLog("[SceneManager00] ✅ CheckpointManager creato automaticamente");
+        }
+        
+        // Crea CollectiblesManager se mancante
+        if (collectiblesManager == null)
+        {
+            GameObject collectiblesGO = new GameObject("CollectiblesManager");
+            collectiblesGO.transform.parent = transform;
+            collectiblesManager = collectiblesGO.AddComponent<CollectiblesManager>();
+            DebugLog("[SceneManager00] ✅ CollectiblesManager creato automaticamente");
         }
     }
     
-    // Chiamato dal GameManager quando è pronto
-    public void OnGameManagerReady()
+    private void ConfigureManagers()
     {
-        gameManagerReady = true;
-        InitializeWithGameManager();
+        // Configura CheckpointManager
+        if (checkpointManager != null)
+        {
+            checkpointManager.SetSceneName(sceneName);
+            checkpointManager.SetDebugLogsEnabled(enableDebugLogs);
+            DebugLog("[SceneManager00] CheckpointManager configurato");
+        }
+        
+        // Configura CollectiblesManager
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.SetSceneName(sceneName);
+            collectiblesManager.SetDebugLogsEnabled(enableDebugLogs);
+            DebugLog("[SceneManager00] CollectiblesManager configurato");
+        }
+    }
+    
+    // ========== CONNESSIONE MANAGER ==========
+    
+    private void ConnectManagers()
+    {
+        if (!managersReady) return;
+        
+        DebugLog("[SceneManager00] Connessione manager...");
+        
+        // Connetti eventi del CheckpointManager
+        if (checkpointManager != null)
+        {
+            checkpointManager.OnCheckpointActivated.AddListener(OnCheckpointActivated);
+            checkpointManager.OnCheckpointCleared.AddListener(OnCheckpointCleared);
+        }
+        
+        // Connetti eventi del CollectiblesManager
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.OnAllCollectiblesCompleted.AddListener(OnAllCollectiblesCompleted);
+            collectiblesManager.OnPresentCollected.AddListener(OnPresentCollected);
+            collectiblesManager.OnMemoryCollected.AddListener(OnMemoryCollected);
+        }
+        
+        DebugLog("[SceneManager00] Manager connessi con successo");
     }
     
     private void InitializeScene()
     {
         if (sceneInitialized) return;
         
-        // Reset contatori per la scena corrente
-        collectedMemories = 0;
-        collectedMemoryNames.Clear();
+        DebugLog("[SceneManager00] Inizializzazione scena...");
         
-        // Conta gli oggetti usando i tag
-        CountMemoriesByTags();
+        // Qui puoi aggiungere la logica specifica della tua scena
+        // Ad esempio: attivare oggetti, impostare stati iniziali, ecc.
         
-        DebugLog($"[SceneManager00] Scena inizializzata: {totalMemories} memories");
         sceneInitialized = true;
+        OnSceneInitialized?.Invoke();
+        
+        DebugLog("[SceneManager00] Scena inizializzata");
     }
     
-    private void InitializeWithGameManager()
+    private void FinalizeSceneSetup()
     {
-        if (!gameManagerReady || !sceneInitialized || GameManager.Instance == null) return;
+        DebugLog("[SceneManager00] Finalizzazione setup scena...");
         
-        // Crea lista di nomi per GameManager (basati sui GameObject trovati)
-        List<string> allMemoryNames = GetAllMemoryNames();
+        // Verifica che tutto sia pronto
+        bool allReady = sceneInitialized && managersReady;
         
-        // Notifica al GameManager i totali di questa scena
-        GameManager.Instance.InitializeSceneMemories(sceneName, totalMemories, allMemoryNames);
-        
-        // Sincronizza con i dati già raccolti dal GameManager
-        SyncWithGameManager();
-        
-        DebugLog($"[SceneManager00] Sincronizzazione con GameManager completata");
-        
-        // Aggiorna l'UI iniziale
-        UpdateUI();
-    }
-    
-    private void SyncWithGameManager()
-    {
-        if (GameManager.Instance == null) return;
-        
-        // Sincronizza le memorie già raccolte
-        List<string> globalCollectedMemories = GameManager.Instance.GetCollectedMemoriesNamesInScene(sceneName);
-        foreach (string memoryName in globalCollectedMemories)
+        if (allReady)
         {
-            if (!collectedMemoryNames.Contains(memoryName))
-            {
-                collectedMemoryNames.Add(memoryName);
-                
-                // Nascondi l'oggetto se esiste
-                GameObject memoryObj = GameObject.Find(memoryName);
-                if (memoryObj != null)
-                {
-                    memoryObj.SetActive(false);
-                }
-            }
+            DebugLog("[SceneManager00] ✅ Scena completamente pronta!");
+            OnSceneReady?.Invoke();
         }
-        collectedMemories = collectedMemoryNames.Count;
-        
-        DebugLog($"[SceneManager00] Sincronizzazione: {collectedMemories} memories già raccolte");
-    }
-    
-    private List<string> GetAllMemoryNames()
-    {
-        List<string> memoryNames = new List<string>();
-        
-        // Cerca tutti gli oggetti Memory nella scena
-        GameObject[] memoryObjects = GameObject.FindGameObjectsWithTag("Memories");
-        foreach (GameObject obj in memoryObjects)
+        else
         {
-            memoryNames.Add(obj.name);
-        }
-        
-        // Fallback con classe Collectibles se non trova niente con i tag
-        if (memoryNames.Count == 0)
-        {
-            Collectibles[] allCollectibles = FindObjectsByType<Collectibles>(FindObjectsSortMode.None);
-            foreach (Collectibles collectible in allCollectibles)
-            {
-                if (collectible.GetCollectibleType() == CollectibleType.Memory)
-                {
-                    memoryNames.Add(collectible.gameObject.name);
-                }
-            }
-        }
-        
-        return memoryNames;
-    }
-    
-    private void CountMemoriesByTags()
-    {
-        // Conta le Memories usando il tag
-        GameObject[] memoryObjects = GameObject.FindGameObjectsWithTag("Memories");
-        totalMemories = memoryObjects?.Length ?? 0;
-        
-        DebugLog($"[SceneManager00] Conteggio tramite tag completato: {totalMemories} memories");
-        
-        // Se non troviamo niente con i tag, prova con le classi come fallback
-        if (totalMemories == 0)
-        {
-            CountMemoriesByClass();
+            DebugLog("[SceneManager00] ⚠️ Scena non completamente pronta - verificare setup");
         }
     }
     
-    private void CountMemoriesByClass()
+    // ========== EVENT HANDLERS ==========
+    
+    private void OnCheckpointActivated(string checkpointName)
     {
-        // Fallback: conta usando la classe Collectibles
-        Collectibles[] allCollectibles = FindObjectsByType<Collectibles>(FindObjectsSortMode.None);
-        int memoryCount = 0;
+        DebugLog($"[SceneManager00] Checkpoint raggiunto: '{checkpointName}'");
         
-        foreach (Collectibles collectible in allCollectibles)
-        {
-            if (!collectible.IsCollected())
-            {
-                if (collectible.GetCollectibleType() == CollectibleType.Memory)
-                {
-                    memoryCount++;
-                }
-            }
-        }
-        
-        totalMemories = memoryCount;
-        
-        DebugLog($"[SceneManager00] Fallback conteggio con classe: {totalMemories} memories");
+        // Qui puoi aggiungere logica specifica per quando si raggiunge un checkpoint
+        // Ad esempio: salvare altri dati, attivare eventi, ecc.
     }
     
-    // ========== GESTIONE CHECKPOINT ==========
-    
-    public void OnCheckpointReached(string checkpointName)
+    private void OnCheckpointCleared(string checkpointName)
     {
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.NotifySceneCheckpoint(sceneName, checkpointName);
-        }
-        DebugLog($"[SceneManager00] Checkpoint {checkpointName} raggiunto");
+        DebugLog($"[SceneManager00] Checkpoint cancellato: '{checkpointName}'");
     }
     
-    // ========== GESTIONE MEMORIE ==========
+    private void OnPresentCollected(string presentName)
+    {
+        DebugLog($"[SceneManager00] Present raccolto: '{presentName}'");
+        
+        // Logica specifica per i presents se necessaria
+    }
+    
+    private void OnMemoryCollected(string memoryName)
+    {
+        DebugLog($"[SceneManager00] Memory raccolta: '{memoryName}'");
+        
+        // Logica specifica per le memories se necessaria
+    }
+    
+    private void OnAllCollectiblesCompleted()
+    {
+        DebugLog("[SceneManager00] 🏆 Tutti i collectibles completati!");
+        
+        // Logica per quando tutti i collectibles sono stati raccolti
+        // Ad esempio: sbloccare aree, attivare cutscene, ecc.
+        OnSceneCompleted?.Invoke();
+    }
+    
+    // ========== METODI PUBBLICI PER COMPATIBILITÀ ==========
+    
+    /// <summary>
+    /// Metodi di compatibilità con il vecchio SceneManager
+    /// </summary>
+    public void NotifyPresentCollected(string presentName = "")
+    {
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.NotifyPresentCollected(presentName);
+        }
+        else
+        {
+            DebugLog("[SceneManager00] ⚠️ CollectiblesManager non disponibile");
+        }
+    }
     
     public void NotifyMemoryCollected(string memoryName = "")
     {
-        // Se non viene fornito un nome, genera uno generico
-        if (string.IsNullOrEmpty(memoryName))
+        if (collectiblesManager != null)
         {
-            memoryName = $"Memory_{collectedMemories + 1}";
+            collectiblesManager.NotifyMemoryCollected(memoryName);
         }
-        
-        // Evita duplicati
-        if (collectedMemoryNames.Contains(memoryName))
+        else
         {
-            DebugLog($"[SceneManager00] Memory {memoryName} già raccolta, ignorata");
-            return;
+            DebugLog("[SceneManager00] ⚠️ CollectiblesManager non disponibile");
         }
-        
-        collectedMemoryNames.Add(memoryName);
-        collectedMemories++;
-        
-        DebugLog($"[SceneManager00] Memory '{memoryName}' raccolta! Progresso: {collectedMemories}/{totalMemories}");
-        
-        // Notifica al GameManager
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.OnSceneMemoryCollected(sceneName, memoryName);
-        }
-        
-        // Nascondi l'oggetto
-        GameObject memoryObj = GameObject.Find(memoryName);
-        if (memoryObj != null)
-        {
-            memoryObj.SetActive(false);
-        }
-        
-        // Eventi per la UI
-        OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
-        
-        // Controlla se tutte le memories sono state raccolte
-        if (collectedMemories >= totalMemories && totalMemories > 0)
-        {
-            DebugLog("[SceneManager00] Tutte le memories raccolte!");
-            OnAllMemoriesCollected?.Invoke();
-        }
-        
-        UpdateUI();
     }
     
-    // Metodo per collectibles esterni
     public void OnCollectibleCollected(string collectibleName, CollectibleType collectibleType)
     {
-        switch (collectibleType)
+        if (collectiblesManager != null)
         {
-            case CollectibleType.Memory:
-                NotifyMemoryCollected(collectibleName);
-                break;
-                
-            default:
-                DebugLog($"[SceneManager00] Tipo collectible non riconosciuto: {collectibleType}");
-                break;
+            collectiblesManager.OnCollectibleCollected(collectibleName, collectibleType);
+        }
+        else
+        {
+            DebugLog("[SceneManager00] ⚠️ CollectiblesManager non disponibile");
         }
     }
     
-    // Metodo chiamato dai collectibles per registrarsi
-    public void RegisterCollectible(Collectibles collectible)
+    public void NotifySceneCheckpoint(string checkpointName)
     {
-        if (collectible == null) return;
-        
-        DebugLog($"[SceneManager00] Collectible registrato: {collectible.GetName()} (Tipo: {collectible.GetCollectibleType()})");
+        if (checkpointManager != null)
+        {
+            checkpointManager.ActivateCheckpoint(checkpointName);
+        }
+        else
+        {
+            DebugLog("[SceneManager00] ⚠️ CheckpointManager non disponibile");
+        }
     }
     
-    private void UpdateUI()
+    public void OnCheckpointReached(string checkpointName)
     {
-        // Aggiorna UI se necessario
-        OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
+        NotifySceneCheckpoint(checkpointName);
     }
     
-    // ========== GETTERS ==========
+    // ========== GETTERS - COLLECTIBLES ==========
     
-    public int GetCollectedMemories() => collectedMemories;
-    public int GetTotalMemories() => totalMemories;
-    public float GetMemoriesProgress() => totalMemories > 0 ? (float)collectedMemories / totalMemories : 0f;
-    public float GetMemoriesCompletionPercentage() => GetMemoriesProgress() * 100f;
-    public bool AreAllMemoriesCollected() => collectedMemories >= totalMemories && totalMemories > 0;
-    public List<string> GetCollectedMemoryNames() => new List<string>(collectedMemoryNames);
+    public int GetCollectedPresents() => collectiblesManager?.GetCollectedPresents() ?? 0;
+    public int GetTotalPresents() => collectiblesManager?.GetTotalPresents() ?? 0;
+    public int GetCollectedMemories() => collectiblesManager?.GetCollectedMemories() ?? 0;
+    public int GetTotalMemories() => collectiblesManager?.GetTotalMemories() ?? 0;
+    public int GetTotalCollected() => collectiblesManager?.GetTotalCollected() ?? 0;
+    public int GetTotalAvailable() => collectiblesManager?.GetTotalAvailable() ?? 0;
+    
+    public float GetPresentsProgress() => collectiblesManager?.GetPresentsProgress() ?? 0f;
+    public float GetMemoriesProgress() => collectiblesManager?.GetMemoriesProgress() ?? 0f;
+    public float GetOverallProgress() => collectiblesManager?.GetOverallProgress() ?? 0f;
+    
+    public bool AreAllPresentsCollected() => collectiblesManager?.AreAllPresentsCollected() ?? false;
+    public bool AreAllMemoriesCollected() => collectiblesManager?.AreAllMemoriesCollected() ?? false;
+    public bool AreAllCollectiblesCompleted() => collectiblesManager?.AreAllCollectiblesCompleted() ?? false;
+    
+    // ========== GETTERS - CHECKPOINT ==========
+    
+    public string GetCurrentCheckpoint() => checkpointManager?.GetCurrentCheckpoint() ?? "";
+    public bool HasActiveCheckpoint() => checkpointManager?.HasActiveCheckpoint() ?? false;
+    public Vector3 GetCurrentSpawnPosition() => checkpointManager?.GetCurrentSpawnPosition() ?? Vector3.zero;
+    public Quaternion GetCurrentSpawnRotation() => checkpointManager?.GetCurrentSpawnRotation() ?? Quaternion.identity;
     
     // ========== UTILITY METHODS ==========
     
-    public void RefreshSceneCounts()
+    /// <summary>
+    /// Refresh completo di tutti i sistemi
+    /// </summary>
+    public void RefreshScene()
     {
-        DebugLog("[SceneManager00] Aggiornamento conteggi scena");
-        CountMemoriesByTags();
+        DebugLog("[SceneManager00] Refresh completo scena");
         
-        if (GameManager.Instance != null && gameManagerReady)
+        if (collectiblesManager != null)
         {
-            SyncWithGameManager();
+            collectiblesManager.RefreshCollectiblesSystem();
         }
         
-        UpdateUI();
+        // Non c'è bisogno di refresh per il checkpoint manager
+        // ma puoi aggiungere logica se necessaria
     }
     
-    public void ResetSceneProgress()
+    /// <summary>
+    /// Reset completo della scena
+    /// </summary>
+    public void ResetScene()
     {
-        DebugLog("[SceneManager00] Reset progresso scena");
-        collectedMemories = 0;
-        collectedMemoryNames.Clear();
-        UpdateUI();
+        DebugLog("[SceneManager00] Reset completo scena");
+        
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.ResetCollectiblesProgress();
+        }
+        
+        if (checkpointManager != null)
+        {
+            checkpointManager.ResetCheckpointSystem();
+        }
+    }
+    
+    /// <summary>
+    /// Forza il salvataggio di tutti i dati
+    /// </summary>
+    public void ForceSaveAll()
+    {
+        DebugLog("[SceneManager00] Salvataggio forzato di tutti i dati");
+        
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.ForceSave();
+        }
+        
+        if (checkpointManager != null)
+        {
+            checkpointManager.SaveCheckpointData();
+        }
+    }
+    
+    /// <summary>
+    /// Verifica lo stato di tutti i manager
+    /// </summary>
+    public bool AreAllManagersReady()
+    {
+        return managersReady && checkpointManager != null && collectiblesManager != null;
+    }
+    
+    /// <summary>
+    /// Ottieni riferimenti ai manager (per accesso diretto se necessario)
+    /// </summary>
+    public CheckpointManager GetCheckpointManager() => checkpointManager;
+    public CollectiblesManager GetCollectiblesManager() => collectiblesManager;
+    
+    // ========== SETTINGS ==========
+    
+    /// <summary>
+    /// Configura le impostazioni di debug
+    /// </summary>
+    public void SetDebugMode(bool enabled)
+    {
+        enableDebugLogs = enabled;
+        
+        if (checkpointManager != null)
+        {
+            checkpointManager.SetDebugLogsEnabled(enabled);
+        }
+        
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.SetDebugLogsEnabled(enabled);
+        }
+        
+        DebugLog($"[SceneManager00] Debug mode {(enabled ? "abilitato" : "disabilitato")}");
+    }
+    
+    /// <summary>
+    /// Configura il salvataggio automatico
+    /// </summary>
+    public void SetAutoSave(bool enabled)
+    {
+        if (checkpointManager != null)
+        {
+            checkpointManager.SetAutoSaveEnabled(enabled);
+        }
+        
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.SetAutoSaveEnabled(enabled);
+        }
+        
+        DebugLog($"[SceneManager00] Auto-save {(enabled ? "abilitato" : "disabilitato")}");
     }
     
     // ========== DEBUG ==========
@@ -313,34 +458,107 @@ public class SceneManager00 : MonoBehaviour
         }
     }
     
-    public void SetDebugLogs(bool enabled)
-    {
-        enableDebugLogs = enabled;
-    }
-    
     [ContextMenu("Debug Current State")]
     public void DebugCurrentState()
     {
-        string memoriesList = string.Join(", ", collectedMemoryNames);
-        
         Debug.Log($"=== SceneManager00 State ===\n" +
-                  $"Memories: {collectedMemories}/{totalMemories} ({GetMemoriesCompletionPercentage():F1}%)\n" +
-                  $"Collected Memories: [{memoriesList}]\n" +
-                  $"All Complete: {AreAllMemoriesCollected()}\n" +
-                  $"GameManager Ready: {gameManagerReady}");
+                  $"Scene: '{sceneName}'\n" +
+                  $"Initialized: {sceneInitialized}\n" +
+                  $"Managers Ready: {managersReady}\n" +
+                  $"All Ready: {AreAllManagersReady()}\n" +
+                  $"CheckpointManager: {(checkpointManager != null ? "✅" : "❌")}\n" +
+                  $"CollectiblesManager: {(collectiblesManager != null ? "✅" : "❌")}\n" +
+                  $"Current Checkpoint: '{GetCurrentCheckpoint()}'\n" +
+                  $"Collectibles: {GetTotalCollected()}/{GetTotalAvailable()} ({GetOverallProgress() * 100:F1}%)\n" +
+                  $"Presents: {GetCollectedPresents()}/{GetTotalPresents()}\n" +
+                  $"Memories: {GetCollectedMemories()}/{GetTotalMemories()}");
     }
     
-    [ContextMenu("Refresh Scene Counts")]
-    public void DebugRefreshCounts()
+    [ContextMenu("Debug Manager States")]
+    public void DebugManagerStates()
     {
-        RefreshSceneCounts();
+        Debug.Log("=== Manager States ===");
+        
+        if (checkpointManager != null)
+        {
+            checkpointManager.DebugCurrentState();
+        }
+        else
+        {
+            Debug.Log("CheckpointManager: NULL");
+        }
+        
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.DebugCurrentState();
+        }
+        else
+        {
+            Debug.Log("CollectiblesManager: NULL");
+        }
+    }
+    
+    [ContextMenu("Test - Collect Random Present")]
+    public void DebugCollectRandomPresent()
+    {
+        string testName = "DebugPresent_" + System.DateTime.Now.Ticks;
+        NotifyPresentCollected(testName);
+    }
+    
+    [ContextMenu("Test - Collect Random Memory")]
+    public void DebugCollectRandomMemory()
+    {
+        string testName = "DebugMemory_" + System.DateTime.Now.Ticks;
+        NotifyMemoryCollected(testName);
+    }
+    
+    [ContextMenu("Test - Set Random Checkpoint")]
+    public void DebugSetRandomCheckpoint()
+    {
+        string testName = "DebugCheckpoint_" + System.DateTime.Now.Ticks;
+        NotifySceneCheckpoint(testName);
+    }
+    
+    [ContextMenu("Force Refresh Scene")]
+    public void DebugRefreshScene()
+    {
+        RefreshScene();
         DebugCurrentState();
     }
     
-    [ContextMenu("Reset Scene Progress")]
-    public void DebugResetProgress()
+    [ContextMenu("Force Reset Scene")]
+    public void DebugResetScene()
     {
-        ResetSceneProgress();
+        ResetScene();
+        DebugCurrentState();
+    }
+    
+    [ContextMenu("Force Save All")]
+    public void DebugForceSaveAll()
+    {
+        ForceSaveAll();
+    }
+    
+    [ContextMenu("Recreate Managers")]
+    public void DebugRecreateManagers()
+    {
+        // Distruggi manager esistenti se presenti
+        if (checkpointManager != null && checkpointManager.transform.parent == transform)
+        {
+            DestroyImmediate(checkpointManager.gameObject);
+            checkpointManager = null;
+        }
+        
+        if (collectiblesManager != null && collectiblesManager.transform.parent == transform)
+        {
+            DestroyImmediate(collectiblesManager.gameObject);
+            collectiblesManager = null;
+        }
+        
+        // Ricrea i manager
+        SetupManagers();
+        ConnectManagers();
+        
         DebugCurrentState();
     }
     
@@ -348,6 +566,26 @@ public class SceneManager00 : MonoBehaviour
     
     private void OnDestroy()
     {
+        // Salvataggio finale
+        if (developmentMode)
+        {
+            ForceSaveAll();
+        }
+        
+        // Disconnetti eventi per evitare errori
+        if (checkpointManager != null)
+        {
+            checkpointManager.OnCheckpointActivated.RemoveListener(OnCheckpointActivated);
+            checkpointManager.OnCheckpointCleared.RemoveListener(OnCheckpointCleared);
+        }
+        
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.OnAllCollectiblesCompleted.RemoveListener(OnAllCollectiblesCompleted);
+            collectiblesManager.OnPresentCollected.RemoveListener(OnPresentCollected);
+            collectiblesManager.OnMemoryCollected.RemoveListener(OnMemoryCollected);
+        }
+        
         if (Instance == this)
         {
             Instance = null;

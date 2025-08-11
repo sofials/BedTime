@@ -7,8 +7,8 @@ public class PlayerPowerUp : MonoBehaviour
     public PlayerUI playerUI;
 
     [Header("Power Settings")]
-    public float maxPower = 100f;
-    public float currentPower = 0f;
+    public float maxPower = 200f;
+    public float currentPower = 200f;
 
     public float CurrentPower => currentPower;
     public float MaxPower => maxPower;
@@ -62,9 +62,7 @@ public class PlayerPowerUp : MonoBehaviour
             }
         }
 
-        // AGGIUNTO: Inizializza con un po' di power per test
-        currentPower = 20f; // Valore di test
-        
+        currentPower = maxPower;
         Debug.Log("[PlayerPowerUp] Start: Imposto max power e aggiorno UI");
         Debug.Log($"[PlayerPowerUp] Valori iniziali - Current: {currentPower}, Max: {maxPower}");
         

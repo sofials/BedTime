@@ -30645,7 +30645,6 @@ GameObject:
   - component: {fileID: 7402629981581973632}
   - component: {fileID: 2431887308047467736}
   - component: {fileID: 328773549392567367}
-  - component: {fileID: 4652904574282377536}
   - component: {fileID: 4076577389577326063}
   - component: {fileID: 204497833794246603}
   m_Layer: 6
@@ -30664,7 +30663,7 @@ Transform:
   m_GameObject: {fileID: 4530120001442678975}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -14.6, y: 19.6, z: 69.96}
+  m_LocalPosition: {x: 127.83324, y: 254.35051, z: -1026.7008}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -30737,6 +30736,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 897191e6b35df6a48be2e5e6253442bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerCamera: {fileID: 0}
   playerUI: {fileID: 0}
   attackEffectUI: {fileID: 0}
   walkSpeed: 10
@@ -30847,23 +30847,6 @@ MonoBehaviour:
   SlowdownAbility: {fileID: 0}
   TeleportAbility: {fileID: 0}
   playerAnimator: {fileID: 1461636381478073155}
---- !u!114 &4652904574282377536
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4530120001442678975}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 42acc53f7c4abea499b3e75fb8716e07, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  totalMemories: 0
-  collectedMemories: 0
-  totalPresents: 0
-  collectedPresents: 0
-  enableDebugLogs: 1
 --- !u!81 &4076577389577326063
 AudioListener:
   m_ObjectHideFlags: 0
