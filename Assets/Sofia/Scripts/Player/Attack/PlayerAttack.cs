@@ -25,6 +25,11 @@ public class PlayerAttack : MonoBehaviour
     private bool hitConfirmedThisSwing = false;  // reset ad ogni swing
     private bool effectCurrentlyPlaying = false; // tracking dello stato dell'effetto
 
+    [Header("Audio")]
+    public AudioSource punchAudioSource;          // Audio per l'effetto generale del pugno
+    public AudioSource punchImpactAudioSource;   // Audio per l'impatto con nemici
+    private bool impactAudioPlaying = false;     // tracking dell'audio di impatto
+
     public bool isAttacking = false;
     [SerializeField] private float attackDuration = 0.3f;
     private float attackTimer = 0f;
@@ -77,6 +82,17 @@ public class PlayerAttack : MonoBehaviour
         {
             punchImpactFX.StopEffect();
             effectCurrentlyPlaying = false;
+        }
+
+        // Inizializza gli audio sources
+        if (punchAudioSource != null)
+        {
+            punchAudioSource.playOnAwake = false;
+        }
+        if (punchImpactAudioSource != null)
+        {
+            punchImpactAudioSource.playOnAwake = false;
+            impactAudioPlaying = false;
         }
 
         // Crea una curva di default se non è stata impostata
@@ -195,6 +211,13 @@ public class PlayerAttack : MonoBehaviour
             punchEffect.Play();
             Debug.Log("PunchEffect generale attivato");
         }
+
+        // Riproduce l'audio contemporaneamente all'effetto visivo
+        if (punchAudioSource != null)
+        {
+            punchAudioSource.Play();
+            Debug.Log("PunchAudio generale riprodotto");
+        }
     }
 
     // Chiamato dall'animazione per disattivare l'effetto generale del pugno
@@ -205,16 +228,32 @@ public class PlayerAttack : MonoBehaviour
             punchEffect.Stop();
             Debug.Log("PunchEffect generale disattivato");
         }
+
+        // Ferma l'audio se sta ancora riproducendo
+        if (punchAudioSource != null && punchAudioSource.isPlaying)
+        {
+            punchAudioSource.Stop();
+            Debug.Log("PunchAudio generale fermato");
+        }
     }
 
-    // Chiamato quando il pugno va a segno contro un nemico
+    // Chiamato quando il pugno va a segno contro un nemico (dall'animazione)
+    // Ora serve solo come backup se RegisterSuccessfulHit non è stato chiamato prima
     public void EnablePunchFX()
     {
         if (punchImpactFX != null && hitConfirmedThisSwing && !effectCurrentlyPlaying)
         {
             punchImpactFX.PlayEffect();
             effectCurrentlyPlaying = true;
-            Debug.Log("PunchFX attivato su impatto nemico");
+            Debug.Log("PunchFX attivato dall'animazione (backup)");
+
+            // Riproduce l'audio di impatto contemporaneamente
+            if (punchImpactAudioSource != null && !impactAudioPlaying)
+            {
+                punchImpactAudioSource.Play();
+                impactAudioPlaying = true;
+                Debug.Log("PunchImpactAudio riprodotto dall'animazione (backup)");
+            }
         }
     }
 
@@ -227,6 +266,17 @@ public class PlayerAttack : MonoBehaviour
             effectCurrentlyPlaying = false;
             Debug.Log("PunchFX disattivato");
         }
+
+        // Ferma l'audio di impatto
+        if (punchImpactAudioSource != null && impactAudioPlaying)
+        {
+            if (punchImpactAudioSource.isPlaying)
+            {
+                punchImpactAudioSource.Stop();
+            }
+            impactAudioPlaying = false;
+            Debug.Log("PunchImpactAudio fermato");
+        }
     }
 
     // Chiamato quando il colpo colpisce effettivamente un nemico
@@ -234,6 +284,21 @@ public class PlayerAttack : MonoBehaviour
     {
         hitConfirmedThisSwing = true;
         Debug.Log("Hit confermato per questo swing");
+
+        // Riproduce immediatamente l'effetto e l'audio di impatto
+        if (punchImpactFX != null && !effectCurrentlyPlaying)
+        {
+            punchImpactFX.PlayEffect();
+            effectCurrentlyPlaying = true;
+            Debug.Log("PunchFX attivato immediatamente su impatto nemico");
+        }
+
+        if (punchImpactAudioSource != null && !impactAudioPlaying)
+        {
+            punchImpactAudioSource.Play();
+            impactAudioPlaying = true;
+            Debug.Log("PunchImpactAudio riprodotto immediatamente");
+        }
     }
 
     // Metodo di sicurezza per forzare lo stop dell'effetto
@@ -244,6 +309,17 @@ public class PlayerAttack : MonoBehaviour
             punchImpactFX.StopEffect();
             effectCurrentlyPlaying = false;
             Debug.Log("PunchEffect forzatamente fermato");
+        }
+
+        // Forza lo stop anche dell'audio di impatto
+        if (punchImpactAudioSource != null && impactAudioPlaying)
+        {
+            if (punchImpactAudioSource.isPlaying)
+            {
+                punchImpactAudioSource.Stop();
+            }
+            impactAudioPlaying = false;
+            Debug.Log("PunchImpactAudio forzatamente fermato");
         }
     }
 
@@ -263,5 +339,18 @@ public class PlayerAttack : MonoBehaviour
     public void SetAttackAdvanceDuration(float duration)
     {
         attackAdvanceDuration = duration;
+    }
+
+    // Metodi aggiuntivi per controllo audio (opzionali)
+    public void SetPunchAudioVolume(float volume)
+    {
+        if (punchAudioSource != null)
+            punchAudioSource.volume = volume;
+    }
+
+    public void SetPunchImpactAudioVolume(float volume)
+    {
+        if (punchImpactAudioSource != null)
+            punchImpactAudioSource.volume = volume;
     }
 }

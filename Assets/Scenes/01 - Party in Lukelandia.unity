@@ -155100,11 +155100,6 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
     vectorLabel1_3: W
---- !u!1 &1767861725 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2005096378865185867, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
-  m_PrefabInstance: {fileID: 1691136967}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1776963184
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -173448,7 +173443,7 @@ PrefabInstance:
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: startMenu
       value: 
-      objectReference: {fileID: 1767861725}
+      objectReference: {fileID: 0}
     - target: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: playerAttack
       value: 
@@ -180594,11 +180589,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4553202538827790048, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: MaxDistance
-      value: 100
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 4553202538827790048, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: MinDistance
-      value: 2
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 4553202538827790048, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: rolloffMode
@@ -180658,7 +180653,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8511670539779343013, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -185045,15 +185040,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2249414971996730418, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3014432630430465869, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_Volume
       value: 0.897
       objectReference: {fileID: 0}
     - target: {fileID: 3014432630430465869, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
+      propertyPath: MaxDistance
+      value: 40
+      objectReference: {fileID: 0}
+    - target: {fileID: 3014432630430465869, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: MinDistance
-      value: 2
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 3014432630430465869, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: DopplerLevel
@@ -195986,7 +195985,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 5258341627194361272, guid: ba1b6bb6aae966c49a86627d436bc284, type: 3}
       propertyPath: MaxDistance
-      value: 100
+      value: 40
+      objectReference: {fileID: 0}
+    - target: {fileID: 5258341627194361272, guid: ba1b6bb6aae966c49a86627d436bc284, type: 3}
+      propertyPath: MinDistance
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 6009859572375934209, guid: ba1b6bb6aae966c49a86627d436bc284, type: 3}
       propertyPath: targetCamera
@@ -204864,11 +204867,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5983268448239429794, guid: 4f9dda076d15a014a9c155ab4b1da71c, type: 3}
       propertyPath: MaxDistance
-      value: 100
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 5983268448239429794, guid: 4f9dda076d15a014a9c155ab4b1da71c, type: 3}
       propertyPath: MinDistance
-      value: 2
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5983268448239429794, guid: 4f9dda076d15a014a9c155ab4b1da71c, type: 3}
       propertyPath: DopplerLevel
@@ -204884,7 +204887,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6931805040274437374, guid: 4f9dda076d15a014a9c155ab4b1da71c, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -47,6 +47,23 @@ public class ThirdPersonController : MonoBehaviour
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
 
+    // NUOVO: SISTEMA AUDIO PASSI
+    [Header("Footstep Audio")]
+    [SerializeField] private AudioSource footstepAudioSource;
+    [SerializeField] private AudioClip[] walkFootsteps;
+    [SerializeField] private AudioClip[] runFootsteps;
+    [SerializeField] private AudioClip[] sprintFootsteps;
+    [SerializeField] private float walkStepInterval = 0.5f;
+    [SerializeField] private float runStepInterval = 0.35f;
+    [SerializeField] private float sprintStepInterval = 0.25f;
+    [SerializeField] private float footstepVolumeWalk = 0.5f;
+    [SerializeField] private float footstepVolumeRun = 0.5f;
+    [SerializeField] private float footstepVolumeSprint = 0.5f;
+    [SerializeField] private float pitchVariation = 0.1f;
+    
+    private float footstepTimer = 0f;
+    private bool wasMovingLastFrame = false;
+
     private CharacterController controller;
     private Animator _animator;
 
@@ -101,6 +118,9 @@ public class ThirdPersonController : MonoBehaviour
                 playerVelocity = Vector3.zero;
                 attackVelocity = Vector3.zero; // Reset anche attack velocity
                 _animator.SetFloat(SpeedHash, 0f);
+                
+                // NUOVO: Stop audio passi quando movimento è bloccato
+                StopFootstepAudio();
             }
         }
     }
@@ -143,14 +163,14 @@ public class ThirdPersonController : MonoBehaviour
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
     
     // SISTEMA INPUT IMMEDIATO
-  private void OnJumpStarted(InputAction.CallbackContext ctx)
-{
-    jumpBufferCounter = jumpBufferTime;
-    isHoldingJump = true;
-    
-    // NON provare a saltare qui, lascia che sia Update() a gestirlo
-    Debug.Log($"INPUT SALTO RICEVUTO - Buffer: {jumpBufferCounter}");
-}
+    private void OnJumpStarted(InputAction.CallbackContext ctx)
+    {
+        jumpBufferCounter = jumpBufferTime;
+        isHoldingJump = true;
+        
+        // NON provare a saltare qui, lascia che sia Update() a gestirlo
+        Debug.Log($"INPUT SALTO RICEVUTO - Buffer: {jumpBufferCounter}");
+    }
     private void OnJumpCanceled(InputAction.CallbackContext ctx)
     {
         isHoldingJump = false;
@@ -165,6 +185,33 @@ public class ThirdPersonController : MonoBehaviour
         playerUI.UpdateHealth(currentHealth);
 
         if (sprintFX) sprintFX.StopEffect();
+        
+        // NUOVO: Setup AudioSource se non assegnato
+        SetupFootstepAudio();
+    }
+
+    // NUOVO: Setup del sistema audio passi
+    private void SetupFootstepAudio()
+    {
+        if (footstepAudioSource == null)
+        {
+            // Cerca un AudioSource esistente o creane uno nuovo
+            footstepAudioSource = GetComponent<AudioSource>();
+            if (footstepAudioSource == null)
+            {
+                GameObject audioGO = new GameObject("FootstepAudio");
+                audioGO.transform.SetParent(transform);
+                audioGO.transform.localPosition = Vector3.zero;
+                footstepAudioSource = audioGO.AddComponent<AudioSource>();
+            }
+        }
+        
+        // Configura l'AudioSource per i passi
+        footstepAudioSource.playOnAwake = false;
+        footstepAudioSource.loop = false;
+        footstepAudioSource.spatialBlend = 0.7f; // Audio 3D parziale
+        footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
+        footstepAudioSource.maxDistance = 15f;
     }
 
     private void OnEnable() => controls.Gameplay.Enable();
@@ -173,48 +220,144 @@ public class ThirdPersonController : MonoBehaviour
         controls.Gameplay.Disable();
         if (sprintFX) sprintFX.StopEffect();
         sprintFXActive = false;
+        
+        // NUOVO: Stop audio quando disabilitato
+        StopFootstepAudio();
     }
 
     private void Update()
-{
-    UpdatePlatformVelocity();
-    HandleMovement();
-    UpdateJumpTimers();
+    {
+        UpdatePlatformVelocity();
+        HandleMovement();
+        UpdateJumpTimers();
+        
+        // GESTISCI SALTO PRIMA DELLA FISICA - NUOVO ORDINE
+        HandleJumpInput();
+        HandleJump();
+
+        // GESTISCI ATTACK VELOCITY DECAY
+        HandleAttackVelocity();
+        
+        // NUOVO: Gestisci audio passi
+        HandleFootstepAudio();
+
+        if (currentPlatform != null && controller.enabled)
+        {
+            controller.Move(platformDeltaPos);
+            if (platformDeltaRot != Quaternion.identity)
+                transform.rotation = platformDeltaRot * transform.rotation;
+
+            if (controller.isGrounded)
+                velocity.y = Mathf.Max(platformDeltaPos.y, velocity.y);
+        }
+
+        if (controller.enabled)
+        {
+            // APPLICA ANCHE ATTACK VELOCITY AL MOVIMENTO FINALE
+            tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x, 
+                           velocity.y, 
+                           playerVelocity.z + externalPush.z + attackVelocity.z);
+            controller.Move(tempVector3 * Time.deltaTime);
+        }
+
+        externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
+
+        UpdateGroundedState();
+        HandleFalling();
+        HandleAirControl();
+        HandleSprintFX();
+    }
+
+    // NUOVO: Sistema audio passi
+    private void HandleFootstepAudio()
+    {
+        bool isMoving = playerVelocity.sqrMagnitude > 0.1f;
+        bool isGrounded = controller.isGrounded;
+        bool canPlayFootsteps = isMoving && isGrounded && !IsMovementLocked;
+        
+        if (canPlayFootsteps)
+        {
+            // Aggiorna timer
+            footstepTimer += Time.deltaTime;
+            
+            // Determina intervallo e clip basati sulla velocità
+            float currentInterval = GetCurrentStepInterval();
+            
+            // Riproduci passo se è il momento
+            if (footstepTimer >= currentInterval)
+            {
+                PlayFootstepSound();
+                footstepTimer = 0f;
+            }
+            
+            wasMovingLastFrame = true;
+        }
+        else
+        {
+            // Reset timer quando ci fermiamo
+            if (wasMovingLastFrame)
+            {
+                footstepTimer = 0f;
+                wasMovingLastFrame = false;
+            }
+        }
+    }
     
-    // GESTISCI SALTO PRIMA DELLA FISICA - NUOVO ORDINE
-    HandleJumpInput();
-    HandleJump();
-
-    // GESTISCI ATTACK VELOCITY DECAY
-    HandleAttackVelocity();
-
-    if (currentPlatform != null && controller.enabled)
+    private float GetCurrentStepInterval()
     {
-        controller.Move(platformDeltaPos);
-        if (platformDeltaRot != Quaternion.identity)
-            transform.rotation = platformDeltaRot * transform.rotation;
-
-        if (controller.isGrounded)
-            velocity.y = Mathf.Max(platformDeltaPos.y, velocity.y);
+        if (isSprinting)
+            return sprintStepInterval;
+        else if (smoothInputMagnitude > 0.5f)
+            return runStepInterval;
+        else
+            return walkStepInterval;
     }
-
-    if (controller.enabled)
+    
+    private void PlayFootstepSound()
     {
-        // APPLICA ANCHE ATTACK VELOCITY AL MOVIMENTO FINALE
-        tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x, 
-                       velocity.y, 
-                       playerVelocity.z + externalPush.z + attackVelocity.z);
-        controller.Move(tempVector3 * Time.deltaTime);
+        if (footstepAudioSource == null) return;
+        
+        AudioClip[] currentClips;
+        float currentVolume;
+        
+        // Scegli clip e volume basati sulla velocità
+        if (isSprinting)
+        {
+            currentClips = sprintFootsteps;
+            currentVolume = footstepVolumeSprint;
+        }
+        else if (smoothInputMagnitude > 0.5f)
+        {
+            currentClips = runFootsteps;
+            currentVolume = footstepVolumeRun;
+        }
+        else
+        {
+            currentClips = walkFootsteps;
+            currentVolume = footstepVolumeWalk;
+        }
+        
+        // Riproduci clip casuale se disponibile
+        if (currentClips != null && currentClips.Length > 0)
+        {
+            AudioClip clipToPlay = currentClips[Random.Range(0, currentClips.Length)];
+            
+            // Applica variazione di pitch
+            footstepAudioSource.pitch = 1f + Random.Range(-pitchVariation, pitchVariation);
+            footstepAudioSource.volume = currentVolume;
+            footstepAudioSource.clip = clipToPlay;
+            footstepAudioSource.Play();
+        }
     }
-
-    externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
-
-    UpdateGroundedState();
-    HandleFalling();
-    HandleAirControl();
-    HandleSprintFX();
-}
-
+    
+    private void StopFootstepAudio()
+    {
+        if (footstepAudioSource != null && footstepAudioSource.isPlaying)
+        {
+            footstepAudioSource.Stop();
+        }
+        footstepTimer = 0f;
+    }
 
     // NUOVO METODO: Gestisce il decadimento della attack velocity
     private void HandleAttackVelocity()
@@ -228,17 +371,17 @@ public class ThirdPersonController : MonoBehaviour
                 attackVelocity = Vector3.zero;
         }
     }
-private void HandleJumpInput()
-{
-    if (jumpBufferCounter > 0 && !IsMovementLocked)
+
+    private void HandleJumpInput()
     {
-        if (TryJump())
+        if (jumpBufferCounter > 0 && !IsMovementLocked)
         {
-            jumpBufferCounter = 0; // Consuma buffer solo se il salto è andato a buon fine
+            if (TryJump())
+            {
+                jumpBufferCounter = 0; // Consuma buffer solo se il salto è andato a buon fine
+            }
         }
     }
-}
-
 
     // OTTIMIZZAZIONE: Sistema di grounding migliorato
     private void UpdateGroundedState()
@@ -294,35 +437,34 @@ private void HandleJumpInput()
     }
 
     // METODO UNIFICATO PER TENTARE IL SALTO
-   private bool TryJump()
-{
-    bool grounded = IsGroundedAccurate(); // Usa controllo più accurato
-    bool canJump = false;
-    bool isFirstJump = false;
-
-    // PRIMO SALTO: da terra o coyote time
-    if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
+    private bool TryJump()
     {
-        canJump = true;
-        isFirstJump = true;
-    }
-    // SALTI MULTIPLI: in aria
-    else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
-    {
-        canJump = true;
-        isFirstJump = false;
-    }
+        bool grounded = IsGroundedAccurate(); // Usa controllo più accurato
+        bool canJump = false;
+        bool isFirstJump = false;
 
-    if (canJump)
-    {
-        ExecuteJump(isFirstJump);
-        Debug.Log($"SALTO ESEGUITO! Primo: {isFirstJump}, Count: {jumpCount}");
-        return true;
-    }
-    
-    return false;
-}
+        // PRIMO SALTO: da terra o coyote time
+        if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
+        {
+            canJump = true;
+            isFirstJump = true;
+        }
+        // SALTI MULTIPLI: in aria
+        else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
+        {
+            canJump = true;
+            isFirstJump = false;
+        }
 
+        if (canJump)
+        {
+            ExecuteJump(isFirstJump);
+            Debug.Log($"SALTO ESEGUITO! Primo: {isFirstJump}, Count: {jumpCount}");
+            return true;
+        }
+        
+        return false;
+    }
 
     // SISTEMA DI SALTO RIDOTTO (solo gravità)
     private void HandleJump()
@@ -358,19 +500,24 @@ private void HandleJumpInput()
         coyoteTimeCounter = 0;
         currentPlatform = null;
         fallingTimer = 0f;
+        
+        // NUOVO: Stop audio passi durante il salto
+        StopFootstepAudio();
     }
-   private bool IsGroundedAccurate()
-{
-    // Combina il controllo del CharacterController con un raycast
-    if (controller.isGrounded) return true;
-    
-    // Raycast aggiuntivo per casi edge
-    tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
-    int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.15f);
-    
-    return hitCount > 0;
-}
-private void UpdateJumpAnimations()
+
+    private bool IsGroundedAccurate()
+    {
+        // Combina il controllo del CharacterController con un raycast
+        if (controller.isGrounded) return true;
+        
+        // Raycast aggiuntivo per casi edge
+        tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
+        int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.15f);
+        
+        return hitCount > 0;
+    }
+
+    private void UpdateJumpAnimations()
     {
         // Mantieni solo l'aggiornamento della velocità verticale
         _animator.SetFloat(VerticalVelocityHash, velocity.y);
@@ -576,6 +723,9 @@ private void UpdateJumpAnimations()
 
         if (sprintFX) sprintFX.StopEffect();
         sprintFXActive = false;
+        
+        // NUOVO: Stop audio passi al respawn
+        StopFootstepAudio();
 
         IsMovementLocked = false;
         
