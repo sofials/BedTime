@@ -41,7 +41,7 @@ public class PlayerAttack : MonoBehaviour
     public int AttackId => attackId;
 
     [Header("Attack Movement")]
-    [SerializeField] private float attackAdvanceDistance = 2f; // Distanza da percorrere durante l'attacco
+    [SerializeField] private float attackAdvanceDistance = 1f; // Distanza da percorrere durante l'attacco
     [SerializeField] private AnimationCurve attackAdvanceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1); // Curva per il movimento
     [SerializeField] private float attackAdvanceDuration = 0.4f; // Durata del movimento di avanzamento
     

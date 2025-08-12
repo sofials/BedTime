@@ -2,10 +2,14 @@
 using UnityEngine.InputSystem;
 using CartoonFX;
 using System.Collections;
+using Unity.Cinemachine;
 
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
+    [Header("Camera Reset")]
+    public CinemachineCamera playerCamera;
+  
     [Header("UI Effect")]
     public PlayerUI playerUI;
     public UIEffectHandler attackEffectUI;
@@ -42,10 +46,11 @@ public class ThirdPersonController : MonoBehaviour
     public float airRotationSmoothTime = 0.3f;
 
     [Header("Player Stats")]
-    public float maxHealth = 100f;
+    public float maxHealth = 300f;
     public float currentHealth;
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
+     [Header("Health Protection")]
+    [SerializeField] private bool protectMaxHealth = true; // Flag per proteggere maxHealth
+    [SerializeField] private float designatedMaxHealth = 300f; // Valore protetto
 
     // NUOVO: SISTEMA AUDIO PASSI
     [Header("Footstep Audio")]
@@ -124,7 +129,27 @@ public class ThirdPersonController : MonoBehaviour
             }
         }
     }
+    
+   public float MaxHealth 
+{ 
+    get => protectMaxHealth ? designatedMaxHealth : maxHealth;
+    set 
+    {
+        if (protectMaxHealth)
+        {
+            // Silenzioso: blocca senza log eccessivi
+            return;
+        }
+        maxHealth = value;
+        designatedMaxHealth = value;
+    }
+}
 
+public float CurrentHealth 
+{ 
+    get => currentHealth; 
+    set => currentHealth = value;
+}
     // OTTIMIZZAZIONE: Cache per raycast
     private RaycastHit[] raycastHits = new RaycastHit[4];
 
@@ -180,10 +205,18 @@ public class ThirdPersonController : MonoBehaviour
     {
         _animator = GetComponentInChildren<Animator>();
         controller = GetComponent<CharacterController>();
-
-        currentHealth = maxHealth;
+         // Inizializzazione salute semplificata
+    if (protectMaxHealth && maxHealth != designatedMaxHealth)
+        maxHealth = designatedMaxHealth;
+    else if (!protectMaxHealth)
+        designatedMaxHealth = maxHealth;
+        
+    currentHealth = MaxHealth;
+    
+    if (playerUI != null)
         playerUI.UpdateHealth(currentHealth);
-
+       
+        
         if (sprintFX) sprintFX.StopEffect();
         
         // NUOVO: Setup AudioSource se non assegnato
@@ -229,16 +262,11 @@ public class ThirdPersonController : MonoBehaviour
     {
         UpdatePlatformVelocity();
         HandleMovement();
+
         UpdateJumpTimers();
-        
-        // GESTISCI SALTO PRIMA DELLA FISICA - NUOVO ORDINE
         HandleJumpInput();
         HandleJump();
-
-        // GESTISCI ATTACK VELOCITY DECAY
         HandleAttackVelocity();
-        
-        // NUOVO: Gestisci audio passi
         HandleFootstepAudio();
 
         if (currentPlatform != null && controller.enabled)
@@ -254,8 +282,8 @@ public class ThirdPersonController : MonoBehaviour
         if (controller.enabled)
         {
             // APPLICA ANCHE ATTACK VELOCITY AL MOVIMENTO FINALE
-            tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x, 
-                           velocity.y, 
+            tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x,
+                           velocity.y,
                            playerVelocity.z + externalPush.z + attackVelocity.z);
             controller.Move(tempVector3 * Time.deltaTime);
         }
@@ -691,89 +719,91 @@ public class ThirdPersonController : MonoBehaviour
 
     // ========== RESPAWN AGGIORNATO PER SCENEMANAGER ==========
     
-    public void Respawn()
+   public void Respawn()
+{
+    controller.enabled = false;
+
+    Transform spawnPoint = GetRespawnPoint();
+    transform.position = spawnPoint.position;
+    transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+
+    velocity = Vector3.zero;
+    attackVelocity = Vector3.zero;
+    
+    // RESET CAMERA CINEMACHINE
+    if (playerCamera != null)
     {
-        controller.enabled = false;
-
-        // NUOVO: Ottieni spawn point tramite GameManager (che ora gestisce i checkpoint per scena)
-        Transform spawnPoint = GetRespawnPoint();
-
-        transform.position = spawnPoint.position;
-        transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-
-        velocity = Vector3.zero;
-        attackVelocity = Vector3.zero; // Reset attack velocity al respawn
-        controller.enabled = true;
-
-        // OTTIMIZZAZIONE: Usa hash precalcolati
-        _animator.SetBool(JumpHash, false);
-        _animator.SetBool(DoubleJumpHash, false);
-        _animator.SetBool(IsFallingHash, false);
-        _animator.SetBool(IsGroundedHash, true);
-
-        // Reset stati
-        jumpCount = 0;
-        coyoteTimeCounter = 0f;
-        jumpBufferCounter = 0f;
-        fallingTimer = 0f;
+        // Resetta lo stato della camera usando il metodo ufficiale di Cinemachine
+        CinemachineCore.ResetCameraState();
         
-        wasGroundedLastFrame = true;
+        Debug.Log("[ThirdPersonController] Camera resettata usando CinemachineCore.ResetCameraState()");
+    }
+    else
+    {
+        Debug.LogWarning("[ThirdPersonController] playerCamera non assegnata - impossibile resettare camera");
+    }
 
-        StopAllCoroutines();
+    controller.enabled = true;
 
-        if (sprintFX) sprintFX.StopEffect();
-        sprintFXActive = false;
-        
-        // NUOVO: Stop audio passi al respawn
-        StopFootstepAudio();
+    _animator.SetBool(JumpHash, false);
+    _animator.SetBool(DoubleJumpHash, false);
+    _animator.SetBool(IsFallingHash, false);
+    _animator.SetBool(IsGroundedHash, true);
 
-        IsMovementLocked = false;
-        
-        Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
+    jumpCount = 0;
+    coyoteTimeCounter = 0f;
+    jumpBufferCounter = 0f;
+    fallingTimer = 0f;
+    wasGroundedLastFrame = true;
+
+    StopAllCoroutines();
+    if (sprintFX) sprintFX.StopEffect();
+    sprintFXActive = false;
+    StopFootstepAudio();
+
+    IsMovementLocked = false;
+
+    Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
+}
+
+private Transform GetRespawnPoint()
+{
+    // 🎯 SOLO CHECKPOINTMANAGER - Sistema unificato
+    CheckpointManager checkpointManager = CheckpointManager.Instance;
+    if (checkpointManager == null)
+    {
+        checkpointManager = FindFirstObjectByType<CheckpointManager>();
     }
     
-    /// <summary>
-    /// Ottieni il punto di spawn appropriato basato sulla scena corrente
-    /// </summary>
-    private Transform GetRespawnPoint()
+    if (checkpointManager != null)
     {
-        if (GameManager.Instance == null)
-        {
-            Debug.LogWarning("[ThirdPersonController] GameManager non trovato, uso transform corrente");
-            return transform;
-        }
-
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        Vector3 spawnPos = checkpointManager.GetCurrentSpawnPosition();
+        Quaternion spawnRot = checkpointManager.GetCurrentSpawnRotation();
         
-        // Controlla se c'è un checkpoint salvato per questa scena
-        if (GameManager.Instance.HasSceneCheckpoint(currentScene))
+        // Crea un GameObject temporaneo per la posizione
+        GameObject tempSpawn = new GameObject("TempRespawnPoint");
+        tempSpawn.transform.position = spawnPos;
+        tempSpawn.transform.rotation = spawnRot;
+        
+        if (checkpointManager.HasActiveCheckpoint())
         {
-            string checkpointName = GameManager.Instance.GetSceneCheckpoint(currentScene);
-            
-            // Cerca il checkpoint nella scena
-            GameObject checkpointObj = GameObject.Find(checkpointName);
-            if (checkpointObj != null)
-            {
-                Debug.Log($"[ThirdPersonController] Respawn al checkpoint: {checkpointName}");
-                return checkpointObj.transform;
-            }
-            else
-            {
-                Debug.LogWarning($"[ThirdPersonController] Checkpoint '{checkpointName}' non trovato nella scena, uso spawn di default");
-            }
+            Debug.Log($"[ThirdPersonController] ✅ Respawn al checkpoint: '{checkpointManager.GetCurrentCheckpoint()}' - {spawnPos}");
+        }
+        else
+        {
+            Debug.Log($"[ThirdPersonController] ✅ Respawn al default spawn point: {spawnPos}");
         }
         
-        // Fallback al punto di spawn di default
-        if (GameManager.Instance.levelStartPoint != null)
-        {
-            Debug.Log($"[ThirdPersonController] Respawn al punto di partenza del livello");
-            return GameManager.Instance.levelStartPoint;
-        }
-        
-        Debug.LogWarning("[ThirdPersonController] Nessun punto di spawn trovato, uso posizione corrente");
-        return transform;
+        return tempSpawn.transform;
     }
-
+    
+    // ❌ ERRORE: CheckpointManager mancante
+    Debug.LogError("[ThirdPersonController] ❌ CHECKPOINTMANAGER NON TROVATO!");
+    Debug.LogError("Devi aggiungere un CheckpointManager alla scena per il sistema di respawn!");
+    Debug.LogWarning("Usando posizione corrente come fallback...");
+    
+    return transform;
+}
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
         // OTTIMIZZAZIONE: Cache dei tag per evitare string comparisons ripetute
@@ -796,62 +826,69 @@ public class ThirdPersonController : MonoBehaviour
 
     public void ApplyExternalPush(Vector3 force) => externalPush += force;
 
-    public void Heal(float amount)
+  public void Heal(float amount)
+{
+    currentHealth = Mathf.Min(currentHealth + amount, MaxHealth);
+    UpdateHealthUI();
+}
+
+private void UpdateHealthUI()
+{
+    if (playerUI == null)
     {
-        currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
-        playerUI.UpdateHealth(currentHealth);
+        playerUI = PlayerUI.Instance ?? FindFirstObjectByType<PlayerUI>();
+        if (playerUI == null) return;
     }
+
+    playerUI.UpdateHealth(currentHealth);
+}
 
     // OTTIMIZZAZIONE: Sistema di danno ottimizzato
     private float lastDamageTime = 0f;
     private const float DAMAGE_COOLDOWN = 0.1f; // Previene spam di danni
 
-    public void TakeDamage(float amount)
+   public void TakeDamage(float amount)
+{
+    if (Time.time - lastDamageTime < DAMAGE_COOLDOWN) return;
+    lastDamageTime = Time.time;
+    
+    if (currentHealth <= 0) return;
+
+    float oldHealth = currentHealth;
+    currentHealth = Mathf.Max(0, currentHealth - amount);
+    
+    UpdateHealthUI();
+    
+    if (attackEffectUI != null)
+        attackEffectUI.PulseIcon();
+
+    if (currentHealth <= 0 && oldHealth > 0)
     {
-        // OTTIMIZZAZIONE: Cooldown per evitare spam di danni
-        if (Time.time - lastDamageTime < DAMAGE_COOLDOWN) return;
-        lastDamageTime = Time.time;
-        
-        if (currentHealth <= 0) return;
+        IsMovementLocked = true;
+        _animator.SetFloat(SpeedHash, 0f);
 
-        float oldHealth = currentHealth;
-        currentHealth -= amount;
-        currentHealth = Mathf.Max(0, currentHealth);
-        playerUI.UpdateHealth(currentHealth);
-        attackEffectUI?.PulseIcon();
-
-        if (currentHealth <= 0 && oldHealth > 0)
+        if (ShouldPlayHitReal())
+            _animator.SetTrigger(HitRealHash);
+        else
         {
-            IsMovementLocked = true;
-            _animator.SetFloat(SpeedHash, 0f);
-
-            if (ShouldPlayHitReal())
-            {
-                _animator.SetTrigger(HitRealHash);
-            }
-            else
-            {
-                _animator.SetTrigger(HitHash);
-                StartCoroutine(QuickRespawn());
-            }
-        }
-        else if (currentHealth > 0)
-        {
-            // OTTIMIZZAZIONE: Cache del componente PlayerAttack
-            PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
-            bool isSwinging = playerAttack != null && playerAttack.isAttacking;
-            if (!isSwinging)
-            {
-                _animator.SetTrigger(HitHash);
-            }
+            _animator.SetTrigger(HitHash);
+            StartCoroutine(QuickRespawn());
         }
     }
+    else if (currentHealth > 0)
+    {
+        PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
+        bool isSwinging = playerAttack != null && playerAttack.isAttacking;
+        if (!isSwinging)
+            _animator.SetTrigger(HitHash);
+    }
+}
 
     private IEnumerator QuickRespawn()
     {
         yield return new WaitForSeconds(0.1f);
         Respawn();
-        currentHealth = maxHealth;
+        currentHealth = MaxHealth;
         playerUI.UpdateHealth(currentHealth);
         IsMovementLocked = false;
     }
@@ -866,7 +903,7 @@ public class ThirdPersonController : MonoBehaviour
     public void OnHitRealEnd()
     {
         Respawn();
-        currentHealth = maxHealth;
+        currentHealth = MaxHealth;
         playerUI.UpdateHealth(currentHealth);
         IsMovementLocked = false;
     }
@@ -900,7 +937,6 @@ public class ThirdPersonController : MonoBehaviour
         }
         return cachedGroundNormal;
     }
-
     // OTTIMIZZAZIONE: Cleanup per ridurre GC
     private void OnDestroy()
     {

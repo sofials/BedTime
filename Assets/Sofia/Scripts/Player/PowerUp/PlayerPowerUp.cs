@@ -7,8 +7,8 @@ public class PlayerPowerUp : MonoBehaviour
     public PlayerUI playerUI;
 
     [Header("Power Settings")]
-    public float maxPower = 100f;
-    public float currentPower = 0f;
+    public float maxPower = 200f;
+    public float currentPower = 200f;
 
     public float CurrentPower => currentPower;
     public float MaxPower => maxPower;
@@ -42,7 +42,7 @@ public class PlayerPowerUp : MonoBehaviour
     {
         if (powerUI != null)
         {
-            powerUI.SetActive(true); // CAMBIATO: Attiva la UI del power
+            powerUI.SetActive(true);
         }
 
         // VERIFICA che playerUI sia assegnata
@@ -62,9 +62,7 @@ public class PlayerPowerUp : MonoBehaviour
             }
         }
 
-        // AGGIUNTO: Inizializza con un po' di power per test
-        currentPower = 20f; // Valore di test
-        
+        currentPower = maxPower;
         Debug.Log("[PlayerPowerUp] Start: Imposto max power e aggiorno UI");
         Debug.Log($"[PlayerPowerUp] Valori iniziali - Current: {currentPower}, Max: {maxPower}");
         
@@ -72,15 +70,55 @@ public class PlayerPowerUp : MonoBehaviour
         StartCoroutine(DelayedUIUpdate());
     }
 
+    // 🔧 FIX: DelayedUIUpdate corretto - Non modifica più maxHealth!
     private System.Collections.IEnumerator DelayedUIUpdate()
     {
         yield return new WaitForEndOfFrame();
         
         if (playerUI != null)
         {
-            playerUI.SetMaxValues(100f, maxPower);
+            // ❌ VECCHIO CODICE CHE CAUSAVA IL PROBLEMA:
+            // playerUI.SetMaxValues(100f, maxPower); // Questo impostava maxHealth a 100!
+            
+            // ✅ NUOVO CODICE SICURO:
+            Debug.Log($"[PlayerPowerUp] 🔧 Aggiornamento UI sicuro - NON modifico maxHealth");
+            
+            // Opzione 1: Usa il valore corretto di maxHealth dal playerController
+            if (playerUI.playerController != null)
+            {
+                float correctMaxHealth = playerUI.playerController.MaxHealth;
+                Debug.Log($"[PlayerPowerUp] Usando maxHealth corretto: {correctMaxHealth}");
+                playerUI.SetMaxValues(correctMaxHealth, maxPower);
+            }
+            else
+            {
+                // Opzione 2: Aggiorna solo il power senza toccare la salute
+                Debug.LogWarning("[PlayerPowerUp] PlayerController non trovato, aggiorno solo power");
+                UpdatePowerUIOnly();
+            }
+            
+            // Aggiorna il power corrente
             playerUI.UpdatePower(currentPower);
-            Debug.Log($"[PlayerPowerUp] UI aggiornata con power: {currentPower}/{maxPower}");
+            Debug.Log($"[PlayerPowerUp] ✅ UI aggiornata con power: {currentPower}/{maxPower}");
+        }
+        else
+        {
+            Debug.LogError("[PlayerPowerUp] ❌ PlayerUI non trovato durante DelayedUIUpdate!");
+        }
+    }
+
+    // 🆕 NUOVO METODO: Aggiorna solo la UI del power senza toccare maxHealth
+    private void UpdatePowerUIOnly()
+    {
+        if (playerUI != null && playerUI.playerPowerUp != null)
+        {
+            // Aggiorna direttamente il maxPower nel playerPowerUp referenziato da playerUI
+            playerUI.playerPowerUp.maxPower = maxPower;
+            Debug.Log($"[PlayerPowerUp] 🔧 Aggiornato solo maxPower: {maxPower}");
+        }
+        else
+        {
+            Debug.LogWarning("[PlayerPowerUp] ⚠️ Impossibile aggiornare power - riferimenti mancanti");
         }
     }
 
@@ -145,21 +183,21 @@ public class PlayerPowerUp : MonoBehaviour
         UpdateUI();
     }
 
-    // NUOVO METODO: Centralizza l'aggiornamento dell'UI
+    // METODO SICURO: Centralizza l'aggiornamento dell'UI
     private void UpdateUI()
     {
         if (playerUI != null)
         {
-            Debug.Log($"[PlayerPowerUp] Aggiornando UI con power: {currentPower}/{maxPower}");
+            Debug.Log($"[PlayerPowerUp] 🔄 Aggiornando UI con power: {currentPower}/{maxPower}");
             playerUI.UpdatePower(currentPower);
         }
         else
         {
-            Debug.LogError("[PlayerPowerUp] playerUI è null!");
+            Debug.LogError("[PlayerPowerUp] ❌ playerUI è null!");
         }
     }
 
-    // AGGIUNTO: Metodo per test manuale
+    // Test methods
     [ContextMenu("Test Add Power")]
     public void TestAddPower()
     {
@@ -196,20 +234,79 @@ public class PlayerPowerUp : MonoBehaviour
         }
     }
 
-    // AGGIUNTO: Metodo di debug per verificare lo stato
+    // 🆕 NUOVO: Metodi di debug migliorati
+    [ContextMenu("🔍 Debug - Show Power Status")]
+    public void DebugShowPowerStatus()
+    {
+        Debug.Log($"=== POWER STATUS ===");
+        Debug.Log($"Current Power: {currentPower}");
+        Debug.Log($"Max Power: {maxPower}");
+        Debug.Log($"PowerUI attivo: {powerUI != null && powerUI.activeInHierarchy}");
+        Debug.Log($"PlayerUI presente: {playerUI != null}");
+        
+        if (playerUI != null)
+        {
+            Debug.Log($"PlayerUI.playerController: {playerUI.playerController?.name ?? "NULL"}");
+            Debug.Log($"PlayerUI.playerPowerUp: {playerUI.playerPowerUp?.name ?? "NULL"}");
+            
+            if (playerUI.powerFill != null)
+            {
+                Debug.Log($"PowerFill fillAmount: {playerUI.powerFill.fillAmount}");
+                Debug.Log($"PowerFill attivo: {playerUI.powerFill.gameObject.activeInHierarchy}");
+            }
+            else
+            {
+                Debug.LogError("PowerFill è NULL!");
+            }
+        }
+    }
+
+    [ContextMenu("🔧 Debug - Force UI Update")]
+    public void DebugForceUIUpdate()
+    {
+        Debug.Log("[PlayerPowerUp] 🔧 Forza aggiornamento UI...");
+        UpdateUI();
+        
+        if (playerUI != null)
+        {
+            // Verifica che playerUI abbia il riferimento corretto a questo script
+            if (playerUI.playerPowerUp != this)
+            {
+                Debug.LogWarning($"⚠️ PlayerUI riferisce a un PlayerPowerUp diverso: {playerUI.playerPowerUp?.name ?? "NULL"}");
+                Debug.Log("Assegnando il riferimento corretto...");
+                playerUI.playerPowerUp = this;
+            }
+        }
+    }
+
+    [ContextMenu("🧪 Debug - Test Safe SetMaxValues")]
+    public void DebugTestSafeSetMaxValues()
+    {
+        if (playerUI != null)
+        {
+            Debug.Log("[PlayerPowerUp] 🧪 Test SetMaxValues sicuro...");
+            
+            // Ottieni maxHealth corretto dal playerController
+            float correctMaxHealth = playerUI.playerController?.MaxHealth ?? 300f;
+            Debug.Log($"MaxHealth da usare: {correctMaxHealth}");
+            
+            // Chiama SetMaxValues con il valore corretto
+            playerUI.SetMaxValues(correctMaxHealth, maxPower);
+            
+            Debug.Log("✅ Test completato - controlla che maxHealth non sia cambiato!");
+        }
+        else
+        {
+            Debug.LogError("❌ PlayerUI non assegnato!");
+        }
+    }
+
+    // Debug key - rimuovi in produzione se non serve
     void Update()
     {
-        // Solo per debug - rimuovi in produzione
         if (Input.GetKeyDown(KeyCode.P))
         {
-            Debug.Log($"[DEBUG] Current Power: {currentPower}, Max Power: {maxPower}");
-            Debug.Log($"[DEBUG] PowerUI attivo: {powerUI != null && powerUI.activeInHierarchy}");
-            Debug.Log($"[DEBUG] PlayerUI presente: {playerUI != null}");
-            
-            if (playerUI != null && playerUI.powerFill != null)
-            {
-                Debug.Log($"[DEBUG] PowerFill fillAmount: {playerUI.powerFill.fillAmount}");
-            }
+            DebugShowPowerStatus();
         }
     }
 }
