@@ -12,7 +12,7 @@ public class GameManager : MonoBehaviour
     public GameObject startMenu;  // Solo nella Title Screen
     
     [Header("Fade Settings")]
-    public Image fadeImage;
+    public Image fadeImage;  // Sarà trovato automaticamente in ogni scena
     public float fadeDuration = 1f;
 
     [Header("Scene Configuration")]
@@ -45,7 +45,7 @@ public class GameManager : MonoBehaviour
     // Eventi per notificare altri sistemi
     public System.Action<string> OnSceneManagerFound;
     public System.Action<string> OnSceneManagerTimeout;
-    public System.Action<string> OnSceneReady; // Nuovo evento per comunicare con SceneManager
+    public System.Action<string> OnSceneReady;
     
     // Variabili per tracking SceneManager
     private bool sceneManagerFound = false;
@@ -55,9 +55,7 @@ public class GameManager : MonoBehaviour
     private void Awake()
     {
         DebugLog("=== AWAKE CHIAMATO ===");
-        DebugLog($"GameObject: {gameObject.name}");
         
-        // Gestione singleton semplificata
         if (Instance != null && Instance != this)
         {
             DebugLog("GameManager duplicato trovato - distruggo il duplicato");
@@ -68,8 +66,9 @@ public class GameManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject); // Solo GameManager persistente
             InitializeSceneManagerData();
-            DebugLog($"Inizializzato nella scena: {SceneManager.GetActiveScene().name}");
+            DebugLog($"GameManager persistente inizializzato");
         }
     }
 
@@ -89,6 +88,9 @@ public class GameManager : MonoBehaviour
         string currentScene = SceneManager.GetActiveScene().name;
         DebugLog($"Start() chiamato nella scena: {currentScene}");
 
+        // ⭐ TROVA IL FADEIMAGE DELLA SCENA CORRENTE
+        FindFadeImageInScene();
+
         // Gestione specifica per tipo di scena
         if (currentScene == "Title Screen")
         {
@@ -104,6 +106,90 @@ public class GameManager : MonoBehaviour
         {
             StartCoroutine(FadeInSafe());
         }
+        else
+        {
+            Debug.LogWarning("[GameManager] FadeImage non trovato nella scena - fade disabilitato");
+        }
+    }
+
+    // ⭐ NUOVO METODO: Auto-trova il FadeImage in ogni scena
+    private void FindFadeImageInScene()
+    {
+        // Reset della referenza precedente
+        fadeImage = null;
+        
+        DebugLog("=== RICERCA FADEIMAGE ===");
+        
+        // Debug: Lista tutti i GameObjects nella scena
+        Canvas[] allCanvas = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+        DebugLog($"Canvas trovati nella scena: {allCanvas.Length}");
+        foreach (Canvas canvas in allCanvas)
+        {
+            DebugLog($"- Canvas: {canvas.name}, Attivo: {canvas.gameObject.activeInHierarchy}, Tag: {canvas.tag}");
+            Image[] images = canvas.GetComponentsInChildren<Image>(true); // Include anche oggetti disattivati
+            foreach (Image img in images)
+            {
+                DebugLog($"  -- Image: {img.name}, Attiva: {img.gameObject.activeInHierarchy}");
+            }
+        }
+        
+        // Metodo 1: Trova per Tag (RACCOMANDATO)
+        GameObject fadeCanvasObj = GameObject.FindGameObjectWithTag("FadeCanvas");
+        if (fadeCanvasObj != null)
+        {
+            DebugLog($"Canvas con tag FadeCanvas trovato: {fadeCanvasObj.name}");
+            fadeImage = fadeCanvasObj.GetComponentInChildren<Image>(true); // Include oggetti disattivati
+            if (fadeImage != null)
+            {
+                DebugLog($"✅ FadeImage trovato tramite Tag: {fadeImage.name}");
+                return;
+            }
+        }
+        else
+        {
+            DebugLog("❌ Nessun Canvas con tag 'FadeCanvas' trovato");
+        }
+
+        // Metodo 2: Trova per nome se il tag non funziona
+        GameObject fadeObj = GameObject.Find("FadeImage");
+        if (fadeObj != null)
+        {
+            fadeImage = fadeObj.GetComponent<Image>();
+            if (fadeImage != null)
+            {
+                DebugLog($"✅ FadeImage trovato per nome: {fadeImage.name}");
+                return;
+            }
+        }
+
+        // Metodo 3: Fallback - trova il primo Canvas con un'Image figlia
+        foreach (Canvas canvas in allCanvas)
+        {
+            if (canvas.name.Contains("Transition") || canvas.name.Contains("Fade"))
+            {
+                Image image = canvas.GetComponentInChildren<Image>(true); // Include oggetti disattivati
+                if (image != null)
+                {
+                    fadeImage = image;
+                    DebugLog($"✅ FadeImage trovato tramite fallback: {fadeImage.name} nel Canvas: {canvas.name}");
+                    return;
+                }
+            }
+        }
+
+        // Metodo 4: ULTIMO FALLBACK - prendi la prima Image di qualsiasi Canvas
+        foreach (Canvas canvas in allCanvas)
+        {
+            Image image = canvas.GetComponentInChildren<Image>(true);
+            if (image != null)
+            {
+                fadeImage = image;
+                DebugLog($"⚠️ FadeImage trovato come ultimo fallback: {fadeImage.name} nel Canvas: {canvas.name}");
+                return;
+            }
+        }
+
+        DebugLog("❌ FadeImage non trovato in questa scena");
     }
 
     private void HandleTitleScreen()
@@ -227,8 +313,14 @@ public class GameManager : MonoBehaviour
             yield break;
         }
 
+        DebugLog("=== INIZIO FADE IN ===");
+        Canvas fadeCanvas = fadeImage.GetComponentInParent<Canvas>();
+        DebugLog($"FadeImage attiva: {fadeImage.gameObject.activeInHierarchy}");
+        DebugLog($"Canvas attivo: {fadeCanvas.gameObject.activeInHierarchy}");
+
         // Parti da opaco
         SetFadeAlpha(1f);
+        DebugLog($"Alpha impostato a 1: {fadeImage.color.a}");
         
         // Piccolo delay per il caricamento
         yield return new WaitForSeconds(0.1f);
@@ -243,7 +335,14 @@ public class GameManager : MonoBehaviour
         }
         SetFadeAlpha(0);
         
-        DebugLog("Fade in completato");
+        // ⭐ DISABILITA IL CANVAS QUANDO IL FADE È COMPLETATO
+        if (fadeCanvas != null)
+        {
+            fadeCanvas.gameObject.SetActive(false);
+            DebugLog("Canvas fade disabilitato dopo fade in");
+        }
+        
+        DebugLog("=== FADE IN COMPLETATO ===");
     }
 
     // ========== METODI SCENEMANAGER ==========
@@ -319,20 +418,28 @@ public class GameManager : MonoBehaviour
     {
         yield return StartCoroutine(FadeOut());
         
-        // Reset singleton prima del cambio scena
-        if (Instance == this)
-        {
-            Instance = null;
-            DebugLog("Singleton resettato prima del cambio scena");
-        }
-        
         SceneManager.LoadScene(sceneName);
-        yield return new WaitForSeconds(0.1f);
-        StartCoroutine(FadeIn());
+        // Il FadeIn sarà gestito automaticamente dal Start() della nuova scena
     }
-    
+
     private IEnumerator FadeOut()
     {
+        if (fadeImage == null)
+        {
+            DebugLog("FadeImage null durante FadeOut - skip");
+            yield break;
+        }
+
+        // ⭐ RIATTIVA IL CANVAS PRIMA DEL FADE OUT
+        Canvas fadeCanvas = fadeImage.GetComponentInParent<Canvas>();
+        if (fadeCanvas != null && !fadeCanvas.gameObject.activeInHierarchy)
+        {
+            fadeCanvas.gameObject.SetActive(true);
+            DebugLog("Canvas fade riattivato per fade out");
+        }
+
+        DebugLog("=== INIZIO FADE OUT ===");
+        
         float t = 0;
         while (t < fadeDuration)
         {
@@ -341,6 +448,8 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
         SetFadeAlpha(1);
+        
+        DebugLog("=== FADE OUT COMPLETATO ===");
     }
 
     private IEnumerator FadeIn()
@@ -367,6 +476,33 @@ public class GameManager : MonoBehaviour
 
     // ========== DEBUG ==========
     
+    [ContextMenu("Test Fade Manuale")]
+    public void TestFadeManuale()
+    {
+        if (fadeImage != null)
+        {
+            Debug.Log($"[TEST] FadeImage trovata: {fadeImage.name}");
+            Debug.Log($"[TEST] Canvas attivo: {fadeImage.GetComponentInParent<Canvas>().gameObject.activeInHierarchy}");
+            Debug.Log($"[TEST] FadeImage attiva: {fadeImage.gameObject.activeInHierarchy}");
+            
+            // Forza nero opaco per 2 secondi
+            StartCoroutine(TestFadeCoroutine());
+        }
+        else
+        {
+            Debug.LogError("[TEST] FadeImage è NULL!");
+        }
+    }
+
+    private IEnumerator TestFadeCoroutine()
+    {
+        SetFadeAlpha(1f);
+        Debug.Log($"[TEST] Schermo nero per 2 secondi - Alpha: {fadeImage.color.a}");
+        yield return new WaitForSeconds(2f);
+        SetFadeAlpha(0f);
+        Debug.Log("[TEST] Fade test completato");
+    }
+
     private void DebugLog(string message)
     {
         if (enableDebugLogs)
@@ -388,6 +524,7 @@ public class GameManager : MonoBehaviour
         
         string info = $"=== GameManager State ===\n" +
                      $"Scena: {currentScene}\n" +
+                     $"FadeImage: {(fadeImage != null ? fadeImage.name : "NULL")}\n" +
                      $"SceneManager atteso: {expectedManager}\n" +
                      $"SceneManager trovato: {sceneManagerFound}\n" +
                      $"Nome corrente: {currentSceneManagerName}\n" +
