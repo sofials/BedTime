@@ -8,9 +8,8 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
-    [Header("UI References")]
+    [Header("UI References - Solo per Title Screen")]
     public GameObject startMenu;  // Solo nella Title Screen
-    public PlayerAttack playerAttack;
     
     [Header("Fade Settings")]
     public Image fadeImage;
@@ -46,8 +45,7 @@ public class GameManager : MonoBehaviour
     // Eventi per notificare altri sistemi
     public System.Action<string> OnSceneManagerFound;
     public System.Action<string> OnSceneManagerTimeout;
-
-    [SerializeField] private GameObject levelTitleUI;
+    public System.Action<string> OnSceneReady; // Nuovo evento per comunicare con SceneManager
     
     // Variabili per tracking SceneManager
     private bool sceneManagerFound = false;
@@ -123,13 +121,6 @@ public class GameManager : MonoBehaviour
             Debug.LogError("[GameManager] StartMenu non assegnato nella Title Screen!");
         }
         
-        // Nascondi UI di gioco nella title screen
-        if (levelTitleUI != null)
-            levelTitleUI.SetActive(false);
-            
-        // Disattiva UI power up nel menu
-        DisablePowerUpUI();
-        
         // Configurazione cursore per il menu
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.None;
@@ -145,10 +136,6 @@ public class GameManager : MonoBehaviour
     private void HandleGameScene(string currentScene)
     {
         DebugLog($"Gestione scena di gioco: {currentScene}");
-        
-        // Nascondi levelTitleUI per le scene di gioco
-        if (levelTitleUI != null)
-            levelTitleUI.SetActive(false);
 
         // Verifica se dobbiamo aspettare uno SceneManager specifico
         if (waitForSceneManagerBeforeStart && expectedSceneManagers.ContainsKey(currentScene))
@@ -184,6 +171,8 @@ public class GameManager : MonoBehaviour
                 found = true;
                 
                 OnSceneManagerFound?.Invoke(expectedManagerName);
+                
+                // Notifica lo SceneManager che il GameManager è pronto
                 sceneManagerObj.SendMessage("OnGameManagerReady", SendMessageOptions.DontRequireReceiver);
                 
                 yield return StartCoroutine(StartGameImmediately());
@@ -216,9 +205,6 @@ public class GameManager : MonoBehaviour
         // Piccolo delay per il fade
         yield return new WaitForSeconds(0.2f);
 
-        // Attiva UI di gioco
-        EnablePowerUpUI();
-
         // Configura il gioco per essere attivo
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
@@ -228,30 +214,9 @@ public class GameManager : MonoBehaviour
         
         string currentScene = SceneManager.GetActiveScene().name;
         DebugLog($"Scena '{currentScene}' avviata completamente");
-    }
-
-    private void EnablePowerUpUI()
-    {
-        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-        {
-            if (powerUp.powerUI != null)
-            {
-                powerUp.powerUI.SetActive(true);
-                DebugLog("UI PowerUp attivata");
-            }
-        }
-    }
-
-    private void DisablePowerUpUI()
-    {
-        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
-        {
-            if (powerUp.powerUI != null)
-            {
-                powerUp.powerUI.SetActive(false);
-                DebugLog("UI PowerUp disattivata");
-            }
-        }
+        
+        // Notifica che la scena è pronta (gli SceneManager possono ascoltare questo evento)
+        OnSceneReady?.Invoke(currentScene);
     }
 
     private IEnumerator FadeInSafe()
@@ -283,16 +248,8 @@ public class GameManager : MonoBehaviour
 
     // ========== METODI SCENEMANAGER ==========
     
-    public bool IsSceneManagerFound()
-    {
-        return sceneManagerFound;
-    }
-    
-    public string GetCurrentSceneManagerName()
-    {
-        return currentSceneManagerName;
-    }
-    
+    public bool IsSceneManagerFound() => sceneManagerFound;
+    public string GetCurrentSceneManagerName() => currentSceneManagerName;
     public string GetExpectedSceneManagerName()
     {
         string currentScene = SceneManager.GetActiveScene().name;
@@ -316,7 +273,7 @@ public class GameManager : MonoBehaviour
         DebugLog($"Configurato SceneManager '{sceneManagerName}' per la scena '{sceneName}'");
     }
 
-    // ========== GESTIONE MENU E GIOCO ==========
+    // ========== GESTIONE MENU E GIOCO - SOLO TITLE SCREEN ==========
     
     public void StartGame()
     {
@@ -336,16 +293,8 @@ public class GameManager : MonoBehaviour
             return;
         }
         
-        // Per altre scene, riprendi da pausa (se implementato)
-        if (startMenu != null)  // Questo dovrebbe essere null nelle scene di gioco
-            startMenu.SetActive(false);
-            
-        Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-        EnablePowerUpUI();
-        
-        DebugLog("Gioco ripreso da pausa");
+        // Per altre scene, il controllo è delegato allo SceneManager specifico
+        DebugLog("StartGame() chiamato in scena di gioco - delegato allo SceneManager");
     }
 
     public void ExitGame()
@@ -447,32 +396,6 @@ public class GameManager : MonoBehaviour
                      $"Timeout: {sceneManagerTimeout}s";
         
         Debug.Log(info);
-    }
-    
-    [ContextMenu("Test SceneManager Search")]
-    public void DebugTestSceneManagerSearch()
-    {
-        string currentScene = SceneManager.GetActiveScene().name;
-        Debug.Log($"[DEBUG] Test ricerca SceneManager per '{currentScene}'");
-        
-        if (expectedSceneManagers.ContainsKey(currentScene))
-        {
-            string expectedManagerName = expectedSceneManagers[currentScene];
-            GameObject sceneManagerObj = GameObject.Find(expectedManagerName);
-            
-            if (sceneManagerObj != null)
-            {
-                Debug.Log($"[DEBUG] ✅ SceneManager '{expectedManagerName}' TROVATO!");
-            }
-            else
-            {
-                Debug.Log($"[DEBUG] ❌ SceneManager '{expectedManagerName}' NON trovato!");
-            }
-        }
-        else
-        {
-            Debug.Log($"[DEBUG] ℹ️ Nessun SceneManager configurato per '{currentScene}'");
-        }
     }
 
     // ========== CLEANUP ==========

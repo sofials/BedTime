@@ -3,8 +3,7 @@ using UnityEngine.Events;
 using System.Collections;
 
 /// <summary>
-/// SceneManager semplificato che usa CheckpointManager e CollectiblesManager
-/// Molto più leggero e modulare del precedente
+/// SceneManager che gestisce anche le UI specifiche della scena
 /// </summary>
 public class SceneManager01 : MonoBehaviour
 {
@@ -15,18 +14,27 @@ public class SceneManager01 : MonoBehaviour
     [SerializeField] private CheckpointManager checkpointManager;
     [SerializeField] private CollectiblesManager collectiblesManager;
     
+    [Header("UI References - Specifiche della Scena")]
+    [SerializeField] private GameObject levelTitleUI; // Opzionale
+    [SerializeField] private PlayerAttack playerAttack; // Per accedere al PowerUp UI
+    // [SerializeField] private GameObject pauseMenu; // TODO: Implementare in futuro
+    // [SerializeField] private GameObject gameOverUI; // Rimosso per ora
+    // [SerializeField] private GameObject completionUI; // Rimosso per ora
+    
     [Header("Auto-Setup")]
     [SerializeField] private bool autoFindManagers = true;
     [SerializeField] private bool createManagersIfMissing = true;
+    [SerializeField] private bool autoFindUIElements = true;
+    [SerializeField] private bool showLevelTitle = false; // Opzionale - mostra il titolo del livello
     
-    [Header("Development Mode")]
-    [SerializeField] private bool developmentMode = true;
+    [Header("Debug Settings")]
     [SerializeField] private bool enableDebugLogs = true;
     
     [Header("Scene Events")]
     public UnityEvent OnSceneInitialized;
     public UnityEvent OnSceneReady;
     public UnityEvent OnSceneCompleted;
+    public UnityEvent OnUISetupComplete;
     
     // Singleton pattern
     public static SceneManager01 Instance { get; private set; }
@@ -34,6 +42,7 @@ public class SceneManager01 : MonoBehaviour
     // Stato interno
     private bool sceneInitialized = false;
     private bool managersReady = false;
+    private bool uiSetupComplete = false;
     
     private void Awake()
     {
@@ -49,6 +58,12 @@ public class SceneManager01 : MonoBehaviour
         }
         
         DebugLog($"[SceneManager01] Inizializzazione per '{sceneName}'");
+        
+        // Ascolta gli eventi del GameManager
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnSceneReady += OnGameManagerSceneReady;
+        }
     }
     
     private void Start()
@@ -63,35 +78,189 @@ public class SceneManager01 : MonoBehaviour
         // 1. Setup dei manager
         SetupManagers();
         
-        // 2. Inizializza la scena
+        // 2. Setup UI
+        SetupUI();
+        
+        // 3. Inizializza la scena
         InitializeScene();
         
-        // 3. Connetti i manager
+        // 4. Connetti i manager
         ConnectManagers();
         
-        // 4. Finalizza
+        // 5. Finalizza
         FinalizeSceneSetup();
     }
     
-    // ========== SETUP MANAGER ==========
+    // ========== SETUP UI ==========
+    
+    private void SetupUI()
+    {
+        DebugLog("[SceneManager01] Setup UI...");
+        
+        // Auto-trova elementi UI se abilitato
+        if (autoFindUIElements)
+        {
+            FindUIElements();
+        }
+        
+        // Configura stato iniziale UI
+        ConfigureInitialUIState();
+        
+        uiSetupComplete = true;
+        OnUISetupComplete?.Invoke();
+        
+        DebugLog("[SceneManager01] Setup UI completato");
+    }
+    
+    private void FindUIElements()
+    {
+        // Trova elementi UI se non assegnati
+        if (levelTitleUI == null && showLevelTitle)
+        {
+            levelTitleUI = GameObject.Find("LevelTitleUI");
+        }
+        
+        if (playerAttack == null)
+        {
+            playerAttack = Object.FindFirstObjectByType<PlayerAttack>();
+        }
+        
+        DebugLog($"[SceneManager01] UI trovate - Title: {levelTitleUI != null}, Player: {playerAttack != null}");
+    }
+    
+    private void ConfigureInitialUIState()
+    {
+        // Nascondi levelTitleUI inizialmente (se presente e abilitato)
+        if (levelTitleUI != null && showLevelTitle)
+        {
+            levelTitleUI.SetActive(false);
+        }
+        
+        // Inizialmente disattiva PowerUp UI (sarà attivata quando il GameManager è pronto)
+        DisablePowerUpUI();
+        
+        DebugLog("[SceneManager01] Stato iniziale UI configurato");
+    }
+    
+    // ========== GESTIONE UI POWERUP ==========
+    
+    private void EnablePowerUpUI()
+    {
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        {
+            if (powerUp.powerUI != null)
+            {
+                powerUp.powerUI.SetActive(true);
+                DebugLog("[SceneManager01] UI PowerUp attivata");
+            }
+        }
+        else
+        {
+            DebugLog("[SceneManager01] ⚠️ PlayerAttack o PowerUp component non trovato");
+        }
+    }
+
+    private void DisablePowerUpUI()
+    {
+        if (playerAttack != null && playerAttack.TryGetComponent<PlayerPowerUp>(out var powerUp))
+        {
+            if (powerUp.powerUI != null)
+            {
+                powerUp.powerUI.SetActive(false);
+                DebugLog("[SceneManager01] UI PowerUp disattivata");
+            }
+        }
+    }
+    
+    // TODO: Gestione pausa - da implementare in futuro
+    /*
+    public void ShowPauseMenu()
+    {
+        if (pauseMenu != null)
+        {
+            pauseMenu.SetActive(true);
+            Time.timeScale = 0f;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            DisablePowerUpUI();
+        }
+    }
+    
+    public void HidePauseMenu()
+    {
+        if (pauseMenu != null)
+        {
+            pauseMenu.SetActive(false);
+            Time.timeScale = 1f;
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            EnablePowerUpUI();
+        }
+    }
+    */
+    
+    // ========== CALLBACK GAMEMANAGER ==========
+    
+    /// <summary>
+    /// Chiamato quando il GameManager ha completato il setup della scena
+    /// </summary>
+    private void OnGameManagerSceneReady(string sceneName)
+    {
+        if (sceneName == this.sceneName || sceneName == UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
+        {
+            DebugLog("[SceneManager01] GameManager pronto - attivazione UI di gioco");
+            
+            // Ora possiamo attivare le UI di gioco
+            EnablePowerUpUI();
+            
+            // Se hai un level title da mostrare e l'opzione è abilitata, puoi farlo qui
+            if (levelTitleUI != null && showLevelTitle)
+            {
+                StartCoroutine(ShowLevelTitleCoroutine());
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Metodo chiamato dal GameManager tramite SendMessage
+    /// </summary>
+    public void OnGameManagerReady()
+    {
+        DebugLog("[SceneManager01] GameManager pronto (via SendMessage)");
+        OnGameManagerSceneReady(sceneName);
+    }
+    
+    private IEnumerator ShowLevelTitleCoroutine()
+    {
+        if (levelTitleUI != null)
+        {
+            levelTitleUI.SetActive(true);
+            DebugLog("[SceneManager01] Level Title mostrato");
+            
+            // Mostra per qualche secondo poi nascondi
+            yield return new WaitForSeconds(3f);
+            
+            levelTitleUI.SetActive(false);
+            DebugLog("[SceneManager01] Level Title nascosto");
+        }
+    }
+    
+    // ========== SETUP MANAGER (dal codice originale) ==========
     
     private void SetupManagers()
     {
         DebugLog("[SceneManager01] Setup manager...");
         
-        // Auto-trova i manager se abilitato
         if (autoFindManagers)
         {
             FindManagers();
         }
         
-        // Crea i manager se mancanti e abilitato
         if (createManagersIfMissing)
         {
             CreateMissingManagers();
         }
         
-        // Configura i manager trovati/creati
         ConfigureManagers();
         
         managersReady = checkpointManager != null && collectiblesManager != null;
@@ -123,7 +292,6 @@ public class SceneManager01 : MonoBehaviour
     
     private void CreateMissingManagers()
     {
-        // Crea CheckpointManager se mancante
         if (checkpointManager == null)
         {
             GameObject checkpointGO = new GameObject("CheckpointManager");
@@ -132,7 +300,6 @@ public class SceneManager01 : MonoBehaviour
             DebugLog("[SceneManager01] ✅ CheckpointManager creato automaticamente");
         }
         
-        // Crea CollectiblesManager se mancante
         if (collectiblesManager == null)
         {
             GameObject collectiblesGO = new GameObject("CollectiblesManager");
@@ -144,7 +311,6 @@ public class SceneManager01 : MonoBehaviour
     
     private void ConfigureManagers()
     {
-        // Configura CheckpointManager
         if (checkpointManager != null)
         {
             checkpointManager.SetSceneName(sceneName);
@@ -152,7 +318,6 @@ public class SceneManager01 : MonoBehaviour
             DebugLog("[SceneManager01] CheckpointManager configurato");
         }
         
-        // Configura CollectiblesManager
         if (collectiblesManager != null)
         {
             collectiblesManager.SetSceneName(sceneName);
@@ -161,22 +326,18 @@ public class SceneManager01 : MonoBehaviour
         }
     }
     
-    // ========== CONNESSIONE MANAGER ==========
-    
     private void ConnectManagers()
     {
         if (!managersReady) return;
         
         DebugLog("[SceneManager01] Connessione manager...");
         
-        // Connetti eventi del CheckpointManager
         if (checkpointManager != null)
         {
             checkpointManager.OnCheckpointActivated.AddListener(OnCheckpointActivated);
             checkpointManager.OnCheckpointCleared.AddListener(OnCheckpointCleared);
         }
         
-        // Connetti eventi del CollectiblesManager
         if (collectiblesManager != null)
         {
             collectiblesManager.OnAllCollectiblesCompleted.AddListener(OnAllCollectiblesCompleted);
@@ -193,9 +354,6 @@ public class SceneManager01 : MonoBehaviour
         
         DebugLog("[SceneManager01] Inizializzazione scena...");
         
-        // Qui puoi aggiungere la logica specifica della tua scena
-        // Ad esempio: attivare oggetti, impostare stati iniziali, ecc.
-        
         sceneInitialized = true;
         OnSceneInitialized?.Invoke();
         
@@ -206,8 +364,7 @@ public class SceneManager01 : MonoBehaviour
     {
         DebugLog("[SceneManager01] Finalizzazione setup scena...");
         
-        // Verifica che tutto sia pronto
-        bool allReady = sceneInitialized && managersReady;
+        bool allReady = sceneInitialized && managersReady && uiSetupComplete;
         
         if (allReady)
         {
@@ -225,9 +382,6 @@ public class SceneManager01 : MonoBehaviour
     private void OnCheckpointActivated(string checkpointName)
     {
         DebugLog($"[SceneManager01] Checkpoint raggiunto: '{checkpointName}'");
-        
-        // Qui puoi aggiungere logica specifica per quando si raggiunge un checkpoint
-        // Ad esempio: salvare altri dati, attivare eventi, ecc.
     }
     
     private void OnCheckpointCleared(string checkpointName)
@@ -239,30 +393,28 @@ public class SceneManager01 : MonoBehaviour
     {
         DebugLog($"[SceneManager01] Present raccolto: '{presentName}'");
         
-        // Logica specifica per i presents se necessaria
+        // Potresti mostrare una UI di notifica qui
+        // ShowCollectibleNotification("Present", presentName);
     }
     
     private void OnMemoryCollected(string memoryName)
     {
         DebugLog($"[SceneManager01] Memory raccolta: '{memoryName}'");
         
-        // Logica specifica per le memories se necessaria
+        // Potresti mostrare una UI di notifica qui
+        // ShowCollectibleNotification("Memory", memoryName);
     }
     
     private void OnAllCollectiblesCompleted()
     {
         DebugLog("[SceneManager01] 🏆 Tutti i collectibles completati!");
         
-        // Logica per quando tutti i collectibles sono stati raccolti
-        // Ad esempio: sbloccare aree, attivare cutscene, ecc.
+        // Per ora solo log e evento - UI di completamento rimossa
         OnSceneCompleted?.Invoke();
     }
     
     // ========== METODI PUBBLICI PER COMPATIBILITÀ ==========
     
-    /// <summary>
-    /// Metodi di compatibilità con il vecchio SceneManager
-    /// </summary>
     public void NotifyPresentCollected(string presentName = "")
     {
         if (collectiblesManager != null)
@@ -316,6 +468,107 @@ public class SceneManager01 : MonoBehaviour
         NotifySceneCheckpoint(checkpointName);
     }
     
+    // ========== METODI PUBBLICI UI ==========
+    
+    /// <summary>
+    /// Riavvia il livello corrente
+    /// </summary>
+    public void RestartLevel()
+    {
+        DebugLog("[SceneManager01] Riavvio livello");
+        
+       
+       //  HidePauseMenu();
+        
+        // Reset dei manager
+        if (collectiblesManager != null)
+        {
+            collectiblesManager.ResetCollectiblesProgress();
+        }
+        
+        if (checkpointManager != null)
+        {
+            checkpointManager.ResetCheckpointSystem();
+        }
+        
+        // Riavvia la scena tramite GameManager
+        if (GameManager.Instance != null)
+        {
+            string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            GameManager.Instance.LoadSceneWithFade(currentScene);
+        }
+    }
+    
+    /// <summary>
+    /// Torna al menu principale
+    /// </summary>
+    public void ReturnToMainMenu()
+    {
+        DebugLog("[SceneManager01] Ritorno al menu principale");
+        
+       
+       // HidePauseMenu();
+        
+        // Torna alla Title Screen tramite GameManager
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.LoadSceneWithFade("Title Screen");
+        }
+    }
+    
+    /// <summary>
+    /// Carica il livello successivo
+    /// </summary>
+    public void LoadNextLevel()
+    {
+        DebugLog("[SceneManager01] Caricamento livello successivo");
+        
+        
+        // Determina il livello successivo (puoi personalizzare questa logica)
+        string nextLevel = GetNextLevelName();
+        
+        if (!string.IsNullOrEmpty(nextLevel))
+        {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.LoadSceneWithFade(nextLevel);
+            }
+        }
+        else
+        {
+            DebugLog("[SceneManager01] Nessun livello successivo trovato");
+            ReturnToMainMenu();
+        }
+    }
+    
+    private string GetNextLevelName()
+    {
+        // Logica per determinare il livello successivo
+        // Puoi personalizzare questa parte in base alla struttura dei tuoi livelli
+        switch (sceneName)
+        {
+            case "00 - Landing in the Dreamworld":
+                return "01 - Party in Lukelandia";
+            case "01 - Party in Lukelandia":
+                return "02 - Finding Pietro";
+            case "02 - Finding Pietro":
+                return ""; // Ultimo livello
+            default:
+                return "";
+        }
+    }
+    
+    /// <summary>
+    /// Mostra una notifica per i collectibles (opzionale)
+    /// </summary>
+    public void ShowCollectibleNotification(string type, string name)
+    {
+        DebugLog($"[SceneManager01] Notifica collectible: {type} - {name}");
+        
+        // Qui potresti implementare una UI di notifica temporanea
+        // Ad esempio un popup che appare per qualche secondo
+    }
+    
     // ========== GETTERS - COLLECTIBLES ==========
     
     public int GetCollectedPresents() => collectiblesManager?.GetCollectedPresents() ?? 0;
@@ -340,11 +593,13 @@ public class SceneManager01 : MonoBehaviour
     public Vector3 GetCurrentSpawnPosition() => checkpointManager?.GetCurrentSpawnPosition() ?? Vector3.zero;
     public Quaternion GetCurrentSpawnRotation() => checkpointManager?.GetCurrentSpawnRotation() ?? Quaternion.identity;
     
+    // ========== GETTERS - UI ==========
+    
+    public bool IsUISetupComplete() => uiSetupComplete;
+    public bool IsLevelTitleEnabled() => showLevelTitle;
+    
     // ========== UTILITY METHODS ==========
     
-    /// <summary>
-    /// Refresh completo di tutti i sistemi
-    /// </summary>
     public void RefreshScene()
     {
         DebugLog("[SceneManager01] Refresh completo scena");
@@ -353,14 +608,8 @@ public class SceneManager01 : MonoBehaviour
         {
             collectiblesManager.RefreshCollectiblesSystem();
         }
-        
-        // Non c'è bisogno di refresh per il checkpoint manager
-        // ma puoi aggiungere logica se necessaria
     }
     
-    /// <summary>
-    /// Reset completo della scena
-    /// </summary>
     public void ResetScene()
     {
         DebugLog("[SceneManager01] Reset completo scena");
@@ -374,11 +623,11 @@ public class SceneManager01 : MonoBehaviour
         {
             checkpointManager.ResetCheckpointSystem();
         }
+        
+        // Reset UI
+        ConfigureInitialUIState();
     }
     
-    /// <summary>
-    /// Forza il salvataggio di tutti i dati
-    /// </summary>
     public void ForceSaveAll()
     {
         DebugLog("[SceneManager01] Salvataggio forzato di tutti i dati");
@@ -394,25 +643,16 @@ public class SceneManager01 : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Verifica lo stato di tutti i manager
-    /// </summary>
     public bool AreAllManagersReady()
     {
         return managersReady && checkpointManager != null && collectiblesManager != null;
     }
     
-    /// <summary>
-    /// Ottieni riferimenti ai manager (per accesso diretto se necessario)
-    /// </summary>
     public CheckpointManager GetCheckpointManager() => checkpointManager;
     public CollectiblesManager GetCollectiblesManager() => collectiblesManager;
     
     // ========== SETTINGS ==========
     
-    /// <summary>
-    /// Configura le impostazioni di debug
-    /// </summary>
     public void SetDebugMode(bool enabled)
     {
         enableDebugLogs = enabled;
@@ -430,9 +670,6 @@ public class SceneManager01 : MonoBehaviour
         DebugLog($"[SceneManager01] Debug mode {(enabled ? "abilitato" : "disabilitato")}");
     }
     
-    /// <summary>
-    /// Configura il salvataggio automatico
-    /// </summary>
     public void SetAutoSave(bool enabled)
     {
         if (checkpointManager != null)
@@ -465,114 +702,67 @@ public class SceneManager01 : MonoBehaviour
                   $"Scene: '{sceneName}'\n" +
                   $"Initialized: {sceneInitialized}\n" +
                   $"Managers Ready: {managersReady}\n" +
+                  $"UI Setup Complete: {uiSetupComplete}\n" +
                   $"All Ready: {AreAllManagersReady()}\n" +
                   $"CheckpointManager: {(checkpointManager != null ? "✅" : "❌")}\n" +
                   $"CollectiblesManager: {(collectiblesManager != null ? "✅" : "❌")}\n" +
                   $"Current Checkpoint: '{GetCurrentCheckpoint()}'\n" +
                   $"Collectibles: {GetTotalCollected()}/{GetTotalAvailable()} ({GetOverallProgress() * 100:F1}%)\n" +
                   $"Presents: {GetCollectedPresents()}/{GetTotalPresents()}\n" +
-                  $"Memories: {GetCollectedMemories()}/{GetTotalMemories()}");
+                  $"Memories: {GetCollectedMemories()}/{GetTotalMemories()}\n" +
+                  $"Level Title Enabled: {showLevelTitle}");
     }
     
-    [ContextMenu("Debug Manager States")]
-    public void DebugManagerStates()
+    [ContextMenu("Test - Enable PowerUp UI")]
+    public void DebugEnablePowerUpUI()
     {
-        Debug.Log("=== Manager States ===");
-        
-        if (checkpointManager != null)
+        EnablePowerUpUI();
+    }
+    
+    [ContextMenu("Test - Disable PowerUp UI")]
+    public void DebugDisablePowerUpUI()
+    {
+        DisablePowerUpUI();
+    }
+    
+    [ContextMenu("Test - Show Level Title")]
+    public void DebugShowLevelTitle()
+    {
+        if (levelTitleUI != null && showLevelTitle)
         {
-            checkpointManager.DebugCurrentState();
+            StartCoroutine(ShowLevelTitleCoroutine());
         }
         else
         {
-            Debug.Log("CheckpointManager: NULL");
+            DebugLog("Level Title UI non disponibile o disabilitato");
         }
-        
-        if (collectiblesManager != null)
+    }
+    
+    // ========== INPUT HANDLING ==========
+    
+    // TODO: Input handling per pausa - da implementare in futuro
+    /*
+    private void Update()
+    {
+        // Gestione input per pausa
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            collectiblesManager.DebugCurrentState();
-        }
-        else
-        {
-            Debug.Log("CollectiblesManager: NULL");
+            TogglePauseMenu();
         }
     }
-    
-    [ContextMenu("Test - Collect Random Present")]
-    public void DebugCollectRandomPresent()
-    {
-        string testName = "DebugPresent_" + System.DateTime.Now.Ticks;
-        NotifyPresentCollected(testName);
-    }
-    
-    [ContextMenu("Test - Collect Random Memory")]
-    public void DebugCollectRandomMemory()
-    {
-        string testName = "DebugMemory_" + System.DateTime.Now.Ticks;
-        NotifyMemoryCollected(testName);
-    }
-    
-    [ContextMenu("Test - Set Random Checkpoint")]
-    public void DebugSetRandomCheckpoint()
-    {
-        string testName = "DebugCheckpoint_" + System.DateTime.Now.Ticks;
-        NotifySceneCheckpoint(testName);
-    }
-    
-    [ContextMenu("Force Refresh Scene")]
-    public void DebugRefreshScene()
-    {
-        RefreshScene();
-        DebugCurrentState();
-    }
-    
-    [ContextMenu("Force Reset Scene")]
-    public void DebugResetScene()
-    {
-        ResetScene();
-        DebugCurrentState();
-    }
-    
-    [ContextMenu("Force Save All")]
-    public void DebugForceSaveAll()
-    {
-        ForceSaveAll();
-    }
-    
-    [ContextMenu("Recreate Managers")]
-    public void DebugRecreateManagers()
-    {
-        // Distruggi manager esistenti se presenti
-        if (checkpointManager != null && checkpointManager.transform.parent == transform)
-        {
-            DestroyImmediate(checkpointManager.gameObject);
-            checkpointManager = null;
-        }
-        
-        if (collectiblesManager != null && collectiblesManager.transform.parent == transform)
-        {
-            DestroyImmediate(collectiblesManager.gameObject);
-            collectiblesManager = null;
-        }
-        
-        // Ricrea i manager
-        SetupManagers();
-        ConnectManagers();
-        
-        DebugCurrentState();
-    }
+    */
     
     // ========== CLEANUP ==========
     
     private void OnDestroy()
     {
-        // Salvataggio finale
-        if (developmentMode)
+        // Disconnetti eventi del GameManager
+        if (GameManager.Instance != null)
         {
-            ForceSaveAll();
+            GameManager.Instance.OnSceneReady -= OnGameManagerSceneReady;
         }
         
-        // Disconnetti eventi per evitare errori
+        // Disconnetti eventi dei manager
         if (checkpointManager != null)
         {
             checkpointManager.OnCheckpointActivated.RemoveListener(OnCheckpointActivated);

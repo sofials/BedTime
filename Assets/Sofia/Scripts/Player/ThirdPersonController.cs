@@ -46,10 +46,11 @@ public class ThirdPersonController : MonoBehaviour
     public float airRotationSmoothTime = 0.3f;
 
     [Header("Player Stats")]
-    public float maxHealth = 100f;
+    public float maxHealth = 300f;
     public float currentHealth;
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
+     [Header("Health Protection")]
+    [SerializeField] private bool protectMaxHealth = true; // Flag per proteggere maxHealth
+    [SerializeField] private float designatedMaxHealth = 300f; // Valore protetto
 
     // NUOVO: SISTEMA AUDIO PASSI
     [Header("Footstep Audio")]
@@ -128,7 +129,27 @@ public class ThirdPersonController : MonoBehaviour
             }
         }
     }
+    
+   public float MaxHealth 
+{ 
+    get => protectMaxHealth ? designatedMaxHealth : maxHealth;
+    set 
+    {
+        if (protectMaxHealth)
+        {
+            // Silenzioso: blocca senza log eccessivi
+            return;
+        }
+        maxHealth = value;
+        designatedMaxHealth = value;
+    }
+}
 
+public float CurrentHealth 
+{ 
+    get => currentHealth; 
+    set => currentHealth = value;
+}
     // OTTIMIZZAZIONE: Cache per raycast
     private RaycastHit[] raycastHits = new RaycastHit[4];
 
@@ -184,10 +205,18 @@ public class ThirdPersonController : MonoBehaviour
     {
         _animator = GetComponentInChildren<Animator>();
         controller = GetComponent<CharacterController>();
-
-        currentHealth = maxHealth;
+         // Inizializzazione salute semplificata
+    if (protectMaxHealth && maxHealth != designatedMaxHealth)
+        maxHealth = designatedMaxHealth;
+    else if (!protectMaxHealth)
+        designatedMaxHealth = maxHealth;
+        
+    currentHealth = MaxHealth;
+    
+    if (playerUI != null)
         playerUI.UpdateHealth(currentHealth);
-
+       
+        
         if (sprintFX) sprintFX.StopEffect();
         
         // NUOVO: Setup AudioSource se non assegnato
@@ -233,16 +262,11 @@ public class ThirdPersonController : MonoBehaviour
     {
         UpdatePlatformVelocity();
         HandleMovement();
+
         UpdateJumpTimers();
-        
-        // GESTISCI SALTO PRIMA DELLA FISICA - NUOVO ORDINE
         HandleJumpInput();
         HandleJump();
-
-        // GESTISCI ATTACK VELOCITY DECAY
         HandleAttackVelocity();
-        
-        // NUOVO: Gestisci audio passi
         HandleFootstepAudio();
 
         if (currentPlatform != null && controller.enabled)
@@ -258,8 +282,8 @@ public class ThirdPersonController : MonoBehaviour
         if (controller.enabled)
         {
             // APPLICA ANCHE ATTACK VELOCITY AL MOVIMENTO FINALE
-            tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x, 
-                           velocity.y, 
+            tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x,
+                           velocity.y,
                            playerVelocity.z + externalPush.z + attackVelocity.z);
             controller.Move(tempVector3 * Time.deltaTime);
         }
@@ -802,32 +826,21 @@ private Transform GetRespawnPoint()
 
     public void ApplyExternalPush(Vector3 force) => externalPush += force;
 
-    public void Heal(float amount)
+  public void Heal(float amount)
 {
-    currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
-    
-    // 🔧 AGGIORNAMENTO UI ROBUSTO
+    currentHealth = Mathf.Min(currentHealth + amount, MaxHealth);
     UpdateHealthUI();
 }
+
 private void UpdateHealthUI()
 {
-    
-    if (playerUI != null)
+    if (playerUI == null)
     {
-        try
-        {
-            playerUI.UpdateHealth(currentHealth);
-            Debug.Log($"[ThirdPersonController] Health UI aggiornata: {currentHealth}/{maxHealth}");
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[ThirdPersonController] Errore nell'aggiornamento Health UI: {e.Message}");
-        }
+        playerUI = PlayerUI.Instance ?? FindFirstObjectByType<PlayerUI>();
+        if (playerUI == null) return;
     }
-    else
-    {
-        Debug.LogError("[ThirdPersonController] PlayerUI non trovato - impossibile aggiornare UI salute!");
-    }
+
+    playerUI.UpdateHealth(currentHealth);
 }
 
     // OTTIMIZZAZIONE: Sistema di danno ottimizzato
@@ -836,20 +849,16 @@ private void UpdateHealthUI()
 
    public void TakeDamage(float amount)
 {
-    // OTTIMIZZAZIONE: Cooldown per evitare spam di danni
     if (Time.time - lastDamageTime < DAMAGE_COOLDOWN) return;
     lastDamageTime = Time.time;
     
     if (currentHealth <= 0) return;
 
     float oldHealth = currentHealth;
-    currentHealth -= amount;
-    currentHealth = Mathf.Max(0, currentHealth);
+    currentHealth = Mathf.Max(0, currentHealth - amount);
     
-    // 🔧 AGGIORNAMENTO UI ROBUSTO
     UpdateHealthUI();
     
-    // Effetto visivo
     if (attackEffectUI != null)
         attackEffectUI.PulseIcon();
 
@@ -859,9 +868,7 @@ private void UpdateHealthUI()
         _animator.SetFloat(SpeedHash, 0f);
 
         if (ShouldPlayHitReal())
-        {
             _animator.SetTrigger(HitRealHash);
-        }
         else
         {
             _animator.SetTrigger(HitHash);
@@ -873,9 +880,7 @@ private void UpdateHealthUI()
         PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
         bool isSwinging = playerAttack != null && playerAttack.isAttacking;
         if (!isSwinging)
-        {
             _animator.SetTrigger(HitHash);
-        }
     }
 }
 
@@ -883,7 +888,7 @@ private void UpdateHealthUI()
     {
         yield return new WaitForSeconds(0.1f);
         Respawn();
-        currentHealth = maxHealth;
+        currentHealth = MaxHealth;
         playerUI.UpdateHealth(currentHealth);
         IsMovementLocked = false;
     }
@@ -898,7 +903,7 @@ private void UpdateHealthUI()
     public void OnHitRealEnd()
     {
         Respawn();
-        currentHealth = maxHealth;
+        currentHealth = MaxHealth;
         playerUI.UpdateHealth(currentHealth);
         IsMovementLocked = false;
     }
@@ -932,9 +937,6 @@ private void UpdateHealthUI()
         }
         return cachedGroundNormal;
     }
-
-
-
     // OTTIMIZZAZIONE: Cleanup per ridurre GC
     private void OnDestroy()
     {
