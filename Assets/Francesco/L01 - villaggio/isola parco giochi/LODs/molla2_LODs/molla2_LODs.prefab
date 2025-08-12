@@ -144,9 +144,6 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 6442151855438747542}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 654925939871363069}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
       insertIndex: -1
@@ -157,6 +154,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8585251218082873166}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7412566320014591749}
   m_SourcePrefab: {fileID: 100100000, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
 --- !u!4 &518031576658617066 stripped
 Transform:
@@ -168,28 +168,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
   m_PrefabInstance: {fileID: 52586909885613313}
   m_PrefabAsset: {fileID: 0}
---- !u!64 &6442151855438747542
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 899517428979759184}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: -419955386079589901, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
 --- !u!114 &654925939871363069
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -257,6 +235,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 50
   deathEffect: {fileID: 0}
+--- !u!65 &7412566320014591749
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 899517428979759184}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 3.5469327, y: 4.309969, z: 3.1333952}
+  m_Center: {x: -1.6919246, y: 7.8935366, z: -0.9493978}
 --- !u!23 &1692023212976888197 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: aa23e79b04633d048a448e9ec53cbab4, type: 3}
