@@ -268,59 +268,128 @@ public class ThirdPersonController : MonoBehaviour
         HandleSprintFX();
     }
 
+    // ✅ VERSIONE COMPLETA CHE GESTISCE TUTTI I CASI
     private void ApplyAllMovement()
-{
-    if (!controller.enabled) return;
-    
-    Vector3 totalMovement = Vector3.zero;
-    
-    // 1. MOVIMENTO PIATTAFORMA (se presente)
-    if (currentPlatform != null)
     {
-        // ✅ PRIMA: Applica la rotazione della piattaforma al player
-        if (platformDeltaRot != Quaternion.identity)
+        if (!controller.enabled) return;
+        
+        Vector3 totalMovement = Vector3.zero;
+        
+        // 1. MOVIMENTO PIATTAFORMA (se presente)
+        if (currentPlatform != null)
         {
-            // Calcola la posizione del player relativa al centro della piattaforma
-            Vector3 relativePosition = transform.position - currentPlatform.position;
+            Vector3 platformMovement = Vector3.zero;
+            Vector3 rotationMovement = Vector3.zero;
             
-            // Applica la rotazione al player stesso
-            transform.rotation = platformDeltaRot * transform.rotation;
+            // A) MOVIMENTO LINEARE della piattaforma (orizzontale + verticale)
+            platformMovement = platformDeltaPos;
             
-            // Applica la rotazione anche alla posizione relativa del player
-            Vector3 rotatedRelativePosition = platformDeltaRot * relativePosition;
+            // B) MOVIMENTO DOVUTO ALLA ROTAZIONE
+            if (platformDeltaRot != Quaternion.identity)
+            {
+                // Calcola la posizione del player relativa al centro della piattaforma
+                Vector3 relativePosition = transform.position - currentPlatform.position;
+                
+                // Applica la rotazione al player stesso
+                transform.rotation = platformDeltaRot * transform.rotation;
+                
+                // Calcola dove si sposta il player a causa della rotazione
+                Vector3 rotatedRelativePosition = platformDeltaRot * relativePosition;
+                rotationMovement = rotatedRelativePosition - relativePosition;
+            }
             
-            // Calcola il movimento aggiuntivo dovuto alla rotazione
-            Vector3 rotationMovement = rotatedRelativePosition - relativePosition;
-            totalMovement += rotationMovement;
+            // C) MOVIMENTO TOTALE DELLA PIATTAFORMA
+            Vector3 totalPlatformMovement = platformMovement + rotationMovement;
+            totalMovement += totalPlatformMovement;
+            
+            // D) ✅ COMPENSAZIONE VELOCITÀ VERTICALE INTELLIGENTE
+            if (controller.isGrounded)
+            {
+                // Separa i componenti verticali
+                float linearVerticalSpeed = platformMovement.y / Time.deltaTime;
+                float rotationVerticalSpeed = rotationMovement.y / Time.deltaTime;
+                float totalVerticalSpeed = totalPlatformMovement.y / Time.deltaTime;
+                
+                // Debug dettagliato
+                if (Mathf.Abs(totalVerticalSpeed) > 0.01f)
+                {
+                    Debug.Log($"Platform Y speeds - Linear: {linearVerticalSpeed:F3}, Rotation: {rotationVerticalSpeed:F3}, Total: {totalVerticalSpeed:F3}");
+                }
+                
+                // STRATEGIA DI COMPENSAZIONE BASATA SUL TIPO DI MOVIMENTO
+                if (Mathf.Abs(totalVerticalSpeed) > 0.01f)
+                {
+                    // CASO 1: Movimento verticale molto rapido (ascensori veloci, etc.)
+                    if (Mathf.Abs(totalVerticalSpeed) > 5f)
+                    {
+                        velocity.y = totalVerticalSpeed;
+                        Debug.Log($"Fast platform: Setting velocity.y = {totalVerticalSpeed:F3}");
+                    }
+                    // CASO 2: Movimento verticale rapido
+                    else if (Mathf.Abs(totalVerticalSpeed) > 2f)
+                    {
+                        // Compensazione immediata ma con leggero smoothing
+                        velocity.y = Mathf.Lerp(velocity.y, totalVerticalSpeed, Time.deltaTime * 25f);
+                        Debug.Log($"Rapid platform: Lerping velocity.y to {totalVerticalSpeed:F3}");
+                    }
+                    // CASO 3: Movimento verticale moderato
+                    else if (Mathf.Abs(totalVerticalSpeed) > 0.5f)
+                    {
+                        // Solo se la piattaforma sale o il player non sta cadendo velocemente
+                        if (totalVerticalSpeed > 0 || velocity.y > -5f)
+                        {
+                            float targetVelocity = Mathf.Max(totalVerticalSpeed, velocity.y);
+                            velocity.y = Mathf.Lerp(velocity.y, targetVelocity, Time.deltaTime * 15f);
+                            Debug.Log($"Moderate platform: Lerping velocity.y to {targetVelocity:F3}");
+                        }
+                    }
+                    // CASO 4: Movimento verticale lento (ondulazioni, etc.)
+                    else
+                    {
+                        // Compensazione delicata solo se necessario
+                        if (totalVerticalSpeed > 0.1f || (totalVerticalSpeed < -0.1f && velocity.y > -2f))
+                        {
+                            velocity.y = Mathf.Lerp(velocity.y, totalVerticalSpeed, Time.deltaTime * 8f);
+                            Debug.Log($"Slow platform: Gentle lerping velocity.y to {totalVerticalSpeed:F3}");
+                        }
+                    }
+                }
+            }
+            
+            // E) ✅ GESTIONE SPECIALE PER MOVIMENTO ORIZZONTALE CON ROTAZIONE
+            // Se c'è rotazione significativa, assicurati che il movimento orizzontale sia fluido
+            if (platformDeltaRot != Quaternion.identity)
+            {
+                float rotationAngle = Quaternion.Angle(Quaternion.identity, platformDeltaRot);
+                if (rotationAngle > 0.1f) // Rotazione significativa
+                {
+                    // Compensa eventuali jitter orizzontali dovuti alla rotazione
+                    Vector3 horizontalPlatformMovement = new Vector3(totalPlatformMovement.x, 0f, totalPlatformMovement.z);
+                    if (horizontalPlatformMovement.magnitude > 0.001f)
+                    {
+                        Debug.Log($"Compensating horizontal movement during rotation: {horizontalPlatformMovement}");
+                    }
+                }
+            }
         }
         
-        // ✅ POI: Aggiungi movimento lineare della piattaforma
-        totalMovement += platformDeltaPos;
+        // 2. MOVIMENTO PLAYER + ATTACK + PUSH
+        Vector3 playerMovement = Vector3.zero;
+        playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
+        playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
+        playerMovement.y = velocity.y * Time.deltaTime;
         
-        // ✅ Compensa velocità verticale per piattaforme che si muovono in Y
-        if (controller.isGrounded)
+        totalMovement += playerMovement;
+        
+        // 3. ✅ UNA SOLA CHIAMATA A MOVE() CON TUTTO
+        controller.Move(totalMovement);
+        
+        // Debug completo per tutti i casi
+        if (currentPlatform != null && (totalMovement.magnitude > 0.001f || platformDeltaRot != Quaternion.identity))
         {
-            velocity.y = Mathf.Max(platformDeltaPos.y / Time.deltaTime, velocity.y);
+            Debug.Log($"Platform '{currentPlatform.name}' - Linear: {platformDeltaPos}, Rotation: {platformDeltaRot.eulerAngles}, Player Y Vel: {velocity.y:F3}, Total Movement: {totalMovement}");
         }
     }
-    
-    // 2. MOVIMENTO PLAYER + ATTACK + PUSH
-    Vector3 playerMovement = Vector3.zero;
-    playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
-    playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
-    playerMovement.y = velocity.y * Time.deltaTime;
-    
-    totalMovement += playerMovement;
-    
-    // 3. ✅ UNA SOLA CHIAMATA A MOVE() CON TUTTO
-    controller.Move(totalMovement);
-    
-    // Debug per verificare che funzioni
-    if (currentPlatform != null && (totalMovement.magnitude > 0.001f || platformDeltaRot != Quaternion.identity))
-    {
-        Debug.Log($"Platform movement - Linear: {platformDeltaPos}, Rotation: {platformDeltaRot.eulerAngles}, Total: {totalMovement}");
-    }
-}
 
     // ✅ RINOMINATO DA UpdatePlatformVelocity A UpdatePlatformMovement
     private void UpdatePlatformMovement()
@@ -795,43 +864,42 @@ public class ThirdPersonController : MonoBehaviour
         return transform;
     }
 
-   void OnControllerColliderHit(ControllerColliderHit hit)
-{
-    string hitTag = hit.collider.tag;
-    
-    if (hitTag == "MovingPlatform" || hitTag == "RotatingPlatform" || hitTag == "RaftPlatform")
+    void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        // ✅ Controlla se siamo sopra la piattaforma (non di lato)
-        Vector3 hitPoint = hit.point;
-        Vector3 platformTop = hit.collider.bounds.max;
-        float heightDifference = transform.position.y - hitPoint.y;
+        string hitTag = hit.collider.tag;
         
-        // Solo se siamo effettivamente sopra la piattaforma
-        if (heightDifference > -0.5f && heightDifference < 2f)
+        if (hitTag == "MovingPlatform" || hitTag == "RotatingPlatform" || hitTag == "RaftPlatform")
         {
-            if (currentPlatform != hit.collider.transform)
+            // ✅ Controlla se siamo sopra la piattaforma (non di lato)
+            Vector3 hitPoint = hit.point;
+            Vector3 platformTop = hit.collider.bounds.max;
+            float heightDifference = transform.position.y - hitPoint.y;
+            
+            // Solo se siamo effettivamente sopra la piattaforma
+            if (heightDifference > -0.5f && heightDifference < 2f)
             {
-                currentPlatform = hit.collider.transform;
-                lastPlatformPos = currentPlatform.position;
-                lastPlatformRot = currentPlatform.rotation;
-                Debug.Log($"[ThirdPersonController] Salito su piattaforma: {currentPlatform.name}");
+                if (currentPlatform != hit.collider.transform)
+                {
+                    currentPlatform = hit.collider.transform;
+                    lastPlatformPos = currentPlatform.position;
+                    lastPlatformRot = currentPlatform.rotation;
+                    Debug.Log($"[ThirdPersonController] Salito su piattaforma: {currentPlatform.name}");
+                }
+            }
+        }
+        else if (currentPlatform && hit.collider.transform != currentPlatform)
+        {
+            // ✅ Verifica che non siamo più sulla piattaforma
+            float distanceFromPlatform = Vector3.Distance(transform.position, currentPlatform.position);
+            Bounds platformBounds = currentPlatform.GetComponent<Collider>().bounds;
+            
+            if (distanceFromPlatform > platformBounds.size.magnitude)
+            {
+                Debug.Log($"[ThirdPersonController] Sceso dalla piattaforma: {currentPlatform.name}");
+                currentPlatform = null;
             }
         }
     }
-    else if (currentPlatform && hit.collider.transform != currentPlatform)
-    {
-        // ✅ Verifica che non siamo più sulla piattaforma
-        float distanceFromPlatform = Vector3.Distance(transform.position, currentPlatform.position);
-        Bounds platformBounds = currentPlatform.GetComponent<Collider>().bounds;
-        
-        if (distanceFromPlatform > platformBounds.size.magnitude)
-        {
-            Debug.Log($"[ThirdPersonController] Sceso dalla piattaforma: {currentPlatform.name}");
-            currentPlatform = null;
-        }
-    }
-}
-
 
     public void ApplyExternalPush(Vector3 force) => externalPush += force;
 

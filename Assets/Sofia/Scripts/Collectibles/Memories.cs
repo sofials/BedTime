@@ -6,12 +6,11 @@ using UnityEngine.Events;
 /// COMPLETAMENTE COMPATIBILE con la nuova classe base con sistema audio puro.
 /// Sistema audio: usa SOLO AudioSource configurati direttamente nell'Inspector.
 /// NON modifica mai parametri degli AudioSource - rispetta la configurazione originale.
-/// Gestisce immagini 2D billboard, effetti, categorizzazione e glow.
+/// Gestisce immagini 2D billboard, effetti e glow.
 /// </summary>
 public class Memories : Collectibles
 {
     [Header("Memory Specific Settings")]
-    [SerializeField] private MemoryCategory memoryCategory = MemoryCategory.Story;
     [SerializeField] private Color memoryGlowColor = Color.cyan;
     
     [Header("Memory Billboard System - Manual Assignment")]
@@ -26,15 +25,6 @@ public class Memories : Collectibles
     [Header("Memory Debug")]
     [SerializeField] private bool enableDetailedLogs = true; // Per debug dettagliato
     
-    // Enum per categorie di memorie
-    public enum MemoryCategory
-    {
-        Story,      // Memorie narrative principali
-        Lore,       // Conoscenza del mondo/lore
-        Secret,     // Memorie segrete/nascoste
-        Character   // Memorie dei personaggi
-    }
-    
     // Cache per billboard
     private Transform cachedCameraTransform;
     
@@ -43,10 +33,10 @@ public class Memories : Collectibles
         // FASE 1: Imposta il tipo come Memory PRIMA del base Awake
         collectibleType = CollectibleType.Memory;
         
-        // FASE 2: Imposta default specifici per le Memory
+        // FASE 2: Imposta valore di default per le Memory
         if (collectibleValue == 1) // Se è ancora il valore di default
         {
-            collectibleValue = GetDefaultValueForCategory();
+            collectibleValue = 5; // Valore standard per le Memory
         }
         
         // FASE 3: Configurazioni animazione specifiche Memory
@@ -64,14 +54,14 @@ public class Memories : Collectibles
         SetupBillboardSystem();
         ValidateMemoryConfiguration();
         
-        LogDebug($"Memory Awake completato per {collectibleName} - Categoria: {memoryCategory}");
+        LogDebug($"Memory Awake completato per {collectibleName}");
     }
     
     protected override void Start()
     {
         base.Start();
         
-        LogDebug($"Memory '{collectibleName}' inizializzata come {memoryCategory} Memory");
+        LogDebug($"Memory '{collectibleName}' inizializzata");
     }
     
     protected override void Update()
@@ -251,79 +241,63 @@ public class Memories : Collectibles
         }
     }
     
-    private int GetDefaultValueForCategory()
-    {
-        return memoryCategory switch
-        {
-            MemoryCategory.Story => 1,
-            MemoryCategory.Lore => 5,
-            MemoryCategory.Secret => 10,
-            MemoryCategory.Character => 3,
-            _ => 1
-        };
-    }
-    
     // ========== OVERRIDE METODI BASE ==========
     
     /// <summary>
     /// Override del metodo virtuale chiamato quando l'item viene raccolto
     /// </summary>
     protected override void OnItemCollected()
-{
-    // ⭐ SINCRONIZZAZIONE IMMEDIATA: Ferma gli effetti pre-raccolta SUBITO
-    // Prima di qualsiasi altra operazione
-    if (preCollectionEffects != null && preCollectionEffects.Length > 0)
     {
-        foreach (var effect in preCollectionEffects)
+        // ⭐ SINCRONIZZAZIONE IMMEDIATA: Ferma gli effetti pre-raccolta SUBITO
+        // Prima di qualsiasi altra operazione
+        if (preCollectionEffects != null && preCollectionEffects.Length > 0)
         {
-            if (effect != null)
+            foreach (var effect in preCollectionEffects)
             {
-                // Stop immediato dell'emissione
-                var emission = effect.emission;
-                emission.enabled = false;
-                
-                // Stop completo del sistema particellare
-                effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                
-                LogDebug($"✅ Pre-effect {effect.name} fermato immediatamente");
+                if (effect != null)
+                {
+                    // Stop immediato dell'emissione
+                    var emission = effect.emission;
+                    emission.enabled = false;
+                    
+                    // Stop completo del sistema particellare
+                    effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                    
+                    LogDebug($"✅ Pre-effect {effect.name} fermato immediatamente");
+                }
             }
         }
-    }
-    
-    // Nasconde il billboard quando viene raccolto (sincronizzato con mesh)
-    if (billboardImage != null)
-    {
-        billboardImage.gameObject.SetActive(false);
-        LogDebug($"✅ Billboard nascosto per {collectibleName}");
-    }
-    
-    // ⭐ OPZIONE AGGIUNTIVA: Forza disattivazione container effetti se necessario
-    if (effectsContainer != null)
-    {
-        // Opzione 1: Disattiva solo i pre-effects
-        var preEffectsContainer = effectsContainer.Find("PreEffects_Container");
-        if (preEffectsContainer != null)
+        
+        // Nasconde il billboard quando viene raccolto (sincronizzato con mesh)
+        if (billboardImage != null)
         {
-            preEffectsContainer.gameObject.SetActive(false);
-            LogDebug($"✅ Pre-effects container disattivato immediatamente");
+            billboardImage.gameObject.SetActive(false);
+            LogDebug($"✅ Billboard nascosto per {collectibleName}");
         }
         
-        // Opzione 2: Se vuoi essere ancora più aggressivo, disattiva tutto il container
-        // (sconsigliato se hai post-effects che devono rimanere visibili)
-        // effectsContainer.gameObject.SetActive(false);
+        // ⭐ OPZIONE AGGIUNTIVA: Forza disattivazione container effetti se necessario
+        if (effectsContainer != null)
+        {
+            // Opzione 1: Disattiva solo i pre-effects
+            var preEffectsContainer = effectsContainer.Find("PreEffects_Container");
+            if (preEffectsContainer != null)
+            {
+                preEffectsContainer.gameObject.SetActive(false);
+                LogDebug($"✅ Pre-effects container disattivato immediatamente");
+            }
+        }
+        
+        // Evento specifico Memory
+        try
+        {
+            OnMemoryCollected?.Invoke(this);
+            LogDebug($"Evento OnMemoryCollected invocato per {collectibleName}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[Memories] Errore nell'invocare OnMemoryCollected per {collectibleName}: {e.Message}");
+        }
     }
-    
-    // Evento specifico Memory
-    try
-    {
-        OnMemoryCollected?.Invoke(this);
-        LogDebug($"Evento OnMemoryCollected invocato per {collectibleName}");
-    }
-    catch (System.Exception e)
-    {
-        Debug.LogError($"[Memories] Errore nell'invocare OnMemoryCollected per {collectibleName}: {e.Message}");
-    }
-}
     
     // ========== OVERRIDE RESET ==========
     
@@ -344,26 +318,12 @@ public class Memories : Collectibles
         LogDebug($"Memory {collectibleName} resetata completamente");
     }
     
-    // ========== GETTERS E SETTERS SPECIFICI ==========
+    // ========== GETTERS E SETTERS ==========
     
-    public MemoryCategory GetMemoryCategory() => memoryCategory;
     public Color GetMemoryGlowColor() => memoryGlowColor;
     public Transform GetBillboardImage() => billboardImage;
     public Camera GetTargetCamera() => targetCamera;
     public bool IsDetailedLogsEnabled() => enableDetailedLogs;
-    
-    public void SetMemoryCategory(MemoryCategory category)
-    {
-        memoryCategory = category;
-        
-        // Aggiorna il valore se è ancora quello di default
-        if (collectibleValue == GetDefaultValueForCategory())
-        {
-            collectibleValue = GetDefaultValueForCategory();
-        }
-        
-        LogDebug($"Memory category cambiata a: {category}");
-    }
     
     public void SetMemoryGlowColor(Color color)
     {
@@ -426,62 +386,32 @@ public class Memories : Collectibles
         LogDebug($"Detailed logs {(enabled ? "abilitati" : "disabilitati")}");
     }
     
-    // ========== CONFIGURAZIONI PRESET (AGGIORNATE) ==========
+    // ========== CONFIGURAZIONE PRESET SEMPLIFICATA ==========
     
-    public void ConfigureAsStoryMemory()
+    public void ConfigureAsBasicMemory(string memoryName = "Memory Fragment", int value = 5)
     {
-        SetMemoryCategory(MemoryCategory.Story);
-        collectibleName = "Story Fragment";
-        collectibleValue = 1;
+        collectibleName = memoryName;
+        collectibleValue = value;
         floatSpeed = 2f;
         floatStrength = 0.6f;
         SetMemoryGlowColor(Color.cyan);
-        displayMessage = "Storia recuperata!";
+        displayMessage = "Memory recovered!";
         delayBeforeHiding = 3f;
         
-        LogDebug("Configurata come memory narrativa");
+        LogDebug($"Configurata come memory: {memoryName} (Value: {value})");
     }
     
-    public void ConfigureAsLoreMemory()
+    public void ConfigureAsSpecialMemory(string memoryName = "Special Memory", int value = 10)
     {
-        SetMemoryCategory(MemoryCategory.Lore);
-        collectibleName = "Ancient Knowledge";
-        collectibleValue = 5;
+        collectibleName = memoryName;
+        collectibleValue = value;
         floatSpeed = 3f;
         floatStrength = 0.8f;
-        SetMemoryGlowColor(Color.magenta);
-        displayMessage = "Antica conoscenza acquisita!";
+        SetMemoryGlowColor(Color.yellow);
+        displayMessage = "Special memory acquired!";
         delayBeforeHiding = 4f;
         
-        LogDebug("Configurata come memory lore");
-    }
-    
-    public void ConfigureAsSecretMemory()
-    {
-        SetMemoryCategory(MemoryCategory.Secret);
-        collectibleName = "Hidden Truth";
-        collectibleValue = 10;
-        floatSpeed = 4f;
-        floatStrength = 1.0f;
-        SetMemoryGlowColor(Color.yellow);
-        displayMessage = "Verità nascosta rivelata!";
-        delayBeforeHiding = 5f;
-        
-        LogDebug("Configurata come memory segreta");
-    }
-    
-    public void ConfigureAsCharacterMemory(string characterName = "Unknown")
-    {
-        SetMemoryCategory(MemoryCategory.Character);
-        collectibleName = $"{characterName} Memory";
-        collectibleValue = 3;
-        floatSpeed = 2.5f;
-        floatStrength = 0.7f;
-        SetMemoryGlowColor(Color.green);
-        displayMessage = $"Ricordo di {characterName} recuperato!";
-        delayBeforeHiding = 3.5f;
-        
-        LogDebug($"Configurata come memory di {characterName}");
+        LogDebug($"Configurata come memory speciale: {memoryName} (Value: {value})");
     }
     
     // ========== METODI PER COMPATIBILITÀ CON VECCHIO CODICE ==========
@@ -494,7 +424,7 @@ public class Memories : Collectibles
     public void ResetMemory() => ResetCollected();
     public void TriggerMemoryCollection() => CollectItem();
     
-    // ========== DEBUG METHODS AGGIORNATI ==========
+    // ========== DEBUG METHODS ==========
     
     private void LogDebug(string message)
     {
@@ -522,17 +452,11 @@ public class Memories : Collectibles
         }
     }
     
-    [ContextMenu("📖 Configure as Story Memory")]
-    public void DebugConfigureStory() => ConfigureAsStoryMemory();
+    [ContextMenu("⚙️ Configure as Basic Memory")]
+    public void DebugConfigureBasic() => ConfigureAsBasicMemory();
     
-    [ContextMenu("🔮 Configure as Lore Memory")]
-    public void DebugConfigureLore() => ConfigureAsLoreMemory();
-    
-    [ContextMenu("🤫 Configure as Secret Memory")]
-    public void DebugConfigureSecret() => ConfigureAsSecretMemory();
-    
-    [ContextMenu("👤 Configure as Character Memory")]
-    public void DebugConfigureCharacter() => ConfigureAsCharacterMemory("TestCharacter");
+    [ContextMenu("⭐ Configure as Special Memory")]
+    public void DebugConfigureSpecial() => ConfigureAsSpecialMemory();
     
     [ContextMenu("📝 Toggle Detailed Logs")]
     public void DebugToggleDetailedLogs()
@@ -603,7 +527,6 @@ public class Memories : Collectibles
     public void DebugMemoryState()
     {
         string state = $"=== STATO MEMORY {collectibleName} ===\n" +
-                      $"Memory Category: {memoryCategory}\n" +
                       $"Memory Glow Color: {memoryGlowColor}\n" +
                       $"Is Collected: {IsCollected()}\n" +
                       $"GameObject Active: {gameObject.activeInHierarchy}\n" +
@@ -631,27 +554,10 @@ public class Memories : Collectibles
                       $"Detailed Logs: {enableDetailedLogs}\n" +
                       $"Delay Before Hiding: {delayBeforeHiding}s\n" +
                       $"Collectible Value: {collectibleValue}\n" +
-                      $"Expected Value by Category: {GetDefaultValueForCategory()}\n" +
                       $"Will Disable GameObject After Collection: {WillDisableGameObjectAfterCollection()}\n" +
                       $"Will Hide Mesh Immediately: {WillHideMeshImmediately()}";
 
         Debug.Log(state);
-    }
-    
-    [ContextMenu("📐 Cycle Memory Category")]
-    public void DebugCycleMemoryCategory()
-    {
-        MemoryCategory newCategory = memoryCategory switch
-        {
-            MemoryCategory.Story => MemoryCategory.Lore,
-            MemoryCategory.Lore => MemoryCategory.Secret,
-            MemoryCategory.Secret => MemoryCategory.Character,
-            MemoryCategory.Character => MemoryCategory.Story,
-            _ => MemoryCategory.Story
-        };
-        
-        SetMemoryCategory(newCategory);
-        Debug.Log($"[Memories] {collectibleName} category cambiata a: {newCategory} (Value: {GetDefaultValueForCategory()})");
     }
     
     [ContextMenu("📋 Show Audio Setup Instructions")]
@@ -668,7 +574,7 @@ public class Memories : Collectibles
                   $"   ✅ Volume: PreAudio=0.7-0.8, PostAudio=0.9-1.0\n" +
                   $"   ✅ Spatial Blend: 1.0 per 3D\n" +
                   $"   ✅ Min Distance: 0.5\n" +
-                  $"   ✅ Max Distance: 20-30 (secondo categoria)\n" +
+                  $"   ✅ Max Distance: 20-30\n" +
                   $"   ✅ Rolloff Mode: Linear\n" +
                   $"   ✅ Loop: FALSE (Memory NON hanno loop)\n" +
                   $"   ✅ Play On Awake: FALSE (sempre!)\n" +
@@ -679,7 +585,6 @@ public class Memories : Collectibles
                   $"- Pre-audio NON deve essere in loop (silenzioso finché non attivato)\n" +
                   $"- Post-audio NON deve essere in loop (suona solo alla raccolta)\n" +
                   $"- Memory si disattivano dopo la raccolta (non come Present)\n" +
-                  $"- Usa trigger E/O click per la raccolta\n" +
-                  $"- Distanze audio variano per categoria (Secret=più lontane)");
+                  $"- Usa trigger E/O click per la raccolta");
     }
 }

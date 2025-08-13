@@ -23,12 +23,10 @@ public class PlayerAttack : MonoBehaviour
     public ParticleSystem punchEffect;            // Effetto generale del pugno (da inspector)
     public CFXR_EffectController punchImpactFX;   // Effetto specifico per impatto con nemici
     private bool hitConfirmedThisSwing = false;  // reset ad ogni swing
-    private bool effectCurrentlyPlaying = false; // tracking dello stato dell'effetto
 
     [Header("Audio")]
     public AudioSource punchAudioSource;          // Audio per l'effetto generale del pugno
     public AudioSource punchImpactAudioSource;   // Audio per l'impatto con nemici
-    private bool impactAudioPlaying = false;     // tracking dell'audio di impatto
 
     public bool isAttacking = false;
     [SerializeField] private float attackDuration = 0.3f;
@@ -81,7 +79,6 @@ public class PlayerAttack : MonoBehaviour
         if (punchImpactFX != null)
         {
             punchImpactFX.StopEffect();
-            effectCurrentlyPlaying = false;
         }
 
         // Inizializza gli audio sources
@@ -92,7 +89,6 @@ public class PlayerAttack : MonoBehaviour
         if (punchImpactAudioSource != null)
         {
             punchImpactAudioSource.playOnAwake = false;
-            impactAudioPlaying = false;
         }
 
         // Crea una curva di default se non è stata impostata
@@ -132,8 +128,9 @@ public class PlayerAttack : MonoBehaviour
                 attackTimer = attackDuration;
                 lastAttackTime = Time.time;
 
-                attackId++; // Incrementa ID attacco per segnalare nuovo swing
-                hitConfirmedThisSwing = false; // Reset hit confirmation per nuovo attacco
+                // Reset completo per nuovo attacco
+                attackId++;
+                hitConfirmedThisSwing = false;
 
                 // Inizia il movimento di avanzamento
                 StartAttackAdvance();
@@ -203,7 +200,7 @@ public class PlayerAttack : MonoBehaviour
         ignoreFrames = 5;
     }
 
-    // Chiamato dall'animazione per attivare l'effetto generale del pugno
+    // ANIMATION EVENT - Chiamato dall'animazione per attivare l'effetto generale del pugno
     public void EnablePunchEffect()
     {
         if (punchEffect != null)
@@ -220,7 +217,7 @@ public class PlayerAttack : MonoBehaviour
         }
     }
 
-    // Chiamato dall'animazione per disattivare l'effetto generale del pugno
+    // ANIMATION EVENT - Chiamato dall'animazione per disattivare l'effetto generale del pugno
     public void DisablePunchEffect()
     {
         if (punchEffect != null)
@@ -237,89 +234,40 @@ public class PlayerAttack : MonoBehaviour
         }
     }
 
-    // Chiamato quando il pugno va a segno contro un nemico (dall'animazione)
-    // Ora serve solo come backup se RegisterSuccessfulHit non è stato chiamato prima
-    public void EnablePunchFX()
-    {
-        if (punchImpactFX != null && hitConfirmedThisSwing && !effectCurrentlyPlaying)
-        {
-            punchImpactFX.PlayEffect();
-            effectCurrentlyPlaying = true;
-            Debug.Log("PunchFX attivato dall'animazione (backup)");
-
-            // Riproduce l'audio di impatto contemporaneamente
-            if (punchImpactAudioSource != null && !impactAudioPlaying)
-            {
-                punchImpactAudioSource.Play();
-                impactAudioPlaying = true;
-                Debug.Log("PunchImpactAudio riprodotto dall'animazione (backup)");
-            }
-        }
-    }
-
-    // Chiamato per fermare l'effetto impatto
-    public void DisablePunchFX()
-    {
-        if (punchImpactFX != null && effectCurrentlyPlaying)
-        {
-            punchImpactFX.StopEffect();
-            effectCurrentlyPlaying = false;
-            Debug.Log("PunchFX disattivato");
-        }
-
-        // Ferma l'audio di impatto
-        if (punchImpactAudioSource != null && impactAudioPlaying)
-        {
-            if (punchImpactAudioSource.isPlaying)
-            {
-                punchImpactAudioSource.Stop();
-            }
-            impactAudioPlaying = false;
-            Debug.Log("PunchImpactAudio fermato");
-        }
-    }
-
-    // Chiamato quando il colpo colpisce effettivamente un nemico
+    // COLLISION DETECTION - Chiamato quando il pugno colpisce effettivamente un nemico
     public void RegisterSuccessfulHit()
     {
         hitConfirmedThisSwing = true;
-        Debug.Log("Hit confermato per questo swing");
+        Debug.Log($"Hit confermato per attackId: {attackId}");
 
-        // Riproduce immediatamente l'effetto e l'audio di impatto
-        if (punchImpactFX != null && !effectCurrentlyPlaying)
+        // Riproduce immediatamente l'effetto di impatto
+        if (punchImpactFX != null)
         {
             punchImpactFX.PlayEffect();
-            effectCurrentlyPlaying = true;
-            Debug.Log("PunchFX attivato immediatamente su impatto nemico");
+            Debug.Log("PunchImpactFX attivato su collision");
         }
 
-        if (punchImpactAudioSource != null && !impactAudioPlaying)
+        // Riproduce immediatamente l'audio di impatto
+        if (punchImpactAudioSource != null)
         {
             punchImpactAudioSource.Play();
-            impactAudioPlaying = true;
-            Debug.Log("PunchImpactAudio riprodotto immediatamente");
+            Debug.Log("PunchImpactAudio riprodotto su collision");
         }
     }
 
-    // Metodo di sicurezza per forzare lo stop dell'effetto
-    public void ForceStopPunchEffect()
+    // Metodo di utilità per fermare manualmente gli effetti di impatto se necessario
+    public void StopImpactEffects()
     {
         if (punchImpactFX != null)
         {
             punchImpactFX.StopEffect();
-            effectCurrentlyPlaying = false;
-            Debug.Log("PunchEffect forzatamente fermato");
+            Debug.Log("PunchImpactFX fermato manualmente");
         }
 
-        // Forza lo stop anche dell'audio di impatto
-        if (punchImpactAudioSource != null && impactAudioPlaying)
+        if (punchImpactAudioSource != null && punchImpactAudioSource.isPlaying)
         {
-            if (punchImpactAudioSource.isPlaying)
-            {
-                punchImpactAudioSource.Stop();
-            }
-            impactAudioPlaying = false;
-            Debug.Log("PunchImpactAudio forzatamente fermato");
+            punchImpactAudioSource.Stop();
+            Debug.Log("PunchImpactAudio fermato manualmente");
         }
     }
 
