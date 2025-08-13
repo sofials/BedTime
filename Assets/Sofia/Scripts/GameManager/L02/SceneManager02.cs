@@ -8,7 +8,7 @@ using System.Collections;
 public class SceneManager02 : MonoBehaviour
 {
     [Header("Scene Configuration")]
-    [SerializeField] private string sceneName = "02 - Finding Pietro";
+    [SerializeField] private string sceneName = "Party in Lukelandia";
     
     [Header("Manager References")]
     [SerializeField] private CheckpointManager checkpointManager;
@@ -17,9 +17,6 @@ public class SceneManager02 : MonoBehaviour
     [Header("UI References - Specifiche della Scena")]
     [SerializeField] private GameObject levelTitleUI; // Opzionale
     [SerializeField] private PlayerAttack playerAttack; // Per accedere al PowerUp UI
-    // [SerializeField] private GameObject pauseMenu; // TODO: Implementare in futuro
-    // [SerializeField] private GameObject gameOverUI; // Rimosso per ora
-    // [SerializeField] private GameObject completionUI; // Rimosso per ora
     
     [Header("Auto-Setup")]
     [SerializeField] private bool autoFindManagers = true;
@@ -130,17 +127,14 @@ public class SceneManager02 : MonoBehaviour
     
     private void ConfigureInitialUIState()
     {
-        // Nascondi levelTitleUI inizialmente (se presente e abilitato)
         if (levelTitleUI != null && showLevelTitle)
         {
             levelTitleUI.SetActive(false);
         }
         
-        // Inizialmente disattiva PowerUp UI (sarà attivata quando il GameManager è pronto)
-        DisablePowerUpUI();
-        
         DebugLog("[SceneManager02] Stato iniziale UI configurato");
     }
+    
     // ========== GESTIONE UI POWERUP ==========
     
     private void EnablePowerUpUI()
@@ -170,14 +164,6 @@ public class SceneManager02 : MonoBehaviour
             }
         }
     }
-    
-    // TODO: Gestione pausa - da implementare in futuro
-    /*
-    public void ShowPauseMenu()
-    {
-        // Implementazione futura
-    }
-    */
     
     // ========== CALLBACK GAMEMANAGER ==========
     
@@ -372,24 +358,16 @@ public class SceneManager02 : MonoBehaviour
     private void OnPresentCollected(string presentName)
     {
         DebugLog($"[SceneManager02] Present raccolto: '{presentName}'");
-        
-        // Potresti mostrare una UI di notifica qui
-        // ShowCollectibleNotification("Present", presentName);
     }
     
     private void OnMemoryCollected(string memoryName)
     {
         DebugLog($"[SceneManager02] Memory raccolta: '{memoryName}'");
-        
-        // Potresti mostrare una UI di notifica qui
-        // ShowCollectibleNotification("Memory", memoryName);
     }
     
     private void OnAllCollectiblesCompleted()
     {
         DebugLog("[SceneManager02] 🏆 Tutti i collectibles completati!");
-        
-        // Per ora solo log e evento - UI di completamento rimossa
         OnSceneCompleted?.Invoke();
     }
     
@@ -448,6 +426,8 @@ public class SceneManager02 : MonoBehaviour
         NotifySceneCheckpoint(checkpointName);
     }
     
+    // ========== METODI DI NAVIGAZIONE SCENE (AGGIORNATI) ==========
+    
     public void RestartLevel()
     {
         DebugLog("[SceneManager02] Riavvio livello");
@@ -463,11 +443,16 @@ public class SceneManager02 : MonoBehaviour
             checkpointManager.ResetCheckpointSystem();
         }
         
-        // Riavvia la scena tramite GameManager
+        // Usa il GameManager per riavviare con fade
         if (GameManager.Instance != null)
         {
+            GameManager.Instance.RestartCurrentScene();
+        }
+        else
+        {
+            // Fallback diretto
             string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            GameManager.Instance.LoadSceneWithFade(currentScene);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(currentScene);
         }
     }
     
@@ -475,10 +460,15 @@ public class SceneManager02 : MonoBehaviour
     {
         DebugLog("[SceneManager02] Ritorno al menu principale");
         
-        // Torna alla Title Screen tramite GameManager
+        // Usa il GameManager per tornare al menu con fade
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.LoadSceneWithFade("Title Screen");
+            GameManager.Instance.ReturnToMainMenu();
+        }
+        else
+        {
+            // Fallback diretto
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Title Screen");
         }
     }
     
@@ -493,6 +483,11 @@ public class SceneManager02 : MonoBehaviour
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.LoadSceneWithFade(nextLevel);
+            }
+            else
+            {
+                // Fallback diretto
+                UnityEngine.SceneManagement.SceneManager.LoadScene(nextLevel);
             }
         }
         else
@@ -628,20 +623,6 @@ public class SceneManager02 : MonoBehaviour
         DebugLog($"[SceneManager02] Auto-save {(enabled ? "abilitato" : "disabilitato")}");
     }
     
-    // ========== INPUT HANDLING ==========
-    
-    // TODO: Input handling per pausa - da implementare in futuro
-    /*
-    private void Update()
-    {
-        // Gestione input per pausa
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            TogglePauseMenu();
-        }
-    }
-    */
-    
     // ========== DEBUG ==========
     
     private void DebugLog(string message)
@@ -693,6 +674,24 @@ public class SceneManager02 : MonoBehaviour
         {
             DebugLog("Level Title UI non disponibile o disabilitato");
         }
+    }
+    
+    [ContextMenu("Test - Restart Level")]
+    public void DebugRestartLevel()
+    {
+        RestartLevel();
+    }
+    
+    [ContextMenu("Test - Next Level")]
+    public void DebugLoadNextLevel()
+    {
+        LoadNextLevel();
+    }
+    
+    [ContextMenu("Test - Main Menu")]
+    public void DebugReturnToMainMenu()
+    {
+        ReturnToMainMenu();
     }
     
     // ========== CLEANUP ==========

@@ -48,11 +48,10 @@ public class ThirdPersonController : MonoBehaviour
     [Header("Player Stats")]
     public float maxHealth = 300f;
     public float currentHealth;
-     [Header("Health Protection")]
-    [SerializeField] private bool protectMaxHealth = true; // Flag per proteggere maxHealth
-    [SerializeField] private float designatedMaxHealth = 300f; // Valore protetto
+    [Header("Health Protection")]
+    [SerializeField] private bool protectMaxHealth = true;
+    [SerializeField] private float designatedMaxHealth = 300f;
 
-    // NUOVO: SISTEMA AUDIO PASSI
     [Header("Footstep Audio")]
     [SerializeField] private AudioSource footstepAudioSource;
     [SerializeField] private AudioClip[] walkFootsteps;
@@ -96,9 +95,8 @@ public class ThirdPersonController : MonoBehaviour
     private Vector3 externalPush = Vector3.zero;
     [SerializeField] private float pushRecoverySpeed = 0.2f;
 
-    // NUOVE VARIABILI PER ATTACK VELOCITY
     private Vector3 attackVelocity = Vector3.zero;
-    [SerializeField] private float attackVelocityDecay = 8f; // Velocità di decadimento della attack velocity
+    [SerializeField] private float attackVelocityDecay = 8f;
 
     private PlayerControls controls;
     private Vector2 moveInput;
@@ -121,44 +119,39 @@ public class ThirdPersonController : MonoBehaviour
             {
                 moveInput = Vector2.zero;
                 playerVelocity = Vector3.zero;
-                attackVelocity = Vector3.zero; // Reset anche attack velocity
+                attackVelocity = Vector3.zero;
                 _animator.SetFloat(SpeedHash, 0f);
-                
-                // NUOVO: Stop audio passi quando movimento è bloccato
                 StopFootstepAudio();
             }
         }
     }
     
-   public float MaxHealth 
-{ 
-    get => protectMaxHealth ? designatedMaxHealth : maxHealth;
-    set 
-    {
-        if (protectMaxHealth)
+    public float MaxHealth 
+    { 
+        get => protectMaxHealth ? designatedMaxHealth : maxHealth;
+        set 
         {
-            // Silenzioso: blocca senza log eccessivi
-            return;
+            if (protectMaxHealth)
+            {
+                return;
+            }
+            maxHealth = value;
+            designatedMaxHealth = value;
         }
-        maxHealth = value;
-        designatedMaxHealth = value;
     }
-}
 
-public float CurrentHealth 
-{ 
-    get => currentHealth; 
-    set => currentHealth = value;
-}
+    public float CurrentHealth 
+    { 
+        get => currentHealth; 
+        set => currentHealth = value;
+    }
+
     // OTTIMIZZAZIONE: Cache per raycast
     private RaycastHit[] raycastHits = new RaycastHit[4];
-
-    // OTTIMIZZAZIONE: Riduzione allocazioni temporanee
     private Vector3 tempVector3;
 
     public bool IsGrounded() => controller.isGrounded;
 
-    // NUOVO METODO: Aggiungi velocità di attacco
     public void AddAttackVelocity(Vector3 velocity)
     {
         attackVelocity += velocity;
@@ -169,7 +162,6 @@ public float CurrentHealth
     {
         controls = new PlayerControls();
         
-        // OTTIMIZZAZIONE: Cache del cameraTransform
         if (cameraTransform == null && Camera.main) 
             cameraTransform = Camera.main.transform;
 
@@ -181,19 +173,15 @@ public float CurrentHealth
         controls.Gameplay.Jump.canceled += OnJumpCanceled;
     }
 
-    // OTTIMIZZAZIONE: Metodi callback separati invece di lambda inline
     private void OnMovePerformed(InputAction.CallbackContext ctx) => moveInput = ctx.ReadValue<Vector2>();
     private void OnMoveCanceled(InputAction.CallbackContext ctx) => moveInput = Vector2.zero;
     private void OnSprintPerformed(InputAction.CallbackContext ctx) => isSprinting = true;
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
     
-    // SISTEMA INPUT IMMEDIATO
     private void OnJumpStarted(InputAction.CallbackContext ctx)
     {
         jumpBufferCounter = jumpBufferTime;
         isHoldingJump = true;
-        
-        // NON provare a saltare qui, lascia che sia Update() a gestirlo
         Debug.Log($"INPUT SALTO RICEVUTO - Buffer: {jumpBufferCounter}");
     }
     private void OnJumpCanceled(InputAction.CallbackContext ctx)
@@ -205,30 +193,26 @@ public float CurrentHealth
     {
         _animator = GetComponentInChildren<Animator>();
         controller = GetComponent<CharacterController>();
-         // Inizializzazione salute semplificata
-    if (protectMaxHealth && maxHealth != designatedMaxHealth)
-        maxHealth = designatedMaxHealth;
-    else if (!protectMaxHealth)
-        designatedMaxHealth = maxHealth;
         
-    currentHealth = MaxHealth;
-    
-    if (playerUI != null)
-        playerUI.UpdateHealth(currentHealth);
-       
+        if (protectMaxHealth && maxHealth != designatedMaxHealth)
+            maxHealth = designatedMaxHealth;
+        else if (!protectMaxHealth)
+            designatedMaxHealth = maxHealth;
+        
+        currentHealth = MaxHealth;
+        
+        if (playerUI != null)
+            playerUI.UpdateHealth(currentHealth);
         
         if (sprintFX) sprintFX.StopEffect();
         
-        // NUOVO: Setup AudioSource se non assegnato
         SetupFootstepAudio();
     }
 
-    // NUOVO: Setup del sistema audio passi
     private void SetupFootstepAudio()
     {
         if (footstepAudioSource == null)
         {
-            // Cerca un AudioSource esistente o creane uno nuovo
             footstepAudioSource = GetComponent<AudioSource>();
             if (footstepAudioSource == null)
             {
@@ -239,10 +223,9 @@ public float CurrentHealth
             }
         }
         
-        // Configura l'AudioSource per i passi
         footstepAudioSource.playOnAwake = false;
         footstepAudioSource.loop = false;
-        footstepAudioSource.spatialBlend = 0.7f; // Audio 3D parziale
+        footstepAudioSource.spatialBlend = 0.7f;
         footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
         footstepAudioSource.maxDistance = 15f;
     }
@@ -253,50 +236,109 @@ public float CurrentHealth
         controls.Gameplay.Disable();
         if (sprintFX) sprintFX.StopEffect();
         sprintFXActive = false;
-        
-        // NUOVO: Stop audio quando disabilitato
         StopFootstepAudio();
     }
 
+    // ✅ UPDATE CORRETTO CON MOVIMENTO SOLIDALE
     private void Update()
     {
-        UpdatePlatformVelocity();
-        HandleMovement();
-
+        // 1. PRIMA: Aggiorna movimento della piattaforma
+        UpdatePlatformMovement();
+        
+        // 2. Gestisci input e logica
         UpdateJumpTimers();
         HandleJumpInput();
         HandleJump();
         HandleAttackVelocity();
         HandleFootstepAudio();
-
-        if (currentPlatform != null && controller.enabled)
-        {
-            controller.Move(platformDeltaPos);
-            if (platformDeltaRot != Quaternion.identity)
-                transform.rotation = platformDeltaRot * transform.rotation;
-
-            if (controller.isGrounded)
-                velocity.y = Mathf.Max(platformDeltaPos.y, velocity.y);
-        }
-
-        if (controller.enabled)
-        {
-            // APPLICA ANCHE ATTACK VELOCITY AL MOVIMENTO FINALE
-            tempVector3.Set(playerVelocity.x + externalPush.x + attackVelocity.x,
-                           velocity.y,
-                           playerVelocity.z + externalPush.z + attackVelocity.z);
-            controller.Move(tempVector3 * Time.deltaTime);
-        }
-
+        
+        // 3. Calcola movimento del player
+        HandleMovement();
+        
+        // 4. ✅ APPLICA TUTTO IL MOVIMENTO INSIEME (UNA SOLA CHIAMATA)
+        ApplyAllMovement();
+        
+        // 5. Decay dei push esterni
         externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
-
+        
+        // 6. Update stati finali
         UpdateGroundedState();
         HandleFalling();
         HandleAirControl();
         HandleSprintFX();
     }
 
-    // NUOVO: Sistema audio passi
+    private void ApplyAllMovement()
+{
+    if (!controller.enabled) return;
+    
+    Vector3 totalMovement = Vector3.zero;
+    
+    // 1. MOVIMENTO PIATTAFORMA (se presente)
+    if (currentPlatform != null)
+    {
+        // ✅ PRIMA: Applica la rotazione della piattaforma al player
+        if (platformDeltaRot != Quaternion.identity)
+        {
+            // Calcola la posizione del player relativa al centro della piattaforma
+            Vector3 relativePosition = transform.position - currentPlatform.position;
+            
+            // Applica la rotazione al player stesso
+            transform.rotation = platformDeltaRot * transform.rotation;
+            
+            // Applica la rotazione anche alla posizione relativa del player
+            Vector3 rotatedRelativePosition = platformDeltaRot * relativePosition;
+            
+            // Calcola il movimento aggiuntivo dovuto alla rotazione
+            Vector3 rotationMovement = rotatedRelativePosition - relativePosition;
+            totalMovement += rotationMovement;
+        }
+        
+        // ✅ POI: Aggiungi movimento lineare della piattaforma
+        totalMovement += platformDeltaPos;
+        
+        // ✅ Compensa velocità verticale per piattaforme che si muovono in Y
+        if (controller.isGrounded)
+        {
+            velocity.y = Mathf.Max(platformDeltaPos.y / Time.deltaTime, velocity.y);
+        }
+    }
+    
+    // 2. MOVIMENTO PLAYER + ATTACK + PUSH
+    Vector3 playerMovement = Vector3.zero;
+    playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
+    playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
+    playerMovement.y = velocity.y * Time.deltaTime;
+    
+    totalMovement += playerMovement;
+    
+    // 3. ✅ UNA SOLA CHIAMATA A MOVE() CON TUTTO
+    controller.Move(totalMovement);
+    
+    // Debug per verificare che funzioni
+    if (currentPlatform != null && (totalMovement.magnitude > 0.001f || platformDeltaRot != Quaternion.identity))
+    {
+        Debug.Log($"Platform movement - Linear: {platformDeltaPos}, Rotation: {platformDeltaRot.eulerAngles}, Total: {totalMovement}");
+    }
+}
+
+    // ✅ RINOMINATO DA UpdatePlatformVelocity A UpdatePlatformMovement
+    private void UpdatePlatformMovement()
+    {
+        if (currentPlatform)
+        {
+            platformDeltaPos = currentPlatform.position - lastPlatformPos;
+            platformDeltaRot = currentPlatform.rotation * Quaternion.Inverse(lastPlatformRot);
+            lastPlatformPos = currentPlatform.position;
+            lastPlatformRot = currentPlatform.rotation;
+        }
+        else 
+        {
+            platformDeltaPos = Vector3.zero;
+            platformDeltaRot = Quaternion.identity;
+        }
+    }
+
     private void HandleFootstepAudio()
     {
         bool isMoving = playerVelocity.sqrMagnitude > 0.1f;
@@ -305,13 +347,9 @@ public float CurrentHealth
         
         if (canPlayFootsteps)
         {
-            // Aggiorna timer
             footstepTimer += Time.deltaTime;
-            
-            // Determina intervallo e clip basati sulla velocità
             float currentInterval = GetCurrentStepInterval();
             
-            // Riproduci passo se è il momento
             if (footstepTimer >= currentInterval)
             {
                 PlayFootstepSound();
@@ -322,7 +360,6 @@ public float CurrentHealth
         }
         else
         {
-            // Reset timer quando ci fermiamo
             if (wasMovingLastFrame)
             {
                 footstepTimer = 0f;
@@ -348,7 +385,6 @@ public float CurrentHealth
         AudioClip[] currentClips;
         float currentVolume;
         
-        // Scegli clip e volume basati sulla velocità
         if (isSprinting)
         {
             currentClips = sprintFootsteps;
@@ -365,12 +401,10 @@ public float CurrentHealth
             currentVolume = footstepVolumeWalk;
         }
         
-        // Riproduci clip casuale se disponibile
         if (currentClips != null && currentClips.Length > 0)
         {
             AudioClip clipToPlay = currentClips[Random.Range(0, currentClips.Length)];
             
-            // Applica variazione di pitch
             footstepAudioSource.pitch = 1f + Random.Range(-pitchVariation, pitchVariation);
             footstepAudioSource.volume = currentVolume;
             footstepAudioSource.clip = clipToPlay;
@@ -387,14 +421,12 @@ public float CurrentHealth
         footstepTimer = 0f;
     }
 
-    // NUOVO METODO: Gestisce il decadimento della attack velocity
     private void HandleAttackVelocity()
     {
         if (attackVelocity.magnitude > 0.01f)
         {
             attackVelocity = Vector3.Lerp(attackVelocity, Vector3.zero, Time.deltaTime * attackVelocityDecay);
             
-            // Azzera se è molto piccola per evitare floating point precision issues
             if (attackVelocity.magnitude < 0.01f)
                 attackVelocity = Vector3.zero;
         }
@@ -406,12 +438,11 @@ public float CurrentHealth
         {
             if (TryJump())
             {
-                jumpBufferCounter = 0; // Consuma buffer solo se il salto è andato a buon fine
+                jumpBufferCounter = 0;
             }
         }
     }
 
-    // OTTIMIZZAZIONE: Sistema di grounding migliorato
     private void UpdateGroundedState()
     {
         bool grounded = controller.isGrounded;
@@ -437,13 +468,11 @@ public float CurrentHealth
         wasGroundedLastFrame = grounded;
     }
 
-    // LANDING SEMPLIFICATO
     private void OnLanding()
     {
         jumpCount = 0;
         fallingTimer = 0f;
         
-        // Reset animazioni
         _animator.SetBool(JumpHash, false);
         _animator.SetBool(DoubleJumpHash, false);
         _animator.SetBool(IsFallingHash, false);
@@ -453,31 +482,26 @@ public float CurrentHealth
 
     private void UpdateJumpTimers()
     {
-        // Coyote time
         if (controller.isGrounded)
             coyoteTimeCounter = coyoteTime;
         else
             coyoteTimeCounter -= Time.deltaTime;
 
-        // Jump buffer
         if (jumpBufferCounter > 0)
             jumpBufferCounter -= Time.deltaTime;
     }
 
-    // METODO UNIFICATO PER TENTARE IL SALTO
     private bool TryJump()
     {
-        bool grounded = IsGroundedAccurate(); // Usa controllo più accurato
+        bool grounded = IsGroundedAccurate();
         bool canJump = false;
         bool isFirstJump = false;
 
-        // PRIMO SALTO: da terra o coyote time
         if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
         {
             canJump = true;
             isFirstJump = true;
         }
-        // SALTI MULTIPLI: in aria
         else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
         {
             canJump = true;
@@ -494,7 +518,6 @@ public float CurrentHealth
         return false;
     }
 
-    // SISTEMA DI SALTO RIDOTTO (solo gravità)
     private void HandleJump()
     {
         bool grounded = controller.isGrounded;
@@ -505,7 +528,6 @@ public float CurrentHealth
         UpdateJumpAnimations();
     }
 
-    // ESECUZIONE DEL SALTO
     private void ExecuteJump(bool isFirstJump)
     {
         if (velocity.y < 0) velocity.y = 0f;
@@ -524,21 +546,17 @@ public float CurrentHealth
             jumpCount++;
         }
 
-        // Reset timers
         coyoteTimeCounter = 0;
         currentPlatform = null;
         fallingTimer = 0f;
         
-        // NUOVO: Stop audio passi durante il salto
         StopFootstepAudio();
     }
 
     private bool IsGroundedAccurate()
     {
-        // Combina il controllo del CharacterController con un raycast
         if (controller.isGrounded) return true;
         
-        // Raycast aggiuntivo per casi edge
         tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
         int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.15f);
         
@@ -547,7 +565,6 @@ public float CurrentHealth
 
     private void UpdateJumpAnimations()
     {
-        // Mantieni solo l'aggiornamento della velocità verticale
         _animator.SetFloat(VerticalVelocityHash, velocity.y);
     }
 
@@ -571,7 +588,7 @@ public float CurrentHealth
     {
         if (sprintFX == null) return;
 
-        bool isMoving = playerVelocity.sqrMagnitude > 0.01f; // OTTIMIZZAZIONE: usa sqrMagnitude
+        bool isMoving = playerVelocity.sqrMagnitude > 0.01f;
         bool shouldShow = isSprinting && controller.isGrounded && isMoving;
 
         if (shouldShow && !sprintFXActive)
@@ -586,18 +603,6 @@ public float CurrentHealth
         }
     }
 
-    private void UpdatePlatformVelocity()
-    {
-        if (currentPlatform)
-        {
-            platformDeltaPos = currentPlatform.position - lastPlatformPos;
-            platformDeltaRot = currentPlatform.rotation * Quaternion.Inverse(lastPlatformRot);
-            lastPlatformPos = currentPlatform.position;
-            lastPlatformRot = currentPlatform.rotation;
-        }
-        else platformDeltaPos = Vector3.zero;
-    }
-
     private void HandleMovement()
     {
         if (IsMovementLocked)
@@ -610,11 +615,10 @@ public float CurrentHealth
         float h = moveInput.x;
         float v = moveInput.y;
 
-        // OTTIMIZZAZIONE: Riusa variabile temporanea
         tempVector3.Set(h, 0f, v);
         float inputMag = tempVector3.magnitude;
         
-        if (inputMag > 1f) // OTTIMIZZAZIONE: Normalizza solo se necessario
+        if (inputMag > 1f)
         {
             tempVector3.Normalize();
             inputMag = 1f;
@@ -639,19 +643,16 @@ public float CurrentHealth
         float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
         playerVelocity = moveDir * targetSpeed;
 
-        // CONSIDERA ANCHE ATTACK VELOCITY NEL CALCOLO DELLA VELOCITÀ PER L'ANIMATORE
         Vector3 totalVelocity = playerVelocity + attackVelocity;
         float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
         _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
     }
 
-    // OTTIMIZZAZIONE: Riduzione frequenza controlli falling
     private float fallingCheckTimer = 0f;
     private const float FALLING_CHECK_INTERVAL = 0.1f;
 
     private void HandleFalling()
     {
-        // OTTIMIZZAZIONE: Controlla falling meno frequentemente
         fallingCheckTimer += Time.deltaTime;
         if (fallingCheckTimer < FALLING_CHECK_INTERVAL) return;
         fallingCheckTimer = 0f;
@@ -669,7 +670,7 @@ public float CurrentHealth
 
         if (isDescending)
         {
-            fallingTimer += FALLING_CHECK_INTERVAL; // Usa interval invece di deltaTime
+            fallingTimer += FALLING_CHECK_INTERVAL;
 
             bool shouldFall = fallingTimer >= fallingTimeThreshold && 
                              !IsNearGroundBelow() && 
@@ -685,7 +686,6 @@ public float CurrentHealth
 
     private bool IsNearGroundBelow()
     {
-        // OTTIMIZZAZIONE: Usa NonAlloc per il raycast
         tempVector3.Set(transform.position.x, transform.position.y + 0.1f, transform.position.z);
         int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.3f);
         return hitCount > 0;
@@ -695,7 +695,6 @@ public float CurrentHealth
     {
         if (controller.isGrounded || IsMovementLocked) return;
 
-        // OTTIMIZZAZIONE: Riusa variabile temporanea
         tempVector3.Set(moveInput.x, 0f, moveInput.y);
         float inputMag = tempVector3.magnitude;
         
@@ -712,177 +711,186 @@ public float CurrentHealth
 
         Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
         
-        // OTTIMIZZAZIONE: Evita allocazione con new Vector3
         tempVector3.Set(moveDir.x * airControlSpeed, 0f, moveDir.z * airControlSpeed);
         playerVelocity += tempVector3;
     }
 
-    // ========== RESPAWN AGGIORNATO PER SCENEMANAGER ==========
-    
-   public void Respawn()
-{
-    controller.enabled = false;
-
-    Transform spawnPoint = GetRespawnPoint();
-    transform.position = spawnPoint.position;
-    transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-
-    velocity = Vector3.zero;
-    attackVelocity = Vector3.zero;
-    
-    // RESET CAMERA CINEMACHINE
-    if (playerCamera != null)
+    public void Respawn()
     {
-        // Resetta lo stato della camera usando il metodo ufficiale di Cinemachine
-        CinemachineCore.ResetCameraState();
+        controller.enabled = false;
+
+        Transform spawnPoint = GetRespawnPoint();
+        transform.position = spawnPoint.position;
+        transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+
+        velocity = Vector3.zero;
+        attackVelocity = Vector3.zero;
         
-        Debug.Log("[ThirdPersonController] Camera resettata usando CinemachineCore.ResetCameraState()");
-    }
-    else
-    {
-        Debug.LogWarning("[ThirdPersonController] playerCamera non assegnata - impossibile resettare camera");
-    }
-
-    controller.enabled = true;
-
-    _animator.SetBool(JumpHash, false);
-    _animator.SetBool(DoubleJumpHash, false);
-    _animator.SetBool(IsFallingHash, false);
-    _animator.SetBool(IsGroundedHash, true);
-
-    jumpCount = 0;
-    coyoteTimeCounter = 0f;
-    jumpBufferCounter = 0f;
-    fallingTimer = 0f;
-    wasGroundedLastFrame = true;
-
-    StopAllCoroutines();
-    if (sprintFX) sprintFX.StopEffect();
-    sprintFXActive = false;
-    StopFootstepAudio();
-
-    IsMovementLocked = false;
-
-    Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
-}
-
-private Transform GetRespawnPoint()
-{
-    // 🎯 SOLO CHECKPOINTMANAGER - Sistema unificato
-    CheckpointManager checkpointManager = CheckpointManager.Instance;
-    if (checkpointManager == null)
-    {
-        checkpointManager = FindFirstObjectByType<CheckpointManager>();
-    }
-    
-    if (checkpointManager != null)
-    {
-        Vector3 spawnPos = checkpointManager.GetCurrentSpawnPosition();
-        Quaternion spawnRot = checkpointManager.GetCurrentSpawnRotation();
-        
-        // Crea un GameObject temporaneo per la posizione
-        GameObject tempSpawn = new GameObject("TempRespawnPoint");
-        tempSpawn.transform.position = spawnPos;
-        tempSpawn.transform.rotation = spawnRot;
-        
-        if (checkpointManager.HasActiveCheckpoint())
+        if (playerCamera != null)
         {
-            Debug.Log($"[ThirdPersonController] ✅ Respawn al checkpoint: '{checkpointManager.GetCurrentCheckpoint()}' - {spawnPos}");
+            CinemachineCore.ResetCameraState();
+            Debug.Log("[ThirdPersonController] Camera resettata usando CinemachineCore.ResetCameraState()");
         }
         else
         {
-            Debug.Log($"[ThirdPersonController] ✅ Respawn al default spawn point: {spawnPos}");
+            Debug.LogWarning("[ThirdPersonController] playerCamera non assegnata - impossibile resettare camera");
+        }
+
+        controller.enabled = true;
+
+        _animator.SetBool(JumpHash, false);
+        _animator.SetBool(DoubleJumpHash, false);
+        _animator.SetBool(IsFallingHash, false);
+        _animator.SetBool(IsGroundedHash, true);
+
+        jumpCount = 0;
+        coyoteTimeCounter = 0f;
+        jumpBufferCounter = 0f;
+        fallingTimer = 0f;
+        wasGroundedLastFrame = true;
+
+        StopAllCoroutines();
+        if (sprintFX) sprintFX.StopEffect();
+        sprintFXActive = false;
+        StopFootstepAudio();
+
+        IsMovementLocked = false;
+
+        Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
+    }
+
+    private Transform GetRespawnPoint()
+    {
+        CheckpointManager checkpointManager = CheckpointManager.Instance;
+        if (checkpointManager == null)
+        {
+            checkpointManager = FindFirstObjectByType<CheckpointManager>();
         }
         
-        return tempSpawn.transform;
-    }
-    
-    // ❌ ERRORE: CheckpointManager mancante
-    Debug.LogError("[ThirdPersonController] ❌ CHECKPOINTMANAGER NON TROVATO!");
-    Debug.LogError("Devi aggiungere un CheckpointManager alla scena per il sistema di respawn!");
-    Debug.LogWarning("Usando posizione corrente come fallback...");
-    
-    return transform;
-}
-    void OnControllerColliderHit(ControllerColliderHit hit)
-    {
-        // OTTIMIZZAZIONE: Cache dei tag per evitare string comparisons ripetute
-        string hitTag = hit.collider.tag;
+        if (checkpointManager != null)
+        {
+            Vector3 spawnPos = checkpointManager.GetCurrentSpawnPosition();
+            Quaternion spawnRot = checkpointManager.GetCurrentSpawnRotation();
+            
+            GameObject tempSpawn = new GameObject("TempRespawnPoint");
+            tempSpawn.transform.position = spawnPos;
+            tempSpawn.transform.rotation = spawnRot;
+            
+            if (checkpointManager.HasActiveCheckpoint())
+            {
+                Debug.Log($"[ThirdPersonController] ✅ Respawn al checkpoint: '{checkpointManager.GetCurrentCheckpoint()}' - {spawnPos}");
+            }
+            else
+            {
+                Debug.Log($"[ThirdPersonController] ✅ Respawn al default spawn point: {spawnPos}");
+            }
+            
+            return tempSpawn.transform;
+        }
         
-        if (hitTag == "MovingPlatform" || hitTag == "RotatingPlatform" || hitTag == "RaftPlatform")
+        Debug.LogError("[ThirdPersonController] ❌ CHECKPOINTMANAGER NON TROVATO!");
+        Debug.LogError("Devi aggiungere un CheckpointManager alla scena per il sistema di respawn!");
+        Debug.LogWarning("Usando posizione corrente come fallback...");
+        
+        return transform;
+    }
+
+   void OnControllerColliderHit(ControllerColliderHit hit)
+{
+    string hitTag = hit.collider.tag;
+    
+    if (hitTag == "MovingPlatform" || hitTag == "RotatingPlatform" || hitTag == "RaftPlatform")
+    {
+        // ✅ Controlla se siamo sopra la piattaforma (non di lato)
+        Vector3 hitPoint = hit.point;
+        Vector3 platformTop = hit.collider.bounds.max;
+        float heightDifference = transform.position.y - hitPoint.y;
+        
+        // Solo se siamo effettivamente sopra la piattaforma
+        if (heightDifference > -0.5f && heightDifference < 2f)
         {
             if (currentPlatform != hit.collider.transform)
             {
                 currentPlatform = hit.collider.transform;
                 lastPlatformPos = currentPlatform.position;
                 lastPlatformRot = currentPlatform.rotation;
+                Debug.Log($"[ThirdPersonController] Salito su piattaforma: {currentPlatform.name}");
             }
         }
-        else if (currentPlatform && hit.collider.transform != currentPlatform)
+    }
+    else if (currentPlatform && hit.collider.transform != currentPlatform)
+    {
+        // ✅ Verifica che non siamo più sulla piattaforma
+        float distanceFromPlatform = Vector3.Distance(transform.position, currentPlatform.position);
+        Bounds platformBounds = currentPlatform.GetComponent<Collider>().bounds;
+        
+        if (distanceFromPlatform > platformBounds.size.magnitude)
         {
+            Debug.Log($"[ThirdPersonController] Sceso dalla piattaforma: {currentPlatform.name}");
             currentPlatform = null;
         }
     }
+}
+
 
     public void ApplyExternalPush(Vector3 force) => externalPush += force;
 
-  public void Heal(float amount)
-{
-    currentHealth = Mathf.Min(currentHealth + amount, MaxHealth);
-    UpdateHealthUI();
-}
-
-private void UpdateHealthUI()
-{
-    if (playerUI == null)
+    public void Heal(float amount)
     {
-        playerUI = PlayerUI.Instance ?? FindFirstObjectByType<PlayerUI>();
-        if (playerUI == null) return;
+        currentHealth = Mathf.Min(currentHealth + amount, MaxHealth);
+        UpdateHealthUI();
     }
 
-    playerUI.UpdateHealth(currentHealth);
-}
-
-    // OTTIMIZZAZIONE: Sistema di danno ottimizzato
-    private float lastDamageTime = 0f;
-    private const float DAMAGE_COOLDOWN = 0.1f; // Previene spam di danni
-
-   public void TakeDamage(float amount)
-{
-    if (Time.time - lastDamageTime < DAMAGE_COOLDOWN) return;
-    lastDamageTime = Time.time;
-    
-    if (currentHealth <= 0) return;
-
-    float oldHealth = currentHealth;
-    currentHealth = Mathf.Max(0, currentHealth - amount);
-    
-    UpdateHealthUI();
-    
-    if (attackEffectUI != null)
-        attackEffectUI.PulseIcon();
-
-    if (currentHealth <= 0 && oldHealth > 0)
+    private void UpdateHealthUI()
     {
-        IsMovementLocked = true;
-        _animator.SetFloat(SpeedHash, 0f);
-
-        if (ShouldPlayHitReal())
-            _animator.SetTrigger(HitRealHash);
-        else
+        if (playerUI == null)
         {
-            _animator.SetTrigger(HitHash);
-            StartCoroutine(QuickRespawn());
+            playerUI = PlayerUI.Instance ?? FindFirstObjectByType<PlayerUI>();
+            if (playerUI == null) return;
+        }
+
+        playerUI.UpdateHealth(currentHealth);
+    }
+
+    private float lastDamageTime = 0f;
+    private const float DAMAGE_COOLDOWN = 0.1f;
+
+    public void TakeDamage(float amount)
+    {
+        if (Time.time - lastDamageTime < DAMAGE_COOLDOWN) return;
+        lastDamageTime = Time.time;
+        
+        if (currentHealth <= 0) return;
+
+        float oldHealth = currentHealth;
+        currentHealth = Mathf.Max(0, currentHealth - amount);
+        
+        UpdateHealthUI();
+        
+        if (attackEffectUI != null)
+            attackEffectUI.PulseIcon();
+
+        if (currentHealth <= 0 && oldHealth > 0)
+        {
+            IsMovementLocked = true;
+            _animator.SetFloat(SpeedHash, 0f);
+
+            if (ShouldPlayHitReal())
+                _animator.SetTrigger(HitRealHash);
+            else
+            {
+                _animator.SetTrigger(HitHash);
+                StartCoroutine(QuickRespawn());
+            }
+        }
+        else if (currentHealth > 0)
+        {
+            PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
+            bool isSwinging = playerAttack != null && playerAttack.isAttacking;
+            if (!isSwinging)
+                _animator.SetTrigger(HitHash);
         }
     }
-    else if (currentHealth > 0)
-    {
-        PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
-        bool isSwinging = playerAttack != null && playerAttack.isAttacking;
-        if (!isSwinging)
-            _animator.SetTrigger(HitHash);
-    }
-}
 
     private IEnumerator QuickRespawn()
     {
@@ -917,7 +925,6 @@ private void UpdateHealthUI()
     {
         if (controller.isGrounded)
         {
-            // OTTIMIZZAZIONE: Aggiorna normal del terreno solo periodicamente
             if (Time.time - lastGroundNormalCheck > GROUND_NORMAL_CHECK_INTERVAL)
             {
                 lastGroundNormalCheck = Time.time;
@@ -937,7 +944,7 @@ private void UpdateHealthUI()
         }
         return cachedGroundNormal;
     }
-    // OTTIMIZZAZIONE: Cleanup per ridurre GC
+
     private void OnDestroy()
     {
         if (controls != null)
