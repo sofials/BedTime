@@ -1,40 +1,33 @@
 using UnityEngine;
 using UnityEngine.AI;
-using System.Collections;
+using System.Collections.Generic;
+using Unity.Mathematics;
+using UnityEngine.Splines;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class Npc_village : MonoBehaviour
 {
-    [Header("Waypoints iniziali (prima del dialogo)")]
-    public Transform[] initialWaypoints;
+    [Header("Waypoints")]
+    public Transform[] waypoints;
 
-    [Header("Effetto polvere ai piedi")]
-    [SerializeField] private CFXR_EffectController footDustEffect;
-
-    [Header("Effetto slow (una sola volta)")]
-    [SerializeField] private CFXR_EffectController slowEffect;
-
-    [Header("Durata effetto slow in secondi")]
-    [SerializeField] private float slowEffectDuration = 0.5f;
-
-    [Header("Distanza di stop vicino al player (regolabile in inspector)")]
-    public float stopDistanceFromPlayer = 6.5f;
-
-    [Header("Animator (sul padre)")]
+    [Header("Animator")]
     [SerializeField] private Animator animator;
 
-    [Header("Riferimento Player")]
-    public Transform playerTransform;
+    [Header("Effetto particelle")]
+    [SerializeField] private CFXR_EffectController effectController;
+
+    [Header("Spline per posizionamento")]
+    [SerializeField] private SplineContainer splineContainer; // La spline su cui posizionarsi
 
     private int currentIndex = -1;
     private NavMeshAgent agent;
-    private Quaternion targetRotation;
+    private bool isStopped = false;
 
-    private bool footDustActive = false;
-    private bool isSlowed = false;
-    private bool slowEffectPlayed = false;
-    private bool movingToPlayerAfterSlow = false;
-    private bool dialogFinished = false;
+    // Lista statica per tenere traccia degli NPC fermati
+    private static List<Npc_village> stoppedNPCs = new List<Npc_village>();
+    
+    // Spline condivisa (viene impostata dal primo NPC)
+    private static SplineContainer sharedSpline;
 
     void Start()
     {
@@ -44,162 +37,190 @@ public class Npc_village : MonoBehaviour
 
         if (animator == null)
             animator = GetComponent<Animator>();
+        
         animator.applyRootMotion = false;
 
+        // Impostazioni movimento
         agent.speed = 15f;
         agent.angularSpeed = 120f;
         agent.acceleration = 8f;
-        agent.avoidancePriority = Random.Range(10, 90);
+        agent.avoidancePriority = UnityEngine.Random.Range(10, 90); // Evitamento tra NPC
 
-        if (initialWaypoints.Length > 0)
+        // Inizia il movimento tra waypoint (animator inizia già in running come default)
+        if (waypoints.Length > 0)
         {
-            GoToRandomWaypoint(initialWaypoints);
-            animator.SetBool("IsWalking", true);
-            agent.isStopped = false;
+            GoToRandomWaypoint();
+            // Non serve impostare IsRunning=true perché è già il default
         }
 
-        if (footDustEffect != null)
+        // Attiva l'effetto all'avvio
+        if (effectController != null)
         {
-            footDustEffect.PlayEffect();
-            footDustActive = true;
+            effectController.PlayEffect();
+        }
+
+        // Imposta la spline condivisa se non è già stata impostata
+        if (sharedSpline == null && splineContainer != null)
+        {
+            sharedSpline = splineContainer;
         }
     }
 
     void Update()
     {
-        if (playerTransform == null)
+        // Se è fermo, non fare nulla
+        if (isStopped) return;
+
+        // Se ha raggiunto il waypoint, vai al prossimo
+        if (!agent.pathPending && agent.remainingDistance < 0.5f)
         {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-                playerTransform = player.transform;
+            GoToRandomWaypoint();
         }
 
-        if (isSlowed && !movingToPlayerAfterSlow)
-        {
-            agent.isStopped = true;
-            animator.SetBool("Slow", true);
-            animator.SetBool("IsRunning", false);
-            animator.SetBool("IsWalking", false);
-
-            if (footDustActive)
-            {
-                footDustEffect.StopEffect();
-                footDustActive = false;
-            }
-
-            LookAtPlayer();
-
-            if (slowEffect != null && !slowEffectPlayed)
-            {
-                slowEffect.PlayEffect();
-                slowEffectPlayed = true;
-                StartCoroutine(StopSlowEffectAfterDelay());
-            }
-
-            return;
-        }
-
-        if (movingToPlayerAfterSlow)
-        {
-            LookAtPlayer();
-            return;
-        }
-
-        // Aggiorna rotazione solo se non fermo e non rallentato
-        if (agent.isStopped == false && agent.velocity.sqrMagnitude > 0.1f)
+        // Aggiorna rotazione durante il movimento
+        if (agent.velocity.sqrMagnitude > 0.1f)
         {
             Vector3 direction = agent.velocity.normalized;
             direction.y = 0;
-            targetRotation = Quaternion.LookRotation(direction);
-        }
-    }
-
-    void LateUpdate()
-    {
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
-    }
-
-    void LookAtPlayer()
-    {
-        if (playerTransform != null)
-        {
-            Vector3 dir = playerTransform.position - transform.position;
-            dir.y = 0;
-            if (dir.sqrMagnitude > 0.01f)
-                targetRotation = Quaternion.LookRotation(dir);
-        }
-    }
-
-    public void SetSlow(bool slow)
-    {
-        if (slow && !isSlowed)
-        {
-            isSlowed = true;
-            slowEffectPlayed = false;
-            movingToPlayerAfterSlow = false;
-        }
-    }
-
-    private IEnumerator StopSlowEffectAfterDelay()
-    {
-        yield return new WaitForSeconds(slowEffectDuration);
-        if (slowEffect != null)
-            slowEffect.StopEffect();
-
-        movingToPlayerAfterSlow = false;
-        animator.SetBool("Slow", false);
-
-        // Se il dialogo è finito, solo stop e idle, niente routine post-dialogo
-        if (dialogFinished)
-        {
-            StopAndIdle();
+            transform.rotation = Quaternion.LookRotation(direction);
         }
     }
 
     /// <summary>
-    /// Chiamato dal Dialogo per indicare che è finito
+    /// Chiamato quando si usa il power-up per fermare l'NPC definitivamente
     /// </summary>
-    public void OnDialogFinished()
+    public void StopNPC()
     {
-        if (!dialogFinished)
-        {
-            dialogFinished = true;
-
-            // Ferma l'agente e imposta idle, senza avviare routine post-dialogo
-            StopAndIdle();
-        }
-    }
-
-    private void StopAndIdle()
-    {
+        isStopped = true;
         agent.isStopped = true;
-        animator.SetBool("IsWalking", false);
+        
+        // Animazioni corrette: IsRunning=false + Slow=true = Idle
         animator.SetBool("IsRunning", false);
-        animator.SetBool("Slow", false);
+        animator.SetBool("Slow", true);
 
-        if (footDustActive && footDustEffect != null)
+        // Aggiungi questo NPC alla lista statica
+        if (!stoppedNPCs.Contains(this))
         {
-            footDustEffect.StopEffect();
-            footDustActive = false;
+            stoppedNPCs.Add(this);
+        }
+
+        // Posiziona lungo la spline
+        StartCoroutine(MoveToSplinePosition());
+
+        // Spegne l'effetto definitivamente
+        if (effectController != null)
+        {
+            effectController.StopEffect();
         }
     }
 
-    void GoToRandomWaypoint(Transform[] waypoints)
+    /// <summary>
+    /// Muove l'NPC verso la sua posizione sulla spline
+    /// </summary>
+    System.Collections.IEnumerator MoveToSplinePosition()
+    {
+        if (sharedSpline == null)
+        {
+            Debug.LogWarning("Spline non assegnata!");
+            yield break;
+        }
+
+        // Calcola la posizione sulla spline
+        Vector3 targetPosition = CalculateSplinePosition();
+        
+        // Aumenta velocità per movimento veloce
+        float originalSpeed = agent.speed;
+        agent.speed = 50f; // Velocità molto alta per posizionamento rapidissimo
+        
+        // Riattiva temporaneamente l'agent per il movimento
+        agent.isStopped = false;
+        agent.SetDestination(targetPosition);
+
+        // Aspetta che raggiunga la posizione
+        while (agent.pathPending || agent.remainingDistance > 1f)
+        {
+            // Durante il movimento, orienta verso la direzione di movimento
+            if (agent.velocity.sqrMagnitude > 0.1f)
+            {
+                Vector3 direction = agent.velocity.normalized;
+                direction.y = 0;
+                transform.rotation = Quaternion.LookRotation(direction);
+            }
+            yield return null;
+        }
+
+        // Ripristina velocità originale e ferma definitivamente
+        agent.speed = originalSpeed;
+        agent.isStopped = true;
+        LookAtPlayer(); // Guarda il player quando è fermo
+    }
+
+    /// <summary>
+    /// Calcola la posizione dell'NPC sulla spline (un NPC per knot)
+    /// </summary>
+    Vector3 CalculateSplinePosition()
+    {
+        int myIndex = stoppedNPCs.IndexOf(this);
+        
+        // Ottieni il numero di knots nella spline
+        int knotCount = sharedSpline.Spline.Count;
+        
+        // Se ci sono più NPC che knots, alcuni condivideranno la posizione
+        int targetKnotIndex = myIndex % knotCount;
+        
+        // Ottieni la posizione del knot specifico
+        BezierKnot knot = sharedSpline.Spline[targetKnotIndex];
+        float3 knotPosition = knot.Position;
+        
+        // Converti la posizione locale della spline in posizione world
+        Vector3 worldPosition = sharedSpline.transform.TransformPoint(new Vector3(knotPosition.x, knotPosition.y, knotPosition.z));
+        
+        return worldPosition;
+    }
+
+    /// <summary>
+    /// Ruota l'NPC verso il player quando è fermo ai knot
+    /// </summary>
+    void LookAtPlayer()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            Vector3 direction = player.transform.position - transform.position;
+            direction.y = 0; // Mantieni solo rotazione orizzontale
+            
+            if (direction.sqrMagnitude > 0.01f)
+            {
+                transform.rotation = Quaternion.LookRotation(direction);
+            }
+        }
+    }
+
+    void GoToRandomWaypoint()
     {
         if (waypoints.Length <= 1)
         {
-            currentIndex = 0;
-            agent.SetDestination(waypoints[0].position);
+            if (waypoints.Length == 1)
+                agent.SetDestination(waypoints[0].position);
             return;
         }
 
         int newIndex;
         do
         {
-            newIndex = Random.Range(0, waypoints.Length);
+            newIndex = UnityEngine.Random.Range(0, waypoints.Length);
         } while (newIndex == currentIndex);
 
         currentIndex = newIndex;
         agent.SetDestination(waypoints[currentIndex].position);
+    }
+
+    void OnDestroy()
+    {
+        // Rimuovi dalla lista statica quando l'oggetto viene distrutto
+        if (stoppedNPCs.Contains(this))
+        {
+            stoppedNPCs.Remove(this);
+        }
     }
 }

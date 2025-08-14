@@ -13,11 +13,7 @@ public class SlowdownAbility : AbilityBase
     public AudioClip effectAudioClip;
     private AudioSource effectAudioSource;
 
-    [Header("NPC Village da bloccare")]
-    public Npc_village[] villageNPCsToSlow;
 
-    [Header("NPC Verde da bloccare")]
-    public Npc_verde[] verdeNPCsToSlow;
 
     public override int powerCost => 20;
     protected override bool HasFixedDuration => true;
@@ -37,6 +33,7 @@ public class SlowdownAbility : AbilityBase
     private List<PlatformData> affectedPlatforms = new();
     private List<RotatorData> affectedRotators = new();
     private List<TurtleShell> affectedTurtleShells = new();
+    private List<Npc_village> affectedNPCs = new(); // Lista per tracciare gli NPC fermati
 
     private Coroutine deactivateCoroutine;
 
@@ -82,8 +79,8 @@ public class SlowdownAbility : AbilityBase
                 }
             }
             
-            // Wall_Village
-            if (col.CompareTag("Wall_Village"))
+            // Chibi (NPC Village)
+            if (col.CompareTag("Chibi"))
             {
                 return true;
             }
@@ -178,6 +175,7 @@ public class SlowdownAbility : AbilityBase
         affectedPlatforms.Clear();
         affectedRotators.Clear();
         affectedTurtleShells.Clear();
+        affectedNPCs.Clear(); // Pulisci anche la lista NPC
 
         Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
         Debug.Log($"[SlowdownAbility] Collider trovati: {colliders.Length}");
@@ -260,41 +258,14 @@ public class SlowdownAbility : AbilityBase
                     Debug.Log($"→ TurtleShell {ts.name} rallentata.");
                 }
             }
-            else if (col.CompareTag("Wall_Village"))
+            else if (col.CompareTag("Chibi"))
             {
-                Debug.Log("[SlowdownAbility] Wall_Village colpito: " + col.name);
-
-                // Blocca gli NPC Village assegnati da inspector (solo slow = true)
-                foreach (Npc_village npc in villageNPCsToSlow)
+                Npc_village npc = col.GetComponent<Npc_village>();
+                if (npc != null)
                 {
-                    if (npc != null)
-                    {
-                        npc.SetSlow(true);
-                        Debug.Log($"→ NPC Village {npc.name} bloccato (Slow=true).");
-                    }
-                }
-
-                // Blocca gli NPC Verde assegnati da inspector
-                foreach (Npc_verde npc in verdeNPCsToSlow)
-                {
-                    if (npc != null)
-                    {
-                        npc.SetSlow(true);
-                        Debug.Log($"→ NPC Verde {npc.name} bloccato (Slow=true).");
-                    }
-                }
-
-                // Distruggi il muro e il suo genitore (se esiste)
-                Transform wallTransform = col.transform;
-                if (wallTransform.parent != null)
-                {
-                    Destroy(wallTransform.parent.gameObject);
-                    Debug.Log($"→ Distrutto parent: {wallTransform.parent.name}");
-                }
-                else
-                {
-                    Destroy(wallTransform.gameObject);
-                    Debug.Log($"→ Distrutto muro: {wallTransform.name}");
+                    npc.StopNPC();
+                    affectedNPCs.Add(npc); // Aggiungi alla lista per il controllo
+                    Debug.Log($"→ NPC Village {npc.name} fermato definitivamente.");
                 }
             }
             else if (col.CompareTag("GolemHurtbox"))
@@ -311,7 +282,7 @@ public class SlowdownAbility : AbilityBase
         // ⚠️ NOTA: A questo punto dovremmo sempre avere almeno un oggetto 
         // perché abbiamo controllato prima con HasValidTargetsInRange()
         // Ma aggiungiamo un controllo di sicurezza per casi edge
-        if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0)
+        if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0 && affectedNPCs.Count == 0)
         {
             Debug.LogWarning("[SlowdownAbility] ⚠️ CASO EDGE: Nessun oggetto rallentato dopo HasValidTargetsInRange() ha restituito true!");
             
@@ -328,7 +299,7 @@ public class SlowdownAbility : AbilityBase
         }
 
         Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme, " +
-                  $"{affectedRotators.Count} rotatori, {affectedTurtleShells.Count} TurtleShell.");
+                  $"{affectedRotators.Count} rotatori, {affectedTurtleShells.Count} TurtleShell, {affectedNPCs.Count} NPC.");
         Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
 
         if (HasFixedDuration)
@@ -474,11 +445,12 @@ public class SlowdownAbility : AbilityBase
             }
         }
 
-        // Non sbloccare mai gli NPC (come specificato nel commento originale)
+        // Non sbloccare mai gli NPC (rimangono fermi definitivamente)
 
         affectedPlatforms.Clear();
         affectedRotators.Clear();
         affectedTurtleShells.Clear();
+        affectedNPCs.Clear(); // Pulisci anche la lista NPC
 
         IsActive = false;
 
