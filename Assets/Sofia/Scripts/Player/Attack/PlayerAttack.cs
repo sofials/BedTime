@@ -237,6 +237,12 @@ public class PlayerAttack : MonoBehaviour
     // COLLISION DETECTION - Chiamato quando il pugno colpisce effettivamente un nemico
     public void RegisterSuccessfulHit()
     {
+        // ===== PROTEZIONE CONTRO HIT MULTIPLI =====
+        if (hitConfirmedThisSwing)
+        {
+            return; // Evita effetti multipli nello stesso swing
+        }
+
         hitConfirmedThisSwing = true;
         Debug.Log($"Hit confermato per attackId: {attackId}");
 
