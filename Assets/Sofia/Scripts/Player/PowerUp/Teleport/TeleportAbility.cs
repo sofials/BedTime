@@ -91,11 +91,10 @@ public class TeleportAbility : AbilityBase
 
         if (!IsActive) 
         {
-            Debug.Log("⚠️ Update - IsActive è FALSE");
             return;
         }
 
-        Debug.Log("📡 UpdateTeleportTarget() sta per essere chiamato...");
+       
         UpdateTeleportTarget();
 
         if (confirmPressed)

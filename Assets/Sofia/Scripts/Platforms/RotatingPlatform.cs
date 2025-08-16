@@ -2,6 +2,12 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+public enum PlatformType
+{
+    SupportPlatform,    // Il player può appoggiarsi sopra
+    ObstaclePlatform    // Colpisce e respinge il player
+}
+
 public class RotatingObject : MonoBehaviour
 {
     public Vector3 rotationAxis = Vector3.up;
@@ -34,12 +40,18 @@ public class RotatingObject : MonoBehaviour
     [Tooltip("Velocità assoluta temporanea durante lo slowdown.")]
     public float customSlowdownFactor = 90f;
 
+    [Header("Platform Behavior")]
+    [SerializeField] private PlatformType platformType = PlatformType.SupportPlatform;
+    [Tooltip("Support Platform: il player può appoggiarsi sopra. Obstacle Platform: colpisce e respinge il player")]
+    [SerializeField] private bool detachPlayerOnHit = false;
+    [Tooltip("Se true, sgancia il player dalla piattaforma quando viene colpito (solo per Obstacle Platform)")]
+    
     [Header("Damage Settings")]
-    [SerializeField] private bool canDamagePlayer = false;
+    [SerializeField] private bool canDamagePlayer = true;
     [Tooltip("Se disabilitato, la piattaforma non farà danno al player")]
-    [SerializeField] private float damageAmount = 10f;
+    [SerializeField] public float damageAmount = 10f;
     [Tooltip("Se true, fa solo trigger Hit senza danno quando canDamagePlayer è false")]
-    [SerializeField] private bool triggerHitWhenNoDamage = false;
+    [SerializeField] public bool triggerHitWhenNoDamage = false;
 
     // CAMBIATO: Array di MeshRenderer invece di uno singolo
     private MeshRenderer[] meshRenderers;
@@ -126,6 +138,24 @@ public class RotatingObject : MonoBehaviour
             transform.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
         }
     }
+
+    // NUOVO: Metodi pubblici per controllare il tipo di piattaforma
+    public void SetPlatformType(PlatformType type)
+    {
+        platformType = type;
+        Debug.Log($"[RotatingObject] {gameObject.name} - tipo piattaforma: {type}");
+    }
+
+    public PlatformType GetPlatformType() => platformType;
+
+    // NUOVO: Metodi per controllare lo sganciamento
+    public void SetDetachPlayerOnHit(bool detach)
+    {
+        detachPlayerOnHit = detach;
+        Debug.Log($"[RotatingObject] {gameObject.name} - sganciamento player: {(detach ? "ABILITATO" : "DISABILITATO")}");
+    }
+
+    public bool GetDetachPlayerOnHit() => detachPlayerOnHit;
 
     // NUOVO: Metodi pubblici per controllare il danno
     public void SetCanDamagePlayer(bool canDamage)
@@ -362,43 +392,13 @@ public class RotatingObject : MonoBehaviour
         Debug.Log($"[RotatingObject] SetEmissiveOverlay completato per {meshRenderer.gameObject.name} - patinaActive = {patinaActive}");
     }
 
-    private void OnTriggerEnter(Collider other)
+    /// <summary>
+    /// Sgancia immediatamente il player dalla piattaforma per evitare che giri insieme
+    /// </summary>
+    private void DetachPlayerFromPlatform(ThirdPersonController player)
     {
-        var player = other.GetComponent<ThirdPersonController>();
-        if (player != null && speedMultiplier > 0.99f)
-        {
-            // NUOVO: Controllo del toggle danno
-            if (canDamagePlayer)
-            {
-                // Comportamento originale: fa danno
-                player.TakeDamage(damageAmount);
-                Debug.Log($"[RotatingObject] {gameObject.name} ha fatto {damageAmount} danni al player");
-            }
-            else if (triggerHitWhenNoDamage)
-            {
-                // Nuovo comportamento: solo trigger Hit senza danno
-                Animator playerAnimator = player.GetComponentInChildren<Animator>();
-                if (playerAnimator != null)
-                {
-                    playerAnimator.SetTrigger("Hit");
-                    Debug.Log($"[RotatingObject] {gameObject.name} ha triggerato Hit senza danno");
-                }
-            }
-            else
-            {
-                Debug.Log($"[RotatingObject] {gameObject.name} - danno disabilitato, nessun effetto sul player");
-                return; // Esci senza push se il danno è disabilitato e non si vuole il trigger
-            }
-
-            // Push del player (sempre attivo se c'è stato damage o hit)
-            Rigidbody playerRb = player.GetComponent<Rigidbody>();
-            if (playerRb != null)
-            {
-                Vector3 pushDirection = (player.transform.position - transform.position).normalized;
-                float pushForce = 5f;
-                playerRb.AddForce(pushDirection * pushForce, ForceMode.Impulse);
-                Debug.Log($"[RotatingObject] Push applicato al player con forza {pushForce}");
-            }
-        }
+        // Versione semplice che usa il metodo pubblico del ThirdPersonController
+        player.DetachFromPlatform(this.transform);
+        Debug.Log($"[RotatingObject] Player sganciato dalla piattaforma {gameObject.name}");
     }
 }

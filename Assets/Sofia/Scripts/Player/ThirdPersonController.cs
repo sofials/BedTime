@@ -155,7 +155,6 @@ public class ThirdPersonController : MonoBehaviour
     public void AddAttackVelocity(Vector3 velocity)
     {
         attackVelocity += velocity;
-        Debug.Log($"Attack velocity aggiunta: {velocity}, totale: {attackVelocity}");
     }
 
     private void Awake()
@@ -182,7 +181,6 @@ public class ThirdPersonController : MonoBehaviour
     {
         jumpBufferCounter = jumpBufferTime;
         isHoldingJump = true;
-        Debug.Log($"INPUT SALTO RICEVUTO - Buffer: {jumpBufferCounter}");
     }
     private void OnJumpCanceled(InputAction.CallbackContext ctx)
     {
@@ -313,7 +311,7 @@ public class ThirdPersonController : MonoBehaviour
                 // Debug dettagliato
                 if (Mathf.Abs(totalVerticalSpeed) > 0.01f)
                 {
-                    Debug.Log($"Platform Y speeds - Linear: {linearVerticalSpeed:F3}, Rotation: {rotationVerticalSpeed:F3}, Total: {totalVerticalSpeed:F3}");
+                  
                 }
                 
                 // STRATEGIA DI COMPENSAZIONE BASATA SUL TIPO DI MOVIMENTO
@@ -323,14 +321,13 @@ public class ThirdPersonController : MonoBehaviour
                     if (Mathf.Abs(totalVerticalSpeed) > 5f)
                     {
                         velocity.y = totalVerticalSpeed;
-                        Debug.Log($"Fast platform: Setting velocity.y = {totalVerticalSpeed:F3}");
+                       
                     }
                     // CASO 2: Movimento verticale rapido
                     else if (Mathf.Abs(totalVerticalSpeed) > 2f)
                     {
                         // Compensazione immediata ma con leggero smoothing
                         velocity.y = Mathf.Lerp(velocity.y, totalVerticalSpeed, Time.deltaTime * 25f);
-                        Debug.Log($"Rapid platform: Lerping velocity.y to {totalVerticalSpeed:F3}");
                     }
                     // CASO 3: Movimento verticale moderato
                     else if (Mathf.Abs(totalVerticalSpeed) > 0.5f)
@@ -384,11 +381,6 @@ public class ThirdPersonController : MonoBehaviour
         // 3. ✅ UNA SOLA CHIAMATA A MOVE() CON TUTTO
         controller.Move(totalMovement);
         
-        // Debug completo per tutti i casi
-        if (currentPlatform != null && (totalMovement.magnitude > 0.001f || platformDeltaRot != Quaternion.identity))
-        {
-            Debug.Log($"Platform '{currentPlatform.name}' - Linear: {platformDeltaPos}, Rotation: {platformDeltaRot.eulerAngles}, Player Y Vel: {velocity.y:F3}, Total Movement: {totalMovement}");
-        }
     }
 
     // ✅ RINOMINATO DA UpdatePlatformVelocity A UpdatePlatformMovement
@@ -546,7 +538,6 @@ public class ThirdPersonController : MonoBehaviour
         _animator.SetBool(DoubleJumpHash, false);
         _animator.SetBool(IsFallingHash, false);
         
-        Debug.Log("LANDING - Count resettato a 0");
     }
 
     private void UpdateJumpTimers()
@@ -580,7 +571,6 @@ public class ThirdPersonController : MonoBehaviour
         if (canJump)
         {
             ExecuteJump(isFirstJump);
-            Debug.Log($"SALTO ESEGUITO! Primo: {isFirstJump}, Count: {jumpCount}");
             return true;
         }
         
@@ -798,7 +788,6 @@ public class ThirdPersonController : MonoBehaviour
         if (playerCamera != null)
         {
             CinemachineCore.ResetCameraState();
-            Debug.Log("[ThirdPersonController] Camera resettata usando CinemachineCore.ResetCameraState()");
         }
         else
         {
@@ -878,12 +867,28 @@ public class ThirdPersonController : MonoBehaviour
             // Solo se siamo effettivamente sopra la piattaforma
             if (heightDifference > -0.5f && heightDifference < 2f)
             {
+                // ✅ NUOVO: Controlla se è una piattaforma rotante con sganciamento
+                if (hitTag == "RotatingPlatform")
+                {
+                    RotatingObject rotatingObj = hit.collider.GetComponent<RotatingObject>();
+                    if (rotatingObj != null)
+                    {
+                        // Se è un obstacle platform con sganciamento abilitato, NON attaccare il player
+                        if (rotatingObj.GetPlatformType() == PlatformType.ObstaclePlatform && 
+                            rotatingObj.GetDetachPlayerOnHit())
+                        {
+                            Debug.Log($"[ThirdPersonController] Evitato attaccamento a piattaforma rotante con sganciamento: {hit.collider.name}");
+                            return; // Non attaccare il player a questa piattaforma
+                        }
+                    }
+                }
+                
+                // Comportamento normale per tutte le altre piattaforme
                 if (currentPlatform != hit.collider.transform)
                 {
                     currentPlatform = hit.collider.transform;
                     lastPlatformPos = currentPlatform.position;
                     lastPlatformRot = currentPlatform.rotation;
-                    Debug.Log($"[ThirdPersonController] Salito su piattaforma: {currentPlatform.name}");
                 }
             }
         }
@@ -895,7 +900,6 @@ public class ThirdPersonController : MonoBehaviour
             
             if (distanceFromPlatform > platformBounds.size.magnitude)
             {
-                Debug.Log($"[ThirdPersonController] Sceso dalla piattaforma: {currentPlatform.name}");
                 currentPlatform = null;
             }
         }
@@ -1012,7 +1016,33 @@ public class ThirdPersonController : MonoBehaviour
         }
         return cachedGroundNormal;
     }
+/// <summary>
+/// Sgancia immediatamente il player dalla piattaforma corrente
+/// Utile quando il player viene colpito da una piattaforma rotante
+/// </summary>
+public void DetachFromCurrentPlatform()
+{
+    if (currentPlatform != null)
+    {
+        currentPlatform = null;
+        
+        // Reset anche i delta di movimento della piattaforma
+        platformDeltaPos = Vector3.zero;
+        platformDeltaRot = Quaternion.identity;
+    }
+}
 
+/// <summary>
+/// Sgancia il player solo se è su una piattaforma specifica
+/// </summary>
+/// <param name="platform">La piattaforma da cui sganciare</param>
+public void DetachFromPlatform(Transform platform)
+{
+    if (currentPlatform == platform)
+    {
+        DetachFromCurrentPlatform();
+    }
+}
     private void OnDestroy()
     {
         if (controls != null)
