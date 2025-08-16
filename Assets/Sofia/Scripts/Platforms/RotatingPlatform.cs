@@ -35,6 +35,16 @@ public class RotatingObject : MonoBehaviour
     public Transform targetObject;
     public bool maintainOrientation = true;
 
+    [Header("Modalità Pendolo")]
+    public bool usePendulumMode = false;
+    [Tooltip("Punto di ancoraggio del pendolo (se null, usa il parent)")]
+    public Transform pendulumAnchor;
+    [Tooltip("Angolo massimo di oscillazione in gradi")]
+    [Range(5f, 90f)]
+    public float pendulumMaxAngle = 45f;
+    [Tooltip("Velocità del pendolo (più basso = più lento)")]
+    public float pendulumSpeed = 2f;
+
     [Header("Slowdown Custom Settings")]
     public bool useCustomSlowdown = false;
     [Tooltip("Velocità assoluta temporanea durante lo slowdown.")]
@@ -65,6 +75,13 @@ public class RotatingObject : MonoBehaviour
     // NUOVO: Salva i materiali originali per ogni renderer
     private Dictionary<MeshRenderer, Material[]> rendererOriginalMaterials = new Dictionary<MeshRenderer, Material[]>();
     private bool materialsInitialized = false;
+
+    // Variabili private per il pendolo RELATIVO
+    private float pendulumTimer = 0f;
+    private Vector3 pendulumInitialPosition;
+    private Quaternion pendulumInitialRotation;
+    private Vector3 pendulumAnchorPosition;
+    private float pendulumDistance;
 
     void Awake()
     {
@@ -105,7 +122,7 @@ public class RotatingObject : MonoBehaviour
             slowdownEffect.gameObject.SetActive(false);
         }
 
-        if ((rotateAroundObject || usePinwheelMode) && targetObject == null)
+        if ((rotateAroundObject || usePinwheelMode) && targetObject == null && !usePendulumMode)
         {
             Debug.LogWarning($"[RotatingObject] Modalità attivata ma targetObject non assegnato su {gameObject.name}");
         }
@@ -114,28 +131,98 @@ public class RotatingObject : MonoBehaviour
         {
             Debug.LogWarning($"[RotatingObject] usePinwheelMode attivo ma nessun visualToRotate assegnato su {gameObject.name}");
         }
+
+        // Inizializzazione pendolo
+        if (usePendulumMode)
+        {
+            InitializePendulum();
+        }
     }
 
     void Update()
     {
-        float rotationThisFrame = rotationSpeed * speedMultiplier * Time.deltaTime;
-
-        if (usePinwheelMode && visualToRotate != null)
+        if (usePendulumMode && pendulumAnchor != null)
         {
-            visualToRotate.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
-        }
-        else if (rotateAroundObject && targetObject != null)
-        {
-            transform.RotateAround(targetObject.position, rotationAxis.normalized, rotationThisFrame);
-
-            if (maintainOrientation)
-            {
-                transform.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y, 0);
-            }
+            UpdatePendulumMovement();
         }
         else
         {
-            transform.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
+            // Movimento rotazionale normale esistente
+            float rotationThisFrame = rotationSpeed * speedMultiplier * Time.deltaTime;
+
+            if (usePinwheelMode && visualToRotate != null)
+            {
+                visualToRotate.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
+            }
+            else if (rotateAroundObject && targetObject != null)
+            {
+                transform.RotateAround(targetObject.position, rotationAxis.normalized, rotationThisFrame);
+
+                if (maintainOrientation)
+                {
+                    transform.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y, 0);
+                }
+            }
+            else
+            {
+                transform.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
+            }
+        }
+    }
+
+    private void InitializePendulum()
+    {
+        if (pendulumAnchor == null)
+        {
+            pendulumAnchor = transform.parent;
+        }
+        
+        if (pendulumAnchor == null)
+        {
+            Debug.LogWarning($"[RotatingObject] usePendulumMode attivo ma nessun anchor trovato su {gameObject.name}");
+            return;
+        }
+        
+        // SALVA stato iniziale completo
+        pendulumAnchorPosition = pendulumAnchor.position;
+        pendulumInitialPosition = transform.position;
+        pendulumInitialRotation = transform.rotation;
+        pendulumDistance = Vector3.Distance(pendulumAnchorPosition, pendulumInitialPosition);
+        
+        Debug.Log($"[RotatingObject] Pendolo RELATIVO inizializzato - distanza: {pendulumDistance}, angolo max: {pendulumMaxAngle}°, asse: {rotationAxis}");
+    }
+
+    private void UpdatePendulumMovement()
+    {
+        // Incrementa il timer in base alla velocità e al moltiplicatore
+        pendulumTimer += Time.deltaTime * pendulumSpeed * speedMultiplier;
+        
+        // Calcola l'angolo usando una sinusoide per oscillazione limitata (non 360°)
+        float currentAngle = Mathf.Sin(pendulumTimer) * pendulumMaxAngle;
+        
+        // USA LO STESSO SISTEMA di RotateAround ma con angolo limitato
+        // Calcola la rotazione dal centro (anchor) verso l'oggetto
+        Vector3 directionFromAnchor = (pendulumInitialPosition - pendulumAnchorPosition).normalized;
+        float originalDistance = Vector3.Distance(pendulumAnchorPosition, pendulumInitialPosition);
+        
+        // Applica la rotazione limitata attorno al punto di anchor
+        Quaternion oscillationRotation = Quaternion.AngleAxis(currentAngle, rotationAxis.normalized);
+        Vector3 rotatedDirection = oscillationRotation * directionFromAnchor;
+        
+        // Calcola la nuova posizione mantenendo la distanza originale
+        transform.position = pendulumAnchorPosition + (rotatedDirection * originalDistance);
+        
+        // ROTAZIONE: mantieni orientamento se richiesto
+        if (maintainOrientation)
+        {
+            // Ruota l'oggetto per seguire naturalmente l'oscillazione
+            Quaternion naturalRotation = Quaternion.AngleAxis(currentAngle, rotationAxis.normalized);
+            transform.rotation = pendulumInitialRotation * naturalRotation;
+        }
+        else
+        {
+            // Mantieni solo la rotazione iniziale
+            transform.rotation = pendulumInitialRotation;
         }
     }
 
@@ -170,6 +257,29 @@ public class RotatingObject : MonoBehaviour
     }
 
     public bool CanDamagePlayer => canDamagePlayer;
+
+    // Metodi pubblici per controllare il pendolo
+    public void SetPendulumMode(bool enabled)
+    {
+        usePendulumMode = enabled;
+        if (enabled)
+        {
+            InitializePendulum();
+        }
+        Debug.Log($"[RotatingObject] {gameObject.name} - modalità pendolo: {(enabled ? "ATTIVATA" : "DISATTIVATA")}");
+    }
+
+    public void SetPendulumAngle(float angle)
+    {
+        pendulumMaxAngle = Mathf.Clamp(angle, 5f, 90f);
+        Debug.Log($"[RotatingObject] {gameObject.name} - angolo pendolo: {pendulumMaxAngle}°");
+    }
+
+    public void SetPendulumSpeed(float speed)
+    {
+        pendulumSpeed = speed;
+        Debug.Log($"[RotatingObject] {gameObject.name} - velocità pendolo: {pendulumSpeed}");
+    }
 
     public void SetSpeedMultiplier(float multiplier)
     {
