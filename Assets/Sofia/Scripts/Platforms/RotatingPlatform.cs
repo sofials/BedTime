@@ -34,38 +34,56 @@ public class RotatingObject : MonoBehaviour
     [Tooltip("Velocità assoluta temporanea durante lo slowdown.")]
     public float customSlowdownFactor = 90f;
 
-    private MeshRenderer meshRenderer;
+    [Header("Damage Settings")]
+    [SerializeField] private bool canDamagePlayer = false;
+    [Tooltip("Se disabilitato, la piattaforma non farà danno al player")]
+    [SerializeField] private float damageAmount = 10f;
+    [Tooltip("Se true, fa solo trigger Hit senza danno quando canDamagePlayer è false")]
+    [SerializeField] private bool triggerHitWhenNoDamage = false;
+
+    // CAMBIATO: Array di MeshRenderer invece di uno singolo
+    private MeshRenderer[] meshRenderers;
     private bool patinaActive = false;
 
-    // Per salvare i colori originali dei materiali
-    private Dictionary<Material, Material> materialInstances = new Dictionary<Material, Material>();
-    private Dictionary<Material, Color> originalBaseColors = new Dictionary<Material, Color>();
-    private Dictionary<Material, Color> originalEmissionColors = new Dictionary<Material, Color>();
+    // Per salvare i colori originali dei materiali - ora per ogni renderer
+    private Dictionary<MeshRenderer, Dictionary<Material, Material>> rendererMaterialInstances = new Dictionary<MeshRenderer, Dictionary<Material, Material>>();
+    private Dictionary<MeshRenderer, Dictionary<Material, Color>> rendererOriginalBaseColors = new Dictionary<MeshRenderer, Dictionary<Material, Color>>();
+    private Dictionary<MeshRenderer, Dictionary<Material, Color>> rendererOriginalEmissionColors = new Dictionary<MeshRenderer, Dictionary<Material, Color>>();
     
-    // NUOVO: Salva i materiali originali al primo accesso
-    private Material[] originalMaterials = null;
+    // NUOVO: Salva i materiali originali per ogni renderer
+    private Dictionary<MeshRenderer, Material[]> rendererOriginalMaterials = new Dictionary<MeshRenderer, Material[]>();
     private bool materialsInitialized = false;
-
-    private const float DAMAGE_AMOUNT = 10f;
 
     void Awake()
     {
-        meshRenderer = GetComponentInChildren<MeshRenderer>();
-        if (meshRenderer == null)
+        // CAMBIATO: Ottieni TUTTI i MeshRenderer (oggetto corrente + figli)
+        meshRenderers = GetComponentsInChildren<MeshRenderer>();
+        
+        if (meshRenderers.Length == 0)
         {
-            Debug.LogWarning($"[RotatingObject] Nessun MeshRenderer trovato su {gameObject.name}");
+            Debug.LogWarning($"[RotatingObject] Nessun MeshRenderer trovato su {gameObject.name} o sui suoi figli");
         }
         else
         {
-            // Salva i colori originali dei materiali SHARED (non istanze)
-            foreach (Material mat in meshRenderer.sharedMaterials)
+            Debug.Log($"[RotatingObject] Trovati {meshRenderers.Length} MeshRenderer su {gameObject.name}");
+            
+            // Inizializza le strutture dati per ogni renderer
+            foreach (MeshRenderer renderer in meshRenderers)
             {
-                if (mat != null)
+                rendererMaterialInstances[renderer] = new Dictionary<Material, Material>();
+                rendererOriginalBaseColors[renderer] = new Dictionary<Material, Color>();
+                rendererOriginalEmissionColors[renderer] = new Dictionary<Material, Color>();
+                
+                // Salva i colori originali dei materiali SHARED per questo renderer
+                foreach (Material mat in renderer.sharedMaterials)
                 {
-                    if (mat.HasProperty("_BaseColor"))
-                        originalBaseColors[mat] = mat.GetColor("_BaseColor");
-                    if (mat.HasProperty("_EmissionColor"))
-                        originalEmissionColors[mat] = mat.GetColor("_EmissionColor");
+                    if (mat != null)
+                    {
+                        if (mat.HasProperty("_BaseColor"))
+                            rendererOriginalBaseColors[renderer][mat] = mat.GetColor("_BaseColor");
+                        if (mat.HasProperty("_EmissionColor"))
+                            rendererOriginalEmissionColors[renderer][mat] = mat.GetColor("_EmissionColor");
+                    }
                 }
             }
         }
@@ -109,50 +127,64 @@ public class RotatingObject : MonoBehaviour
         }
     }
 
+    // NUOVO: Metodi pubblici per controllare il danno
+    public void SetCanDamagePlayer(bool canDamage)
+    {
+        canDamagePlayer = canDamage;
+        Debug.Log($"[RotatingObject] {gameObject.name} - danno al player: {(canDamage ? "ABILITATO" : "DISABILITATO")}");
+    }
 
-public void SetSpeedMultiplier(float multiplier)
-{
-    // NOTA: Questo metodo ora è usato solo per altri scopi, 
-    // SlowdownAbility modifica direttamente rotationSpeed
-    
-    if (useCustomSlowdown)
+    public void ToggleDamage()
     {
-        // Salva la velocità originale solo se non già salvata
-        if (originalRotationSpeed == 0f)
-        {
-            originalRotationSpeed = rotationSpeed;
-        }
+        SetCanDamagePlayer(!canDamagePlayer);
+    }
+
+    public bool CanDamagePlayer => canDamagePlayer;
+
+    public void SetSpeedMultiplier(float multiplier)
+    {
+        // NOTA: Questo metodo ora è usato solo per altri scopi, 
+        // SlowdownAbility modifica direttamente rotationSpeed
         
-        // Applica la velocità custom direttamente
-        rotationSpeed = customSlowdownFactor;
-        Debug.Log($"[RotatingObject] {gameObject.name} - velocità custom impostata a {rotationSpeed} (originale: {originalRotationSpeed})");
-    }
-    else
-    {
-        speedMultiplier = multiplier;
-        Debug.Log($"[RotatingObject] {gameObject.name} - speed multiplier impostato a {speedMultiplier}");
-    }
-}
-public void RestoreOriginalSpeed()
-{
-    if (useCustomSlowdown)
-    {
-        if (originalRotationSpeed != 0f)
+        if (useCustomSlowdown)
         {
-            rotationSpeed = originalRotationSpeed;
-            Debug.Log($"[RotatingObject] {gameObject.name} - velocità ripristinata a {rotationSpeed}");
+            // Salva la velocità originale solo se non già salvata
+            if (originalRotationSpeed == 0f)
+            {
+                originalRotationSpeed = rotationSpeed;
+            }
+            
+            // Applica la velocità custom direttamente
+            rotationSpeed = customSlowdownFactor;
+            Debug.Log($"[RotatingObject] {gameObject.name} - velocità custom impostata a {rotationSpeed} (originale: {originalRotationSpeed})");
         }
         else
         {
-            Debug.LogWarning($"[RotatingObject] {gameObject.name} - originalRotationSpeed non salvata!");
+            speedMultiplier = multiplier;
+            Debug.Log($"[RotatingObject] {gameObject.name} - speed multiplier impostato a {speedMultiplier}");
         }
     }
-    else
+
+    public void RestoreOriginalSpeed()
     {
-        speedMultiplier = 1f;
-        Debug.Log($"[RotatingObject] {gameObject.name} - speed multiplier ripristinato a 1.0");
+        if (useCustomSlowdown)
+        {
+            if (originalRotationSpeed != 0f)
+            {
+                rotationSpeed = originalRotationSpeed;
+                Debug.Log($"[RotatingObject] {gameObject.name} - velocità ripristinata a {rotationSpeed}");
+            }
+            else
+            {
+                Debug.LogWarning($"[RotatingObject] {gameObject.name} - originalRotationSpeed non salvata!");
+            }
+        }
+        else
+        {
+            speedMultiplier = 1f;
+            Debug.Log($"[RotatingObject] {gameObject.name} - speed multiplier ripristinato a 1.0");
+        }
     }
-}
 
     public void PlaySlowdownEffect(float duration = 1f)
     {
@@ -186,34 +218,39 @@ public void RestoreOriginalSpeed()
         slowdownEffect.gameObject.SetActive(false);
     }
 
-    // OVERLAY EMISSIVO LUMINOSO per URP Simple Lit
+    // OVERLAY EMISSIVO LUMINOSO per URP Simple Lit - ORA PER TUTTI I RENDERER
     public void SetOverlayActive(bool active)
     {
         Debug.Log($"[RotatingObject] *** SetOverlayActive({active}) chiamato su {gameObject.name} ***");
         
-        if (meshRenderer == null) 
+        if (meshRenderers == null || meshRenderers.Length == 0) 
         {
-            Debug.LogWarning($"[RotatingObject] MeshRenderer nullo su {gameObject.name}");
+            Debug.LogWarning($"[RotatingObject] Nessun MeshRenderer disponibile su {gameObject.name}");
             return;
         }
         
-        Debug.Log($"[RotatingObject] MeshRenderer OK, chiamando SetEmissiveOverlay({active})");
-        SetEmissiveOverlay(active);
+        Debug.Log($"[RotatingObject] Applicando overlay a {meshRenderers.Length} MeshRenderer");
+        
+        // CAMBIATO: Applica l'overlay a TUTTI i renderer
+        foreach (MeshRenderer renderer in meshRenderers)
+        {
+            SetEmissiveOverlay(renderer, active);
+        }
     }
 
-    private void SetEmissiveOverlay(bool active)
+    private void SetEmissiveOverlay(MeshRenderer meshRenderer, bool active)
     {
-        Debug.Log($"[RotatingObject] SetEmissiveOverlay({active}) - inizio processing su {gameObject.name}");
+        Debug.Log($"[RotatingObject] SetEmissiveOverlay({active}) su renderer {meshRenderer.gameObject.name}");
         
-        // INIZIALIZZA i materiali originali solo la prima volta
-        if (!materialsInitialized)
+        // INIZIALIZZA i materiali originali solo la prima volta per questo renderer
+        if (!rendererOriginalMaterials.ContainsKey(meshRenderer))
         {
-            originalMaterials = meshRenderer.sharedMaterials; // USA sharedMaterials per ottenere gli originali
-            materialsInitialized = true;
-            Debug.Log($"[RotatingObject] Materiali originali salvati: {originalMaterials.Length}");
+            rendererOriginalMaterials[meshRenderer] = meshRenderer.sharedMaterials;
+            Debug.Log($"[RotatingObject] Materiali originali salvati per {meshRenderer.gameObject.name}: {rendererOriginalMaterials[meshRenderer].Length}");
         }
         
-        Material[] currentMaterials = meshRenderer.materials; // Questi possono essere istanze
+        Material[] originalMaterials = rendererOriginalMaterials[meshRenderer];
+        Material[] currentMaterials = meshRenderer.materials;
         bool materialsChanged = false;
 
         Debug.Log($"[RotatingObject] Materiali da processare: {currentMaterials.Length}");
@@ -227,26 +264,26 @@ public void RestoreOriginalSpeed()
 
             Material instanceMat;
 
-            // Crea istanza del materiale SOLO se non esiste ancora
-            if (!materialInstances.ContainsKey(originalMat))
+            // Crea istanza del materiale SOLO se non esiste ancora per questo renderer
+            if (!rendererMaterialInstances[meshRenderer].ContainsKey(originalMat))
             {
                 Material newInstance = new Material(originalMat);
-                materialInstances[originalMat] = newInstance;
+                rendererMaterialInstances[meshRenderer][originalMat] = newInstance;
                 currentMaterials[i] = newInstance;
                 materialsChanged = true;
                 instanceMat = newInstance;
-                Debug.Log($"[RotatingObject] Creata PRIMA istanza per materiale {originalMat.name}");
+                Debug.Log($"[RotatingObject] Creata PRIMA istanza per materiale {originalMat.name} su {meshRenderer.gameObject.name}");
             }
             else
             {
                 // Usa l'istanza esistente
-                instanceMat = materialInstances[originalMat];
+                instanceMat = rendererMaterialInstances[meshRenderer][originalMat];
                 if (currentMaterials[i] != instanceMat)
                 {
                     currentMaterials[i] = instanceMat;
                     materialsChanged = true;
                 }
-                Debug.Log($"[RotatingObject] Usando istanza ESISTENTE per materiale {originalMat.name}");
+                Debug.Log($"[RotatingObject] Usando istanza ESISTENTE per materiale {originalMat.name} su {meshRenderer.gameObject.name}");
             }
 
             if (active)
@@ -276,9 +313,9 @@ public void RestoreOriginalSpeed()
                 // BASE COLOR TINT (opzionale, per colorare anche la texture)
                 if (applyColorTint && instanceMat.HasProperty("_BaseColor"))
                 {
-                    if (originalBaseColors.ContainsKey(originalMat))
+                    if (rendererOriginalBaseColors[meshRenderer].ContainsKey(originalMat))
                     {
-                        Color originalColor = originalBaseColors[originalMat];
+                        Color originalColor = rendererOriginalBaseColors[meshRenderer][originalMat];
                         // Mescola il colore originale con l'overlay
                         Color tintedColor = Color.Lerp(originalColor, originalColor * overlayColor, 0.3f);
                         tintedColor.a = originalColor.a;
@@ -292,9 +329,9 @@ public void RestoreOriginalSpeed()
                 Debug.Log($"[RotatingObject] DISATTIVANDO overlay per materiale {instanceMat.name}");
                 
                 // Ripristina colori originali
-                if (instanceMat.HasProperty("_EmissionColor") && originalEmissionColors.ContainsKey(originalMat))
+                if (instanceMat.HasProperty("_EmissionColor") && rendererOriginalEmissionColors[meshRenderer].ContainsKey(originalMat))
                 {
-                    Color originalEmission = originalEmissionColors[originalMat];
+                    Color originalEmission = rendererOriginalEmissionColors[meshRenderer][originalMat];
                     instanceMat.SetColor("_EmissionColor", originalEmission);
                     
                     // Se l'originale non aveva emission, disabilitalo
@@ -307,9 +344,9 @@ public void RestoreOriginalSpeed()
                     Debug.Log($"[RotatingObject] Emission disattivata, ripristinato colore originale {originalEmission}");
                 }
 
-                if (instanceMat.HasProperty("_BaseColor") && originalBaseColors.ContainsKey(originalMat))
+                if (instanceMat.HasProperty("_BaseColor") && rendererOriginalBaseColors[meshRenderer].ContainsKey(originalMat))
                 {
-                    instanceMat.SetColor("_BaseColor", originalBaseColors[originalMat]);
+                    instanceMat.SetColor("_BaseColor", rendererOriginalBaseColors[meshRenderer][originalMat]);
                     Debug.Log($"[RotatingObject] BaseColor ripristinato");
                 }
             }
@@ -318,11 +355,11 @@ public void RestoreOriginalSpeed()
         if (materialsChanged)
         {
             meshRenderer.materials = currentMaterials;
-            Debug.Log($"[RotatingObject] Materiali aggiornati nel renderer");
+            Debug.Log($"[RotatingObject] Materiali aggiornati nel renderer {meshRenderer.gameObject.name}");
         }
         
         patinaActive = active;
-        Debug.Log($"[RotatingObject] SetEmissiveOverlay completato - patinaActive = {patinaActive}");
+        Debug.Log($"[RotatingObject] SetEmissiveOverlay completato per {meshRenderer.gameObject.name} - patinaActive = {patinaActive}");
     }
 
     private void OnTriggerEnter(Collider other)
@@ -330,14 +367,37 @@ public void RestoreOriginalSpeed()
         var player = other.GetComponent<ThirdPersonController>();
         if (player != null && speedMultiplier > 0.99f)
         {
-            player.TakeDamage(DAMAGE_AMOUNT);
+            // NUOVO: Controllo del toggle danno
+            if (canDamagePlayer)
+            {
+                // Comportamento originale: fa danno
+                player.TakeDamage(damageAmount);
+                Debug.Log($"[RotatingObject] {gameObject.name} ha fatto {damageAmount} danni al player");
+            }
+            else if (triggerHitWhenNoDamage)
+            {
+                // Nuovo comportamento: solo trigger Hit senza danno
+                Animator playerAnimator = player.GetComponentInChildren<Animator>();
+                if (playerAnimator != null)
+                {
+                    playerAnimator.SetTrigger("Hit");
+                    Debug.Log($"[RotatingObject] {gameObject.name} ha triggerato Hit senza danno");
+                }
+            }
+            else
+            {
+                Debug.Log($"[RotatingObject] {gameObject.name} - danno disabilitato, nessun effetto sul player");
+                return; // Esci senza push se il danno è disabilitato e non si vuole il trigger
+            }
 
+            // Push del player (sempre attivo se c'è stato damage o hit)
             Rigidbody playerRb = player.GetComponent<Rigidbody>();
             if (playerRb != null)
             {
                 Vector3 pushDirection = (player.transform.position - transform.position).normalized;
                 float pushForce = 5f;
                 playerRb.AddForce(pushDirection * pushForce, ForceMode.Impulse);
+                Debug.Log($"[RotatingObject] Push applicato al player con forza {pushForce}");
             }
         }
     }

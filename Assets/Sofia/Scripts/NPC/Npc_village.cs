@@ -3,6 +3,7 @@ using UnityEngine.AI;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine.Splines;
+using System;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class Npc_village : MonoBehaviour
@@ -13,11 +14,14 @@ public class Npc_village : MonoBehaviour
     [Header("Animator")]
     [SerializeField] private Animator animator;
 
-    [Header("Effetto particelle")]
-    [SerializeField] private CFXR_EffectController effectController;
-
     [Header("Spline per posizionamento")]
     [SerializeField] private SplineContainer splineContainer; // La spline su cui posizionarsi
+
+    [Header("Slowdown Effect")]
+    [SerializeField] private CFXR_EffectController slowdownEffect; // Effetto quando viene fermato dal power-up
+
+    [Header("Debug")]
+    [SerializeField] private bool debugMode = true;
 
     private int currentIndex = -1;
     private NavMeshAgent agent;
@@ -28,6 +32,12 @@ public class Npc_village : MonoBehaviour
     
     // Spline condivisa (viene impostata dal primo NPC)
     private static SplineContainer sharedSpline;
+    
+    // EVENTO STATICO per comunicare il primo slowdown
+    public static event Action OnFirstSlowdownUsed;
+    
+    // Flag statico per tracciare se il slowdown è già stato usato
+    private static bool slowdownAlreadyUsed = false;
 
     void Start()
     {
@@ -50,13 +60,6 @@ public class Npc_village : MonoBehaviour
         if (waypoints.Length > 0)
         {
             GoToRandomWaypoint();
-            // Non serve impostare IsRunning=true perché è già il default
-        }
-
-        // Attiva l'effetto all'avvio
-        if (effectController != null)
-        {
-            effectController.PlayEffect();
         }
 
         // Imposta la spline condivisa se non è già stata impostata
@@ -64,6 +67,8 @@ public class Npc_village : MonoBehaviour
         {
             sharedSpline = splineContainer;
         }
+
+        if (debugMode) Debug.Log($"NPC {gameObject.name}: Inizializzato e pronto.");
     }
 
     void Update()
@@ -87,72 +92,127 @@ public class Npc_village : MonoBehaviour
     }
 
     /// <summary>
-    /// Chiamato quando si usa il power-up per fermare l'NPC definitivamente
+    /// Chiamato da SlowdownAbility per fermare l'NPC definitivamente
     /// </summary>
     public void StopNPC()
     {
+        if (debugMode) Debug.Log($"StopNPC chiamato su: {gameObject.name}");
+        
+        // CONTROLLO: Se il slowdown è già stato usato, ferma comunque questo NPC
+        // ma non scatenare di nuovo l'evento globale
+        if (slowdownAlreadyUsed)
+        {
+            if (debugMode) Debug.Log($"Slowdown già usato in precedenza. NPC {gameObject.name} viene fermato senza evento globale.");
+            StopThisNPCOnly();
+            return;
+        }
+        
+        // PRIMA VOLTA: Attiva l'evento globale
+        if (!slowdownAlreadyUsed)
+        {
+            slowdownAlreadyUsed = true;
+            if (debugMode) Debug.Log("PRIMO SLOWDOWN USATO! Attivo evento globale...");
+            OnFirstSlowdownUsed?.Invoke();
+        }
+
+        StopThisNPCOnly();
+    }
+
+    /// <summary>
+    /// Ferma solo questo specifico NPC senza scatenare eventi globali
+    /// </summary>
+    private void StopThisNPCOnly()
+    {
+        if (isStopped)
+        {
+            if (debugMode) Debug.Log($"NPC {gameObject.name} già fermo, ignoro.");
+            return;
+        }
+
         isStopped = true;
         agent.isStopped = true;
-        
-        // Animazioni corrette: IsRunning=false + Slow=true = Idle
-        animator.SetBool("IsRunning", false);
-        animator.SetBool("Slow", true);
 
         // Aggiungi questo NPC alla lista statica
         if (!stoppedNPCs.Contains(this))
         {
             stoppedNPCs.Add(this);
+            if (debugMode) Debug.Log($"NPC {gameObject.name} aggiunto alla lista. Totale NPC fermati: {stoppedNPCs.Count}");
         }
 
-        // Posiziona lungo la spline
-        StartCoroutine(MoveToSplinePosition());
-
-        // Spegne l'effetto definitivamente
-        if (effectController != null)
-        {
-            effectController.StopEffect();
-        }
+        // Avvia l'effetto sprint breve e poi posizionamento istantaneo
+        StartCoroutine(SprintEffectThenTeleport());
     }
 
     /// <summary>
-    /// Muove l'NPC verso la sua posizione sulla spline
+    /// Mostra l'effetto slowdown e poi teleporta
     /// </summary>
-    System.Collections.IEnumerator MoveToSplinePosition()
+    System.Collections.IEnumerator SprintEffectThenTeleport()
     {
         if (sharedSpline == null)
         {
-            Debug.LogWarning("Spline non assegnata!");
+            Debug.LogWarning($"Spline non assegnata per NPC {gameObject.name}!");
+            
+            // Fallback: ferma l'NPC dove si trova
+            agent.ResetPath();
+            agent.isStopped = true;
+            
+            // Attiva comunque l'effetto slowdown se disponibile
+            if (slowdownEffect != null)
+            {
+                slowdownEffect.PlayEffect();
+                if (debugMode) Debug.Log($"NPC {gameObject.name}: Effetto slowdown attivato (fallback)");
+            }
+            
+            animator.SetBool("IsRunning", false);
+            animator.SetBool("Slow", true);
+            animator.SetBool("isIdle", true);
             yield break;
         }
 
-        // Calcola la posizione sulla spline
+        // Calcola dove deve andare
         Vector3 targetPosition = CalculateSplinePosition();
         
-        // Aumenta velocità per movimento veloce
-        float originalSpeed = agent.speed;
-        agent.speed = 50f; // Velocità molto alta per posizionamento rapidissimo
+        if (debugMode) Debug.Log($"NPC {gameObject.name}: Inizio effetto slowdown e teleport verso {targetPosition}");
         
-        // Riattiva temporaneamente l'agent per il movimento
-        agent.isStopped = false;
-        agent.SetDestination(targetPosition);
-
-        // Aspetta che raggiunga la posizione
-        while (agent.pathPending || agent.remainingDistance > 1f)
+        // ATTIVA L'EFFETTO SLOWDOWN
+        if (slowdownEffect != null)
         {
-            // Durante il movimento, orienta verso la direzione di movimento
-            if (agent.velocity.sqrMagnitude > 0.1f)
-            {
-                Vector3 direction = agent.velocity.normalized;
-                direction.y = 0;
-                transform.rotation = Quaternion.LookRotation(direction);
-            }
-            yield return null;
+            slowdownEffect.PlayEffect();
+            if (debugMode) Debug.Log($"NPC {gameObject.name}: Effetto slowdown attivato");
         }
-
-        // Ripristina velocità originale e ferma definitivamente
-        agent.speed = originalSpeed;
+        else
+        {
+            if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Nessun slowdown effect assegnato!");
+        }
+        
+        // BREVE PAUSA PER MOSTRARE L'EFFETTO
+        yield return new WaitForSeconds(0.2f);
+        
+        // TELEPORT ISTANTANEO
+        if (debugMode) Debug.Log($"NPC {gameObject.name}: Teleport a {targetPosition}");
+        
+        // Ferma l'effetto slowdown se ancora attivo
+        if (slowdownEffect != null)
+        {
+            slowdownEffect.StopEffect();
+        }
+        
+        // Teleporta istantaneamente alla posizione corretta
+        transform.position = targetPosition;
+        
+        // Ferma completamente l'agent
+        agent.ResetPath();
         agent.isStopped = true;
-        LookAtPlayer(); // Guarda il player quando è fermo
+        
+        // Imposta animazione idle
+        animator.SetBool("IsRunning", false);
+        animator.SetBool("Slow", true);
+        animator.SetBool("isIdle", true);
+        
+        // Guarda il player
+        LookAtPlayer();
+        
+        if (debugMode) Debug.Log($"NPC {gameObject.name}: Posizionamento completato");
     }
 
     /// <summary>
@@ -165,6 +225,12 @@ public class Npc_village : MonoBehaviour
         // Ottieni il numero di knots nella spline
         int knotCount = sharedSpline.Spline.Count;
         
+        if (knotCount == 0)
+        {
+            Debug.LogWarning($"Spline {sharedSpline.name} non ha knots!");
+            return transform.position; // Rimani dove sei
+        }
+        
         // Se ci sono più NPC che knots, alcuni condivideranno la posizione
         int targetKnotIndex = myIndex % knotCount;
         
@@ -174,6 +240,8 @@ public class Npc_village : MonoBehaviour
         
         // Converti la posizione locale della spline in posizione world
         Vector3 worldPosition = sharedSpline.transform.TransformPoint(new Vector3(knotPosition.x, knotPosition.y, knotPosition.z));
+        
+        if (debugMode) Debug.Log($"NPC {gameObject.name}: Posizione calcolata - Index: {myIndex}, Knot: {targetKnotIndex}, Pos: {worldPosition}");
         
         return worldPosition;
     }
@@ -192,7 +260,12 @@ public class Npc_village : MonoBehaviour
             if (direction.sqrMagnitude > 0.01f)
             {
                 transform.rotation = Quaternion.LookRotation(direction);
+                if (debugMode) Debug.Log($"NPC {gameObject.name}: Guardando verso il player");
             }
+        }
+        else
+        {
+            Debug.LogWarning($"Player non trovato per NPC {gameObject.name}");
         }
     }
 
@@ -221,6 +294,79 @@ public class Npc_village : MonoBehaviour
         if (stoppedNPCs.Contains(this))
         {
             stoppedNPCs.Remove(this);
+            if (debugMode) Debug.Log($"NPC {gameObject.name}: Rimosso dalla lista al destroy");
         }
     }
+
+    /// <summary>
+    /// Riavvia il movimento dell'NPC (per testing o restart level)
+    /// </summary>
+    public void RestartMovement()
+    {
+        if (debugMode) Debug.Log($"NPC {gameObject.name}: Riavvio movimento");
+        
+        isStopped = false;
+        agent.isStopped = false;
+        
+        // Rimuovi dalla lista degli NPC fermati
+        if (stoppedNPCs.Contains(this))
+        {
+            stoppedNPCs.Remove(this);
+        }
+        
+        // Ripristina animazione di corsa
+        animator.SetBool("IsRunning", true);
+        animator.SetBool("Slow", false);
+        animator.SetBool("isIdle", false);
+        
+        // Riprendi il movimento verso waypoint
+        if (waypoints.Length > 0)
+        {
+            GoToRandomWaypoint();
+        }
+    }
+
+    /// <summary>
+    /// Metodo per resettare il sistema (utile per testing)
+    /// </summary>
+    [ContextMenu("Reset Slowdown System")]
+    public static void ResetSlowdownSystem()
+    {
+        slowdownAlreadyUsed = false;
+        
+        // Riavvia tutti gli NPC fermati
+        for (int i = stoppedNPCs.Count - 1; i >= 0; i--)
+        {
+            if (stoppedNPCs[i] != null)
+            {
+                stoppedNPCs[i].RestartMovement();
+            }
+        }
+        
+        stoppedNPCs.Clear();
+        Debug.Log("Sistema slowdown resettato e tutti gli NPC riavviati!");
+    }
+
+    /// <summary>
+    /// Metodo per testare manualmente lo stop dell'NPC
+    /// </summary>
+    [ContextMenu("Test Stop This NPC")]
+    public void TestStopThisNPC()
+    {
+        StopNPC();
+    }
+
+    /// <summary>
+    /// Metodo per testare manualmente il restart dell'NPC
+    /// </summary>
+    [ContextMenu("Test Restart This NPC")]
+    public void TestRestartThisNPC()
+    {
+        RestartMovement();
+    }
+
+    // Proprietà per debug e controllo esterno
+    public bool IsStopped => isStopped;
+    public static int TotalStoppedNPCs => stoppedNPCs.Count;
+    public static bool SlowdownWasUsed => slowdownAlreadyUsed;
 }

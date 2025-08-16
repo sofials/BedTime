@@ -6,9 +6,12 @@ using System.Collections;
 public class TeleportAbility : AbilityBase
 {
     [Header("Teletrasporto")]
-    public GameObject telePointerPrefab;
     public LayerMask teleportableLayers;
     public SkinnedMeshRenderer[] meshesToHide;
+    public GameObject teleportPointer; // Effetto particellare che indica dove punta il mouse
+    public Camera playerCamera; // Camera da assegnare dall'inspector
+    
+    private ParticleSystem[] pointerParticleSystems; // Cache dei particle systems
 
     [Header("Controller")]
     public GameObject controllerGameObject;
@@ -23,27 +26,25 @@ public class TeleportAbility : AbilityBase
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
-    private GameObject currentPointer;
     private PlayerControls controls;
     private bool confirmPressed;
 
     private Vector3 teleportPosition;
-    private bool canUpdatePointer = false;
+    private bool validTeleportTarget = false;
 
     protected override void Awake()
-{
-    base.Awake();
+    {
+        base.Awake();
 
-    controls = new PlayerControls();
-    controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
-    controls.Enable();
+        controls = new PlayerControls();
+        controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
+        controls.Enable();
 
-    effectIconIndex = 2;
+        effectIconIndex = 2;
 
-    teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
-    teleportConfirmAudioSource.playOnAwake = false;
-}
-
+        teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
+        teleportConfirmAudioSource.playOnAwake = false;
+    }
 
     private void Start()
     {
@@ -59,19 +60,53 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.StopEffect();
             teleportEffectController.gameObject.SetActive(false);
         }
+
+        // Setup del pointer e cache dei particle systems
+        if (teleportPointer != null)
+        {
+            Debug.Log($"TeleportPointer trovato: {teleportPointer.name}");
+            
+            // Cache tutti i particle systems nel pointer
+            pointerParticleSystems = teleportPointer.GetComponentsInChildren<ParticleSystem>();
+            Debug.Log($"Particle Systems trovati nel pointer: {pointerParticleSystems.Length}");
+            
+            // Assicurati che il pointer sia inizialmente disattivo
+            teleportPointer.SetActive(false);
+            
+            // Ferma tutti i particle systems
+            foreach (var ps in pointerParticleSystems)
+            {
+                ps.Stop();
+            }
+        }
+        else
+        {
+            Debug.LogError("TeleportPointer non assegnato nell'inspector!");
+        }
     }
 
     protected override void Update()
     {
         base.Update();
 
-        if (!IsActive || !canUpdatePointer) return;
+        if (!IsActive) 
+        {
+            Debug.Log("⚠️ Update - IsActive è FALSE");
+            return;
+        }
 
-        UpdatePointerPosition();
+        Debug.Log("📡 UpdateTeleportTarget() sta per essere chiamato...");
+        UpdateTeleportTarget();
 
         if (confirmPressed)
         {
             confirmPressed = false;
+
+            if (!validTeleportTarget)
+            {
+                Debug.Log("Target di teletrasporto non valido.");
+                return;
+            }
 
             if (!powerUpScript.HasEnoughPower(powerCost))
             {
@@ -92,34 +127,35 @@ public class TeleportAbility : AbilityBase
     }
 
     public override void TryActivate()
-{
-    if (IsActive)
     {
-        Deactivate();
-    }
-    else if (CanActivate())
-    {
-        base.TryActivate();  // Questo attiva il suono corretto
-    }
-    else
-    {
-        Debug.Log("Impossibile attivare il teletrasporto.");
-
-        // AUDIO FALLIMENTO
-        if (failureSound != null && audioSource != null)
+        Debug.Log($"TryActivate chiamato - IsActive: {IsActive}");
+        
+        if (IsActive)
         {
-            audioSource.PlayOneShot(failureSound);
+            Debug.Log("Disattivando teletrasporto...");
+            Deactivate();
+        }
+        else if (CanActivate())
+        {
+            Debug.Log("Attivando teletrasporto...");
+            base.TryActivate();  // Questo attiva il suono corretto
+        }
+        else
+        {
+            Debug.Log("Impossibile attivare il teletrasporto - CanActivate() = false");
+
+            // AUDIO FALLIMENTO
+            if (failureSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(failureSound);
+            }
         }
     }
-}
 
     public override void Activate()
     {
-        Vector3 playerPos = controllerGameObject.transform.position;
-        Quaternion playerRot = controllerGameObject.transform.rotation;
-
-        currentPointer = Instantiate(telePointerPrefab, playerPos, playerRot);
-
+        Debug.Log("🚀 Activate() chiamato - Attivando teletrasporto!");
+        
         SetVisible(false);
 
         if (teleportEffectController != null)
@@ -128,28 +164,46 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.PlayEffect();
         }
 
+        // Sblocca il cursor per il teletrasporto
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        // Attiva l'effetto particellare pointer
+        if (teleportPointer != null)
+        {
+            Debug.Log("🎆 Attivando teleportPointer...");
+            teleportPointer.SetActive(true);
+            
+            // Avvia esplicitamente tutti i particle systems
+            foreach (var ps in pointerParticleSystems)
+            {
+                ps.Play();
+                Debug.Log($"Avviato particle system: {ps.name}");
+            }
+        }
+        else
+        {
+            Debug.LogError("❌ teleportPointer è NULL!");
+        }
+
         var controller = controllerGameObject.GetComponent<ThirdPersonController>();
         if (controller != null) controller.IsMovementLocked = true;
-
-        canUpdatePointer = false;
-        StartCoroutine(EnablePointerUpdateNextFrame());
-    }
-
-    private IEnumerator EnablePointerUpdateNextFrame()
-    {
-        yield return null; // aspetta un frame
-        canUpdatePointer = true;
+        
+        // IMPORTANTE: Impostare IsActive = true ESPLICITAMENTE
+        IsActive = true;
+        
+        Debug.Log($"✅ IsActive impostato a: {IsActive}");
     }
 
     public override void Deactivate()
     {
-        if (currentPointer)
-        {
-            Destroy(currentPointer);
-            currentPointer = null;
-        }
-
+        Debug.Log("🛑 Deactivate() chiamato");
+        
         SetVisible(true);
+
+        // Ripristina il cursor come era prima
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         if (teleportEffectController != null)
         {
@@ -157,38 +211,132 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.gameObject.SetActive(false);
         }
 
+        // Disattiva l'effetto particellare pointer
+        if (teleportPointer != null)
+        {
+            Debug.Log("🛑 Disattivando teleportPointer...");
+            
+            // Ferma esplicitamente tutti i particle systems
+            foreach (var ps in pointerParticleSystems)
+            {
+                ps.Stop();
+            }
+            
+            teleportPointer.SetActive(false);
+        }
+
         var controller = controllerGameObject.GetComponent<ThirdPersonController>();
         if (controller != null) controller.IsMovementLocked = false;
 
         IsActive = false;
-        canUpdatePointer = false;
+        validTeleportTarget = false;
+        
+        Debug.Log($"✅ IsActive impostato a: {IsActive}");
     }
 
-    private void UpdatePointerPosition()
+    private void UpdateTeleportTarget()
     {
-        Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-
-        if (Physics.Raycast(ray, out var hit, 900f, teleportableLayers))
+        Debug.Log("🔍 UpdateTeleportTarget() ESEGUITO!");
+        
+        // Controllo sicurezza per camera
+        Camera cameraToUse = playerCamera != null ? playerCamera : Camera.main;
+        
+        if (cameraToUse == null)
         {
-            if (currentPointer != null)
+            Debug.LogError("Nessuna camera disponibile! Assegna playerCamera nell'inspector o aggiungi tag MainCamera alla camera.");
+            validTeleportTarget = false;
+            if (teleportPointer != null)
             {
-                currentPointer.SetActive(true);
-                teleportPosition = hit.point;
+                teleportPointer.SetActive(false);
+            }
+            return;
+        }
 
-                Vector3 forward = Vector3.ProjectOnPlane(Camera.main.transform.forward, Vector3.up);
-                currentPointer.transform.SetPositionAndRotation(teleportPosition, Quaternion.LookRotation(forward));
+        Vector2 mousePosition;
+        
+        // Usa la posizione del mouse anche se nascosto
+        if (Mouse.current != null)
+        {
+            mousePosition = Mouse.current.position.ReadValue();
+            Debug.Log($"Mouse position: {mousePosition}");
+        }
+        else
+        {
+            // Fallback al centro schermo se mouse non disponibile
+            mousePosition = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Debug.Log("Mouse.current è null, uso centro schermo");
+        }
+
+        Ray ray = cameraToUse.ScreenPointToRay(mousePosition);
+        
+        // Debug del raycast - mostra dove sta puntando
+        Debug.DrawRay(ray.origin, ray.direction * 900f, Color.red, 0.1f);
+        Debug.Log($"Ray - Origin: {ray.origin}, Direction: {ray.direction}");
+        
+        // TEST: Prima controlliamo se colpisce QUALSIASI cosa
+        if (Physics.Raycast(ray, out var anyHit, 900f))
+        {
+            Debug.Log($"🎯 RAYCAST COLPISCE: {anyHit.collider.name} - Layer: {LayerMask.LayerToName(anyHit.collider.gameObject.layer)} ({anyHit.collider.gameObject.layer}) - Distanza: {anyHit.distance:F2}");
+            
+            // Ora controlliamo se è nel layer corretto
+            if (((1 << anyHit.collider.gameObject.layer) & teleportableLayers) != 0)
+            {
+                Debug.Log("✅ OGGETTO NEL LAYER CORRETTO!");
+                teleportPosition = anyHit.point;
+                validTeleportTarget = true;
+
+                // Posiziona l'effetto particellare pointer
+                if (teleportPointer != null)
+                {
+                    teleportPointer.SetActive(true);
+                    teleportPointer.transform.position = anyHit.point;
+                    
+                    // Avvia particle systems se non già attivi
+                    foreach (var ps in pointerParticleSystems)
+                    {
+                        if (!ps.isPlaying)
+                        {
+                            ps.Play();
+                        }
+                    }
+                    
+                    Debug.Log($"📍 Pointer posizionato a: {anyHit.point}");
+                    Debug.Log($"📍 Pointer attivo: {teleportPointer.activeInHierarchy}");
+                }
+            }
+            else
+            {
+                Debug.Log($"❌ OGGETTO NON NEL LAYER CORRETTO. Layer mask value: {teleportableLayers.value}");
+                validTeleportTarget = false;
+                
+                // Ferma le particelle ma mantieni attivo per debug
+                if (teleportPointer != null)
+                {
+                    foreach (var ps in pointerParticleSystems)
+                    {
+                        ps.Stop();
+                    }
+                }
             }
         }
         else
         {
-            if (currentPointer != null)
-                currentPointer.SetActive(false);
+            Debug.Log("❌ RAYCAST NON COLPISCE NIENTE");
+            validTeleportTarget = false;
+            
+            if (teleportPointer != null)
+            {
+                foreach (var ps in pointerParticleSystems)
+                {
+                    ps.Stop();
+                }
+            }
         }
     }
 
     private IEnumerator ConfirmTeleportRoutine()
     {
-        if (currentPointer == null || !currentPointer.activeSelf)
+        if (!validTeleportTarget)
         {
             Debug.Log("Punto di teletrasporto non valido.");
             Deactivate();
@@ -207,12 +355,6 @@ public class TeleportAbility : AbilityBase
         else
         {
             Debug.LogWarning("CharacterController non trovato.");
-        }
-
-        if (currentPointer)
-        {
-            Destroy(currentPointer);
-            currentPointer = null;
         }
 
         if (teleportEffectController != null)

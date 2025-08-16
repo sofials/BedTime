@@ -9,6 +9,8 @@ Shader "Unlit/RainbowTransparent"
         _SparkleSpeed ("Sparkle Speed", Float) = 5.0
         _SparkleDensity ("Sparkle Density", Float) = 10.0
         _SparkleSize ("Sparkle Size", Range(0.01, 0.2)) = 0.05
+        _PastelSaturation ("Pastel Saturation", Range(0.1, 1.0)) = 0.4
+        _PastelBrightness ("Pastel Brightness", Range(0.5, 1.0)) = 0.85
     }
 
     SubShader
@@ -49,6 +51,8 @@ Shader "Unlit/RainbowTransparent"
             float _SparkleSpeed;
             float _SparkleDensity;
             float _SparkleSize;
+            float _PastelSaturation;
+            float _PastelBrightness;
 
             float hash21(float2 p)
             {
@@ -75,9 +79,9 @@ Shader "Unlit/RainbowTransparent"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                // Arcobaleno verticale
+                // Arcobaleno verticale con colori pastello
                 float hue = frac(i.uv.y * _Scale + _Time.y * _Speed);
-                float3 rgb = hsv2rgb(float3(hue, 1, 1));
+                float3 rgb = hsv2rgb(float3(hue, _PastelSaturation, _PastelBrightness));
 
                 // Sparkle pseudo-random
                 float2 gridUV = i.uv * _SparkleDensity;
@@ -87,15 +91,15 @@ Shader "Unlit/RainbowTransparent"
 
                 float sparkleSeed = hash21(cell);
                 float sparklePulse = sin(_Time.y * _SparkleSpeed + sparkleSeed * 6.28);
-                float sparkleActive = smoothstep(0.96, 1.0, sparklePulse); // solo i picchi alti
+                float sparkleActive = smoothstep(0.96, 1.0, sparklePulse);
 
                 // Maschera rotonda
                 float sparkleMask = smoothstep(_SparkleSize, 0.0, dist);
 
                 float sparkle = sparkleActive * sparkleMask;
 
-                // ⭐ Brillantezza esponenziale → più glow-like
-                float3 sparkleColor = float3(1, 1, 1) * pow(sparkle, 4.0) * _SparkleIntensity;
+                // Brillantezza con tonalità pastello anche per le scintille
+                float3 sparkleColor = lerp(rgb, float3(1, 1, 1), 0.7) * pow(sparkle, 3.0) * _SparkleIntensity;
 
                 rgb += sparkleColor;
 

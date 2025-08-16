@@ -50,6 +50,11 @@ public class PlayerAttack : MonoBehaviour
     private Vector3 advanceDirection;
     private Vector3 startPosition;
 
+    // NUOVO: Riferimento al TeleportAbility per disabilitare l'attacco durante il teletrasporto
+    [Header("Teleport Integration")]
+    [Tooltip("Riferimento al TeleportAbility per disabilitare l'attacco durante il teletrasporto")]
+    public TeleportAbility teleportAbility;
+
     private void Awake()
     {
         controls = new PlayerControls();
@@ -70,6 +75,25 @@ public class PlayerAttack : MonoBehaviour
     {
         animator = GetComponentInChildren<Animator>();
         playerController = GetComponent<ThirdPersonController>();
+        
+        // NUOVO: Auto-trova TeleportAbility se non assegnato
+        if (teleportAbility == null)
+        {
+            teleportAbility = GetComponent<TeleportAbility>();
+            if (teleportAbility == null)
+            {
+                teleportAbility = GetComponentInChildren<TeleportAbility>();
+            }
+            
+            if (teleportAbility != null)
+            {
+                Debug.Log($"TeleportAbility trovato automaticamente per PlayerAttack: {teleportAbility.name}");
+            }
+            else
+            {
+                Debug.LogWarning("TeleportAbility non trovato. L'attacco non sarà disabilitato durante il teletrasporto.");
+            }
+        }
         
         // Assicurati che gli effetti siano spenti all'inizio
         if (punchEffect != null)
@@ -108,6 +132,21 @@ public class PlayerAttack : MonoBehaviour
 
         if (Time.timeScale == 0f)
             return;
+
+        // NUOVO: Controlla se il teletrasporto è attivo e blocca l'attacco
+        if (teleportAbility != null && teleportAbility.IsActive)
+        {
+            // Resetta l'input di attacco per evitare attacchi in coda
+            attackInput = false;
+            
+            // Se stava già attaccando, ferma tutto
+            if (isAttacking)
+            {
+                StopCurrentAttack();
+            }
+            
+            return; // Esce dall'Update senza processare attacchi
+        }
 
         if (attackInput)
         {
@@ -151,9 +190,41 @@ public class PlayerAttack : MonoBehaviour
         HandleAttackAdvance();
     }
 
+    // NUOVO: Metodo per fermare l'attacco in corso
+    private void StopCurrentAttack()
+    {
+        isAttacking = false;
+        attackTimer = 0f;
+        
+        // Ferma l'avanzamento
+        StopAttackAdvance();
+        
+        // Ferma effetti audio e visivi
+        if (punchEffect != null && punchEffect.isPlaying)
+        {
+            punchEffect.Stop();
+        }
+        
+        if (punchAudioSource != null && punchAudioSource.isPlaying)
+        {
+            punchAudioSource.Stop();
+        }
+        
+        StopImpactEffects();
+        
+        Debug.Log("Attacco fermato a causa del teletrasporto attivo");
+    }
+
     private void StartAttackAdvance()
     {
         if (playerController == null) return;
+
+        // NUOVO: Controlla di nuovo se il teletrasporto è attivo prima di iniziare l'avanzamento
+        if (teleportAbility != null && teleportAbility.IsActive)
+        {
+            Debug.Log("Avanzamento attacco annullato: teletrasporto attivo");
+            return;
+        }
 
         // Calcola la direzione di avanzamento basata sulla rotazione del player
         advanceDirection = transform.forward;
@@ -168,6 +239,13 @@ public class PlayerAttack : MonoBehaviour
     private void HandleAttackAdvance()
     {
         if (!isAdvancing || playerController == null) return;
+
+        // NUOVO: Controlla se il teletrasporto è diventato attivo durante l'avanzamento
+        if (teleportAbility != null && teleportAbility.IsActive)
+        {
+            StopAttackAdvance();
+            return;
+        }
 
         advanceTimer += Time.deltaTime;
         float normalizedTime = Mathf.Clamp01(advanceTimer / attackAdvanceDuration);
@@ -203,6 +281,13 @@ public class PlayerAttack : MonoBehaviour
     // ANIMATION EVENT - Chiamato dall'animazione per attivare l'effetto generale del pugno
     public void EnablePunchEffect()
     {
+        // NUOVO: Controlla se il teletrasporto è attivo
+        if (teleportAbility != null && teleportAbility.IsActive)
+        {
+            Debug.Log("EnablePunchEffect ignorato: teletrasporto attivo");
+            return;
+        }
+
         if (punchEffect != null)
         {
             punchEffect.Play();
@@ -237,6 +322,13 @@ public class PlayerAttack : MonoBehaviour
     // COLLISION DETECTION - Chiamato quando il pugno colpisce effettivamente un nemico
     public void RegisterSuccessfulHit()
     {
+        // NUOVO: Controlla se il teletrasporto è attivo
+        if (teleportAbility != null && teleportAbility.IsActive)
+        {
+            Debug.Log("RegisterSuccessfulHit ignorato: teletrasporto attivo");
+            return;
+        }
+
         // ===== PROTEZIONE CONTRO HIT MULTIPLI =====
         if (hitConfirmedThisSwing)
         {
@@ -282,6 +374,13 @@ public class PlayerAttack : MonoBehaviour
     {
         isAdvancing = false;
         advanceTimer = 0f;
+        Debug.Log("Avanzamento attacco fermato");
+    }
+
+    // NUOVO: Metodo pubblico per controllare se il teletrasporto è attivo
+    public bool IsTeleportActive()
+    {
+        return teleportAbility != null && teleportAbility.IsActive;
     }
 
     // Metodi per impostare i parametri dell'avanzamento da altri script se necessario

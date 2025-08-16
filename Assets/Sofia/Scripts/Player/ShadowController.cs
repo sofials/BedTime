@@ -33,6 +33,11 @@ public class ShadowController : MonoBehaviour
     [Header("Debug")]
     public bool showDebugRays = true;
     
+    // NUOVO: Riferimento al TeleportAbility per controllare se è attivo
+    [Header("Teleport Integration")]
+    [Tooltip("Riferimento al TeleportAbility per disabilitare l'ombra durante il teletrasporto")]
+    public TeleportAbility teleportAbility;
+    
     private GameObject proceduralShadowObject;
     private MeshRenderer shadowRenderer;
     private MeshFilter shadowMeshFilter;
@@ -46,6 +51,25 @@ public class ShadowController : MonoBehaviour
             return;
         }
         
+        // NUOVO: Auto-trova TeleportAbility se non assegnato
+        if (teleportAbility == null)
+        {
+            teleportAbility = GetComponent<TeleportAbility>();
+            if (teleportAbility == null)
+            {
+                teleportAbility = GetComponentInChildren<TeleportAbility>();
+            }
+            
+            if (teleportAbility != null)
+            {
+                Debug.Log($"TeleportAbility trovato automaticamente: {teleportAbility.name}");
+            }
+            else
+            {
+                Debug.LogWarning("TeleportAbility non trovato. L'ombra non sarà disabilitata durante il teletrasporto.");
+            }
+        }
+        
         CreateProceduralShadow();
         Debug.Log($"ShadowController inizializzato. Raycast da: {raycastStartPoint.name}");
     }
@@ -53,6 +77,18 @@ public class ShadowController : MonoBehaviour
     void Update()
     {
         if (shadowObject == null || raycastStartPoint == null) return;
+        
+        // NUOVO: Controlla se il teletrasporto è attivo
+        if (teleportAbility != null && teleportAbility.IsActive)
+        {
+            // Disabilita l'ombra durante il teletrasporto
+            if (shadowObject.gameObject.activeSelf)
+            {
+                shadowObject.gameObject.SetActive(false);
+                Debug.Log("Ombra disabilitata durante teletrasporto");
+            }
+            return;
+        }
         
         UpdateShadow();
     }
@@ -110,7 +146,6 @@ public class ShadowController : MonoBehaviour
         
         // Usa l'ombra procedurale come shadowObject
         shadowObject = proceduralShadowObject.transform;
-        
     }
     
     Mesh GenerateCircleMesh()
@@ -231,6 +266,24 @@ public class ShadowController : MonoBehaviour
             {
                 Debug.LogWarning($"Raycast 3D da {raycastOrigin} non ha colpito nulla!");
             }
+        }
+    }
+    
+    // NUOVO: Metodo pubblico per forzare la disabilitazione dell'ombra
+    public void ForceDisableShadow()
+    {
+        if (shadowObject != null)
+        {
+            shadowObject.gameObject.SetActive(false);
+        }
+    }
+    
+    // NUOVO: Metodo pubblico per forzare la riabilitazione dell'ombra
+    public void ForceEnableShadow()
+    {
+        if (shadowObject != null)
+        {
+            shadowObject.gameObject.SetActive(true);
         }
     }
     
