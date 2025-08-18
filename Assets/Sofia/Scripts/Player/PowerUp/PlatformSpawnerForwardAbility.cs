@@ -39,7 +39,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
 
-        effectIconIndex = 1; // slot icona dedicato
+        effectIconIndex = 3; // slot icona dedicato
         
         // Try to find camera in Awake if not assigned
         if (cameraTransform == null)

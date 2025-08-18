@@ -52,7 +52,7 @@ MonoBehaviour:
   platformPrefab: {fileID: 7169113157556343471, guid: 64e509d991a2dde47908d012713ac623, type: 3}
   ghostPrefab: {fileID: 7984314067589009714, guid: b4f35ff9036d163489bdcf636a5a1674, type: 3}
   forwardDistance: 30
-  verticalOffset: -0.5
+  verticalOffset: 0
   checkRadius: 0.4
   obstacleMask:
     serializedVersion: 2
@@ -113,10 +113,13 @@ MonoBehaviour:
   sceneName: 00 - Landing in the Dreamworld
   checkpointManager: {fileID: 6921977822109627662}
   collectiblesManager: {fileID: 3094165188421987631}
+  levelTitleUI: {fileID: 0}
+  playerAttack: {fileID: 0}
   autoFindManagers: 0
   createManagersIfMissing: 0
-  developmentMode: 1
-  enableDebugLogs: 1
+  autoFindUIElements: 0
+  showLevelTitle: 0
+  enableDebugLogs: 0
   OnSceneInitialized:
     m_PersistentCalls:
       m_Calls: []
@@ -124,6 +127,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnSceneCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnUISetupComplete:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &3159765848054289373
@@ -173,6 +179,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gemPrefab: {fileID: 1413473904258511810, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
   splineContainers:
+  - {fileID: 0}
+  - {fileID: 0}
   - {fileID: 0}
   gemCount: 20
 --- !u!114 &9170783885585029028
@@ -293,10 +301,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   duration: 5
   powerUpScript: {fileID: 0}
-  effectIconIndex: 3
+  effectIconIndex: 2
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
-  slowdownRadius: 20
+  slowdownRadius: 60
   slowdownFactor: 0.5
   customDuration: 10
   effectAudioClip: {fileID: 8300000, guid: 43351392746a1e74683ba5106d9f01fc, type: 3}
@@ -474,7 +482,7 @@ Transform:
   m_GameObject: {fileID: 8562877742221916186}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 257.00003, y: -74.743774, z: -711}
+  m_LocalPosition: {x: 257.00003, y: 924, z: -524}
   m_LocalScale: {x: 5, y: 1, z: 5}
   m_ConstrainProportionsScale: 0
   m_Children: []

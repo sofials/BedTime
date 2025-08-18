@@ -32,159 +32,6 @@ Transform:
   - {fileID: 6278254995471040449}
   m_Father: {fileID: 4763339148159217230}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1097693137608430095
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1371931033933052817}
-  - component: {fileID: 8994804775728863862}
-  - component: {fileID: 4226596651549106932}
-  m_Layer: 0
-  m_Name: Dialog_verde
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1371931033933052817
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1097693137608430095}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.008128086, y: -0.007642012, z: -0.008254325, w: 0.99990374}
-  m_LocalPosition: {x: 0.6966895, y: 2.3811815, z: -0.6918925}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.099999994}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 857882631088213921}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8994804775728863862
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1097693137608430095}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9bf84b84090c78343837cf3014bb0b4b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  audioSource: {fileID: 4226596651549106932}
-  subtitleTexts:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  displayDurations:
-  - 3
-  - 6
-  - 6
-  - 6
---- !u!82 &4226596651549106932
-AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1097693137608430095}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 63efd77b8f206504da296bd4709d1f63, type: 3}
-  m_Resource: {fileID: 8300000, guid: 63efd77b8f206504da296bd4709d1f63, type: 3}
-  m_PlayOnAwake: 0
-  m_Volume: 1
-  m_Pitch: 1
-  Loop: 0
-  Mute: 0
-  Spatialize: 0
-  SpatializePostEffects: 0
-  Priority: 128
-  DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
-  Pan2D: 0
-  rolloffMode: 0
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 0
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
 --- !u!1 &1170416314102417075
 GameObject:
   m_ObjectHideFlags: 0
@@ -20353,8 +20200,8 @@ GameObject:
   - component: {fileID: 2073939417887410687}
   - component: {fileID: 2698753723025585598}
   - component: {fileID: 4125440905088067459}
-  - component: {fileID: 8348542137897283351}
-  m_Layer: 0
+  - component: {fileID: 7344838317378495634}
+  m_Layer: 19
   m_Name: chibi_verde
   m_TagString: Chibi
   m_Icon: {fileID: 0}
@@ -20369,7 +20216,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5593386370223080961}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.008128086, y: 0.007642012, z: 0.008254325, w: 0.99990374}
+  m_LocalRotation: {x: -0.008131734, y: 0.0076412484, z: 0.008255773, w: 0.9999037}
   m_LocalPosition: {x: -2.55, y: -1.55, z: -53.62}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_ConstrainProportionsScale: 0
@@ -20379,9 +20226,8 @@ Transform:
   - {fileID: 4819329191920160788}
   - {fileID: 3690279168074466089}
   - {fileID: 3903615484327350875}
-  - {fileID: 1371931033933052817}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -0.939, y: 0.868, z: 0.939}
 --- !u!95 &2073939417887410687
 Animator:
   serializedVersion: 7
@@ -20392,7 +20238,7 @@ Animator:
   m_GameObject: {fileID: 5593386370223080961}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 37ce9848ba5e4d04fb88bc12c2ea6a64, type: 3}
-  m_Controller: {fileID: 9100000, guid: 60a50ca2cf8326b4995e1b7c6a71f624, type: 2}
+  m_Controller: {fileID: 9100000, guid: c4da670b7d7439a47b5d3a00f7963401, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -20449,7 +20295,7 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
---- !u!114 &8348542137897283351
+--- !u!114 &7344838317378495634
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -20458,20 +20304,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 5593386370223080961}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 17cc2f1bfb199ee41911974be21b1660, type: 3}
+  m_Script: {fileID: 11500000, guid: e97db0d6d1e219e4bbf94786e7a6488c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   waypoints:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
-  - {fileID: 0}
-  footDustEffect: {fileID: 7413106944413881332}
-  slowEffect: {fileID: 3101029419416784894}
-  slowEffectDuration: 0.5
   animator: {fileID: 2073939417887410687}
-  playerTransform: {fileID: 0}
-  dialogController: {fileID: 8994804775728863862}
 --- !u!1 &5946319863032590564
 GameObject:
   m_ObjectHideFlags: 0

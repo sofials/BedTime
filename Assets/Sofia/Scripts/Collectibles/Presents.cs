@@ -38,7 +38,6 @@ public class Presents : Collectibles
             Debug.Log($"[Presents] Debug abilitato per {gameObject.name}");
         }
         
-        LogDebug($"Present Awake - inizio configurazione per {gameObject.name}");
         
         // FASE 3: Chiama il base Awake (gestisce auto-detection, configurazioni default e audio)
         base.Awake();
@@ -46,7 +45,6 @@ public class Presents : Collectibles
         // FASE 4: Configurazioni specifiche Present DOPO il setup base
         ConfigurePresentDefaults();
         
-        LogDebug($"Present Awake completato per {collectibleName}");
     }
 
     /// <summary>
@@ -55,7 +53,6 @@ public class Presents : Collectibles
     /// </summary>
     protected virtual void ConfigurePresentDefaults()
     {
-        LogDebug($"Configurazione defaults per Present size: {presentSize}");
         
         // Configurazioni basate sulla dimensione del presente
         switch (presentSize)
@@ -97,7 +94,7 @@ public class Presents : Collectibles
         // ⭐ IMPORTANTE: NON tocchiamo audio - è gestito dalla classe base ⭐
         // enablePreAudioLoop è già impostato a TRUE per Present da ConfigureDefaultsForType()
         
-        LogDebug($"Present {collectibleName} configurato come {presentSize} (Value: {collectibleValue}, Loop: {enablePreAudioLoop})");
+      
     }
 
     /// <summary>
@@ -105,7 +102,7 @@ public class Presents : Collectibles
     /// </summary>
     public override void CollectItem()
     {
-        LogDebug($"=== INIZIO RACCOLTA PRESENT {collectibleName} ===");
+      
         
         // Verifica componenti prima della raccolta (solo se debug attivo)
         if (enableDetailedLogs)
@@ -116,7 +113,6 @@ public class Presents : Collectibles
         // Chiama il base CollectItem che gestisce tutto (audio, effetti, mesh, etc.)
         base.CollectItem();
         
-        LogDebug($"=== FINE RACCOLTA PRESENT {collectibleName} ===");
     }
 
     /// <summary>
@@ -124,14 +120,6 @@ public class Presents : Collectibles
     /// </summary>
     protected override void OnItemCollected()
     {
-        LogDebug($"Present {collectibleName} raccolto con successo!");
-        
-        // Log stato componenti (solo se debug attivo)
-        if (enableDetailedLogs)
-        {
-            LogCollectionState();
-        }
-        
         // Invoca eventi Present specifici
         if (enablePresentEvents)
         {
@@ -176,21 +164,6 @@ public class Presents : Collectibles
         {
             LogDebug($"⚠️ ATTENZIONE: Post AudioSource non assegnato!");
         }
-    }
-
-    /// <summary>
-    /// Log dello stato dopo la raccolta (solo per debug)
-    /// </summary>
-    private void LogCollectionState()
-    {
-        LogDebug($"Stato Componenti Post-Raccolta:");
-        LogDebug($"  - Mesh Container Active: {(meshContainer != null ? meshContainer.gameObject.activeInHierarchy.ToString() : "N/A")}");
-        LogDebug($"  - Effects Container Active: {(effectsContainer != null ? effectsContainer.gameObject.activeInHierarchy.ToString() : "N/A")}");
-        LogDebug($"  - Pre Effects Playing: {(preCollectionEffects != null ? CountPlayingEffects(preCollectionEffects).ToString() : "N/A")}");
-        LogDebug($"  - Post Effects Playing: {(postCollectionEffects != null ? CountPlayingEffects(postCollectionEffects).ToString() : "N/A")}");
-        LogDebug($"  - Collider Enabled: {(mainCollider != null ? mainCollider.enabled.ToString() : "N/A")}");
-        LogDebug($"  - GameObject Active: {gameObject.activeInHierarchy}");
-        LogDebug($"  - Pre Audio Playing: {IsPreAudioPlaying()}");
     }
 
     private int CountPlayingEffects(ParticleSystem[] effects)

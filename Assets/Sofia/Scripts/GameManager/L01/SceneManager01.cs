@@ -17,9 +17,6 @@ public class SceneManager01 : MonoBehaviour
     [Header("UI References - Specifiche della Scena")]
     [SerializeField] private GameObject levelTitleUI; // Opzionale
     [SerializeField] private PlayerAttack playerAttack; // Per accedere al PowerUp UI
-    // [SerializeField] private GameObject pauseMenu; // TODO: Implementare in futuro
-    // [SerializeField] private GameObject gameOverUI; // Rimosso per ora
-    // [SerializeField] private GameObject completionUI; // Rimosso per ora
     
     [Header("Auto-Setup")]
     [SerializeField] private bool autoFindManagers = true;
@@ -130,14 +127,10 @@ public class SceneManager01 : MonoBehaviour
     
     private void ConfigureInitialUIState()
     {
-        // Nascondi levelTitleUI inizialmente (se presente e abilitato)
         if (levelTitleUI != null && showLevelTitle)
         {
             levelTitleUI.SetActive(false);
         }
-        
-        // Inizialmente disattiva PowerUp UI (sarà attivata quando il GameManager è pronto)
-        DisablePowerUpUI();
         
         DebugLog("[SceneManager01] Stato iniziale UI configurato");
     }
@@ -171,33 +164,6 @@ public class SceneManager01 : MonoBehaviour
             }
         }
     }
-    
-    // TODO: Gestione pausa - da implementare in futuro
-    /*
-    public void ShowPauseMenu()
-    {
-        if (pauseMenu != null)
-        {
-            pauseMenu.SetActive(true);
-            Time.timeScale = 0f;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            DisablePowerUpUI();
-        }
-    }
-    
-    public void HidePauseMenu()
-    {
-        if (pauseMenu != null)
-        {
-            pauseMenu.SetActive(false);
-            Time.timeScale = 1f;
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-            EnablePowerUpUI();
-        }
-    }
-    */
     
     // ========== CALLBACK GAMEMANAGER ==========
     
@@ -245,7 +211,7 @@ public class SceneManager01 : MonoBehaviour
         }
     }
     
-    // ========== SETUP MANAGER (dal codice originale) ==========
+    // ========== SETUP MANAGER ==========
     
     private void SetupManagers()
     {
@@ -392,24 +358,16 @@ public class SceneManager01 : MonoBehaviour
     private void OnPresentCollected(string presentName)
     {
         DebugLog($"[SceneManager01] Present raccolto: '{presentName}'");
-        
-        // Potresti mostrare una UI di notifica qui
-        // ShowCollectibleNotification("Present", presentName);
     }
     
     private void OnMemoryCollected(string memoryName)
     {
         DebugLog($"[SceneManager01] Memory raccolta: '{memoryName}'");
-        
-        // Potresti mostrare una UI di notifica qui
-        // ShowCollectibleNotification("Memory", memoryName);
     }
     
     private void OnAllCollectiblesCompleted()
     {
         DebugLog("[SceneManager01] 🏆 Tutti i collectibles completati!");
-        
-        // Per ora solo log e evento - UI di completamento rimossa
         OnSceneCompleted?.Invoke();
     }
     
@@ -468,17 +426,11 @@ public class SceneManager01 : MonoBehaviour
         NotifySceneCheckpoint(checkpointName);
     }
     
-    // ========== METODI PUBBLICI UI ==========
+    // ========== METODI DI NAVIGAZIONE SCENE (AGGIORNATI) ==========
     
-    /// <summary>
-    /// Riavvia il livello corrente
-    /// </summary>
     public void RestartLevel()
     {
         DebugLog("[SceneManager01] Riavvio livello");
-        
-       
-       //  HidePauseMenu();
         
         // Reset dei manager
         if (collectiblesManager != null)
@@ -491,40 +443,39 @@ public class SceneManager01 : MonoBehaviour
             checkpointManager.ResetCheckpointSystem();
         }
         
-        // Riavvia la scena tramite GameManager
+        // Usa il GameManager per riavviare con fade
         if (GameManager.Instance != null)
         {
+            GameManager.Instance.RestartCurrentScene();
+        }
+        else
+        {
+            // Fallback diretto
             string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            GameManager.Instance.LoadSceneWithFade(currentScene);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(currentScene);
         }
     }
     
-    /// <summary>
-    /// Torna al menu principale
-    /// </summary>
     public void ReturnToMainMenu()
     {
         DebugLog("[SceneManager01] Ritorno al menu principale");
         
-       
-       // HidePauseMenu();
-        
-        // Torna alla Title Screen tramite GameManager
+        // Usa il GameManager per tornare al menu con fade
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.LoadSceneWithFade("Title Screen");
+            GameManager.Instance.ReturnToMainMenu();
+        }
+        else
+        {
+            // Fallback diretto
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Title Screen");
         }
     }
     
-    /// <summary>
-    /// Carica il livello successivo
-    /// </summary>
     public void LoadNextLevel()
     {
         DebugLog("[SceneManager01] Caricamento livello successivo");
         
-        
-        // Determina il livello successivo (puoi personalizzare questa logica)
         string nextLevel = GetNextLevelName();
         
         if (!string.IsNullOrEmpty(nextLevel))
@@ -532,6 +483,11 @@ public class SceneManager01 : MonoBehaviour
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.LoadSceneWithFade(nextLevel);
+            }
+            else
+            {
+                // Fallback diretto
+                UnityEngine.SceneManagement.SceneManager.LoadScene(nextLevel);
             }
         }
         else
@@ -543,30 +499,12 @@ public class SceneManager01 : MonoBehaviour
     
     private string GetNextLevelName()
     {
-        // Logica per determinare il livello successivo
-        // Puoi personalizzare questa parte in base alla struttura dei tuoi livelli
-        switch (sceneName)
-        {
-            case "00 - Landing in the Dreamworld":
-                return "01 - Party in Lukelandia";
-            case "01 - Party in Lukelandia":
-                return "02 - Finding Pietro";
-            case "02 - Finding Pietro":
-                return ""; // Ultimo livello
-            default:
-                return "";
-        }
+        return "01 - Party in Lukelandia";
     }
     
-    /// <summary>
-    /// Mostra una notifica per i collectibles (opzionale)
-    /// </summary>
     public void ShowCollectibleNotification(string type, string name)
     {
         DebugLog($"[SceneManager01] Notifica collectible: {type} - {name}");
-        
-        // Qui potresti implementare una UI di notifica temporanea
-        // Ad esempio un popup che appare per qualche secondo
     }
     
     // ========== GETTERS - COLLECTIBLES ==========
@@ -738,19 +676,23 @@ public class SceneManager01 : MonoBehaviour
         }
     }
     
-    // ========== INPUT HANDLING ==========
-    
-    // TODO: Input handling per pausa - da implementare in futuro
-    /*
-    private void Update()
+    [ContextMenu("Test - Restart Level")]
+    public void DebugRestartLevel()
     {
-        // Gestione input per pausa
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            TogglePauseMenu();
-        }
+        RestartLevel();
     }
-    */
+    
+    [ContextMenu("Test - Next Level")]
+    public void DebugLoadNextLevel()
+    {
+        LoadNextLevel();
+    }
+    
+    [ContextMenu("Test - Main Menu")]
+    public void DebugReturnToMainMenu()
+    {
+        ReturnToMainMenu();
+    }
     
     // ========== CLEANUP ==========
     

@@ -243,7 +243,6 @@ public class PlayerCollectiblesUI : MonoBehaviour
             // This ensures consistent display format for all present counters
             presentTextTemplate = "presents 0/0";
             
-            Debug.Log($"[PlayerCollectiblesUI] Present template standardized to: '{presentTextTemplate}'");
         }
     }
 
