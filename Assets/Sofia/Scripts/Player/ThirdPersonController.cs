@@ -28,6 +28,7 @@ public class ThirdPersonController : MonoBehaviour
     public int maxJumps = 10;
     private int jumpCount = 0;
     private Vector3 velocity;
+    private bool isJumpEnabled = true; 
 
     [Header("Advanced Jump Timing")]
     public float coyoteTime = 0.15f;
@@ -178,15 +179,18 @@ public class ThirdPersonController : MonoBehaviour
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
     
     private void OnJumpStarted(InputAction.CallbackContext ctx)
-    {
-        jumpBufferCounter = jumpBufferTime;
-        isHoldingJump = true;
-    }
-    private void OnJumpCanceled(InputAction.CallbackContext ctx)
-    {
-        isHoldingJump = false;
-    }
+{
+    // ✅ AGGIUNGI QUESTO CONTROLLO:
+    if (!isJumpEnabled) return;
+    
+    jumpBufferCounter = jumpBufferTime;
+    isHoldingJump = true;
+}
 
+    private void OnJumpCanceled(InputAction.CallbackContext ctx)
+{
+    isHoldingJump = false;
+}
     private void Start()
     {
         _animator = GetComponentInChildren<Animator>();
@@ -493,16 +497,25 @@ public class ThirdPersonController : MonoBehaviour
         }
     }
 
-    private void HandleJumpInput()
+  private void HandleJumpInput()
+{
+    // ✅ AGGIUNGI QUESTO CONTROLLO ALL'INIZIO DEL METODO:
+    if (!isJumpEnabled)
     {
-        if (jumpBufferCounter > 0 && !IsMovementLocked)
+        // Reset dei contatori quando il salto è disabilitato
+        jumpBufferCounter = 0f;
+        return;
+    }
+    
+    if (jumpBufferCounter > 0 && !IsMovementLocked)
+    {
+        if (TryJump())
         {
-            if (TryJump())
-            {
-                jumpBufferCounter = 0;
-            }
+            jumpBufferCounter = 0;
         }
     }
+}
+
 
     private void UpdateGroundedState()
     {
@@ -528,16 +541,38 @@ public class ThirdPersonController : MonoBehaviour
 
         wasGroundedLastFrame = grounded;
     }
+    public bool IsJumpEnabled
+    {
+        get => isJumpEnabled;
+        set => isJumpEnabled = value;
+    }
+/// <summary>
+/// Abilita o disabilita il salto del player
+/// </summary>
+/// <param name="enabled">True per abilitare, false per disabilitare</param>
+public void SetJumpEnabled(bool enabled)
+{
+    isJumpEnabled = enabled;
+    
+    if (!enabled)
+    {
+        // Resetta anche il buffer del salto quando disabilitato
+        jumpBufferCounter = 0f;
+        isHoldingJump = false;
+    }
+    
+    Debug.Log($"[ThirdPersonController] Salto {(enabled ? "abilitato" : "disabilitato")}");
+}
 
     private void OnLanding()
     {
         jumpCount = 0;
         fallingTimer = 0f;
-        
+
         _animator.SetBool(JumpHash, false);
         _animator.SetBool(DoubleJumpHash, false);
         _animator.SetBool(IsFallingHash, false);
-        
+
     }
 
     private void UpdateJumpTimers()
@@ -552,30 +587,34 @@ public class ThirdPersonController : MonoBehaviour
     }
 
     private bool TryJump()
+{
+    // ✅ AGGIUNGI QUESTO CONTROLLO ALL'INIZIO DEL METODO:
+    if (!isJumpEnabled) return false;
+    
+    bool grounded = IsGroundedAccurate();
+    bool canJump = false;
+    bool isFirstJump = false;
+
+    if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
     {
-        bool grounded = IsGroundedAccurate();
-        bool canJump = false;
-        bool isFirstJump = false;
-
-        if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
-        {
-            canJump = true;
-            isFirstJump = true;
-        }
-        else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
-        {
-            canJump = true;
-            isFirstJump = false;
-        }
-
-        if (canJump)
-        {
-            ExecuteJump(isFirstJump);
-            return true;
-        }
-        
-        return false;
+        canJump = true;
+        isFirstJump = true;
     }
+    else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
+    {
+        canJump = true;
+        isFirstJump = false;
+    }
+
+    if (canJump)
+    {
+        ExecuteJump(isFirstJump);
+        return true;
+    }
+    
+    return false;
+}
+
 
     private void HandleJump()
     {

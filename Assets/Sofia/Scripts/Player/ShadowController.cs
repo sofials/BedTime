@@ -7,13 +7,13 @@ public class ProceduralShadowSettings
     public int segments = 32;
     public float radius = 1f;
     public Color shadowColor = new Color(0f, 0f, 0f, 0.5f);
-    public Material shadowMaterial = null; // Opzionale, usa default se null
+    public Material shadowMaterial = null;
 }
 
 public class ShadowController : MonoBehaviour
 {
     [Header("References")]
-    public Transform raycastStartPoint; // Punto da cui parte il raycast
+    public Transform raycastStartPoint;
     
     [Header("Raycast Settings")]
     public float raycastDistance = 20f;
@@ -27,21 +27,21 @@ public class ShadowController : MonoBehaviour
     [Header("Procedural Shadow")]
     public ProceduralShadowSettings proceduralSettings = new ProceduralShadowSettings();
     [Space]
-    [Tooltip("Assegna un materiale personalizzato per l'ombra, altrimenti verrà creato automaticamente")]
     public Material customShadowMaterial;
     
     [Header("Debug")]
     public bool showDebugRays = true;
     
-    // NUOVO: Riferimento al TeleportAbility per controllare se è attivo
     [Header("Teleport Integration")]
-    [Tooltip("Riferimento al TeleportAbility per disabilitare l'ombra durante il teletrasporto")]
     public TeleportAbility teleportAbility;
     
     private GameObject proceduralShadowObject;
     private MeshRenderer shadowRenderer;
     private MeshFilter shadowMeshFilter;
     private Transform shadowObject;
+    
+    // SEMPLICE ANTI-FLICKER: stato precedente
+    private bool wasShadowActive = false;
     
     void Start()
     {
@@ -51,7 +51,6 @@ public class ShadowController : MonoBehaviour
             return;
         }
         
-        // NUOVO: Auto-trova TeleportAbility se non assegnato
         if (teleportAbility == null)
         {
             teleportAbility = GetComponent<TeleportAbility>();
@@ -64,10 +63,6 @@ public class ShadowController : MonoBehaviour
             {
                 Debug.Log($"TeleportAbility trovato automaticamente: {teleportAbility.name}");
             }
-            else
-            {
-                Debug.LogWarning("TeleportAbility non trovato. L'ombra non sarà disabilitata durante il teletrasporto.");
-            }
         }
         
         CreateProceduralShadow();
@@ -78,14 +73,15 @@ public class ShadowController : MonoBehaviour
     {
         if (shadowObject == null || raycastStartPoint == null) return;
         
-        // NUOVO: Controlla se il teletrasporto è attivo
-        if (teleportAbility != null && teleportAbility.IsActive)
+        // Controlla teleport SOLO se cambia stato
+        bool isTeleporting = teleportAbility != null && teleportAbility.IsActive;
+        
+        if (isTeleporting)
         {
-            // Disabilita l'ombra durante il teletrasporto
+            // Disabilita SOLO se non era già disabilitata
             if (shadowObject.gameObject.activeSelf)
             {
                 shadowObject.gameObject.SetActive(false);
-                Debug.Log("Ombra disabilitata durante teletrasporto");
             }
             return;
         }
@@ -93,58 +89,117 @@ public class ShadowController : MonoBehaviour
         UpdateShadow();
     }
     
+    void UpdateShadow()
+    {
+        // RAYCAST SEMPLIFICATO - offset fisso più sicuro
+        Vector3 raycastOrigin = raycastStartPoint.position + Vector3.up * 2f; // 2 metri fissi
+        Vector3 raycastDirection = Vector3.down;
+        float totalDistance = raycastDistance + 2f;
+        
+        RaycastHit hit;
+        bool hasHit = Physics.Raycast(raycastOrigin, raycastDirection, out hit, totalDistance, groundLayer);
+        
+        if (showDebugRays)
+        {
+            Color rayColor = hasHit ? Color.green : Color.red;
+            Debug.DrawRay(raycastOrigin, raycastDirection * totalDistance, rayColor);
+        }
+        
+        if (hasHit)
+        {
+            // Posizione ombra
+            Vector3 shadowPosition = new Vector3(
+                raycastStartPoint.position.x,
+                hit.point.y + 0.1f, // Offset più grande per sicurezza
+                raycastStartPoint.position.z
+            );
+            
+            shadowObject.position = shadowPosition;
+            
+            // Rotazione semplificata - solo per terreni molto inclinati
+            Vector3 terrainNormal = hit.normal;
+            float terrainAngle = Vector3.Angle(Vector3.up, terrainNormal);
+            
+            if (terrainAngle > 15f) // Solo se il terreno è molto inclinato
+            {
+                Quaternion surfaceRotation = Quaternion.FromToRotation(Vector3.up, terrainNormal);
+                Quaternion baseRotation = Quaternion.Euler(90, 0, 0);
+                shadowObject.rotation = surfaceRotation * baseRotation;
+            }
+            else
+            {
+                // Terreno piatto - rotazione fissa
+                shadowObject.rotation = Quaternion.Euler(90, 0, 0);
+            }
+            
+            // Scala basata su distanza
+            float playerHeight = raycastStartPoint.position.y;
+            float groundHeight = hit.point.y;
+            float distanceToGround = playerHeight - groundHeight;
+            
+            float normalizedHeight = Mathf.Clamp01(distanceToGround / maxHeight);
+            float currentScale = Mathf.Lerp(baseScale, baseScale * minScale, normalizedHeight);
+            
+            shadowObject.localScale = Vector3.one * currentScale;
+            
+            // Attiva SOLO se non era attiva
+            if (!wasShadowActive)
+            {
+                shadowObject.gameObject.SetActive(true);
+                wasShadowActive = true;
+            }
+        }
+        else
+        {
+            // Disattiva SOLO se era attiva
+            if (wasShadowActive)
+            {
+                shadowObject.gameObject.SetActive(false);
+                wasShadowActive = false;
+            }
+        }
+    }
+    
     void CreateProceduralShadow()
     {
-        // Crea GameObject per l'ombra procedurale
         proceduralShadowObject = new GameObject("ProceduralShadow");
         
-        // Aggiungi componenti
         shadowMeshFilter = proceduralShadowObject.AddComponent<MeshFilter>();
         shadowRenderer = proceduralShadowObject.AddComponent<MeshRenderer>();
         
-        // Genera il mesh del cerchio
         shadowMeshFilter.mesh = GenerateCircleMesh();
         
-        // Configura il materiale
+        // Materiale semplificato
         Material shadowMat;
         if (customShadowMaterial != null)
         {
-            // Usa il materiale personalizzato dall'Inspector
             shadowMat = customShadowMaterial;
-            Debug.Log($"Usando materiale personalizzato: {customShadowMaterial.name}");
         }
         else if (proceduralSettings.shadowMaterial != null)
         {
-            // Fallback al materiale nelle settings
             shadowMat = proceduralSettings.shadowMaterial;
         }
         else
         {
-            // Crea materiale automatico come ultima risorsa
+            // Usa sempre Unlit/Color per semplicità
             shadowMat = new Material(Shader.Find("Unlit/Color"));
-            if (shadowMat.shader == null)
-            {
-                shadowMat = new Material(Shader.Find("Standard"));
-                Debug.LogWarning("Unlit/Color non trovato, uso Standard");
-            }
-            
-            // Colore grigio ombra più trasparente
-            shadowMat.color = new Color(0.2f, 0.2f, 0.2f, 0.3f);
-            Debug.Log("Materiale automatico creato");
+            shadowMat.color = new Color(0.2f, 0.2f, 0.2f, 0.4f);
         }
         
         shadowRenderer.material = shadowMat;
         
-        // ROTAZIONE FISSA: X=90 per orientare correttamente
+        // Disabilita ombre per evitare conflitti
+        shadowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        shadowRenderer.receiveShadows = false;
+        
         proceduralShadowObject.transform.rotation = Quaternion.Euler(90, 0, 0);
-        
-        // Scala iniziale normale
         proceduralShadowObject.transform.localScale = Vector3.one * baseScale;
-        
-        // Posizione iniziale (sarà aggiornata dall'Update)
         proceduralShadowObject.transform.position = raycastStartPoint.position + Vector3.down * 8f;
         
-        // Usa l'ombra procedurale come shadowObject
+        // INIZIA DISATTIVATA
+        proceduralShadowObject.SetActive(false);
+        wasShadowActive = false;
+        
         shadowObject = proceduralShadowObject.transform;
     }
     
@@ -156,38 +211,32 @@ public class ShadowController : MonoBehaviour
         int segments = proceduralSettings.segments;
         float radius = proceduralSettings.radius;
         
-        // Array per vertici, UV e triangoli
-        Vector3[] vertices = new Vector3[segments + 1]; // +1 per il centro
+        Vector3[] vertices = new Vector3[segments + 1];
         Vector2[] uvs = new Vector2[segments + 1];
         int[] triangles = new int[segments * 3];
         
-        // Centro del cerchio
         vertices[0] = Vector3.zero;
         uvs[0] = new Vector2(0.5f, 0.5f);
         
-        // Vertici del perimetro NEL PIANO XY (perpendicolare al raycast down)
         for (int i = 0; i < segments; i++)
         {
             float angle = (float)i / segments * Mathf.PI * 2f;
             float x = Mathf.Cos(angle) * radius;
-            float y = Mathf.Sin(angle) * radius; // Y per piano XY
+            float y = Mathf.Sin(angle) * radius;
             
-            vertices[i + 1] = new Vector3(x, y, 0); // Z=0 per piano XY
+            vertices[i + 1] = new Vector3(x, y, 0);
             
-            // UV mapping circolare
             uvs[i + 1] = new Vector2(
                 0.5f + x / radius * 0.5f,
                 0.5f + y / radius * 0.5f
             );
         }
         
-        // Triangoli (dal centro ai vertici del perimetro)
-        // IMPORTANTE: ordine dei vertici per far guardare la superficie verso Z+
         for (int i = 0; i < segments; i++)
         {
             int triangleIndex = i * 3;
-            triangles[triangleIndex] = 0; // Centro
-            triangles[triangleIndex + 1] = (i + 1) % segments + 1; // Invertito per normale corretta
+            triangles[triangleIndex] = 0;
+            triangles[triangleIndex + 1] = (i + 1) % segments + 1;
             triangles[triangleIndex + 2] = i + 1;
         }
         
@@ -200,94 +249,24 @@ public class ShadowController : MonoBehaviour
         return mesh;
     }
     
-    void UpdateShadow()
-    {
-        // RAYCAST INTELLIGENTE: parte da sopra per evitare di essere dentro il collider
-        Vector3 raycastOrigin = raycastStartPoint.position + Vector3.up * 1f; // 1 metro sopra
-        Vector3 raycastDirection = Vector3.down;
-        float totalDistance = raycastDistance + 1f; // Aggiungi la distanza dell'offset
-        
-        // RAYCAST 3D per terreno 3D
-        RaycastHit hit;
-        bool hasHit = Physics.Raycast(raycastOrigin, raycastDirection, out hit, totalDistance, groundLayer);
-        
-        // Debug ray visuale
-        if (showDebugRays)
-        {
-            Color rayColor = hasHit ? Color.green : Color.red;
-            Debug.DrawRay(raycastOrigin, raycastDirection * totalDistance, rayColor);
-        }
-        
-        if (hasHit)
-        {
-            // ANCORATA AL TERRENO - X e Z del player, Y del terreno
-            Vector3 shadowPosition = new Vector3(
-                raycastStartPoint.position.x, // X del player
-                hit.point.y + 0.01f,         // Y del terreno colpito
-                raycastStartPoint.position.z  // Z del player
-            );
-            
-            shadowObject.position = shadowPosition;
-            
-            // ADATTA ALLA PENDENZA - usa la normale del terreno per orientare l'ombra
-            Vector3 terrainNormal = hit.normal;
-            
-            // Calcola la rotazione per allineare l'ombra alla superficie
-            Quaternion surfaceRotation = Quaternion.FromToRotation(Vector3.up, terrainNormal);
-            
-            // Combina con la rotazione base (90 gradi su X per orientamento corretto)
-            Quaternion baseRotation = Quaternion.Euler(90, 0, 0);
-            shadowObject.rotation = surfaceRotation * baseRotation;
-            
-            // Calcola la scala basata sulla distanza VERTICALE tra player e terreno
-            float playerHeight = raycastStartPoint.position.y;
-            float groundHeight = hit.point.y;
-            float distanceToGround = playerHeight - groundHeight;
-            
-            float normalizedHeight = Mathf.Clamp01(distanceToGround / maxHeight);
-            float currentScale = Mathf.Lerp(baseScale, baseScale * minScale, normalizedHeight);
-            
-            shadowObject.localScale = Vector3.one * currentScale;
-            shadowObject.gameObject.SetActive(true);
-            
-            // Debug info opzionale
-            if (showDebugRays)
-            {
-                Debug.Log($"Player Y: {playerHeight:F2}, Ground Y: {groundHeight:F2}, Distance: {distanceToGround:F2}, Scale: {currentScale:F2}");
-                Debug.Log($"Terrain normal: {terrainNormal}, Surface angle: {Vector3.Angle(Vector3.up, terrainNormal):F1}°");
-            }
-        }
-        else
-        {
-            // Nessun terreno trovato
-            shadowObject.gameObject.SetActive(false);
-            
-            if (showDebugRays)
-            {
-                Debug.LogWarning($"Raycast 3D da {raycastOrigin} non ha colpito nulla!");
-            }
-        }
-    }
-    
-    // NUOVO: Metodo pubblico per forzare la disabilitazione dell'ombra
     public void ForceDisableShadow()
     {
         if (shadowObject != null)
         {
             shadowObject.gameObject.SetActive(false);
+            wasShadowActive = false;
         }
     }
     
-    // NUOVO: Metodo pubblico per forzare la riabilitazione dell'ombra
     public void ForceEnableShadow()
     {
         if (shadowObject != null)
         {
             shadowObject.gameObject.SetActive(true);
+            wasShadowActive = true;
         }
     }
     
-    // Metodo per rigenerare l'ombra con nuove impostazioni
     [ContextMenu("Regenerate Procedural Shadow")]
     public void RegenerateProceduralShadow()
     {
@@ -299,7 +278,6 @@ public class ShadowController : MonoBehaviour
         CreateProceduralShadow();
     }
     
-    // Metodo per cambiare colore a runtime
     public void SetShadowColor(Color newColor)
     {
         if (shadowRenderer != null)
@@ -309,7 +287,6 @@ public class ShadowController : MonoBehaviour
         proceduralSettings.shadowColor = newColor;
     }
     
-    // Metodo per cambiare trasparenza a runtime
     public void SetShadowAlpha(float alpha)
     {
         Color currentColor = proceduralSettings.shadowColor;
@@ -317,22 +294,18 @@ public class ShadowController : MonoBehaviour
         SetShadowColor(currentColor);
     }
     
-    // Debug visuale nell'editor
     void OnDrawGizmosSelected()
     {
         if (raycastStartPoint == null) return;
         
         Vector3 startPos = raycastStartPoint.position;
         
-        // Punto di partenza del raycast
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(startPos, 0.3f);
         
-        // Linea del raycast 3D
         Gizmos.color = Color.yellow;
         Gizmos.DrawRay(startPos, Vector3.down * raycastDistance);
         
-        // Label del punto di partenza
         #if UNITY_EDITOR
         UnityEditor.Handles.Label(startPos + Vector3.up * 0.5f, raycastStartPoint.name);
         #endif

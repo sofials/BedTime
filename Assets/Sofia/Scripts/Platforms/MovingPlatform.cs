@@ -15,6 +15,9 @@ public class MovingPlatform : MonoBehaviour
     public Vector3 forwardAxis = Vector3.forward;
     public Vector3 upAxis = Vector3.up;
     public float rotationSpeed = 5f;
+    [Header("Slowdown Custom Duration")]
+[Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
+public float customSlowdownDuration = 15f;
 
     private List<Vector3> sampledPoints = new List<Vector3>();
     private List<Vector3> sampledTangents = new List<Vector3>();

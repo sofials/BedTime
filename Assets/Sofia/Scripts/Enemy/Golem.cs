@@ -49,6 +49,9 @@ public class Golem : MonoBehaviour
     public float slowFactor = 0.5f;
     public float animationSlowFactor = 0.3f;
     public SlowdownAbility activeSlowdownAbility;
+    [Header("Slowdown Custom Duration")]
+[Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
+public float customSlowdownDuration = 15f;
 
     [Header("FX & Patina")]
     public Renderer Renderer;
