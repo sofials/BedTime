@@ -94,6 +94,7 @@ Transform:
   - {fileID: 6173843468554629101}
   - {fileID: 7248895162523089367}
   - {fileID: 1618363178740101345}
+  - {fileID: 7284148347196032062}
   - {fileID: 6422159006629045719}
   - {fileID: 6517215568821617346}
   m_Father: {fileID: 0}
@@ -255,6 +256,75 @@ MonoBehaviour:
   OnSpawnPointChanged:
     m_PersistentCalls:
       m_Calls: []
+  OnPlayerCheckpointChanged:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &4883016082477140456
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7284148347196032062}
+  - component: {fileID: 8785348841605925989}
+  - component: {fileID: 6160263028527200179}
+  m_Layer: 0
+  m_Name: KIllZone (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7284148347196032062
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4883016082477140456}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 1487, y: 974, z: -232}
+  m_LocalScale: {x: 5, y: 1, z: 5}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4910115921502916631}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &8785348841605925989
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4883016082477140456}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 500, y: 400, z: 200}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &6160263028527200179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4883016082477140456}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0b3815d2af552043be75bc6bdf9b1d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &6291174413472056077
 GameObject:
   m_ObjectHideFlags: 0
@@ -308,14 +378,6 @@ MonoBehaviour:
   slowdownFactor: 0.5
   customDuration: 10
   effectAudioClip: {fileID: 8300000, guid: 43351392746a1e74683ba5106d9f01fc, type: 3}
-  villageNPCsToSlow:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  verdeNPCsToSlow:
-  - {fileID: 0}
 --- !u!1 &7214885658304405093
 GameObject:
   m_ObjectHideFlags: 0
@@ -365,12 +427,13 @@ MonoBehaviour:
   effectIconIndex: 2
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
-  telePointerPrefab: {fileID: 807697996776966529, guid: e1442c3cd4617754ea595d83d78c9806, type: 3}
   teleportableLayers:
     serializedVersion: 2
     m_Bits: 128
   meshesToHide:
   - {fileID: 0}
+  teleportPointer: {fileID: 0}
+  playerCamera: {fileID: 0}
   controllerGameObject: {fileID: 0}
   teleportEffectController: {fileID: 0}
   teleportConfirmSound: {fileID: 8300000, guid: 923127e12013cf04a876c1968f550fd0, type: 3}
@@ -482,7 +545,7 @@ Transform:
   m_GameObject: {fileID: 8562877742221916186}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 257.00003, y: 924, z: -524}
+  m_LocalPosition: {x: 257.00003, y: 958, z: -925}
   m_LocalScale: {x: 5, y: 1, z: 5}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -507,7 +570,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 500, y: 400, z: 400}
+  m_Size: {x: 500, y: 400, z: 250}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &6215670895201401518
 MonoBehaviour:

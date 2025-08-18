@@ -12,6 +12,9 @@ public class TurtleShell : MonoBehaviour
     public float walkSpeed = 4f;
     public float runSpeed = 6f;
     public Transform[] waypoints;
+    [Header("Slowdown Custom Duration")]
+[Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
+public float customSlowdownDuration = 15f;
 
     [Header("Vision & Attack")]
     public float viewRadius = 10f;

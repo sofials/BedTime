@@ -79,29 +79,36 @@ public class HurtBox : MonoBehaviour
         }
     }
 
-    // ✅ GESTIONE SPECIFICA PER PIATTAFORME ROTANTI
+    // ✅ GESTIONE SPECIFICA PER PIATTAFORME ROTANTI - AGGIORNATA PER SLOWDOWN
     private void HandleRotatingPlatform(RotatingObject rotatingObj, Collider platformCollider)
     {
-        // Verifica se la piattaforma può fare danno
-        if (!rotatingObj.CanDamagePlayer)
-        {
-            if (enableDebugLogs)
-            {
-                Debug.Log($"[HurtBox] Piattaforma {rotatingObj.gameObject.name} non può fare danno - IGNORATA");
-            }
-            return;
-        }
-        
         PlatformType platformType = rotatingObj.GetPlatformType();
+        
+        // ✅ NUOVO: Usa i metodi corretti per verificare il danno
+        bool canCauseDamage = rotatingObj.CanCauseDamage();
+        bool shouldTriggerHitWithoutDamage = rotatingObj.ShouldTriggerHitWithoutDamage();
+        bool isInSlowdown = rotatingObj.IsInSlowdown;
         
         if (enableDebugLogs)
         {
             Debug.Log($"[HurtBox] Configurazione piattaforma:");
             Debug.Log($"   - Tipo: {platformType}");
-            Debug.Log($"   - Può fare danno: {rotatingObj.CanDamagePlayer}");
+            Debug.Log($"   - È in slowdown: {isInSlowdown}");
+            Debug.Log($"   - Può fare danno: {canCauseDamage}");
             Debug.Log($"   - Danno: {rotatingObj.damageAmount}");
             Debug.Log($"   - Sganciamento: {rotatingObj.GetDetachPlayerOnHit()}");
-            Debug.Log($"   - Hit senza danno: {rotatingObj.triggerHitWhenNoDamage}");
+            Debug.Log($"   - Hit senza danno: {shouldTriggerHitWithoutDamage}");
+        }
+        
+        // ✅ CONTROLLO PRINCIPALE: Se non può fare danno E non deve triggerare hit
+        if (!canCauseDamage && !shouldTriggerHitWithoutDamage)
+        {
+            if (enableDebugLogs)
+            {
+                string reason = isInSlowdown ? "in SLOWDOWN" : "disabilitata";
+                Debug.Log($"[HurtBox] ⚪ Piattaforma {rotatingObj.gameObject.name} {reason} - NESSUNA INTERAZIONE");
+            }
+            return;
         }
         
         // ✅ CALCOLA DIREZIONE E FORZA DEL PUSH
@@ -111,11 +118,11 @@ public class HurtBox : MonoBehaviour
         // ✅ GESTIONE BASATA SUL TIPO DI PIATTAFORMA
         if (platformType == PlatformType.ObstaclePlatform)
         {
-            HandleObstaclePlatform(rotatingObj, platformCollider, pushDirection, pushForce);
+            HandleObstaclePlatform(rotatingObj, platformCollider, pushDirection, pushForce, canCauseDamage, shouldTriggerHitWithoutDamage);
         }
         else if (platformType == PlatformType.SupportPlatform)
         {
-            HandleSupportPlatform(rotatingObj, platformCollider, pushDirection, pushForce);
+            HandleSupportPlatform(rotatingObj, platformCollider, pushDirection, pushForce, canCauseDamage, shouldTriggerHitWithoutDamage);
         }
     }
 
@@ -183,15 +190,15 @@ public class HurtBox : MonoBehaviour
         return finalPushForce;
     }
 
-    // ✅ GESTIONE OBSTACLE PLATFORM
-    private void HandleObstaclePlatform(RotatingObject rotatingObj, Collider platformCollider, Vector3 pushDirection, float pushForce)
+    // ✅ GESTIONE OBSTACLE PLATFORM - AGGIORNATA CON PARAMETRI SLOWDOWN
+    private void HandleObstaclePlatform(RotatingObject rotatingObj, Collider platformCollider, Vector3 pushDirection, float pushForce, bool canCauseDamage, bool shouldTriggerHitWithoutDamage)
     {
         if (enableDebugLogs)
         {
             Debug.Log($"[HurtBox] 🔴 OBSTACLE PLATFORM - Applicando effetti ostacolo");
         }
         
-        // ✅ SGANCIAMENTO SE NECESSARIO
+        // ✅ SGANCIAMENTO SE NECESSARIO (sempre, indipendentemente dal danno)
         if (rotatingObj.GetDetachPlayerOnHit())
         {
             playerController.DetachFromPlatform(platformCollider.transform);
@@ -202,11 +209,11 @@ public class HurtBox : MonoBehaviour
             }
         }
         
-        // ✅ APPLICA DANNO E/O HIT
-        float damage = rotatingObj.damageAmount;
-        
-        if (damage > 0f)
+        // ✅ GESTIONE DANNO/HIT BASATA SULLO STATO
+        if (canCauseDamage)
         {
+            // CASO 1: Danno normale
+            float damage = rotatingObj.damageAmount;
             OnHit(pushDirection, pushForce, damage);
             
             if (enableDebugLogs)
@@ -214,26 +221,28 @@ public class HurtBox : MonoBehaviour
                 Debug.Log($"[HurtBox] ✅ Obstacle platform - DANNO {damage} applicato con push {pushForce}");
             }
         }
-        else if (rotatingObj.triggerHitWhenNoDamage)
+        else if (shouldTriggerHitWithoutDamage)
         {
-            OnHit(pushDirection, pushForce, 0f); // Solo hit senza danno
+            // CASO 2: Hit senza danno (durante slowdown)
+            OnHit(pushDirection, pushForce, 0f);
             
             if (enableDebugLogs)
             {
-                Debug.Log($"[HurtBox] ✅ Obstacle platform - SOLO HIT senza danno, push {pushForce}");
+                Debug.Log($"[HurtBox] 🟡 Obstacle platform - HIT SENZA DANNO durante slowdown, push {pushForce}");
             }
         }
         else
         {
+            // CASO 3: Nessun effetto (non dovrebbe mai accadere dato il controllo precedente)
             if (enableDebugLogs)
             {
-                Debug.Log($"[HurtBox] ⚠️ Obstacle platform configurata ma nessun effetto (danno=0, hit disabilitato)");
+                Debug.Log($"[HurtBox] ⚠️ Obstacle platform - nessun effetto applicato");
             }
         }
     }
 
-    // ✅ GESTIONE SUPPORT PLATFORM
-    private void HandleSupportPlatform(RotatingObject rotatingObj, Collider platformCollider, Vector3 pushDirection, float pushForce)
+    // ✅ GESTIONE SUPPORT PLATFORM - AGGIORNATA CON PARAMETRI SLOWDOWN
+    private void HandleSupportPlatform(RotatingObject rotatingObj, Collider platformCollider, Vector3 pushDirection, float pushForce, bool canCauseDamage, bool shouldTriggerHitWithoutDamage)
     {
         if (enableDebugLogs)
         {
@@ -241,10 +250,9 @@ public class HurtBox : MonoBehaviour
         }
         
         // Support platform può fare danno ma con effetti più leggeri
-        if (rotatingObj.CanDamagePlayer)
+        if (canCauseDamage)
         {
             float damage = rotatingObj.damageAmount;
-            
             OnHit(pushDirection, pushForce, damage);
             
             if (enableDebugLogs)
@@ -252,11 +260,21 @@ public class HurtBox : MonoBehaviour
                 Debug.Log($"[HurtBox] ✅ Support platform - danno leggero {damage} applicato, push {pushForce}");
             }
         }
+        else if (shouldTriggerHitWithoutDamage)
+        {
+            // Anche le support platform possono fare hit senza danno durante slowdown
+            OnHit(pushDirection, pushForce, 0f);
+            
+            if (enableDebugLogs)
+            {
+                Debug.Log($"[HurtBox] 🟡 Support platform - hit senza danno durante slowdown, push {pushForce}");
+            }
+        }
         else
         {
             if (enableDebugLogs)
             {
-                Debug.Log($"[HurtBox] Support platform - danno disabilitato, nessun effetto");
+                Debug.Log($"[HurtBox] Support platform - nessun effetto (slowdown attivo)");
             }
         }
         

@@ -30,6 +30,23 @@ public class RaftPlatform : MonoBehaviour
     private float startDistance = 0f;
     private float endDistance = 0f;
 
+    // Sistema per gestione respawn
+    [Header("Respawn Settings")]
+    [SerializeField] private float returnToTerminalRadius = 50f; // Raggio per considerare il player "vicino"
+    [SerializeField] private bool debugRespawnSystem = true;
+    
+    private bool isReturningToTerminal = false;
+    private Vector3 lastKnownPlayerPosition;
+    private bool playerWasOnBoard = false;
+
+    // Integrazione sistema checkpoint
+    [Header("Checkpoint Integration")]
+    [SerializeField] private bool useCheckpointSystem = true;
+    [SerializeField] private CheckpointManager checkpointManager;
+
+    private Vector3 lastKnownCheckpointPosition;
+    private bool hasCheckpointPosition = false;
+
     void Start()
     {
         SampleSpline();
@@ -41,10 +58,19 @@ public class RaftPlatform : MonoBehaviour
         currentDistance = startDistance;
 
         isWaitingAtEnd = true;
+        
+        // Collegamento al CheckpointManager
+        SetupCheckpointIntegration();
+        
+        // Salva la posizione iniziale come ultima posizione conosciuta del player
+        lastKnownPlayerPosition = GetPositionAtDistance(startDistance);
     }
 
     void Update()
     {
+        // Controlla se il player è respawnato lontano
+        CheckForPlayerRespawn();
+
         if (isMoving)
         {
             currentDistance += speed * speedMultiplier * direction * Time.deltaTime;
@@ -54,12 +80,14 @@ public class RaftPlatform : MonoBehaviour
                 currentDistance = endDistance;
                 isMoving = false;
                 isWaitingAtEnd = true;
+                isReturningToTerminal = false; // Arrivato al capolinea
             }
             else if (direction == -1 && currentDistance <= startDistance)
             {
                 currentDistance = startDistance;
                 isMoving = false;
                 isWaitingAtEnd = true;
+                isReturningToTerminal = false; // Arrivato al capolinea
             }
 
             Vector3 newPosition = GetPositionAtDistance(currentDistance);
@@ -72,16 +100,291 @@ public class RaftPlatform : MonoBehaviour
             deltaMovement = Vector3.zero;
             lastPosition = transform.position;
 
-            // Se il player era a bordo e ora � morto, torna al capolinea
-            if (wasMovingWithPlayer && playerController == null)
+            // Logica originale semplificata
+            if (wasMovingWithPlayer && playerController == null && !isReturningToTerminal)
             {
-                isMoving = true;
-                isWaitingAtEnd = false;
-                direction = (Mathf.Abs(currentDistance - startDistance) < Mathf.Abs(currentDistance - endDistance)) ? -1 : 1;
-                Debug.Log("[RaftPlatform] Player scomparso, torno al capolinea.");
-                wasMovingWithPlayer = false;
+                StartReturningToTerminalNearZattera();
             }
         }
+    }
+
+    // ✅ Setup integrazione con checkpoint system
+    private void SetupCheckpointIntegration()
+    {
+        if (!useCheckpointSystem) return;
+        
+        // Trova il CheckpointManager se non assegnato
+        if (checkpointManager == null)
+        {
+            checkpointManager = CheckpointManager.Instance;
+            if (checkpointManager == null)
+            {
+                checkpointManager = FindFirstObjectByType<CheckpointManager>();
+            }
+        }
+        
+        // Collegati agli eventi del CheckpointManager
+        if (checkpointManager != null)
+        {
+            checkpointManager.OnPlayerCheckpointChanged.AddListener(OnPlayerCheckpointUpdated);
+            
+            // Ottieni la posizione corrente del checkpoint se esiste
+            if (checkpointManager.HasActiveCheckpoint())
+            {
+                lastKnownCheckpointPosition = checkpointManager.GetCurrentSpawnPosition();
+                hasCheckpointPosition = true;
+                
+                if (debugRespawnSystem)
+                {
+                    Debug.Log($"[RaftPlatform] Checkpoint iniziale trovato: {lastKnownCheckpointPosition}");
+                }
+            }
+        }
+        else if (debugRespawnSystem)
+        {
+            Debug.LogWarning("[RaftPlatform] CheckpointManager non trovato, sistema checkpoint disabilitato");
+        }
+    }
+
+    // ✅ Callback quando il player raggiunge un nuovo checkpoint
+    private void OnPlayerCheckpointUpdated(Vector3 checkpointPosition)
+    {
+        lastKnownCheckpointPosition = checkpointPosition;
+        hasCheckpointPosition = true;
+        
+        if (debugRespawnSystem)
+        {
+            Debug.Log($"[RaftPlatform] Nuovo checkpoint player ricevuto: {checkpointPosition}");
+        }
+        
+        // Se la zattera sta tornando automaticamente e il player ha raggiunto un checkpoint,
+        // potremmo voler ricalcolare la destinazione
+        if (isReturningToTerminal && !isWaitingAtEnd)
+        {
+            if (debugRespawnSystem)
+            {
+                Debug.Log("[RaftPlatform] Player ha raggiunto checkpoint durante ritorno automatico, ricalcolo destinazione");
+            }
+            StartReturningToTerminalNearPlayer(checkpointPosition);
+        }
+    }
+
+    // ✅ MODIFICATO: Usa la posizione del checkpoint invece di cercare il player
+    private void CheckForPlayerRespawn()
+    {
+        if (playerController == null && !isReturningToTerminal && playerWasOnBoard)
+        {
+            Vector3 playerRespawnPosition;
+            bool foundPlayerPosition = false;
+            
+            // ✅ PRIORITÀ 1: Usa il sistema checkpoint se disponibile e attivo
+            if (useCheckpointSystem && hasCheckpointPosition)
+            {
+                playerRespawnPosition = lastKnownCheckpointPosition;
+                foundPlayerPosition = true;
+                
+                if (debugRespawnSystem)
+                {
+                    Debug.Log($"[RaftPlatform] Usando posizione checkpoint per respawn: {playerRespawnPosition}");
+                }
+            }
+            else
+            {
+                // ✅ FALLBACK: Cerca il player nella scena (sistema originale)
+                GameObject player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null)
+                {
+                    playerRespawnPosition = player.transform.position;
+                    foundPlayerPosition = true;
+                    
+                    if (debugRespawnSystem)
+                    {
+                        Debug.Log($"[RaftPlatform] Player trovato nella scena: {playerRespawnPosition}");
+                    }
+                }
+                else
+                {
+                    playerRespawnPosition = Vector3.zero;
+                }
+            }
+            
+            if (foundPlayerPosition)
+            {
+                float distanceToPlayer = Vector3.Distance(transform.position, playerRespawnPosition);
+                
+                if (debugRespawnSystem)
+                {
+                    Debug.Log($"[RaftPlatform] Distanza zattera-player: {distanceToPlayer:F1}m");
+                }
+
+                // Se il player è lontano, probabilmente è respawnato
+                if (distanceToPlayer > returnToTerminalRadius)
+                {
+                    if (debugRespawnSystem)
+                    {
+                        Debug.Log($"[RaftPlatform] Player respawnato lontano ({distanceToPlayer:F1}m > {returnToTerminalRadius}m), torno al capolinea più vicino AL PLAYER");
+                    }
+                    
+                    StartReturningToTerminalNearPlayer(playerRespawnPosition);
+                    playerWasOnBoard = false; // Reset flag
+                }
+            }
+        }
+    }
+
+    // ✅ Avvia il ritorno al capolinea più vicino AL PLAYER
+    private void StartReturningToTerminalNearPlayer(Vector3 playerPosition)
+    {
+        isReturningToTerminal = true;
+        isMoving = true;
+        isWaitingAtEnd = false;
+        
+        // Calcola quale capolinea è più vicino alla POSIZIONE DEL PLAYER
+        Vector3 startPos = GetPositionAtDistance(startDistance);
+        Vector3 endPos = GetPositionAtDistance(endDistance);
+        
+        float distancePlayerToStart = Vector3.Distance(playerPosition, startPos);
+        float distancePlayerToEnd = Vector3.Distance(playerPosition, endPos);
+        
+        // Vai verso il capolinea più vicino al player
+        direction = (distancePlayerToStart < distancePlayerToEnd) ? -1 : 1;
+        
+        if (debugRespawnSystem)
+        {
+            string targetTerminal = (direction == -1) ? "START" : "END";
+            float targetDistance = (direction == -1) ? distancePlayerToStart : distancePlayerToEnd;
+            Debug.Log($"[RaftPlatform] Ritorno al capolinea {targetTerminal} più vicino al PLAYER (distanza player-capolinea: {targetDistance:F1})");
+            Debug.Log($"[RaftPlatform] Player position: {playerPosition}, Start: {startPos}, End: {endPos}");
+        }
+        
+        wasMovingWithPlayer = false;
+    }
+
+    // ✅ Metodo per tornare al capolinea più vicino alla zattera (logica originale)
+    private void StartReturningToTerminalNearZattera()
+    {
+        isReturningToTerminal = true;
+        isMoving = true;
+        isWaitingAtEnd = false;
+        
+        // Calcola quale capolinea è più vicino alla posizione ATTUALE DELLA ZATTERA
+        float distanceToStart = Mathf.Abs(currentDistance - startDistance);
+        float distanceToEnd = Mathf.Abs(currentDistance - endDistance);
+        
+        direction = (distanceToStart < distanceToEnd) ? -1 : 1;
+        
+        if (debugRespawnSystem)
+        {
+            string targetTerminal = (direction == -1) ? "START" : "END";
+            Debug.Log($"[RaftPlatform] Ritorno al capolinea {targetTerminal} più vicino alla ZATTERA (distanza: {(direction == -1 ? distanceToStart : distanceToEnd):F1})");
+        }
+        
+        wasMovingWithPlayer = false;
+    }
+
+    // ✅ AGGIORNATO: Metodo pubblico che ora considera la posizione del player
+    public void ForceReturnToNearestTerminal()
+    {
+        // Prima prova con il sistema checkpoint
+        if (useCheckpointSystem && hasCheckpointPosition)
+        {
+            if (debugRespawnSystem)
+            {
+                Debug.Log("[RaftPlatform] Forzato ritorno al capolinea più vicino al CHECKPOINT");
+            }
+            StartReturningToTerminalNearPlayer(lastKnownCheckpointPosition);
+            return;
+        }
+        
+        // Fallback al player nella scena
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            if (debugRespawnSystem)
+            {
+                Debug.Log("[RaftPlatform] Forzato ritorno al capolinea più vicino al PLAYER");
+            }
+            StartReturningToTerminalNearPlayer(player.transform.position);
+        }
+        else
+        {
+            if (debugRespawnSystem)
+            {
+                Debug.Log("[RaftPlatform] Player non trovato, forzato ritorno al capolinea più vicino alla ZATTERA");
+            }
+            StartReturningToTerminalNearZattera();
+        }
+    }
+
+    // ✅ NUOVO: Metodo per aggiornare manualmente la posizione del checkpoint
+    public void UpdatePlayerCheckpointPosition(Vector3 checkpointPosition)
+    {
+        lastKnownCheckpointPosition = checkpointPosition;
+        hasCheckpointPosition = true;
+        
+        if (debugRespawnSystem)
+        {
+            Debug.Log($"[RaftPlatform] Posizione checkpoint aggiornata manualmente: {checkpointPosition}");
+        }
+    }
+
+    // ✅ NUOVO: Metodo per disabilitare il sistema checkpoint
+    public void DisableCheckpointSystem()
+    {
+        useCheckpointSystem = false;
+        hasCheckpointPosition = false;
+        
+        if (checkpointManager != null)
+        {
+            checkpointManager.OnPlayerCheckpointChanged.RemoveListener(OnPlayerCheckpointUpdated);
+        }
+        
+        if (debugRespawnSystem)
+        {
+            Debug.Log("[RaftPlatform] Sistema checkpoint disabilitato");
+        }
+    }
+
+    // Metodo per ottenere la distanza dai capolinea (zattera)
+    public float GetDistanceToNearestTerminal()
+    {
+        float distanceToStart = Mathf.Abs(currentDistance - startDistance);
+        float distanceToEnd = Mathf.Abs(currentDistance - endDistance);
+        return Mathf.Min(distanceToStart, distanceToEnd);
+    }
+
+    // ✅ AGGIORNATO: Metodo per ottenere la distanza del player dai capolinea
+    public float GetPlayerDistanceToNearestTerminal()
+    {
+        Vector3 playerPos;
+        
+        // Usa checkpoint se disponibile
+        if (useCheckpointSystem && hasCheckpointPosition)
+        {
+            playerPos = lastKnownCheckpointPosition;
+        }
+        else
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player == null) return float.MaxValue;
+            playerPos = player.transform.position;
+        }
+        
+        Vector3 startPos = GetPositionAtDistance(startDistance);
+        Vector3 endPos = GetPositionAtDistance(endDistance);
+        
+        float distanceToStart = Vector3.Distance(playerPos, startPos);
+        float distanceToEnd = Vector3.Distance(playerPos, endPos);
+        
+        return Mathf.Min(distanceToStart, distanceToEnd);
+    }
+
+    // Verifica se la zattera è al capolinea
+    public bool IsAtTerminal()
+    {
+        float tolerance = 0.1f;
+        return Mathf.Abs(currentDistance - startDistance) < tolerance || 
+               Mathf.Abs(currentDistance - endDistance) < tolerance;
     }
 
     void SampleSpline()
@@ -150,12 +453,17 @@ public class RaftPlatform : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerController = other.GetComponent<CharacterController>();
+            playerWasOnBoard = true; // Segna che il player è salito
+            
+            // Salva posizione del player
+            lastKnownPlayerPosition = other.transform.position;
 
             // Riparte quando il player sale, anche se era ferma
             if (isWaitingAtEnd || !isMoving)
             {
                 isMoving = true;
                 isWaitingAtEnd = false;
+                isReturningToTerminal = false; // Non è più un ritorno automatico
 
                 // Imposta direzione corretta per ripartire dall'estremo
                 if (Mathf.Approximately(currentDistance, startDistance))
@@ -165,11 +473,14 @@ public class RaftPlatform : MonoBehaviour
                                     // Altrimenti mantiene la direzione attuale
 
                 wasMovingWithPlayer = true;
-                Debug.Log("[RaftPlatform] Player salito sopra, riparto.");
+                
+                if (debugRespawnSystem)
+                {
+                    Debug.Log("[RaftPlatform] Player salito sopra, riparto.");
+                }
             }
         }
     }
-
 
     private void OnTriggerExit(Collider other)
     {
@@ -177,12 +488,85 @@ public class RaftPlatform : MonoBehaviour
         {
             if (playerController == other.GetComponent<CharacterController>())
             {
-                // Il player � saltato via, fermati subito (ma riparte se risale)
-                Debug.Log("[RaftPlatform] Player saltato via, fermo la piattaforma.");
+                // Salva ultima posizione nota del player prima che scenda
+                lastKnownPlayerPosition = other.transform.position;
+                
+                // Il player è saltato via, fermati subito (ma riparte se risale)
+                if (debugRespawnSystem)
+                {
+                    Debug.Log("[RaftPlatform] Player saltato via, fermo la piattaforma.");
+                }
                 playerController = null;
                 isMoving = false;
                 wasMovingWithPlayer = false;
             }
         }
     }
+
+    // ✅ CLEANUP: Disconnetti dagli eventi quando l'oggetto viene distrutto
+    private void OnDestroy()
+    {
+        if (checkpointManager != null)
+        {
+            checkpointManager.OnPlayerCheckpointChanged.RemoveListener(OnPlayerCheckpointUpdated);
+        }
+    }
+
+    // ✅ AGGIORNAMENTO GIZMOS: Mostra anche la posizione del checkpoint
+    #if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        if (!Application.isPlaying) return;
+
+        // Disegna il raggio di rilevamento respawn
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, returnToTerminalRadius);
+        
+        // Disegna i capolinea
+        Gizmos.color = Color.green;
+        Vector3 startPos = GetPositionAtDistance(startDistance);
+        Vector3 endPos = GetPositionAtDistance(endDistance);
+        
+        Gizmos.DrawWireSphere(startPos, 2f);
+        Gizmos.DrawWireSphere(endPos, 2f);
+        
+        // Etichette
+        UnityEditor.Handles.Label(startPos + Vector3.up * 3, "START");
+        UnityEditor.Handles.Label(endPos + Vector3.up * 3, "END");
+        
+        if (isReturningToTerminal)
+        {
+            Gizmos.color = Color.red;
+            Vector3 targetPos = (direction == -1) ? startPos : endPos;
+            Gizmos.DrawLine(transform.position, targetPos);
+        }
+        
+        // ✅ NUOVO: Mostra posizione del checkpoint se disponibile
+        if (hasCheckpointPosition)
+        {
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireSphere(lastKnownCheckpointPosition, 1.5f);
+            UnityEditor.Handles.Label(lastKnownCheckpointPosition + Vector3.up * 4, "CHECKPOINT");
+            
+            // Linee verso i capolinea dal checkpoint
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(lastKnownCheckpointPosition, startPos);
+            Gizmos.DrawLine(lastKnownCheckpointPosition, endPos);
+        }
+        
+        // Fallback: mostra posizione del player se presente
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null && !hasCheckpointPosition)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireSphere(player.transform.position, 1f);
+            UnityEditor.Handles.Label(player.transform.position + Vector3.up * 4, "PLAYER");
+            
+            // Linee verso i capolinea per visualizzare le distanze
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(player.transform.position, startPos);
+            Gizmos.DrawLine(player.transform.position, endPos);
+        }
+    }
+    #endif
 }

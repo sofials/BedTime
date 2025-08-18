@@ -23,6 +23,8 @@ public class CheckpointManager : MonoBehaviour
     public UnityEvent<string> OnCheckpointCleared;
     public UnityEvent<Vector3, Quaternion> OnSpawnPointChanged;
     
+[Header("Raft Integration")]
+public UnityEvent<Vector3> OnPlayerCheckpointChanged; 
     // Stato interno
     private string currentCheckpoint = "";
     private Dictionary<string, CheckpointData> registeredCheckpoints = new Dictionary<string, CheckpointData>();
@@ -113,47 +115,50 @@ public class CheckpointManager : MonoBehaviour
     /// <summary>
     /// Attiva un checkpoint (lo imposta come checkpoint corrente)
     /// </summary>
-    public bool ActivateCheckpoint(string checkpointName)
+public bool ActivateCheckpoint(string checkpointName)
+{
+    if (!enableCheckpointSystem)
     {
-        if (!enableCheckpointSystem)
-        {
-            DebugLog("[CheckpointManager] Sistema checkpoint disabilitato");
-            return false;
-        }
-        
-        if (string.IsNullOrEmpty(checkpointName))
-        {
-            DebugLog("[CheckpointManager] ⚠️ Nome checkpoint vuoto per attivazione");
-            return false;
-        }
-        
-        // Se il checkpoint non è registrato, registralo come posizione corrente
-        if (!registeredCheckpoints.ContainsKey(checkpointName))
-        {
-            DebugLog($"[CheckpointManager] ⚠️ Checkpoint '{checkpointName}' non registrato, uso posizione di default");
-            RegisterCheckpoint(checkpointName, GetCurrentSpawnPosition(), GetCurrentSpawnRotation(), "Auto-registered");
-        }
-        
-        currentCheckpoint = checkpointName;
-        DebugLog($"[CheckpointManager] ✅ Checkpoint attivato: '{checkpointName}'");
-        
-        // Salva automaticamente se abilitato
-        if (autoSaveOnCheckpoint)
-        {
-            SaveCheckpointData();
-        }
-        
-        // Notifica eventi
-        OnCheckpointActivated?.Invoke(checkpointName);
-        
-        if (registeredCheckpoints.ContainsKey(checkpointName))
-        {
-            var data = registeredCheckpoints[checkpointName];
-            OnSpawnPointChanged?.Invoke(data.position, data.rotation);
-        }
-        
-        return true;
+        DebugLog("[CheckpointManager] Sistema checkpoint disabilitato");
+        return false;
     }
+    
+    if (string.IsNullOrEmpty(checkpointName))
+    {
+        DebugLog("[CheckpointManager] ⚠️ Nome checkpoint vuoto per attivazione");
+        return false;
+    }
+    
+    // Se il checkpoint non è registrato, registralo come posizione corrente
+    if (!registeredCheckpoints.ContainsKey(checkpointName))
+    {
+        DebugLog($"[CheckpointManager] ⚠️ Checkpoint '{checkpointName}' non registrato, uso posizione di default");
+        RegisterCheckpoint(checkpointName, GetCurrentSpawnPosition(), GetCurrentSpawnRotation(), "Auto-registered");
+    }
+    
+    currentCheckpoint = checkpointName;
+    DebugLog($"[CheckpointManager] ✅ Checkpoint attivato: '{checkpointName}'");
+    
+    // Salva automaticamente se abilitato
+    if (autoSaveOnCheckpoint)
+    {
+        SaveCheckpointData();
+    }
+    
+    // Notifica eventi
+    OnCheckpointActivated?.Invoke(checkpointName);
+    
+    if (registeredCheckpoints.ContainsKey(checkpointName))
+    {
+        var data = registeredCheckpoints[checkpointName];
+        OnSpawnPointChanged?.Invoke(data.position, data.rotation);
+        
+        // ✅ NUOVO: Notifica alle zattere la nuova posizione del player
+        OnPlayerCheckpointChanged?.Invoke(data.position);
+    }
+    
+    return true;
+}
     
     /// <summary>
     /// Cancella il checkpoint corrente
