@@ -86,11 +86,26 @@ public class ThirdPersonController : MonoBehaviour
     private static readonly int VerticalVelocityHash = Animator.StringToHash("VerticalVelocity");
 
     private bool wasGroundedLastFrame;
+
+    // ✅ SISTEMA PIATTAFORME OTTIMIZZATO
+    [Header("Platform Movement System")]
+    [SerializeField] private LayerMask platformLayers = -1;
+    [SerializeField] private float platformDetectionRadius = 0.8f;
+    [SerializeField] private float maxPlatformHeight = 2f;
+    [SerializeField] private bool debugPlatformMovement = false;
+    
     private Transform currentPlatform = null;
-    private Vector3 lastPlatformPos = Vector3.zero;
-    private Quaternion lastPlatformRot = Quaternion.identity;
-    private Vector3 platformDeltaPos = Vector3.zero;
-    private Quaternion platformDeltaRot = Quaternion.identity;
+    private Vector3 lastPlatformPosition = Vector3.zero;
+    private Quaternion lastPlatformRotation = Quaternion.identity;
+    private Vector3 platformDeltaPosition = Vector3.zero;
+    private Quaternion platformDeltaRotation = Quaternion.identity;
+    private Vector3 localPositionOnPlatform = Vector3.zero;
+    
+    // Cache per il tipo di piattaforma
+    private MovingPlatform currentMovingPlatform = null;
+    private RaftPlatform currentRaftPlatform = null;
+    private RotatingObject currentRotatingObject = null;
+    private bool isOnObstaclePlatform = false;
 
     private Vector3 playerVelocity;
     private Vector3 externalPush = Vector3.zero;
@@ -148,7 +163,7 @@ public class ThirdPersonController : MonoBehaviour
     }
 
     // OTTIMIZZAZIONE: Cache per raycast
-    private RaycastHit[] raycastHits = new RaycastHit[4];
+    private RaycastHit[] raycastHits = new RaycastHit[8];
     private Vector3 tempVector3;
 
     public bool IsGrounded() => controller.isGrounded;
@@ -179,18 +194,18 @@ public class ThirdPersonController : MonoBehaviour
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
     
     private void OnJumpStarted(InputAction.CallbackContext ctx)
-{
-    // ✅ AGGIUNGI QUESTO CONTROLLO:
-    if (!isJumpEnabled) return;
-    
-    jumpBufferCounter = jumpBufferTime;
-    isHoldingJump = true;
-}
+    {
+        if (!isJumpEnabled) return;
+        
+        jumpBufferCounter = jumpBufferTime;
+        isHoldingJump = true;
+    }
 
     private void OnJumpCanceled(InputAction.CallbackContext ctx)
-{
-    isHoldingJump = false;
-}
+    {
+        isHoldingJump = false;
+    }
+
     private void Start()
     {
         _animator = GetComponentInChildren<Animator>();
@@ -241,11 +256,11 @@ public class ThirdPersonController : MonoBehaviour
         StopFootstepAudio();
     }
 
-    // ✅ UPDATE CORRETTO CON MOVIMENTO SOLIDALE
+    // ✅ UPDATE OTTIMIZZATO CON SISTEMA PIATTAFORME MIGLIORATO
     private void Update()
     {
-        // 1. PRIMA: Aggiorna movimento della piattaforma
-        UpdatePlatformMovement();
+        // 1. RILEVAMENTO E AGGIORNAMENTO PIATTAFORME
+        DetectAndUpdatePlatform();
         
         // 2. Gestisci input e logica
         UpdateJumpTimers();
@@ -257,7 +272,7 @@ public class ThirdPersonController : MonoBehaviour
         // 3. Calcola movimento del player
         HandleMovement();
         
-        // 4. ✅ APPLICA TUTTO IL MOVIMENTO INSIEME (UNA SOLA CHIAMATA)
+        // 4. ✅ APPLICA TUTTO IL MOVIMENTO INSIEME
         ApplyAllMovement();
         
         // 5. Decay dei push esterni
@@ -270,111 +285,189 @@ public class ThirdPersonController : MonoBehaviour
         HandleSprintFX();
     }
 
-    // ✅ VERSIONE COMPLETA CHE GESTISCE TUTTI I CASI
+    // ✅ NUOVO SISTEMA DI RILEVAMENTO PIATTAFORME INTELLIGENTE
+    private void DetectAndUpdatePlatform()
+    {
+        if (!controller.isGrounded)
+        {
+            // Se non siamo a terra, mantieni la piattaforma attuale se è valida
+            if (currentPlatform != null && !IsPlatformValid())
+            {
+                DetachFromCurrentPlatform();
+            }
+            
+            UpdatePlatformMovement();
+            return;
+        }
+
+        // Trova la piattaforma più vicina sotto di noi
+        Transform detectedPlatform = FindPlatformBelow();
+        
+        if (detectedPlatform != currentPlatform)
+        {
+            if (currentPlatform != null)
+            {
+                if (debugPlatformMovement)
+                    Debug.Log($"[Platform] Cambiando da {currentPlatform.name} a {(detectedPlatform ? detectedPlatform.name : "nessuna")}");
+                DetachFromCurrentPlatform();
+            }
+            
+            if (detectedPlatform != null)
+            {
+                AttachToPlatform(detectedPlatform);
+            }
+        }
+        
+        UpdatePlatformMovement();
+    }
+
+    // ✅ TROVA LA PIATTAFORMA SOTTO IL PLAYER
+    private Transform FindPlatformBelow()
+    {
+        Vector3 rayStart = transform.position + Vector3.up * 0.1f;
+        int hitCount = Physics.RaycastNonAlloc(rayStart, Vector3.down, raycastHits, 1.5f, platformLayers);
+        
+        Transform bestPlatform = null;
+        float closestDistance = float.MaxValue;
+        
+        for (int i = 0; i < hitCount; i++)
+        {
+            RaycastHit hit = raycastHits[i];
+            Transform hitTransform = hit.collider.transform;
+            
+            // Verifica se è una piattaforma valida
+            if (IsPlatformTag(hit.collider.tag) && hit.distance < closestDistance)
+            {
+                // Verifica se siamo effettivamente sopra la piattaforma
+                Vector3 hitPoint = hit.point;
+                float heightDifference = transform.position.y - hitPoint.y;
+                
+                if (heightDifference > -0.5f && heightDifference < maxPlatformHeight)
+                {
+                    // Verifica speciale per RotatingObject
+                    if (hit.collider.tag == "RotatingPlatform")
+                    {
+                        RotatingObject rotObj = hit.collider.GetComponent<RotatingObject>();
+                        if (rotObj != null)
+                        {
+                            // Se è un obstacle platform con detach, lo ignoriamo
+                            if (rotObj.GetPlatformType() == PlatformType.ObstaclePlatform && 
+                                rotObj.GetDetachPlayerOnHit())
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    bestPlatform = hitTransform;
+                    closestDistance = hit.distance;
+                }
+            }
+        }
+        
+        return bestPlatform;
+    }
+
+    // ✅ VERIFICA SE È UN TAG DI PIATTAFORMA
+    private bool IsPlatformTag(string tag)
+    {
+        return tag == "MovingPlatform" || tag == "RotatingPlatform" || tag == "RaftPlatform";
+    }
+
+    // ✅ ATTACCA IL PLAYER ALLA PIATTAFORMA
+    private void AttachToPlatform(Transform platform)
+    {
+        currentPlatform = platform;
+        lastPlatformPosition = platform.position;
+        lastPlatformRotation = platform.rotation;
+        
+        // Calcola posizione locale del player sulla piattaforma
+        localPositionOnPlatform = platform.InverseTransformPoint(transform.position);
+        
+        // Cache dei componenti della piattaforma
+        currentMovingPlatform = platform.GetComponent<MovingPlatform>();
+        currentRaftPlatform = platform.GetComponent<RaftPlatform>();
+        currentRotatingObject = platform.GetComponent<RotatingObject>();
+        
+        // Determina se è una piattaforma ostacolo
+        isOnObstaclePlatform = currentRotatingObject != null && 
+                              currentRotatingObject.GetPlatformType() == PlatformType.ObstaclePlatform;
+        
+        if (debugPlatformMovement)
+        {
+            string platformType = currentMovingPlatform ? "Moving" : 
+                                 currentRaftPlatform ? "Raft" : 
+                                 currentRotatingObject ? "Rotating" : "Unknown";
+            Debug.Log($"[Platform] Attaccato a {platform.name} (Tipo: {platformType}, Obstacle: {isOnObstaclePlatform})");
+        }
+    }
+
+    // ✅ VERIFICA SE LA PIATTAFORMA È ANCORA VALIDA
+    private bool IsPlatformValid()
+    {
+        if (currentPlatform == null) return false;
+        
+        float distance = Vector3.Distance(transform.position, currentPlatform.position);
+        Bounds platformBounds = currentPlatform.GetComponent<Collider>().bounds;
+        
+        return distance <= platformBounds.size.magnitude * 1.5f;
+    }
+
+    // ✅ SGANCIA IL PLAYER DALLA PIATTAFORMA
+    private void DetachFromCurrentPlatform()
+    {
+        if (debugPlatformMovement && currentPlatform != null)
+            Debug.Log($"[Platform] Sganciato da {currentPlatform.name}");
+        
+        currentPlatform = null;
+        currentMovingPlatform = null;
+        currentRaftPlatform = null;
+        currentRotatingObject = null;
+        isOnObstaclePlatform = false;
+        
+        platformDeltaPosition = Vector3.zero;
+        platformDeltaRotation = Quaternion.identity;
+    }
+
+    // ✅ AGGIORNA IL MOVIMENTO DELLA PIATTAFORMA
+    private void UpdatePlatformMovement()
+    {
+        if (currentPlatform == null)
+        {
+            platformDeltaPosition = Vector3.zero;
+            platformDeltaRotation = Quaternion.identity;
+            return;
+        }
+
+        // Calcola i delta di movimento e rotazione
+        platformDeltaPosition = currentPlatform.position - lastPlatformPosition;
+        platformDeltaRotation = currentPlatform.rotation * Quaternion.Inverse(lastPlatformRotation);
+        
+        // Aggiorna le posizioni per il prossimo frame
+        lastPlatformPosition = currentPlatform.position;
+        lastPlatformRotation = currentPlatform.rotation;
+
+        if (debugPlatformMovement && (platformDeltaPosition.magnitude > 0.001f || platformDeltaRotation != Quaternion.identity))
+        {
+            Debug.Log($"[Platform] Delta - Pos: {platformDeltaPosition}, Rot: {platformDeltaRotation.eulerAngles}");
+        }
+    }
+
+    // ✅ SISTEMA DI APPLICAZIONE MOVIMENTO COMPLETO E OTTIMIZZATO
     private void ApplyAllMovement()
     {
         if (!controller.enabled) return;
         
         Vector3 totalMovement = Vector3.zero;
         
-        // 1. MOVIMENTO PIATTAFORMA (se presente)
-        if (currentPlatform != null)
+        // 1. ✅ MOVIMENTO PIATTAFORMA (se presente e valida)
+        if (currentPlatform != null && !isOnObstaclePlatform)
         {
-            Vector3 platformMovement = Vector3.zero;
-            Vector3 rotationMovement = Vector3.zero;
-            
-            // A) MOVIMENTO LINEARE della piattaforma (orizzontale + verticale)
-            platformMovement = platformDeltaPos;
-            
-            // B) MOVIMENTO DOVUTO ALLA ROTAZIONE
-            if (platformDeltaRot != Quaternion.identity)
-            {
-                // Calcola la posizione del player relativa al centro della piattaforma
-                Vector3 relativePosition = transform.position - currentPlatform.position;
-                
-                // Applica la rotazione al player stesso
-                transform.rotation = platformDeltaRot * transform.rotation;
-                
-                // Calcola dove si sposta il player a causa della rotazione
-                Vector3 rotatedRelativePosition = platformDeltaRot * relativePosition;
-                rotationMovement = rotatedRelativePosition - relativePosition;
-            }
-            
-            // C) MOVIMENTO TOTALE DELLA PIATTAFORMA
-            Vector3 totalPlatformMovement = platformMovement + rotationMovement;
-            totalMovement += totalPlatformMovement;
-            
-            // D) ✅ COMPENSAZIONE VELOCITÀ VERTICALE INTELLIGENTE
-            if (controller.isGrounded)
-            {
-                // Separa i componenti verticali
-                float linearVerticalSpeed = platformMovement.y / Time.deltaTime;
-                float rotationVerticalSpeed = rotationMovement.y / Time.deltaTime;
-                float totalVerticalSpeed = totalPlatformMovement.y / Time.deltaTime;
-                
-                // Debug dettagliato
-                if (Mathf.Abs(totalVerticalSpeed) > 0.01f)
-                {
-                  
-                }
-                
-                // STRATEGIA DI COMPENSAZIONE BASATA SUL TIPO DI MOVIMENTO
-                if (Mathf.Abs(totalVerticalSpeed) > 0.01f)
-                {
-                    // CASO 1: Movimento verticale molto rapido (ascensori veloci, etc.)
-                    if (Mathf.Abs(totalVerticalSpeed) > 5f)
-                    {
-                        velocity.y = totalVerticalSpeed;
-                       
-                    }
-                    // CASO 2: Movimento verticale rapido
-                    else if (Mathf.Abs(totalVerticalSpeed) > 2f)
-                    {
-                        // Compensazione immediata ma con leggero smoothing
-                        velocity.y = Mathf.Lerp(velocity.y, totalVerticalSpeed, Time.deltaTime * 25f);
-                    }
-                    // CASO 3: Movimento verticale moderato
-                    else if (Mathf.Abs(totalVerticalSpeed) > 0.5f)
-                    {
-                        // Solo se la piattaforma sale o il player non sta cadendo velocemente
-                        if (totalVerticalSpeed > 0 || velocity.y > -5f)
-                        {
-                            float targetVelocity = Mathf.Max(totalVerticalSpeed, velocity.y);
-                            velocity.y = Mathf.Lerp(velocity.y, targetVelocity, Time.deltaTime * 15f);
-                            Debug.Log($"Moderate platform: Lerping velocity.y to {targetVelocity:F3}");
-                        }
-                    }
-                    // CASO 4: Movimento verticale lento (ondulazioni, etc.)
-                    else
-                    {
-                        // Compensazione delicata solo se necessario
-                        if (totalVerticalSpeed > 0.1f || (totalVerticalSpeed < -0.1f && velocity.y > -2f))
-                        {
-                            velocity.y = Mathf.Lerp(velocity.y, totalVerticalSpeed, Time.deltaTime * 8f);
-                            Debug.Log($"Slow platform: Gentle lerping velocity.y to {totalVerticalSpeed:F3}");
-                        }
-                    }
-                }
-            }
-            
-            // E) ✅ GESTIONE SPECIALE PER MOVIMENTO ORIZZONTALE CON ROTAZIONE
-            // Se c'è rotazione significativa, assicurati che il movimento orizzontale sia fluido
-            if (platformDeltaRot != Quaternion.identity)
-            {
-                float rotationAngle = Quaternion.Angle(Quaternion.identity, platformDeltaRot);
-                if (rotationAngle > 0.1f) // Rotazione significativa
-                {
-                    // Compensa eventuali jitter orizzontali dovuti alla rotazione
-                    Vector3 horizontalPlatformMovement = new Vector3(totalPlatformMovement.x, 0f, totalPlatformMovement.z);
-                    if (horizontalPlatformMovement.magnitude > 0.001f)
-                    {
-                        Debug.Log($"Compensating horizontal movement during rotation: {horizontalPlatformMovement}");
-                    }
-                }
-            }
+            Vector3 platformMovement = ApplyPlatformMovement();
+            totalMovement += platformMovement;
         }
         
-        // 2. MOVIMENTO PLAYER + ATTACK + PUSH
+        // 2. MOVIMENTO PLAYER (orizzontale + verticale)
         Vector3 playerMovement = Vector3.zero;
         playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
         playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
@@ -382,26 +475,68 @@ public class ThirdPersonController : MonoBehaviour
         
         totalMovement += playerMovement;
         
-        // 3. ✅ UNA SOLA CHIAMATA A MOVE() CON TUTTO
+        // 3. ✅ APPLICA TUTTO IL MOVIMENTO IN UNA SOLA CHIAMATA
         controller.Move(totalMovement);
-        
     }
 
-    // ✅ RINOMINATO DA UpdatePlatformVelocity A UpdatePlatformMovement
-    private void UpdatePlatformMovement()
+    // ✅ APPLICA IL MOVIMENTO SPECIFICO DELLA PIATTAFORMA
+    private Vector3 ApplyPlatformMovement()
     {
-        if (currentPlatform)
+        Vector3 totalPlatformMovement = Vector3.zero;
+        
+        // A) MOVIMENTO LINEARE della piattaforma
+        totalPlatformMovement += platformDeltaPosition;
+        
+        // B) MOVIMENTO DOVUTO ALLA ROTAZIONE
+        if (platformDeltaRotation != Quaternion.identity)
         {
-            platformDeltaPos = currentPlatform.position - lastPlatformPos;
-            platformDeltaRot = currentPlatform.rotation * Quaternion.Inverse(lastPlatformRot);
-            lastPlatformPos = currentPlatform.position;
-            lastPlatformRot = currentPlatform.rotation;
+            // Applica rotazione al player
+            transform.rotation = platformDeltaRotation * transform.rotation;
+            
+            // Calcola spostamento dovuto alla rotazione
+            Vector3 relativePosition = transform.position - currentPlatform.position;
+            Vector3 rotatedRelativePosition = platformDeltaRotation * relativePosition;
+            Vector3 rotationMovement = rotatedRelativePosition - relativePosition;
+            
+            totalPlatformMovement += rotationMovement;
         }
-        else 
+        
+        // C) ✅ COMPENSAZIONE VELOCITÀ VERTICALE INTELLIGENTE
+        if (controller.isGrounded && totalPlatformMovement.y != 0f)
         {
-            platformDeltaPos = Vector3.zero;
-            platformDeltaRot = Quaternion.identity;
+            float platformVerticalSpeed = totalPlatformMovement.y / Time.deltaTime;
+            
+            // Strategia di compensazione basata sulla velocità
+            if (Mathf.Abs(platformVerticalSpeed) > 5f)
+            {
+                // Movimento verticale molto rapido (ascensori veloci)
+                velocity.y = platformVerticalSpeed;
+            }
+            else if (Mathf.Abs(platformVerticalSpeed) > 2f)
+            {
+                // Movimento verticale rapido con smoothing
+                velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 20f);
+            }
+            else if (Mathf.Abs(platformVerticalSpeed) > 0.5f)
+            {
+                // Movimento verticale moderato
+                if (platformVerticalSpeed > 0 || velocity.y > -5f)
+                {
+                    float targetVelocity = Mathf.Max(platformVerticalSpeed, velocity.y);
+                    velocity.y = Mathf.Lerp(velocity.y, targetVelocity, Time.deltaTime * 12f);
+                }
+            }
+            else if (Mathf.Abs(platformVerticalSpeed) > 0.1f)
+            {
+                // Movimento verticale lento (ondulazioni)
+                if (platformVerticalSpeed > 0.1f || (platformVerticalSpeed < -0.1f && velocity.y > -2f))
+                {
+                    velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 6f);
+                }
+            }
         }
+        
+        return totalPlatformMovement;
     }
 
     private void HandleFootstepAudio()
@@ -497,25 +632,22 @@ public class ThirdPersonController : MonoBehaviour
         }
     }
 
-  private void HandleJumpInput()
-{
-    // ✅ AGGIUNGI QUESTO CONTROLLO ALL'INIZIO DEL METODO:
-    if (!isJumpEnabled)
+    private void HandleJumpInput()
     {
-        // Reset dei contatori quando il salto è disabilitato
-        jumpBufferCounter = 0f;
-        return;
-    }
-    
-    if (jumpBufferCounter > 0 && !IsMovementLocked)
-    {
-        if (TryJump())
+        if (!isJumpEnabled)
         {
-            jumpBufferCounter = 0;
+            jumpBufferCounter = 0f;
+            return;
+        }
+        
+        if (jumpBufferCounter > 0 && !IsMovementLocked)
+        {
+            if (TryJump())
+            {
+                jumpBufferCounter = 0;
+            }
         }
     }
-}
-
 
     private void UpdateGroundedState()
     {
@@ -541,28 +673,25 @@ public class ThirdPersonController : MonoBehaviour
 
         wasGroundedLastFrame = grounded;
     }
+
     public bool IsJumpEnabled
     {
         get => isJumpEnabled;
         set => isJumpEnabled = value;
     }
-/// <summary>
-/// Abilita o disabilita il salto del player
-/// </summary>
-/// <param name="enabled">True per abilitare, false per disabilitare</param>
-public void SetJumpEnabled(bool enabled)
-{
-    isJumpEnabled = enabled;
-    
-    if (!enabled)
+
+    public void SetJumpEnabled(bool enabled)
     {
-        // Resetta anche il buffer del salto quando disabilitato
-        jumpBufferCounter = 0f;
-        isHoldingJump = false;
+        isJumpEnabled = enabled;
+        
+        if (!enabled)
+        {
+            jumpBufferCounter = 0f;
+            isHoldingJump = false;
+        }
+        
+        Debug.Log($"[ThirdPersonController] Salto {(enabled ? "abilitato" : "disabilitato")}");
     }
-    
-    Debug.Log($"[ThirdPersonController] Salto {(enabled ? "abilitato" : "disabilitato")}");
-}
 
     private void OnLanding()
     {
@@ -572,7 +701,6 @@ public void SetJumpEnabled(bool enabled)
         _animator.SetBool(JumpHash, false);
         _animator.SetBool(DoubleJumpHash, false);
         _animator.SetBool(IsFallingHash, false);
-
     }
 
     private void UpdateJumpTimers()
@@ -587,34 +715,32 @@ public void SetJumpEnabled(bool enabled)
     }
 
     private bool TryJump()
-{
-    // ✅ AGGIUNGI QUESTO CONTROLLO ALL'INIZIO DEL METODO:
-    if (!isJumpEnabled) return false;
-    
-    bool grounded = IsGroundedAccurate();
-    bool canJump = false;
-    bool isFirstJump = false;
-
-    if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
     {
-        canJump = true;
-        isFirstJump = true;
-    }
-    else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
-    {
-        canJump = true;
-        isFirstJump = false;
-    }
+        if (!isJumpEnabled) return false;
+        
+        bool grounded = IsGroundedAccurate();
+        bool canJump = false;
+        bool isFirstJump = false;
 
-    if (canJump)
-    {
-        ExecuteJump(isFirstJump);
-        return true;
-    }
-    
-    return false;
-}
+        if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
+        {
+            canJump = true;
+            isFirstJump = true;
+        }
+        else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
+        {
+            canJump = true;
+            isFirstJump = false;
+        }
 
+        if (canJump)
+        {
+            ExecuteJump(isFirstJump);
+            return true;
+        }
+        
+        return false;
+    }
 
     private void HandleJump()
     {
@@ -645,7 +771,8 @@ public void SetJumpEnabled(bool enabled)
         }
 
         coyoteTimeCounter = 0;
-        currentPlatform = null;
+        // ✅ NON sganciare automaticamente dalla piattaforma al salto
+        // Lascia che il sistema di rilevamento gestisca naturalmente il distacco
         fallingTimer = 0f;
         
         StopFootstepAudio();
@@ -824,6 +951,9 @@ public void SetJumpEnabled(bool enabled)
         velocity = Vector3.zero;
         attackVelocity = Vector3.zero;
         
+        // ✅ Sgancia dalla piattaforma durante il respawn
+        DetachFromCurrentPlatform();
+        
         if (playerCamera != null)
         {
             CinemachineCore.ResetCameraState();
@@ -892,55 +1022,15 @@ public void SetJumpEnabled(bool enabled)
         return transform;
     }
 
+    // ✅ GESTIONE COLLISIONI OTTIMIZZATA - ORA DEPRECATA (usiamo il nuovo sistema di rilevamento)
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        string hitTag = hit.collider.tag;
+        // Questo metodo è ora principalmente per compatibilità e casi edge
+        // Il nuovo sistema di rilevamento in DetectAndUpdatePlatform() è più robusto
         
-        if (hitTag == "MovingPlatform" || hitTag == "RotatingPlatform" || hitTag == "RaftPlatform")
+        if (debugPlatformMovement)
         {
-            // ✅ Controlla se siamo sopra la piattaforma (non di lato)
-            Vector3 hitPoint = hit.point;
-            Vector3 platformTop = hit.collider.bounds.max;
-            float heightDifference = transform.position.y - hitPoint.y;
-            
-            // Solo se siamo effettivamente sopra la piattaforma
-            if (heightDifference > -0.5f && heightDifference < 2f)
-            {
-                // ✅ NUOVO: Controlla se è una piattaforma rotante con sganciamento
-                if (hitTag == "RotatingPlatform")
-                {
-                    RotatingObject rotatingObj = hit.collider.GetComponent<RotatingObject>();
-                    if (rotatingObj != null)
-                    {
-                        // Se è un obstacle platform con sganciamento abilitato, NON attaccare il player
-                        if (rotatingObj.GetPlatformType() == PlatformType.ObstaclePlatform && 
-                            rotatingObj.GetDetachPlayerOnHit())
-                        {
-                            Debug.Log($"[ThirdPersonController] Evitato attaccamento a piattaforma rotante con sganciamento: {hit.collider.name}");
-                            return; // Non attaccare il player a questa piattaforma
-                        }
-                    }
-                }
-                
-                // Comportamento normale per tutte le altre piattaforme
-                if (currentPlatform != hit.collider.transform)
-                {
-                    currentPlatform = hit.collider.transform;
-                    lastPlatformPos = currentPlatform.position;
-                    lastPlatformRot = currentPlatform.rotation;
-                }
-            }
-        }
-        else if (currentPlatform && hit.collider.transform != currentPlatform)
-        {
-            // ✅ Verifica che non siamo più sulla piattaforma
-            float distanceFromPlatform = Vector3.Distance(transform.position, currentPlatform.position);
-            Bounds platformBounds = currentPlatform.GetComponent<Collider>().bounds;
-            
-            if (distanceFromPlatform > platformBounds.size.magnitude)
-            {
-                currentPlatform = null;
-            }
+            Debug.Log($"[Platform] OnControllerColliderHit: {hit.collider.name} (tag: {hit.collider.tag})");
         }
     }
 
@@ -1055,33 +1145,76 @@ public void SetJumpEnabled(bool enabled)
         }
         return cachedGroundNormal;
     }
-/// <summary>
-/// Sgancia immediatamente il player dalla piattaforma corrente
-/// Utile quando il player viene colpito da una piattaforma rotante
-/// </summary>
-public void DetachFromCurrentPlatform()
-{
-    if (currentPlatform != null)
-    {
-        currentPlatform = null;
-        
-        // Reset anche i delta di movimento della piattaforma
-        platformDeltaPos = Vector3.zero;
-        platformDeltaRot = Quaternion.identity;
-    }
-}
 
-/// <summary>
-/// Sgancia il player solo se è su una piattaforma specifica
-/// </summary>
-/// <param name="platform">La piattaforma da cui sganciare</param>
-public void DetachFromPlatform(Transform platform)
-{
-    if (currentPlatform == platform)
+    // ✅ METODI PUBBLICI PER GESTIONE PIATTAFORME
+    
+    /// <summary>
+    /// Sgancia il player solo se è su una piattaforma specifica
+    /// </summary>
+    /// <param name="platform">La piattaforma da cui sganciare</param>
+    public void DetachFromPlatform(Transform platform)
     {
-        DetachFromCurrentPlatform();
+        if (currentPlatform == platform)
+        {
+            DetachFromCurrentPlatform();
+        }
     }
-}
+
+    /// <summary>
+    /// Forza l'attacco a una piattaforma specifica (per casi speciali)
+    /// </summary>
+    /// <param name="platform">La piattaforma a cui attaccarsi</param>
+    public void ForceAttachToPlatform(Transform platform)
+    {
+        if (platform != null && IsPlatformTag(platform.tag))
+        {
+            DetachFromCurrentPlatform();
+            AttachToPlatform(platform);
+        }
+    }
+
+    /// <summary>
+    /// Verifica se il player è attualmente su una piattaforma
+    /// </summary>
+    /// <returns>True se è su una piattaforma</returns>
+    public bool IsOnPlatform()
+    {
+        return currentPlatform != null && !isOnObstaclePlatform;
+    }
+
+    /// <summary>
+    /// Ottieni la piattaforma corrente
+    /// </summary>
+    /// <returns>Transform della piattaforma corrente o null</returns>
+    public Transform GetCurrentPlatform()
+    {
+        return currentPlatform;
+    }
+
+    /// <summary>
+    /// Verifica se il player è su una piattaforma ostacolo
+    /// </summary>
+    /// <returns>True se è su una piattaforma ostacolo</returns>
+    public bool IsOnObstaclePlatform()
+    {
+        return isOnObstaclePlatform;
+    }
+
+    /// <summary>
+    /// Ottieni informazioni sulla piattaforma corrente
+    /// </summary>
+    /// <returns>Stringa con informazioni sulla piattaforma</returns>
+    public string GetPlatformInfo()
+    {
+        if (currentPlatform == null) return "Nessuna piattaforma";
+        
+        string platformType = currentMovingPlatform ? "Moving" : 
+                             currentRaftPlatform ? "Raft" : 
+                             currentRotatingObject ? "Rotating" : "Unknown";
+        
+        return $"{currentPlatform.name} (Tipo: {platformType}, Obstacle: {isOnObstaclePlatform})";
+    }
+
     private void OnDestroy()
     {
         if (controls != null)
@@ -1095,4 +1228,34 @@ public void DetachFromPlatform(Transform platform)
             controls.Dispose();
         }
     }
+
+    // ✅ METODI DI DEBUG (solo in build di sviluppo)
+    #if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private void OnDrawGizmosSelected()
+    {
+        if (!debugPlatformMovement || !Application.isPlaying) return;
+        
+        // Disegna il raggio di rilevamento piattaforme
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, platformDetectionRadius);
+        
+        // Disegna la piattaforma corrente
+        if (currentPlatform != null)
+        {
+            Gizmos.color = isOnObstaclePlatform ? Color.red : Color.green;
+            Gizmos.DrawLine(transform.position, currentPlatform.position);
+            Gizmos.DrawWireCube(currentPlatform.position, Vector3.one * 2f);
+            
+            // Etichetta
+            UnityEditor.Handles.Label(currentPlatform.position + Vector3.up * 3, GetPlatformInfo());
+        }
+        
+        // Disegna i delta di movimento
+        if (platformDeltaPosition.magnitude > 0.001f)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(transform.position, transform.position + platformDeltaPosition * 10f);
+        }
+    }
+    #endif
 }
