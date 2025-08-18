@@ -2011,6 +2011,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 1d0faceaeccb30a4fb9a8bf9e9bc385b, type: 3}
+      propertyPath: m_TagString
+      value: MovingPlatform
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5952,7 +5956,7 @@ MonoBehaviour:
   speed: 10
   pingPong: 1
   sampleResolution: 100
-  enableRotation: 1
+  enableRotation: 0
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
@@ -6835,7 +6839,7 @@ Transform:
   m_GameObject: {fileID: 497487440}
   serializedVersion: 2
   m_LocalRotation: {x: 0.1542334, y: 0.0000000027399762, z: -4.277136e-10, w: 0.9880345}
-  m_LocalPosition: {x: -404, y: 1192.2, z: -1281.1}
+  m_LocalPosition: {x: -13.5, y: 1309.2, z: -675.2001}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -16852,9 +16856,9 @@ MonoBehaviour:
   pendulumSpeed: 2
   useCustomSlowdown: 1
   customSlowdownFactor: 5
-  platformType: 0
-  detachPlayerOnHit: 0
-  canDamagePlayer: 0
+  platformType: 1
+  detachPlayerOnHit: 1
+  canDamagePlayer: 1
   damageAmount: 10
   triggerHitWhenNoDamage: 0
   customSlowdownDuration: 15
@@ -22601,7 +22605,11 @@ PrefabInstance:
     - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: attackIconKeyboard
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 5546425119688453300}
+    - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: attackIconController
+      value: 
+      objectReference: {fileID: 5546425119688453300}
     - target: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: attackAdvanceDistance
       value: 0.4
@@ -22612,15 +22620,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -404
+      value: -13.5
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1176.2
+      value: 1293.2
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -1231.1
+      value: -625.2
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalRotation.w
@@ -29961,9 +29969,9 @@ MonoBehaviour:
   pendulumSpeed: 2
   useCustomSlowdown: 1
   customSlowdownFactor: 5
-  platformType: 0
-  detachPlayerOnHit: 0
-  canDamagePlayer: 0
+  platformType: 1
+  detachPlayerOnHit: 1
+  canDamagePlayer: 1
   damageAmount: 10
   triggerHitWhenNoDamage: 0
   customSlowdownDuration: 15
@@ -36449,15 +36457,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -404
+      value: -13.5
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1192.2
+      value: 1309.2
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -1281.1
+      value: -675.2001
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.w

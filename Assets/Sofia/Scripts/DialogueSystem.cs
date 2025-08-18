@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 using TMPro;
+using System;
 
 [System.Serializable]
 public class DialogueLine
@@ -26,10 +28,6 @@ public class DialogueSystem : MonoBehaviour
     public AudioSource audioSource; // AudioSource per riprodurre i suoni del dialogo
     public float audioFadeOutTime = 0.2f; // Tempo per il fade out dell'audio quando si skippa
     
-    [Header("Typing Effect (Optional)")]
-    public bool useTypingEffect = true;
-    public float typingSpeed = 0.05f; // Velocità dell'effetto macchina da scrivere
-    
     [Header("Input Settings")]
     public KeyCode nextLineKey = KeyCode.Space; // Tasto per passare alla battuta successiva
     public KeyCode cancelDialogueKey = KeyCode.Escape; // Tasto per chiudere manualmente il dialogo
@@ -37,12 +35,22 @@ public class DialogueSystem : MonoBehaviour
     [Header("Player Control")]
     public ThirdPersonController playerController; // Reference al ThirdPersonController
     
+    [Header("Events")]
+    public UnityEvent OnDialogueStarted; // Quando inizia il dialogo
+    public UnityEvent OnDialogueEnded; // Quando finisce il dialogo
+    public UnityEvent OnLastLineReached; // Quando viene mostrata l'ultima battuta
+    public UnityEvent OnLastLineFinished; // Quando finisce l'ultima battuta (QUESTO È QUELLO CHE SERVE AGLI NPC!)
+    
+    // Eventi statici per comunicazione globale con gli NPC
+    public static event Action<DialogueSystem> OnAnyDialogueStarted;
+    public static event Action<DialogueSystem> OnAnyDialogueEnded; 
+    public static event Action<DialogueSystem> OnAnyLastLineFinished; // 🎯 EVENTO CHIAVE PER GLI NPC
+    
     private int currentLineIndex = 0;
     private bool isDialogueActive = false;
-    private bool isTyping = false;
     private bool isPlayingAudio = false;
     private bool hasBeenTriggered = false; // Per evitare ripetizioni
-    private Coroutine typingCoroutine;
+    private bool isOnLastLine = false; // Flag per tracciare se siamo sull'ultima battuta
     private Coroutine audioCoroutine;
     
     void Start()
@@ -67,20 +75,23 @@ public class DialogueSystem : MonoBehaviour
             // Avanza il dialogo con Space
             if (Input.GetKeyDown(nextLineKey))
             {
-                if (isTyping)
+                Debug.Log($"[DialogueSystem] Space premuto. Ultima linea: {isOnLastLine}");
+                
+                // ✅ Se siamo sull'ultima linea, notifica la fine PRIMA di NextLine()
+                if (isOnLastLine)
                 {
-                    // Se il testo sta ancora apparendo, completa immediatamente la linea
-                    CompleteCurrentLine();
+                    Debug.Log("[DialogueSystem] 🚀 SPACE premuto sull'ultima battuta - notificare fine dialogo!");
+                    NotifyLastLineFinished();
                 }
-                else
+                
+                // Ferma audio se in riproduzione
+                if (isPlayingAudio)
                 {
-                    // Sempre passa alla prossima battuta, interrompendo l'audio se necessario
-                    if (isPlayingAudio)
-                    {
-                        StopCurrentAudio();
-                    }
-                    NextLine();
+                    StopCurrentAudio();
                 }
+                
+                // Passa alla linea successiva (che chiuderà il dialogo se era l'ultima)
+                NextLine();
             }
             
             // Permette di chiudere manualmente il dialogo con Escape
@@ -117,15 +128,29 @@ public class DialogueSystem : MonoBehaviour
     
     public void StartDialogue()
     {
-        if (dialogueLines.Length == 0) return;
+        Debug.Log($"[DEBUG] StartDialogue chiamato. DialogueLines.Length = {dialogueLines.Length}");
+        
+        if (dialogueLines.Length == 0) 
+        {
+            Debug.LogError("[DEBUG] Nessuna DialogueLine configurata!");
+            return;
+        }
+        
+        Debug.Log($"[DEBUG] Prima linea: '{dialogueLines[0].text}'");
+        Debug.Log($"[DEBUG] DialogueUI assigned: {dialogueUI != null}");
+        Debug.Log($"[DEBUG] DialogueText assigned: {dialogueText != null}");
         
         isDialogueActive = true;
-        hasBeenTriggered = true; // Segna come già triggerato
+        hasBeenTriggered = true;
         currentLineIndex = 0;
+        isOnLastLine = false;
         
         // Attiva l'UI del dialogo
         if (dialogueUI != null)
+        {
             dialogueUI.SetActive(true);
+            Debug.Log("[DEBUG] DialogueUI attivato");
+        }
         
         // Disabilita SOLO il salto, mantiene movimento
         DisablePlayerJumpOnly();
@@ -133,15 +158,42 @@ public class DialogueSystem : MonoBehaviour
         // Mostra la prima battuta
         DisplayLine();
         
+        // 🎯 NOTIFICA INIZIO DIALOGO
+        OnDialogueStarted?.Invoke();
+        OnAnyDialogueStarted?.Invoke(this);
+        
         Debug.Log("[DialogueSystem] Dialogo iniziato. Usa " + nextLineKey + " per continuare, " + cancelDialogueKey + " per chiudere.");
     }
     
     void DisplayLine()
     {
+        Debug.Log($"[DEBUG] DisplayLine chiamato. CurrentLineIndex = {currentLineIndex}");
+        
         if (currentLineIndex < dialogueLines.Length)
         {
             DialogueLine currentLine = dialogueLines[currentLineIndex];
             string lineToShow = currentLine.text;
+            
+            // 🎯 CONTROLLA SE SIAMO SULL'ULTIMA BATTUTA
+            isOnLastLine = (currentLineIndex == dialogueLines.Length - 1);
+            if (isOnLastLine)
+            {
+                Debug.Log($"[DialogueSystem] 🎯 ULTIMA BATTUTA RAGGIUNTA: '{lineToShow}' - ASPETTO SPACE PER FINIRE");
+                OnLastLineReached?.Invoke();
+            }
+            
+            Debug.Log($"[DEBUG] Testo da mostrare: '{lineToShow}' (Ultima linea: {isOnLastLine})");
+            
+            // Mostra il testo immediatamente
+            if (dialogueText != null)
+            {
+                dialogueText.text = lineToShow;
+                Debug.Log($"[DEBUG] Testo assegnato al TextMeshPro");
+            }
+            else
+            {
+                Debug.LogError("[DEBUG] DialogueText è NULL!");
+            }
             
             // Riproduci l'audio se presente
             if (currentLine.audioClip != null && audioSource != null)
@@ -151,22 +203,9 @@ public class DialogueSystem : MonoBehaviour
             else
             {
                 isPlayingAudio = false;
-                // Se non c'è audio, la linea resta fino a quando non premi Space
-            }
-            
-            if (useTypingEffect)
-            {
-                // Avvia l'effetto macchina da scrivere
-                if (typingCoroutine != null)
-                    StopCoroutine(typingCoroutine);
-                
-                typingCoroutine = StartCoroutine(TypeLine(lineToShow));
-            }
-            else
-            {
-                // Mostra il testo immediatamente
-                dialogueText.text = lineToShow;
-                isTyping = false;
+                // ✅ Se non c'è audio E siamo sull'ultima linea, 
+                // il dialogo resta attivo aspettando Space
+                Debug.Log($"[DialogueSystem] Nessun audio per questa linea. Ultima linea: {isOnLastLine}");
             }
         }
     }
@@ -186,16 +225,39 @@ public class DialogueSystem : MonoBehaviour
         Debug.Log($"[DialogueSystem] Riproduco audio: {clip.name} (durata: {clip.length:F2}s)");
     }
     
+    /// <summary>
+    /// ✅ CORRETTO: Gestisce la fine dell'audio senza far avanzare automaticamente l'ultima battuta
+    /// </summary>
     IEnumerator WaitForAudioToEnd(float audioDuration)
     {
         yield return new WaitForSeconds(audioDuration);
         isPlayingAudio = false;
         
-        // Quando l'audio finisce, passa automaticamente alla linea successiva
-        if (isDialogueActive) // Controlla che il dialogo sia ancora attivo
+        // ✅ CORRETTO: Se siamo sull'ultima linea, NON fare nulla automaticamente
+        if (isDialogueActive && isOnLastLine)
         {
+            Debug.Log("[DialogueSystem] 🎯 Audio ultima battuta finito - ASPETTO che il player prema Space per finire!");
+            // NON chiamare NotifyLastLineFinished() qui!
+            // NON chiamare NextLine() qui!
+            yield break; // Esci e aspetta input del player
+        }
+        
+        // Solo se NON siamo sull'ultima linea, passa automaticamente
+        if (isDialogueActive && !isOnLastLine)
+        {
+            Debug.Log("[DialogueSystem] Audio finito, passo automaticamente alla linea successiva");
             NextLine();
         }
+    }
+    
+    /// <summary>
+    /// 🎯 METODO CHIAVE: Notifica che l'ultima battuta è finita
+    /// </summary>
+    void NotifyLastLineFinished()
+    {
+        Debug.Log("[DialogueSystem] 🚀 NOTIFICANDO CHE L'ULTIMA BATTUTA È FINITA!");
+        OnLastLineFinished?.Invoke();
+        OnAnyLastLineFinished?.Invoke(this);
     }
     
     void StopCurrentAudio()
@@ -235,30 +297,6 @@ public class DialogueSystem : MonoBehaviour
         Debug.Log("[DialogueSystem] Audio skippato.");
     }
     
-    IEnumerator TypeLine(string line)
-    {
-        isTyping = true;
-        dialogueText.text = "";
-        
-        foreach (char letter in line.ToCharArray())
-        {
-            dialogueText.text += letter;
-            yield return new WaitForSeconds(typingSpeed);
-        }
-        
-        isTyping = false;
-    }
-    
-    void CompleteCurrentLine()
-    {
-        if (typingCoroutine != null)
-        {
-            StopCoroutine(typingCoroutine);
-            dialogueText.text = dialogueLines[currentLineIndex].text;
-            isTyping = false;
-        }
-    }
-    
     void NextLine()
     {
         currentLineIndex++;
@@ -277,9 +315,12 @@ public class DialogueSystem : MonoBehaviour
     
     public void EndDialogue()
     {
+        Debug.Log("[DialogueSystem] 🏁 EndDialogue chiamato");
+        
         isDialogueActive = false;
         currentLineIndex = 0;
         isPlayingAudio = false;
+        isOnLastLine = false;
         
         // Ferma l'audio se in riproduzione
         if (audioSource != null && audioSource.isPlaying)
@@ -291,13 +332,7 @@ public class DialogueSystem : MonoBehaviour
         if (dialogueUI != null)
             dialogueUI.SetActive(false);
         
-        // Ferma tutte le coroutine
-        if (typingCoroutine != null)
-        {
-            StopCoroutine(typingCoroutine);
-            typingCoroutine = null;
-        }
-        
+        // Ferma la coroutine dell'audio se attiva
         if (audioCoroutine != null)
         {
             StopCoroutine(audioCoroutine);
@@ -306,6 +341,10 @@ public class DialogueSystem : MonoBehaviour
         
         // Riabilita il salto
         EnablePlayerJumpOnly();
+        
+        // 🎯 NOTIFICA FINE DIALOGO
+        OnDialogueEnded?.Invoke();
+        OnAnyDialogueEnded?.Invoke(this);
         
         Debug.Log("[DialogueSystem] Dialogo terminato.");
     }
@@ -376,23 +415,80 @@ public class DialogueSystem : MonoBehaviour
         return isDialogueActive;
     }
     
+    // 🎯 NUOVO: Metodo per sapere se siamo sull'ultima battuta
+    public bool IsOnLastLine()
+    {
+        return isOnLastLine;
+    }
+    
+    // 🎯 NUOVO: Metodo per sapere quante battute ci sono in totale
+    public int GetTotalLines()
+    {
+        return dialogueLines.Length;
+    }
+    
+    // 🎯 NUOVO: Metodo per sapere su che battuta siamo attualmente
+    public int GetCurrentLineIndex()
+    {
+        return currentLineIndex;
+    }
+    
     // Metodo per forzare la chiusura del dialogo da altri script
     public void ForceEndDialogue()
     {
         EndDialogue();
     }
     
-    // ✅ NUOVO: Metodo per controllare se stiamo riproducendo audio
+    // Metodo per controllare se stiamo riproducendo audio
     public bool IsPlayingAudio()
     {
         return isPlayingAudio;
     }
     
-    // ✅ NUOVO: Metodo per ottenere la linea di dialogo corrente
+    // Metodo per ottenere la linea di dialogo corrente
     public DialogueLine GetCurrentLine()
     {
         if (currentLineIndex < dialogueLines.Length)
             return dialogueLines[currentLineIndex];
         return null;
+    }
+    
+    // ✅ AGGIUNTA: Metodo per forzare la fine dell'ultima battuta (per testing)
+    [ContextMenu("Test - Forza Fine Ultima Battuta")]
+    public void TestForceLastLineFinished()
+    {
+        if (isDialogueActive && isOnLastLine)
+        {
+            Debug.Log("[DialogueSystem] 🧪 Test: Forzando fine ultima battuta");
+            NotifyLastLineFinished();
+            NextLine(); // Chiude il dialogo
+        }
+        else
+        {
+            Debug.LogWarning($"[DialogueSystem] 🧪 Test fallito: Attivo={isDialogueActive}, Ultima={isOnLastLine}");
+        }
+    }
+    
+    [ContextMenu("Debug - Stato Attuale")]
+    public void DebugCurrentState()
+    {
+        Debug.Log($"[DialogueSystem] 📊 Stato attuale:\n" +
+                 $"- Attivo: {isDialogueActive}\n" +
+                 $"- Linea corrente: {currentLineIndex}/{dialogueLines.Length}\n" +
+                 $"- Ultima linea: {isOnLastLine}\n" +
+                 $"- Audio in riproduzione: {isPlayingAudio}\n" +
+                 $"- Già triggerato: {hasBeenTriggered}");
+    }
+    
+    /// <summary>
+    /// ✅ METODO DI DEBUG: Traccia gli eventi
+    /// </summary>
+    [ContextMenu("Debug - Traccia Eventi")]
+    public void DebugTrackEvents()
+    {
+        Debug.Log($"[DialogueSystem] 📋 Stato eventi:\n" +
+                 $"- OnLastLineReached listeners: {OnLastLineReached.GetPersistentEventCount()}\n" +
+                 $"- OnLastLineFinished listeners: {OnLastLineFinished.GetPersistentEventCount()}\n" +
+                 $"- OnAnyLastLineFinished subscribers: {(OnAnyLastLineFinished?.GetInvocationList()?.Length ?? 0)}");
     }
 }
