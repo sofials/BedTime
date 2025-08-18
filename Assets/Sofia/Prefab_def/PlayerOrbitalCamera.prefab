@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 886566393792333390}
   - component: {fileID: 5308900937626862456}
   - component: {fileID: 534537337231376565}
+  - component: {fileID: 2567233737890376390}
   m_Layer: 0
   m_Name: PlayerOrbitalCamera
   m_TagString: MainCamera
@@ -48,8 +49,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Priority:
-    Enabled: 0
-    m_Value: 0
+    Enabled: 1
+    m_Value: 50
   OutputChannel: 1
   StandbyUpdate: 2
   m_StreamingVersion: 20241001
@@ -59,7 +60,7 @@ MonoBehaviour:
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
-    FieldOfView: 50
+    FieldOfView: 60.8
     OrthographicSize: 5
     NearClipPlane: 0.3
     FarClipPlane: 1000
@@ -102,13 +103,13 @@ MonoBehaviour:
   Orbits:
     Top:
       Radius: 40
-      Height: 20
+      Height: 30
     Center:
       Radius: 50
-      Height: 18
+      Height: 16
     Bottom:
       Radius: 40
-      Height: 11
+      Height: 1
     SplineCurvature: 1
   RecenteringTarget: 2
   HorizontalAxis:
@@ -228,3 +229,18 @@ MonoBehaviour:
         DecelTime: 0
   PlayerIndex: -1
   AutoEnableInputs: 1
+--- !u!114 &2567233737890376390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3950009083078100798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29b72d6bc8399564eb5dac3af639fd26, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autoRegisterOnEnable: 1
+  autoUnregisterOnDisable: 1
+  forceRegisterOnStart: 1
