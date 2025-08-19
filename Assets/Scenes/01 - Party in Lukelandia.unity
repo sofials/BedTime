@@ -229,7 +229,7 @@ MonoBehaviour:
   pendulumMaxAngle: 45
   pendulumSpeed: 2
   useCustomSlowdown: 1
-  customSlowdownFactor: 100
+  customSlowdownFactor: 5
   platformType: 0
   detachPlayerOnHit: 0
   canDamagePlayer: 0
@@ -15683,6 +15683,119 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+--- !u!1 &83584025
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 83584026}
+  - component: {fileID: 83584028}
+  - component: {fileID: 83584027}
+  m_Layer: 0
+  m_Name: D16
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &83584026
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 83584025}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.9468533, z: -0, w: -0.3216657}
+  m_LocalPosition: {x: 59.6, y: -17.5, z: 185.6}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 366461998}
+  m_LocalEulerAnglesHint: {x: 0, y: 217.527, z: 0}
+--- !u!114 &83584027
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 83584025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 1672544119}
+  dialogueText: {fileID: 1672544121}
+  dialogueLines:
+  - text: "Luke\u2026 your third gift is ready.\r \r\nI\u2019ve been looking forward
+      to this one.\r\n"
+    audioClip: {fileID: 8300000, guid: 512f37074f511f041acb2c60de193e30, type: 3}
+  - text: Oh? What is it? Giant cupcake? Flying llama? Talking plant that gives life
+      advice?
+    audioClip: {fileID: 8300000, guid: 7075d490cb37b8645882462089b53b78, type: 3}
+  - text: "Patience, hero.\r\r\nI won\u2019t spoil the surprise\u2014\r \r                                           
+      but I can\u2019t wait to see your face.\r"
+    audioClip: {fileID: 8300000, guid: 59085363c1e4b5144b361fee206cf0ee, type: 3}
+  - text: "That\u2019s either very exciting\u2026 or very concerning.\r \r\nBut alright.
+      Let\u2019s see what they got me.\r"
+    audioClip: {fileID: 8300000, guid: 03238547e61a83542906c1d7293b627a, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable:
+  - {fileID: 1842528074}
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 32
+  cancelDialogueKey: 27
+  playerController: {fileID: 5827714865091427282}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &83584028
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 83584025}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 200, y: 20, z: 40}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!64 &92414026
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -29018,6 +29131,10 @@ Transform:
   - {fileID: 675038157}
   - {fileID: 796352740}
   - {fileID: 1925509997}
+  - {fileID: 1191129734}
+  - {fileID: 2012671184}
+  - {fileID: 83584026}
+  - {fileID: 1842528075}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &371909640
@@ -52342,6 +52459,15 @@ MonoBehaviour:
     audioClip: {fileID: 8300000, guid: 51141ff057450bc4b8c8463d57984556, type: 3}
   canRepeatDialogue: 0
   autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 32
@@ -52357,6 +52483,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &675038156
@@ -73310,6 +73439,15 @@ MonoBehaviour:
     audioClip: {fileID: 8300000, guid: 22eb305805f77cf40bc92510d4a8a41f, type: 3}
   canRepeatDialogue: 0
   autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 32
@@ -73325,6 +73463,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &796352742
@@ -86239,7 +86380,7 @@ MonoBehaviour:
   pendulumMaxAngle: 45
   pendulumSpeed: 2
   useCustomSlowdown: 1
-  customSlowdownFactor: 100
+  customSlowdownFactor: 5
   platformType: 0
   detachPlayerOnHit: 0
   canDamagePlayer: 0
@@ -87181,7 +87322,7 @@ MonoBehaviour:
   pendulumMaxAngle: 45
   pendulumSpeed: 2
   useCustomSlowdown: 1
-  customSlowdownFactor: 100
+  customSlowdownFactor: 5
   platformType: 0
   detachPlayerOnHit: 0
   canDamagePlayer: 0
@@ -98366,6 +98507,119 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+--- !u!1 &1191129733
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1191129734}
+  - component: {fileID: 1191129736}
+  - component: {fileID: 1191129735}
+  m_Layer: 0
+  m_Name: D14
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1191129734
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1191129733}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.9999017, z: -0, w: 0.014021011}
+  m_LocalPosition: {x: 611.3, y: -15, z: -114.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 366461998}
+  m_LocalEulerAnglesHint: {x: 0, y: 178.393, z: 0}
+--- !u!114 &1191129735
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1191129733}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 1672544119}
+  dialogueText: {fileID: 1672544121}
+  dialogueLines:
+  - text: "Whew\u2026 that place was intense.\r\r\nPretty sure I almost got hit in
+      the face by a flying jellybean.\r"
+    audioClip: {fileID: 8300000, guid: c968ea6c9ef878f4786f685daae4897b, type: 3}
+  - text: You handled it well Dreamer.
+    audioClip: {fileID: 8300000, guid: b56c80b79c3d82747a212c0c534c2817, type: 3}
+  - text: "Still\u2014that pancake tower? Total distraction.\r\r\n I\u2019m starving
+      now.\r\n"
+    audioClip: {fileID: 8300000, guid: f2a12cc17939d61408e5396b50b87cdc, type: 3}
+  - text: "You\u2019re lucky this gift isn\u2019t edible."
+    audioClip: {fileID: 8300000, guid: 17c54409b5d291b41808cb08504e12c8, type: 3}
+  - text: "Don\u2019t say that unless you\u2019re completely sure.\r\r\nI can\u2019t
+      wait to unwrap it.\r"
+    audioClip: {fileID: 8300000, guid: 4cb8e41e496b76c47829a02139ccd336, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 32
+  cancelDialogueKey: 27
+  playerController: {fileID: 5827714865091427282}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &1191129736
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1191129733}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 60, y: 20, z: 10}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!64 &1195167689
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -176796,6 +177050,110 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4643445392392276066, guid: 43b0c77100073614d9aabd3433ecf475, type: 3}
   m_PrefabInstance: {fileID: 1839083414}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1842528074
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1842528075}
+  - component: {fileID: 1842528077}
+  - component: {fileID: 1842528076}
+  m_Layer: 0
+  m_Name: D17
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1842528075
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1842528074}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.8242754, z: -0, w: -0.5661891}
+  m_LocalPosition: {x: -61.6, y: -17.5, z: 118.79999}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 366461998}
+  m_LocalEulerAnglesHint: {x: 0, y: 248.97, z: 0}
+--- !u!114 &1842528076
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1842528074}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 1672544119}
+  dialogueText: {fileID: 1672544121}
+  dialogueLines:
+  - text: "Whoa\u2026 WHAT?\r\nDid they seriously build me a full-on dream level?
+      Like\u2026 jumping, blocks, coins, fake lava and everything? \r\nOkay\u2026
+      this is officially the best birthday ever. I love those crazy little weirdoes!\r"
+    audioClip: {fileID: 8300000, guid: 2862d2e6232e5264694b65f4d238350b, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 32
+  cancelDialogueKey: 27
+  playerController: {fileID: 5827714865091427282}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &1842528077
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1842528074}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 180, y: 20, z: 20}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1847459219
 GameObject:
   m_ObjectHideFlags: 0
@@ -176841,7 +177199,7 @@ AudioSource:
   m_audioClip: {fileID: 8300000, guid: 7a9088ebea335d44b9a5db36e6d14e04, type: 3}
   m_Resource: {fileID: 8300000, guid: 7a9088ebea335d44b9a5db36e6d14e04, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.527
   m_Pitch: 1.5
   Loop: 0
   Mute: 0
@@ -192664,6 +193022,15 @@ MonoBehaviour:
     audioClip: {fileID: 0}
   canRepeatDialogue: 1
   autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 32
@@ -192679,6 +193046,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &1925509999
@@ -193443,7 +193813,7 @@ MonoBehaviour:
   pendulumMaxAngle: 45
   pendulumSpeed: 2
   useCustomSlowdown: 1
-  customSlowdownFactor: 100
+  customSlowdownFactor: 5
   platformType: 0
   detachPlayerOnHit: 0
   canDamagePlayer: 0
@@ -194323,6 +194693,119 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17b6781e77408684ba07436b6e618c8a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &2012671183
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2012671184}
+  - component: {fileID: 2012671186}
+  - component: {fileID: 2012671185}
+  m_Layer: 0
+  m_Name: D15
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &2012671184
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2012671183}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.9468533, z: -0, w: -0.3216657}
+  m_LocalPosition: {x: -276.7, y: 96.9, z: 974}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 366461998}
+  m_LocalEulerAnglesHint: {x: 0, y: 217.527, z: 0}
+--- !u!114 &2012671185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2012671183}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 1672544119}
+  dialogueText: {fileID: 1672544121}
+  dialogueLines:
+  - text: Okay, fighting in my kindergarden playground was not on my birthday bingo
+      card.
+    audioClip: {fileID: 8300000, guid: 678183ffe051c8b4d965ae7aa569e1d8, type: 3}
+  - text: "And yet, you emerged victorious\u2014playground champion."
+    audioClip: {fileID: 8300000, guid: 36511a903ffb6214b8ac8a434489d7f4, type: 3}
+  - text: "Can we call it \u201Cbarely survived with style\u201D?"
+    audioClip: {fileID: 8300000, guid: d603eac22696cd147b16035090e03aea, type: 3}
+  - text: You earned this gift, Luke.
+    audioClip: {fileID: 8300000, guid: ca94b05e08c6d9e41aa31144fa265110, type: 3}
+  - text: "Let\u2019s hope this one isn\u2019t just confetti and drama."
+    audioClip: {fileID: 8300000, guid: 05c05fed7b187b6478e61407cbfea4f1, type: 3}
+  - text: No promises.
+    audioClip: {fileID: 8300000, guid: 06c963340532f834fa33a729045a0b27, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 32
+  cancelDialogueKey: 27
+  playerController: {fileID: 5827714865091427282}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &2012671186
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2012671183}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 60, y: 20, z: 10}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!4 &2013308268 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5421211978550768647, guid: ddb14c0e79de2864989c526fb2c80e35, type: 3}
@@ -197109,6 +197592,18 @@ PrefabInstance:
       propertyPath: m_Volume
       value: 0.5
       objectReference: {fileID: 0}
+    - target: {fileID: 2279296906808834190, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
+      propertyPath: sweetPlazaMessage
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 2279296906808834190, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
+      propertyPath: isSweetPlazaPresent
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2279296906808834190, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
+      propertyPath: sweetPlazaObjectToEnable
+      value: 
+      objectReference: {fileID: 1191129733}
     - target: {fileID: 4553202538827790048, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_Volume
       value: 0.897
@@ -197139,15 +197634,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -53
+      value: 616
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -22.5
+      value: -25.73
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 76
+      value: -217.23
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalRotation.w
@@ -198547,17 +199042,41 @@ PrefabInstance:
       propertyPath: panLevelCustomCurve.m_Curve.Array.data[0].value
       value: 0.821
       objectReference: {fileID: 0}
+    - target: {fileID: 3972110375714494670, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
+      propertyPath: completionMessage
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 3972110375714494670, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
+      propertyPath: isSweetPlazaPresent
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3972110375714494670, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
+      propertyPath: playgroundArenaMessage
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 3972110375714494670, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
+      propertyPath: completionObjectToEnable
+      value: 
+      objectReference: {fileID: 83584025}
+    - target: {fileID: 3972110375714494670, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
+      propertyPath: isPlaygroundArenaPresent
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3972110375714494670, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
+      propertyPath: playgroundArenaObjectToEnable
+      value: 
+      objectReference: {fileID: 2012671183}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -11
+      value: -282.8
       objectReference: {fileID: 0}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -24.1
+      value: 91.36
       objectReference: {fileID: 0}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 40
+      value: 901.89
       objectReference: {fileID: 0}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalRotation.w
@@ -203414,6 +203933,14 @@ PrefabInstance:
       propertyPath: 'waypoints.Array.data[2]'
       value: 
       objectReference: {fileID: 1656847835}
+    - target: {fileID: 7058410846582284209, guid: 46d976200cdfddd4c94b89edeefcd861, type: 3}
+      propertyPath: 'oggettiDaDisattivare.Array.data[0]'
+      value: 
+      objectReference: {fileID: 1575659356}
+    - target: {fileID: 7058410846582284209, guid: 46d976200cdfddd4c94b89edeefcd861, type: 3}
+      propertyPath: 'oggettiDaDisattivare.Array.data[1]'
+      value: 
+      objectReference: {fileID: 1925509996}
     - target: {fileID: 8240172519094607129, guid: 46d976200cdfddd4c94b89edeefcd861, type: 3}
       propertyPath: lengthInSec
       value: 0.1

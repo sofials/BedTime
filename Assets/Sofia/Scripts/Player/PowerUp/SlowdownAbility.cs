@@ -86,12 +86,14 @@ public class SlowdownAbility : AbilityBase
                 }
             }
             
-            // Chibi (NPC Village)
             if (col.CompareTag("Chibi"))
             {
-                return true;
+                Npc_village npc = col.GetComponent<Npc_village>();
+                if (npc != null && !npc.IsStopped) // ✅ Verifica che non sia già fermato
+                {
+                    return true;
+                }
             }
-            
             // Golem (solo se non è già rallentato)
             if (col.CompareTag("GolemHurtbox"))
             {
@@ -318,7 +320,7 @@ public class SlowdownAbility : AbilityBase
             else if (col.CompareTag("Chibi"))
             {
                 Npc_village npc = col.GetComponent<Npc_village>();
-                if (npc != null)
+                if (npc != null && !npc.IsStopped) // ✅ Verifica che non sia già fermato
                 {
                     npc.StopNPC();
                     affectedNPCs.Add(npc);
@@ -354,6 +356,14 @@ public class SlowdownAbility : AbilityBase
 
         Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme, " +
                   $"{affectedRotators.Count} rotatori, {affectedTurtleShells.Count} TurtleShell, {affectedNPCs.Count} NPC.");
+        
+        // ✅ FIX: Se abbiamo colpito solo NPCs, l'abilità può essere riutilizzata immediatamente
+        if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0 && affectedNPCs.Count > 0)
+        {
+            Debug.Log("[SlowdownAbility] Colpiti solo NPCs - L'abilità può essere riutilizzata immediatamente");
+            IsActive = false;
+        }
+        
         Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
     }
 
@@ -518,12 +528,13 @@ public class SlowdownAbility : AbilityBase
         CheckIfAllObjectsDeactivated();
     }
 
-    // ✅ NUOVO: Controlla se tutti gli oggetti sono stati disattivati
+    // ✅ NUOVO: Controlla se tutti gli oggetti temporanei sono stati disattivati
+    // ✅ FIX: Gli NPC non vengono considerati perché rimangono fermi definitivamente
     private void CheckIfAllObjectsDeactivated()
     {
         if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0)
         {
-            Debug.Log("[SlowdownAbility] Tutti gli oggetti sono stati disattivati - abilità completamente terminata");
+            Debug.Log("[SlowdownAbility] Tutti gli oggetti temporanei sono stati disattivati - abilità completamente terminata");
             IsActive = false;
         }
     }
@@ -584,12 +595,14 @@ public class SlowdownAbility : AbilityBase
             }
         }
 
-        // Non sbloccare mai gli NPC (rimangono fermi definitivamente)
+        // ✅ FIX: Non svuotare mai affectedNPCs - gli NPC rimangono fermi definitivamente
+        // Gli NPC vengono mantenuti nella lista per riferimento ma non influenzano il riutilizzo dell'abilità
+        Debug.Log($"[SlowdownAbility] {affectedNPCs.Count} NPCs rimangono fermi definitivamente (non vengono ripristinati)");
 
         affectedPlatforms.Clear();
         affectedRotators.Clear();
         affectedTurtleShells.Clear();
-        affectedNPCs.Clear();
+        // ✅ NON fare affectedNPCs.Clear() - gli NPC rimangono fermi per sempre
 
         IsActive = false;
 
