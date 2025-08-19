@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 [System.Serializable]
 public class ProceduralShadowSettings
@@ -24,6 +25,24 @@ public class ShadowController : MonoBehaviour
     public float minScale = 0.3f;
     public float maxHeight = 10f;
     
+    [Header("Performance")]
+    [Range(1, 10)]
+    public int updateFrequency = 2; // Ogni N frame
+    [Range(0.01f, 0.5f)]
+    public float minMovementThreshold = 0.1f; // Distanza minima per aggiornare
+    
+    [Header("Smoothing")]
+    public bool useSmoothTransitions = true;
+    [Range(1f, 20f)]
+    public float positionSmoothSpeed = 10f;
+    [Range(1f, 20f)]
+    public float scaleSmoothSpeed = 8f;
+    
+    [Header("Jump Integration")]
+    public bool onlyShowWhenJumping = true;
+    [Range(0.1f, 5f)]
+    public float jumpDetectionHeight = 1.5f; // Altezza minima da terra per considerare "salto"
+    
     [Header("Procedural Shadow")]
     public ProceduralShadowSettings proceduralSettings = new ProceduralShadowSettings();
     [Space]
@@ -40,10 +59,44 @@ public class ShadowController : MonoBehaviour
     private MeshFilter shadowMeshFilter;
     private Transform shadowObject;
     
-    // SEMPLICE ANTI-FLICKER: stato precedente
+    // Ottimizzazioni prestazioni
+    private int frameCounter = 0;
+    private Vector3 lastPlayerPosition;
+    private Vector3 lastShadowPosition;
+    private Vector3 targetShadowPosition;
+    private float targetScale;
+    private float currentScale;
+    
+    // Cache per evitare allocazioni
+    private RaycastHit hitInfo;
+    private readonly Vector3 rayOffset = Vector3.up * 2f;
+    private readonly Vector3 shadowOffset = Vector3.up * 0.1f;
+    
+    // Anti-flicker migliorato
     private bool wasShadowActive = false;
+    private bool isTransitioning = false;
+    private float transitionTimer = 0f;
+    private const float TRANSITION_DURATION = 0.1f;
+    
+    // Jump detection
+    private ThirdPersonController playerController;
+    private bool wasGrounded = true;
+    
+    // Pool per ottimizzazione
+    private static readonly int ColorPropertyID = Shader.PropertyToID("_Color");
     
     void Start()
+    {
+        ValidateComponents();
+        SetupJumpDetection();
+        CreateProceduralShadow();
+        InitializeCache();
+        
+        Debug.Log($"ShadowController inizializzato. Raycast da: {raycastStartPoint?.name ?? "NULL"}");
+        Debug.Log($"Jump-only mode: {onlyShowWhenJumping}");
+    }
+    
+    void ValidateComponents()
     {
         if (raycastStartPoint == null)
         {
@@ -53,185 +106,375 @@ public class ShadowController : MonoBehaviour
         
         if (teleportAbility == null)
         {
-            teleportAbility = GetComponent<TeleportAbility>();
-            if (teleportAbility == null)
-            {
-                teleportAbility = GetComponentInChildren<TeleportAbility>();
-            }
+            teleportAbility = GetComponent<TeleportAbility>() ?? GetComponentInChildren<TeleportAbility>();
             
             if (teleportAbility != null)
             {
                 Debug.Log($"TeleportAbility trovato automaticamente: {teleportAbility.name}");
             }
         }
+    }
+    
+    void SetupJumpDetection()
+    {
+        if (!onlyShowWhenJumping) return;
         
-        CreateProceduralShadow();
-        Debug.Log($"ShadowController inizializzato. Raycast da: {raycastStartPoint.name}");
+        // Cerca il ThirdPersonController
+        playerController = GetComponent<ThirdPersonController>();
+        if (playerController == null)
+        {
+            playerController = GetComponentInParent<ThirdPersonController>();
+        }
+        if (playerController == null)
+        {
+            playerController = FindFirstObjectByType<ThirdPersonController>();
+        }
+        
+        if (playerController != null)
+        {
+            Debug.Log($"Jump detection: ThirdPersonController trovato su {playerController.name}");
+        }
+        else
+        {
+            Debug.LogWarning("Nessun ThirdPersonController trovato per jump detection!");
+        }
+    }
+    
+    void InitializeCache()
+    {
+        if (raycastStartPoint != null)
+        {
+            lastPlayerPosition = raycastStartPoint.position;
+            currentScale = baseScale;
+            targetScale = baseScale;
+        }
     }
     
     void Update()
     {
         if (shadowObject == null || raycastStartPoint == null) return;
         
-        // Controlla teleport SOLO se cambia stato
-        bool isTeleporting = teleportAbility != null && teleportAbility.IsActive;
-        
-        if (isTeleporting)
+        // Controllo teleport ottimizzato
+        if (IsTeleporting())
         {
-            // Disabilita SOLO se non era già disabilitata
-            if (shadowObject.gameObject.activeSelf)
-            {
-                shadowObject.gameObject.SetActive(false);
-            }
+            HandleTeleportState();
             return;
         }
         
-        UpdateShadow();
+        // Controllo modalità salto
+        if (onlyShowWhenJumping && !IsJumping())
+        {
+            HandleNotJumpingState();
+            return;
+        }
+        
+        // Aggiornamento con frequenza ridotta
+        frameCounter++;
+        if (frameCounter >= updateFrequency)
+        {
+            frameCounter = 0;
+            
+            // Solo se il player si è mosso abbastanza
+            if (HasPlayerMovedSignificantly())
+            {
+                PerformRaycastUpdate();
+                lastPlayerPosition = raycastStartPoint.position;
+            }
+        }
+        
+        // Smooth transitions sempre attive
+        if (useSmoothTransitions)
+        {
+            ApplySmoothTransitions();
+        }
+        
+        HandleTransitions();
     }
     
-    void UpdateShadow()
+    bool IsTeleporting()
     {
-        // RAYCAST SEMPLIFICATO - offset fisso più sicuro
-        Vector3 raycastOrigin = raycastStartPoint.position + Vector3.up * 2f; // 2 metri fissi
-        Vector3 raycastDirection = Vector3.down;
-        float totalDistance = raycastDistance + 2f;
+        return teleportAbility != null && teleportAbility.IsActive;
+    }
+    
+    void HandleTeleportState()
+    {
+        if (shadowObject.gameObject.activeSelf)
+        {
+            shadowObject.gameObject.SetActive(false);
+            wasShadowActive = false;
+        }
+    }
+    
+    bool IsJumping()
+    {
+        if (!onlyShowWhenJumping) return true; // Se il modo salto è disabilitato, sempre "saltando"
         
-        RaycastHit hit;
-        bool hasHit = Physics.Raycast(raycastOrigin, raycastDirection, out hit, totalDistance, groundLayer);
+        // Metodo 1: Usa ThirdPersonController (preferito)
+        if (playerController != null)
+        {
+            // Il player è considerato "in salto" se non è a terra
+            bool isGrounded = playerController.IsGrounded();
+            return !isGrounded;
+        }
+        
+        // Metodo 2: Fallback - raycast veloce verso il basso per rilevare distanza da terra
+        Vector3 rayStart = raycastStartPoint.position;
+        bool isNearGround = Physics.Raycast(rayStart, Vector3.down, jumpDetectionHeight, groundLayer);
+        
+        // Se non rileva il terreno entro l'altezza specificata, considera che sta saltando
+        return !isNearGround;
+    }
+    
+    void HandleNotJumpingState()
+    {
+        if (shadowObject.gameObject.activeSelf)
+        {
+            shadowObject.gameObject.SetActive(false);
+            wasShadowActive = false;
+        }
+    }
+    
+    bool HasPlayerMovedSignificantly()
+    {
+        return Vector3.Distance(lastPlayerPosition, raycastStartPoint.position) > minMovementThreshold;
+    }
+    
+    void PerformRaycastUpdate()
+    {
+        Vector3 raycastOrigin = raycastStartPoint.position + rayOffset;
+        Vector3 raycastDirection = Vector3.down;
+        float totalDistance = raycastDistance + rayOffset.y;
+        
+        bool hasHit = Physics.Raycast(raycastOrigin, raycastDirection, out hitInfo, totalDistance, groundLayer);
         
         if (showDebugRays)
         {
             Color rayColor = hasHit ? Color.green : Color.red;
-            Debug.DrawRay(raycastOrigin, raycastDirection * totalDistance, rayColor);
+            Debug.DrawRay(raycastOrigin, raycastDirection * totalDistance, rayColor, Time.deltaTime * updateFrequency);
         }
         
         if (hasHit)
         {
-            // Posizione ombra
-            Vector3 shadowPosition = new Vector3(
-                raycastStartPoint.position.x,
-                hit.point.y + 0.1f, // Offset più grande per sicurezza
-                raycastStartPoint.position.z
-            );
-            
-            shadowObject.position = shadowPosition;
-            
-            // Rotazione semplificata - solo per terreni molto inclinati
-            Vector3 terrainNormal = hit.normal;
-            float terrainAngle = Vector3.Angle(Vector3.up, terrainNormal);
-            
-            if (terrainAngle > 15f) // Solo se il terreno è molto inclinato
-            {
-                Quaternion surfaceRotation = Quaternion.FromToRotation(Vector3.up, terrainNormal);
-                Quaternion baseRotation = Quaternion.Euler(90, 0, 0);
-                shadowObject.rotation = surfaceRotation * baseRotation;
-            }
-            else
-            {
-                // Terreno piatto - rotazione fissa
-                shadowObject.rotation = Quaternion.Euler(90, 0, 0);
-            }
-            
-            // Scala basata su distanza
-            float playerHeight = raycastStartPoint.position.y;
-            float groundHeight = hit.point.y;
-            float distanceToGround = playerHeight - groundHeight;
-            
-            float normalizedHeight = Mathf.Clamp01(distanceToGround / maxHeight);
-            float currentScale = Mathf.Lerp(baseScale, baseScale * minScale, normalizedHeight);
-            
-            shadowObject.localScale = Vector3.one * currentScale;
-            
-            // Attiva SOLO se non era attiva
-            if (!wasShadowActive)
-            {
-                shadowObject.gameObject.SetActive(true);
-                wasShadowActive = true;
-            }
+            UpdateShadowFromHit();
         }
         else
         {
-            // Disattiva SOLO se era attiva
-            if (wasShadowActive)
+            HandleNoHit();
+        }
+    }
+    
+    void UpdateShadowFromHit()
+    {
+        // Calcola nuova posizione target
+        targetShadowPosition = new Vector3(
+            raycastStartPoint.position.x,
+            hitInfo.point.y + shadowOffset.y,
+            raycastStartPoint.position.z
+        );
+        
+        // Rotazione ottimizzata per terreni inclinati
+        UpdateShadowRotation();
+        
+        // Calcola scala target
+        CalculateTargetScale();
+        
+        // Attiva shadow se necessario
+        ActivateShadowIfNeeded();
+    }
+    
+    void UpdateShadowRotation()
+    {
+        float terrainAngle = Vector3.Angle(Vector3.up, hitInfo.normal);
+        
+        if (terrainAngle > 15f)
+        {
+            Quaternion surfaceRotation = Quaternion.FromToRotation(Vector3.up, hitInfo.normal);
+            Quaternion baseRotation = Quaternion.Euler(90, 0, 0);
+            shadowObject.rotation = surfaceRotation * baseRotation;
+        }
+        else
+        {
+            shadowObject.rotation = Quaternion.Euler(90, 0, 0);
+        }
+    }
+    
+    void CalculateTargetScale()
+    {
+        float playerHeight = raycastStartPoint.position.y;
+        float groundHeight = hitInfo.point.y;
+        float distanceToGround = playerHeight - groundHeight;
+        
+        float normalizedHeight = Mathf.Clamp01(distanceToGround / maxHeight);
+        targetScale = Mathf.Lerp(baseScale, baseScale * minScale, normalizedHeight);
+    }
+    
+    void HandleNoHit()
+    {
+        DeactivateShadowIfNeeded();
+    }
+    
+    void ApplySmoothTransitions()
+    {
+        if (shadowObject.gameObject.activeSelf)
+        {
+            // Smooth position
+            if (Vector3.Distance(shadowObject.position, targetShadowPosition) > 0.01f)
             {
-                shadowObject.gameObject.SetActive(false);
-                wasShadowActive = false;
+                shadowObject.position = Vector3.Lerp(
+                    shadowObject.position,
+                    targetShadowPosition,
+                    positionSmoothSpeed * Time.deltaTime
+                );
+            }
+            
+            // Smooth scale
+            if (Mathf.Abs(currentScale - targetScale) > 0.01f)
+            {
+                currentScale = Mathf.Lerp(currentScale, targetScale, scaleSmoothSpeed * Time.deltaTime);
+                shadowObject.localScale = Vector3.one * currentScale;
             }
         }
+    }
+    
+    void HandleTransitions()
+    {
+        if (isTransitioning)
+        {
+            transitionTimer += Time.deltaTime;
+            if (transitionTimer >= TRANSITION_DURATION)
+            {
+                isTransitioning = false;
+                transitionTimer = 0f;
+            }
+        }
+    }
+    
+    void ActivateShadowIfNeeded()
+    {
+        if (!wasShadowActive && !isTransitioning)
+        {
+            shadowObject.gameObject.SetActive(true);
+            wasShadowActive = true;
+            StartTransition();
+        }
+    }
+    
+    void DeactivateShadowIfNeeded()
+    {
+        if (wasShadowActive && !isTransitioning)
+        {
+            shadowObject.gameObject.SetActive(false);
+            wasShadowActive = false;
+            StartTransition();
+        }
+    }
+    
+    void StartTransition()
+    {
+        isTransitioning = true;
+        transitionTimer = 0f;
     }
     
     void CreateProceduralShadow()
     {
         proceduralShadowObject = new GameObject("ProceduralShadow");
+        proceduralShadowObject.layer = gameObject.layer; // Eredita layer
         
         shadowMeshFilter = proceduralShadowObject.AddComponent<MeshFilter>();
         shadowRenderer = proceduralShadowObject.AddComponent<MeshRenderer>();
         
         shadowMeshFilter.mesh = GenerateCircleMesh();
         
-        // Materiale semplificato
-        Material shadowMat;
-        if (customShadowMaterial != null)
-        {
-            shadowMat = customShadowMaterial;
-        }
-        else if (proceduralSettings.shadowMaterial != null)
-        {
-            shadowMat = proceduralSettings.shadowMaterial;
-        }
-        else
-        {
-            // Usa sempre Unlit/Color per semplicità
-            shadowMat = new Material(Shader.Find("Unlit/Color"));
-            shadowMat.color = new Color(0.2f, 0.2f, 0.2f, 0.4f);
-        }
-        
-        shadowRenderer.material = shadowMat;
-        
-        // Disabilita ombre per evitare conflitti
-        shadowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        shadowRenderer.receiveShadows = false;
-        
-        proceduralShadowObject.transform.rotation = Quaternion.Euler(90, 0, 0);
-        proceduralShadowObject.transform.localScale = Vector3.one * baseScale;
-        proceduralShadowObject.transform.position = raycastStartPoint.position + Vector3.down * 8f;
-        
-        // INIZIA DISATTIVATA
-        proceduralShadowObject.SetActive(false);
-        wasShadowActive = false;
+        SetupShadowMaterial();
+        ConfigureShadowRenderer();
+        InitializeShadowTransform();
         
         shadowObject = proceduralShadowObject.transform;
     }
     
+    void SetupShadowMaterial()
+    {
+        Material shadowMat = GetShadowMaterial();
+        shadowRenderer.material = shadowMat;
+        
+        // Optimization: use MaterialPropertyBlock for dynamic properties
+        if (shadowMat.HasProperty(ColorPropertyID))
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            propertyBlock.SetColor(ColorPropertyID, proceduralSettings.shadowColor);
+            shadowRenderer.SetPropertyBlock(propertyBlock);
+        }
+    }
+    
+    Material GetShadowMaterial()
+    {
+        if (customShadowMaterial != null)
+            return customShadowMaterial;
+        
+        if (proceduralSettings.shadowMaterial != null)
+            return proceduralSettings.shadowMaterial;
+        
+        // Fallback material
+        Material shadowMat = new Material(Shader.Find("Unlit/Color"));
+        shadowMat.color = new Color(0.2f, 0.2f, 0.2f, 0.4f);
+        shadowMat.name = "Auto_ShadowMaterial";
+        return shadowMat;
+    }
+    
+    void ConfigureShadowRenderer()
+    {
+        shadowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        shadowRenderer.receiveShadows = false;
+        shadowRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+        shadowRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+    }
+    
+    void InitializeShadowTransform()
+    {
+        proceduralShadowObject.transform.rotation = Quaternion.Euler(90, 0, 0);
+        proceduralShadowObject.transform.localScale = Vector3.one * baseScale;
+        proceduralShadowObject.transform.position = raycastStartPoint.position + Vector3.down * 8f;
+        proceduralShadowObject.SetActive(false);
+        
+        wasShadowActive = false;
+        targetShadowPosition = proceduralShadowObject.transform.position;
+    }
+    
     Mesh GenerateCircleMesh()
     {
-        Mesh mesh = new Mesh();
-        mesh.name = "ProceduralCircle";
+        // Usa cache se possibile
+        string meshName = $"ProceduralCircle_{proceduralSettings.segments}_{proceduralSettings.radius}";
         
-        int segments = proceduralSettings.segments;
+        Mesh mesh = new Mesh();
+        mesh.name = meshName;
+        
+        int segments = Mathf.Clamp(proceduralSettings.segments, 8, 64); // Limita per performance
         float radius = proceduralSettings.radius;
         
         Vector3[] vertices = new Vector3[segments + 1];
         Vector2[] uvs = new Vector2[segments + 1];
         int[] triangles = new int[segments * 3];
         
+        // Centro
         vertices[0] = Vector3.zero;
         uvs[0] = new Vector2(0.5f, 0.5f);
         
+        // Vertici del cerchio
+        float angleStep = Mathf.PI * 2f / segments;
         for (int i = 0; i < segments; i++)
         {
-            float angle = (float)i / segments * Mathf.PI * 2f;
+            float angle = i * angleStep;
             float x = Mathf.Cos(angle) * radius;
             float y = Mathf.Sin(angle) * radius;
             
             vertices[i + 1] = new Vector3(x, y, 0);
-            
             uvs[i + 1] = new Vector2(
                 0.5f + x / radius * 0.5f,
                 0.5f + y / radius * 0.5f
             );
         }
         
+        // Triangoli
         for (int i = 0; i < segments; i++)
         {
             int triangleIndex = i * 3;
@@ -245,44 +488,39 @@ public class ShadowController : MonoBehaviour
         mesh.triangles = triangles;
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
+        mesh.MarkDynamic(); // Optimization hint
         
         return mesh;
     }
     
+    // Metodi pubblici ottimizzati
     public void ForceDisableShadow()
     {
-        if (shadowObject != null)
+        if (shadowObject != null && wasShadowActive)
         {
             shadowObject.gameObject.SetActive(false);
             wasShadowActive = false;
+            StartTransition();
         }
     }
     
     public void ForceEnableShadow()
     {
-        if (shadowObject != null)
+        if (shadowObject != null && !wasShadowActive)
         {
             shadowObject.gameObject.SetActive(true);
             wasShadowActive = true;
+            StartTransition();
         }
-    }
-    
-    [ContextMenu("Regenerate Procedural Shadow")]
-    public void RegenerateProceduralShadow()
-    {
-        if (proceduralShadowObject != null)
-        {
-            DestroyImmediate(proceduralShadowObject);
-        }
-        
-        CreateProceduralShadow();
     }
     
     public void SetShadowColor(Color newColor)
     {
         if (shadowRenderer != null)
         {
-            shadowRenderer.material.color = newColor;
+            var propertyBlock = new MaterialPropertyBlock();
+            propertyBlock.SetColor(ColorPropertyID, newColor);
+            shadowRenderer.SetPropertyBlock(propertyBlock);
         }
         proceduralSettings.shadowColor = newColor;
     }
@@ -294,20 +532,84 @@ public class ShadowController : MonoBehaviour
         SetShadowColor(currentColor);
     }
     
+    // Metodi di utilità per modalità salto
+    public void SetJumpOnlyMode(bool enabled)
+    {
+        onlyShowWhenJumping = enabled;
+        
+        if (!enabled && shadowObject != null)
+        {
+            // Se disabilito la modalità salto, riattiva l'ombra se necessario
+            ForceEnableShadow();
+        }
+    }
+    
+    public void SetJumpDetectionHeight(float height)
+    {
+        jumpDetectionHeight = Mathf.Clamp(height, 0.1f, 10f);
+    }
+    
+    public bool IsCurrentlyJumping()
+    {
+        return IsJumping();
+    }
+    
+    // Metodi di utilità
+    public void SetUpdateFrequency(int frequency)
+    {
+        updateFrequency = Mathf.Clamp(frequency, 1, 10);
+    }
+    
+    public void EnableSmoothTransitions(bool enable)
+    {
+        useSmoothTransitions = enable;
+    }
+    
+    [ContextMenu("Regenerate Procedural Shadow")]
+    public void RegenerateProceduralShadow()
+    {
+        if (proceduralShadowObject != null)
+        {
+            DestroyImmediate(proceduralShadowObject);
+        }
+        
+        CreateProceduralShadow();
+        InitializeCache();
+    }
+    
     void OnDrawGizmosSelected()
     {
         if (raycastStartPoint == null) return;
         
         Vector3 startPos = raycastStartPoint.position;
         
+        // Player position
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(startPos, 0.3f);
         
+        // Raycast direction
         Gizmos.color = Color.yellow;
-        Gizmos.DrawRay(startPos, Vector3.down * raycastDistance);
+        Gizmos.DrawRay(startPos + rayOffset, Vector3.down * (raycastDistance + rayOffset.y));
+        
+        // Movement threshold
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(startPos, minMovementThreshold);
         
         #if UNITY_EDITOR
-        UnityEditor.Handles.Label(startPos + Vector3.up * 0.5f, raycastStartPoint.name);
+        UnityEditor.Handles.Label(startPos + Vector3.up * 0.5f, 
+            $"{raycastStartPoint.name}\nFreq: {updateFrequency}\nSmooth: {useSmoothTransitions}\nJump Only: {onlyShowWhenJumping}\nJumping: {(onlyShowWhenJumping ? IsJumping().ToString() : "N/A")}\nController: {(playerController != null ? "✓" : "✗")}");
         #endif
+    }
+    
+    void OnDestroy()
+    {
+        // Cleanup
+        if (proceduralShadowObject != null)
+        {
+            if (Application.isPlaying)
+                Destroy(proceduralShadowObject);
+            else
+                DestroyImmediate(proceduralShadowObject);
+        }
     }
 }

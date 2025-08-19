@@ -20,23 +20,23 @@ public class SlowdownAbility : AbilityBase
     {
         public MovingPlatform platform;
         public float originalSpeed;
-        public float customDuration; // ✅ NUOVO: Durata personalizzata per questa piattaforma
-        public Coroutine deactivationCoroutine; // ✅ NUOVO: Coroutine individuale
+        public float customDuration;
+        public Coroutine deactivationCoroutine;
     }
 
     private struct RotatorData
     {
         public RotatingObject rotator;
         public float originalSpeed;
-        public float customDuration; // ✅ NUOVO: Durata personalizzata per questo rotatore
-        public Coroutine deactivationCoroutine; // ✅ NUOVO: Coroutine individuale
+        public float customDuration;
+        public Coroutine deactivationCoroutine;
     }
 
     private struct TurtleShellData
     {
         public TurtleShell turtleShell;
-        public float customDuration; // ✅ NUOVO: Durata personalizzata per questa turtle
-        public Coroutine deactivationCoroutine; // ✅ NUOVO: Coroutine individuale
+        public float customDuration;
+        public Coroutine deactivationCoroutine;
     }
 
     private List<PlatformData> affectedPlatforms = new();
@@ -56,6 +56,16 @@ public class SlowdownAbility : AbilityBase
     }
 
     /// <summary>
+    /// Override di CanActivate per rimuovere il controllo su IsActive
+    /// Permette il riutilizzo immediato su nuovi bersagli
+    /// </summary>
+    public override bool CanActivate()
+    {
+        // ✅ RIMOSSO il controllo !IsActive per permettere riutilizzo immediato
+        return powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
+    }
+
+    /// <summary>
     /// Verifica se ci sono oggetti validi nel raggio d'azione PRIMA di consumare energia
     /// </summary>
     private bool HasValidTargetsInRange()
@@ -64,19 +74,39 @@ public class SlowdownAbility : AbilityBase
         
         foreach (Collider col in colliders)
         {
-            // MovingPlatform
+            // MovingPlatform - verifica se NON è già rallentata
             if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
             {
-                return true;
+                // Controlla se questa piattaforma NON è già nella nostra lista
+                bool alreadyAffected = false;
+                foreach (var data in affectedPlatforms)
+                {
+                    if (data.platform == mp)
+                    {
+                        alreadyAffected = true;
+                        break;
+                    }
+                }
+                if (!alreadyAffected) return true;
             }
             
-            // RotatingPlatform
+            // RotatingPlatform - verifica se NON è già rallentata
             if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
             {
-                return true;
+                // Controlla se questo rotatore NON è già nella nostra lista
+                bool alreadyAffected = false;
+                foreach (var data in affectedRotators)
+                {
+                    if (data.rotator == ro)
+                    {
+                        alreadyAffected = true;
+                        break;
+                    }
+                }
+                if (!alreadyAffected) return true;
             }
             
-            // TurtleShell (solo se non è già rallentata)
+            // TurtleShell - verifica se NON è già rallentata
             if (col.CompareTag("TurtleShellHurtbox"))
             {
                 TurtleShell ts = col.GetComponentInParent<TurtleShell>();
@@ -86,15 +116,17 @@ public class SlowdownAbility : AbilityBase
                 }
             }
             
+            // NPC - verifica se NON è già fermato
             if (col.CompareTag("Chibi"))
             {
                 Npc_village npc = col.GetComponent<Npc_village>();
-                if (npc != null && !npc.IsStopped) // ✅ Verifica che non sia già fermato
+                if (npc != null && !npc.IsStopped)
                 {
                     return true;
                 }
             }
-            // Golem (solo se non è già rallentato)
+            
+            // Golem - verifica se NON è già rallentato
             if (col.CompareTag("GolemHurtbox"))
             {
                 Golem golem = col.GetComponentInParent<Golem>();
@@ -110,18 +142,11 @@ public class SlowdownAbility : AbilityBase
 
     public override void TryActivate()
     {
-        if (IsActive)
-        {
-            Debug.Log("[SlowdownAbility] Abilità già attiva – ignoro attivazione.");
-            return;
-        }
-
         // ✅ STEP 1: Verifica energia disponibile
         if (!powerUpScript.HasEnoughPower(powerCost))
         {
             Debug.Log("[SlowdownAbility] Energia insufficiente per attivare l'abilità.");
             
-            // Riproduci suono di fallimento
             if (failureSound != null && audioSource != null)
             {
                 audioSource.PlayOneShot(failureSound);
@@ -134,13 +159,11 @@ public class SlowdownAbility : AbilityBase
         {
             Debug.LogWarning("[SlowdownAbility] Nessun oggetto valido nel raggio d'azione. Energia non consumata.");
             
-            // Riproduci suono di fallimento (diverso dalla mancanza di energia)
             if (failureSound != null && audioSource != null)
             {
                 audioSource.PlayOneShot(failureSound);
             }
             
-            // Pulse dell'icona per feedback visivo
             if (PlayerUI.Instance != null)
             {
                 PlayerUI.Instance.PulseIconAt(effectIconIndex);
@@ -153,9 +176,11 @@ public class SlowdownAbility : AbilityBase
         Debug.Log($"[SlowdownAbility] Condizioni soddisfatte. Consumo {powerCost} energia.");
         
         powerUpScript.SpendPower(powerCost);
-        IsActive = true;
         
-        // 🔄 Forza aggiornamento UI per sicurezza
+        // ✅ NON settiamo IsActive = true per permettere riutilizzo immediato
+        Debug.Log($"[SlowdownAbility] Oggetti attualmente rallentati: {affectedPlatforms.Count + affectedRotators.Count + affectedTurtleShells.Count}");
+        
+        // Forza aggiornamento UI
         if (PlayerUI.Instance != null)
         {
             PlayerUI.Instance.UpdatePower(powerUpScript.CurrentPower);
@@ -173,7 +198,7 @@ public class SlowdownAbility : AbilityBase
             PlayerUI.Instance.PulseIconAt(effectIconIndex);
         }
 
-        // Attiva l'abilità
+        // Attiva l'abilità (aggiungerà SOLO nuovi oggetti alle liste esistenti)
         Activate();
     }
 
@@ -181,10 +206,13 @@ public class SlowdownAbility : AbilityBase
     {
         Debug.Log("\n=== [SlowdownAbility] Activate() chiamato ===");
 
-        affectedPlatforms.Clear();
-        affectedRotators.Clear();
-        affectedTurtleShells.Clear();
-        affectedNPCs.Clear();
+        // ✅ IMPORTANTE: NON svuotiamo le liste!
+        // Questo permette di mantenere traccia degli oggetti già rallentati
+
+        int newPlatformsCount = 0;
+        int newRotatorsCount = 0;
+        int newTurtlesCount = 0;
+        int newNPCsCount = 0;
 
         Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
         Debug.Log($"[SlowdownAbility] Collider trovati: {colliders.Length}");
@@ -193,126 +221,140 @@ public class SlowdownAbility : AbilityBase
         {
             if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
             {
-                // ✅ NUOVO: Ottieni la durata personalizzata dalla piattaforma
-                float platformDuration = mp.customSlowdownDuration > 0 ? mp.customSlowdownDuration : customDuration;
-                
-                // Salva i dati originali della piattaforma
-                var platformData = new PlatformData
+                // ✅ Controlla se questa piattaforma è già rallentata
+                bool alreadyAffected = false;
+                foreach (var data in affectedPlatforms)
                 {
-                    platform = mp,
-                    originalSpeed = mp.speed,
-                    customDuration = platformDuration,
-                    deactivationCoroutine = null
-                };
-                
-                float originalSpeed = mp.speed;
-                
-                // Applica il rallentamento in base alla modalità
-                if (mp.useCustomSlowdown)
-                {
-                    // Usa il valore custom dell'oggetto
-                    mp.speed = mp.customSlowdownFactor;
-                    Debug.Log($"→ MovingPlatform {col.name} rallentata da {originalSpeed} a {mp.speed} (custom) per {platformDuration}s.");
-                }
-                else
-                {
-                    // Usa il moltiplicatore dell'abilità
-                    mp.speed *= slowdownFactor;
-                    Debug.Log($"→ MovingPlatform {col.name} rallentata da {originalSpeed} a {mp.speed} (factor) per {platformDuration}s.");
+                    if (data.platform == mp)
+                    {
+                        alreadyAffected = true;
+                        Debug.Log($"→ MovingPlatform {col.name} già rallentata, skip.");
+                        break;
+                    }
                 }
                 
-                // Attiva l'overlay emissivo
-                mp.SetOverlayActive(true);
-                
-                // Riproduce l'effetto di rallentamento se disponibile
-                mp.PlaySlowdownEffect(1f);
+                if (!alreadyAffected)
+                {
+                    float platformDuration = mp.customSlowdownDuration > 0 ? mp.customSlowdownDuration : customDuration;
+                    
+                    var platformData = new PlatformData
+                    {
+                        platform = mp,
+                        originalSpeed = mp.speed,
+                        customDuration = platformDuration,
+                        deactivationCoroutine = null
+                    };
+                    
+                    float originalSpeed = mp.speed;
+                    
+                    if (mp.useCustomSlowdown)
+                    {
+                        mp.speed = mp.customSlowdownFactor;
+                        Debug.Log($"→ MovingPlatform {col.name} rallentata da {originalSpeed} a {mp.speed} (custom) per {platformDuration}s.");
+                    }
+                    else
+                    {
+                        mp.speed *= slowdownFactor;
+                        Debug.Log($"→ MovingPlatform {col.name} rallentata da {originalSpeed} a {mp.speed} (factor) per {platformDuration}s.");
+                    }
+                    
+                    mp.SetOverlayActive(true);
+                    mp.PlaySlowdownEffect(1f);
 
-                // ✅ NUOVO: Avvia coroutine individuale per questa piattaforma
-                platformData.deactivationCoroutine = StartCoroutine(DeactivatePlatformAfterDuration(platformData));
-                
-                affectedPlatforms.Add(platformData);
+                    platformData.deactivationCoroutine = StartCoroutine(DeactivatePlatformAfterDuration(platformData));
+                    
+                    affectedPlatforms.Add(platformData);
+                    newPlatformsCount++;
+                }
             }
             else if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
             {
-                // ✅ NUOVO: Ottieni la durata personalizzata dal rotatore
-                float rotatorDuration = ro.customSlowdownDuration > 0 ? ro.customSlowdownDuration : customDuration;
-                
-                // Salva i dati originali del rotatore
-                var rotatorData = new RotatorData
+                // ✅ Controlla se questo rotatore è già rallentato
+                bool alreadyAffected = false;
+                foreach (var data in affectedRotators)
                 {
-                    rotator = ro,
-                    originalSpeed = ro.rotationSpeed,
-                    customDuration = rotatorDuration,
-                    deactivationCoroutine = null
-                };
-                
-                float originalSpeed = ro.rotationSpeed;
-                float newSpeed;
-                
-                // Calcola la nuova velocità in base alla modalità
-                if (ro.useCustomSlowdown)
-                {
-                    newSpeed = ro.customSlowdownFactor;
-                    Debug.Log($"→ RotatingPlatform {col.name} rallentata da {originalSpeed} a {newSpeed} (custom) per {rotatorDuration}s.");
-                }
-                else
-                {
-                    newSpeed = originalSpeed * slowdownFactor;
-                    Debug.Log($"→ RotatingPlatform {col.name} rallentata da {originalSpeed} a {newSpeed} (factor) per {rotatorDuration}s.");
+                    if (data.rotator == ro)
+                    {
+                        alreadyAffected = true;
+                        Debug.Log($"→ RotatingPlatform {col.name} già rallentata, skip.");
+                        break;
+                    }
                 }
                 
-                // ✅ NUOVO: Usa il nuovo metodo per impostare slowdown
-                ro.SetSlowdownState(true, newSpeed);
-                
-                // Attiva l'overlay emissivo
-                ro.SetOverlayActive(true);
-                
-                // Riproduce l'effetto di rallentamento se disponibile
-                ro.PlaySlowdownEffect(1f);
+                if (!alreadyAffected)
+                {
+                    float rotatorDuration = ro.customSlowdownDuration > 0 ? ro.customSlowdownDuration : customDuration;
+                    
+                    var rotatorData = new RotatorData
+                    {
+                        rotator = ro,
+                        originalSpeed = ro.rotationSpeed,
+                        customDuration = rotatorDuration,
+                        deactivationCoroutine = null
+                    };
+                    
+                    float originalSpeed = ro.rotationSpeed;
+                    float newSpeed;
+                    
+                    if (ro.useCustomSlowdown)
+                    {
+                        newSpeed = ro.customSlowdownFactor;
+                        Debug.Log($"→ RotatingPlatform {col.name} rallentata da {originalSpeed} a {newSpeed} (custom) per {rotatorDuration}s.");
+                    }
+                    else
+                    {
+                        newSpeed = originalSpeed * slowdownFactor;
+                        Debug.Log($"→ RotatingPlatform {col.name} rallentata da {originalSpeed} a {newSpeed} (factor) per {rotatorDuration}s.");
+                    }
+                    
+                    ro.SetSlowdownState(true, newSpeed);
+                    ro.SetOverlayActive(true);
+                    ro.PlaySlowdownEffect(1f);
 
-                // ✅ NUOVO: Avvia coroutine individuale per questo rotatore
-                rotatorData.deactivationCoroutine = StartCoroutine(DeactivateRotatorAfterDuration(rotatorData));
-                
-                affectedRotators.Add(rotatorData);
+                    rotatorData.deactivationCoroutine = StartCoroutine(DeactivateRotatorAfterDuration(rotatorData));
+                    
+                    affectedRotators.Add(rotatorData);
+                    newRotatorsCount++;
+                }
             }
             else if (col.CompareTag("TurtleShellHurtbox"))
             {
                 TurtleShell ts = col.GetComponentInParent<TurtleShell>();
                 if (ts != null && !ts.isSlow)
                 {
-                    // ✅ NUOVO: Ottieni la durata personalizzata dalla turtle shell
-                    float turtleDuration = ts.customSlowdownDuration > 0 ? ts.customSlowdownDuration : customDuration;
-                    
-                    var turtleData = new TurtleShellData
-                    {
-                        turtleShell = ts,
-                        customDuration = turtleDuration,
-                        deactivationCoroutine = null
-                    };
-                    
-                    // Controlla se questa turtle shell è già nella lista
+                    // ✅ Controlla se questa turtle shell è già nella lista
                     bool alreadyInList = false;
                     foreach (var existingTurtle in affectedTurtleShells)
                     {
                         if (existingTurtle.turtleShell == ts)
                         {
                             alreadyInList = true;
+                            Debug.Log($"→ TurtleShell {ts.name} già rallentata, skip.");
                             break;
                         }
                     }
                     
                     if (!alreadyInList)
                     {
+                        float turtleDuration = ts.customSlowdownDuration > 0 ? ts.customSlowdownDuration : customDuration;
+                        
+                        var turtleData = new TurtleShellData
+                        {
+                            turtleShell = ts,
+                            customDuration = turtleDuration,
+                            deactivationCoroutine = null
+                        };
+                        
                         ts.slowFactor = slowdownFactor;
                         ts.SetSlow(true);
                         ts.SetOverlayActive(true);
                         ts.PlaySlowdownEffect(1f);
                         ts.activeSlowdownAbility = this;
 
-                        // ✅ NUOVO: Avvia coroutine individuale per questa turtle shell
                         turtleData.deactivationCoroutine = StartCoroutine(DeactivateTurtleShellAfterDuration(turtleData));
                         
                         affectedTurtleShells.Add(turtleData);
+                        newTurtlesCount++;
                         Debug.Log($"→ TurtleShell {ts.name} rallentata per {turtleDuration}s.");
                     }
                 }
@@ -320,11 +362,18 @@ public class SlowdownAbility : AbilityBase
             else if (col.CompareTag("Chibi"))
             {
                 Npc_village npc = col.GetComponent<Npc_village>();
-                if (npc != null && !npc.IsStopped) // ✅ Verifica che non sia già fermato
+                if (npc != null && !npc.IsStopped)
                 {
-                    npc.StopNPC();
-                    affectedNPCs.Add(npc);
-                    Debug.Log($"→ NPC Village {npc.name} fermato definitivamente.");
+                    // ✅ Controlla se questo NPC è già nella lista
+                    bool alreadyInList = affectedNPCs.Contains(npc);
+                    
+                    if (!alreadyInList)
+                    {
+                        npc.StopNPC();
+                        affectedNPCs.Add(npc);
+                        newNPCsCount++;
+                        Debug.Log($"→ NPC Village {npc.name} fermato definitivamente.");
+                    }
                 }
             }
             else if (col.CompareTag("GolemHurtbox"))
@@ -332,7 +381,6 @@ public class SlowdownAbility : AbilityBase
                 Golem golem = col.GetComponentInParent<Golem>();
                 if (golem != null && !golem.isSlow)
                 {
-                    // ✅ NUOVO: Usa durata personalizzata del Golem se disponibile
                     float golemDuration = golem.customSlowdownDuration > 0 ? golem.customSlowdownDuration : customDuration;
                     golem.StartSlow(golemDuration, this);
                     Debug.Log($"→ Golem {golem.name} rallentato da Slowdown per {golemDuration}s.");
@@ -340,34 +388,35 @@ public class SlowdownAbility : AbilityBase
             }
         }
 
-        if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0 && affectedNPCs.Count == 0)
+        // ✅ Verifica solo i NUOVI oggetti aggiunti
+        if (newPlatformsCount == 0 && newRotatorsCount == 0 && newTurtlesCount == 0 && newNPCsCount == 0)
         {
-            Debug.LogWarning("[SlowdownAbility] ⚠️ CASO EDGE: Nessun oggetto rallentato dopo HasValidTargetsInRange() ha restituito true!");
-            
-            IsActive = false;
-            return;
+            Debug.LogWarning("[SlowdownAbility] ⚠️ Nessun NUOVO oggetto rallentato!");
         }
-
-        if (effectAudioSource != null && effectAudioClip != null)
+        else
         {
-            effectAudioSource.Play();
-            Debug.Log("[SlowdownAbility] Audio effetto slowdown riprodotto.");
-        }
+            if (effectAudioSource != null && effectAudioClip != null)
+            {
+                effectAudioSource.Play();
+                Debug.Log("[SlowdownAbility] Audio effetto slowdown riprodotto.");
+            }
 
-        Debug.Log($"[SlowdownAbility] Slowdown attivato su {affectedPlatforms.Count} piattaforme, " +
-                  $"{affectedRotators.Count} rotatori, {affectedTurtleShells.Count} TurtleShell, {affectedNPCs.Count} NPC.");
-        
-        // ✅ FIX: Se abbiamo colpito solo NPCs, l'abilità può essere riutilizzata immediatamente
-        if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0 && affectedNPCs.Count > 0)
-        {
-            Debug.Log("[SlowdownAbility] Colpiti solo NPCs - L'abilità può essere riutilizzata immediatamente");
-            IsActive = false;
+            Debug.Log($"[SlowdownAbility] NUOVI oggetti rallentati: {newPlatformsCount} piattaforme, " +
+                      $"{newRotatorsCount} rotatori, {newTurtlesCount} TurtleShell, {newNPCsCount} NPC.");
+            Debug.Log($"[SlowdownAbility] TOTALE oggetti rallentati: {affectedPlatforms.Count} piattaforme, " +
+                      $"{affectedRotators.Count} rotatori, {affectedTurtleShells.Count} TurtleShell, {affectedNPCs.Count} NPC.");
         }
         
+        // ✅ FIX: Non settiamo mai IsActive = true per evitare blocchi dalla classe base
+        // IsActive rimane sempre false per permettere riutilizzo immediato
+        IsActive = false;
+        
+        Debug.Log($"[SlowdownAbility] IsActive mantenuto a FALSE per permettere riutilizzo immediato");
+        Debug.Log($"[SlowdownAbility] Oggetti attualmente rallentati: {affectedPlatforms.Count} piattaforme, {affectedRotators.Count} rotatori, {affectedTurtleShells.Count} turtle");
         Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
     }
 
-    // ✅ NUOVO: Coroutine individuale per le MovingPlatform
+    // ✅ Coroutine individuale per le MovingPlatform
     private IEnumerator DeactivatePlatformAfterDuration(PlatformData platformData)
     {
         float blinkDuration = 3f;
@@ -404,7 +453,7 @@ public class SlowdownAbility : AbilityBase
         RemovePlatformFromList(platformData.platform);
     }
 
-    // ✅ NUOVO: Coroutine individuale per i RotatingObject
+    // ✅ Coroutine individuale per i RotatingObject
     private IEnumerator DeactivateRotatorAfterDuration(RotatorData rotatorData)
     {
         float blinkDuration = 3f;
@@ -447,7 +496,7 @@ public class SlowdownAbility : AbilityBase
         RemoveRotatorFromList(rotatorData.rotator);
     }
 
-    // ✅ NUOVO: Coroutine individuale per le TurtleShell
+    // ✅ Coroutine individuale per le TurtleShell
     private IEnumerator DeactivateTurtleShellAfterDuration(TurtleShellData turtleData)
     {
         float blinkDuration = 3f;
@@ -485,7 +534,7 @@ public class SlowdownAbility : AbilityBase
         RemoveTurtleShellFromList(turtleData.turtleShell);
     }
 
-    // ✅ NUOVO: Metodi helper per rimuovere oggetti dalle liste
+    // ✅ Metodi helper per rimuovere oggetti dalle liste
     private void RemovePlatformFromList(MovingPlatform platform)
     {
         for (int i = affectedPlatforms.Count - 1; i >= 0; i--)
@@ -528,22 +577,27 @@ public class SlowdownAbility : AbilityBase
         CheckIfAllObjectsDeactivated();
     }
 
-    // ✅ NUOVO: Controlla se tutti gli oggetti temporanei sono stati disattivati
-    // ✅ FIX: Gli NPC non vengono considerati perché rimangono fermi definitivamente
+    // ✅ FIX: Non modifichiamo mai IsActive per evitare blocchi
+    // Questo metodo ora serve solo per logging, non per cambiare IsActive
     private void CheckIfAllObjectsDeactivated()
     {
-        if (affectedPlatforms.Count == 0 && affectedRotators.Count == 0 && affectedTurtleShells.Count == 0)
+        bool hasActiveEffects = affectedPlatforms.Count > 0 || 
+                               affectedRotators.Count > 0 || 
+                               affectedTurtleShells.Count > 0;
+        
+        if (!hasActiveEffects)
         {
-            Debug.Log("[SlowdownAbility] Tutti gli oggetti temporanei sono stati disattivati - abilità completamente terminata");
-            IsActive = false;
+            Debug.Log("[SlowdownAbility] Tutti gli oggetti temporanei sono stati disattivati");
         }
+        
+        // NON modifichiamo IsActive - rimane sempre false
     }
 
     public override void Deactivate()
     {
         Debug.Log("\n=== [SlowdownAbility] Deactivate() forzato chiamato ===");
 
-        // ✅ NUOVO: Ferma tutte le coroutine individuali
+        // ✅ Ferma tutte le coroutine individuali
         foreach (var platformData in affectedPlatforms)
         {
             if (platformData.deactivationCoroutine != null)
@@ -595,14 +649,13 @@ public class SlowdownAbility : AbilityBase
             }
         }
 
-        // ✅ FIX: Non svuotare mai affectedNPCs - gli NPC rimangono fermi definitivamente
-        // Gli NPC vengono mantenuti nella lista per riferimento ma non influenzano il riutilizzo dell'abilità
+        // Gli NPC rimangono fermi definitivamente
         Debug.Log($"[SlowdownAbility] {affectedNPCs.Count} NPCs rimangono fermi definitivamente (non vengono ripristinati)");
 
         affectedPlatforms.Clear();
         affectedRotators.Clear();
         affectedTurtleShells.Clear();
-        // ✅ NON fare affectedNPCs.Clear() - gli NPC rimangono fermi per sempre
+        // NON fare affectedNPCs.Clear() - gli NPC rimangono fermi per sempre
 
         IsActive = false;
 
