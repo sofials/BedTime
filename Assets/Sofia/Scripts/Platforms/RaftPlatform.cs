@@ -47,6 +47,14 @@ public class RaftPlatform : MonoBehaviour
     private Vector3 lastKnownCheckpointPosition;
     private bool hasCheckpointPosition = false;
 
+    // Sistema per gestire i salti del player
+    [Header("Jump Detection")]
+    [SerializeField] private float jumpIgnoreTime = 1.5f; // Tempo per ignorare uscite brevi
+    private float playerExitTime = -1f;
+    private bool playerJustExited = false;
+    private int lastDirectionWithPlayer = 1; // Memorizza direzione precedente
+    private bool wasMovingBeforeJump = false;
+
     void Start()
     {
         SampleSpline();
@@ -70,9 +78,32 @@ public class RaftPlatform : MonoBehaviour
     {
         // Controlla se il player è respawnato lontano
         CheckForPlayerRespawn();
+        
+        // Gestisci le uscite definitive del player dopo il tempo di grazia
+        if (playerJustExited && (Time.time - playerExitTime) >= jumpIgnoreTime)
+        {
+            // Il player è davvero sceso definitivamente
+            if (debugRespawnSystem)
+            {
+                Debug.Log("[RaftPlatform] Player sceso definitivamente, fermo la piattaforma.");
+            }
+            
+            playerController = null;
+            isMoving = false;
+            wasMovingWithPlayer = false;
+            playerJustExited = false;
+            wasMovingBeforeJump = false;
+        }
 
         if (isMoving)
         {
+            // Salva la direzione e lo stato quando si muove con il player
+            if (playerController != null)
+            {
+                lastDirectionWithPlayer = direction;
+                wasMovingBeforeJump = true;
+            }
+            
             currentDistance += speed * speedMultiplier * direction * Time.deltaTime;
 
             if (direction == 1 && currentDistance >= endDistance)
@@ -80,14 +111,16 @@ public class RaftPlatform : MonoBehaviour
                 currentDistance = endDistance;
                 isMoving = false;
                 isWaitingAtEnd = true;
-                isReturningToTerminal = false; // Arrivato al capolinea
+                isReturningToTerminal = false;
+                wasMovingBeforeJump = false;
             }
             else if (direction == -1 && currentDistance <= startDistance)
             {
                 currentDistance = startDistance;
                 isMoving = false;
                 isWaitingAtEnd = true;
-                isReturningToTerminal = false; // Arrivato al capolinea
+                isReturningToTerminal = false;
+                wasMovingBeforeJump = false;
             }
 
             Vector3 newPosition = GetPositionAtDistance(currentDistance);
@@ -100,8 +133,8 @@ public class RaftPlatform : MonoBehaviour
             deltaMovement = Vector3.zero;
             lastPosition = transform.position;
 
-            // Logica originale semplificata
-            if (wasMovingWithPlayer && playerController == null && !isReturningToTerminal)
+            // Logica originale semplificata - ma non attivare se il player ha appena saltato
+            if (wasMovingWithPlayer && playerController == null && !isReturningToTerminal && !playerJustExited)
             {
                 StartReturningToTerminalNearZattera();
             }
@@ -452,8 +485,37 @@ public class RaftPlatform : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            // Se il player è rientrato poco dopo essere uscito, era solo un salto
+            if (playerJustExited && (Time.time - playerExitTime) < jumpIgnoreTime)
+            {
+                if (debugRespawnSystem)
+                {
+                    Debug.Log($"[RaftPlatform] Player atterrato dopo salto ({(Time.time - playerExitTime):F2}s), continuo movimento.");
+                }
+                
+                playerJustExited = false;
+                playerController = other.GetComponent<CharacterController>();
+                
+                // Riprendi il movimento se era in corso prima del salto
+                if (wasMovingBeforeJump && !isMoving)
+                {
+                    isMoving = true;
+                    direction = lastDirectionWithPlayer; // Mantieni direzione precedente
+                    
+                    if (debugRespawnSystem)
+                    {
+                        Debug.Log($"[RaftPlatform] Riprendo movimento nella direzione {direction}");
+                    }
+                }
+                
+                return; // Exit early, non fare altro processing
+            }
+            
+            // È un vero ingresso (prima volta o dopo molto tempo)
             playerController = other.GetComponent<CharacterController>();
-            playerWasOnBoard = true; // Segna che il player è salito
+            playerWasOnBoard = true;
+            playerJustExited = false;
+            wasMovingBeforeJump = false;
             
             // Salva posizione del player
             lastKnownPlayerPosition = other.transform.position;
@@ -463,20 +525,28 @@ public class RaftPlatform : MonoBehaviour
             {
                 isMoving = true;
                 isWaitingAtEnd = false;
-                isReturningToTerminal = false; // Non è più un ritorno automatico
+                isReturningToTerminal = false;
 
-                // Imposta direzione corretta per ripartire dall'estremo
+                // Logica migliorata per la direzione
                 if (Mathf.Approximately(currentDistance, startDistance))
+                {
                     direction = 1; // Verso end
+                }
                 else if (Mathf.Approximately(currentDistance, endDistance))
+                {
                     direction = -1; // Torna indietro
-                                    // Altrimenti mantiene la direzione attuale
+                }
+                else
+                {
+                    // Se abbiamo una direzione precedente valida, usala
+                    direction = lastDirectionWithPlayer;
+                }
 
                 wasMovingWithPlayer = true;
                 
                 if (debugRespawnSystem)
                 {
-                    Debug.Log("[RaftPlatform] Player salito sopra, riparto.");
+                    Debug.Log($"[RaftPlatform] Player salito, riparto in direzione {direction}");
                 }
             }
         }
@@ -491,14 +561,18 @@ public class RaftPlatform : MonoBehaviour
                 // Salva ultima posizione nota del player prima che scenda
                 lastKnownPlayerPosition = other.transform.position;
                 
-                // Il player è saltato via, fermati subito (ma riparte se risale)
+                // Marca il tempo di uscita per detectare i salti
+                playerExitTime = Time.time;
+                playerJustExited = true;
+                wasMovingBeforeJump = isMoving; // Salva se stava muovendo
+                
                 if (debugRespawnSystem)
                 {
-                    Debug.Log("[RaftPlatform] Player saltato via, fermo la piattaforma.");
+                    Debug.Log($"[RaftPlatform] Player uscito dal trigger, timer salto avviato. Era in movimento: {wasMovingBeforeJump}");
                 }
-                playerController = null;
-                isMoving = false;
-                wasMovingWithPlayer = false;
+                
+                // NON fermare immediatamente la piattaforma
+                // Lascia che il timer nel Update gestisca la fermata definitiva
             }
         }
     }
@@ -566,6 +640,13 @@ public class RaftPlatform : MonoBehaviour
             Gizmos.color = Color.cyan;
             Gizmos.DrawLine(player.transform.position, startPos);
             Gizmos.DrawLine(player.transform.position, endPos);
+        }
+
+        // ✅ NUOVO: Mostra informazioni sui salti
+        if (playerJustExited)
+        {
+            float timeRemaining = jumpIgnoreTime - (Time.time - playerExitTime);
+            UnityEditor.Handles.Label(transform.position + Vector3.up * 6, $"Jump Timer: {timeRemaining:F1}s");
         }
     }
     #endif

@@ -6,6 +6,7 @@ using UnityEngine.Events;
 /// Sistema audio PURO: usa solo AudioSource configurati direttamente nell'Inspector.
 /// NON modifica mai parametri degli AudioSource (volume, distanze, 3D) - rispetta configurazione Inspector.
 /// NON disattiva mai l'intero GameObject - solo nasconde mesh e avvia effetti.
+/// AGGIUNTA: Sistema Sweet Plaza per attivare oggetti alla raccolta.
 /// </summary>
 public class Presents : Collectibles
 {
@@ -18,6 +19,32 @@ public class Presents : Collectibles
     
     [Header("Present Specific Settings")]
     [SerializeField] private PresentSize presentSize = PresentSize.Medium;
+    
+    [Header("Sweet Plaza Special")]
+    [SerializeField] private bool isSweetPlazaPresent = false;
+    [Tooltip("Oggetto che verrà attivato quando questo regalo della Sweet Plaza viene raccolto")]
+    [SerializeField] private GameObject sweetPlazaObjectToEnable;
+    [Tooltip("Messaggio speciale per i regali della Sweet Plaza")]
+    [SerializeField] private string sweetPlazaMessage = "Dolce sorpresa della Sweet Plaza sbloccata!";
+    
+    [Header("Playground Arena Special")]
+    [SerializeField] private bool isPlaygroundArenaPresent = false;
+    [Tooltip("Oggetto che verrà attivato quando questo regalo del Playground Arena viene raccolto")]
+    [SerializeField] private GameObject playgroundArenaObjectToEnable;
+    [Tooltip("Messaggio speciale per i regali del Playground Arena")]
+    [SerializeField] private string playgroundArenaMessage = "Playground Arena sbloccato!";
+    
+    [Header("Collection Completion System")]
+    [Tooltip("Oggetto che verrà attivato quando ENTRAMBI i tipi speciali vengono raccolti nella scena")]
+    [SerializeField] private GameObject completionObjectToEnable;
+    [Tooltip("Messaggio quando la collezione è completata")]
+    [SerializeField] private string completionMessage = "🎉 COLLEZIONE COMPLETA! Tutti i regali speciali raccolti!";
+    
+    // Sistema di tracking globale per la scena
+    private static bool sweetPlazaCollectedInScene = false;
+    private static bool playgroundArenaCollectedInScene = false;
+    private static GameObject globalCompletionObject = null;
+    private static string globalCompletionMessage = "";
     
     // Enum per le dimensioni dei regali
     public enum PresentSize
@@ -38,13 +65,27 @@ public class Presents : Collectibles
             Debug.Log($"[Presents] Debug abilitato per {gameObject.name}");
         }
         
-        
         // FASE 3: Chiama il base Awake (gestisce auto-detection, configurazioni default e audio)
         base.Awake();
         
         // FASE 4: Configurazioni specifiche Present DOPO il setup base
         ConfigurePresentDefaults();
         
+        // FASE 5: Registra l'oggetto di completamento se impostato
+        RegisterCompletionObject();
+    }
+
+    /// <summary>
+    /// Registra l'oggetto di completamento per il sistema globale
+    /// </summary>
+    private void RegisterCompletionObject()
+    {
+        if (completionObjectToEnable != null && globalCompletionObject == null)
+        {
+            globalCompletionObject = completionObjectToEnable;
+            globalCompletionMessage = completionMessage;
+            LogDebug($"Oggetto di completamento registrato: {completionObjectToEnable.name}");
+        }
     }
 
     /// <summary>
@@ -120,6 +161,18 @@ public class Presents : Collectibles
     /// </summary>
     protected override void OnItemCollected()
     {
+        // Gestione speciale Sweet Plaza PRIMA degli eventi base
+        if (isSweetPlazaPresent)
+        {
+            HandleSweetPlazaCollection();
+        }
+        
+        // Gestione speciale Playground Arena
+        if (isPlaygroundArenaPresent)
+        {
+            HandlePlaygroundArenaCollection();
+        }
+        
         // Invoca eventi Present specifici
         if (enablePresentEvents)
         {
@@ -133,6 +186,245 @@ public class Presents : Collectibles
                 Debug.LogError($"[Presents] Errore nell'invocare OnPresentCollected per {collectibleName}: {e.Message}");
             }
         }
+    }
+
+    // ========== SWEET PLAZA SYSTEM ==========
+
+    /// <summary>
+    /// Configura questo Present come regalo speciale della Sweet Plaza
+    /// </summary>
+    public void ConfigureAsSweetPlazaPresent(GameObject objectToEnable = null, string customMessage = null)
+    {
+        isSweetPlazaPresent = true;
+        isPlaygroundArenaPresent = false; // Esclude gli altri tipi
+        
+        if (objectToEnable != null)
+            sweetPlazaObjectToEnable = objectToEnable;
+        
+        if (!string.IsNullOrEmpty(customMessage))
+            sweetPlazaMessage = customMessage;
+        
+        // Configurazioni specifiche Sweet Plaza
+        collectibleName = "Sweet Plaza Gift";
+        presentSize = PresentSize.Large;
+        collectibleValue = 30;
+        rotationSpeed = 35f;
+        floatSpeed = 1.8f;
+        floatStrength = 0.45f;
+        displayMessage = string.IsNullOrEmpty(customMessage) ? sweetPlazaMessage : customMessage;
+        delayBeforeHiding = 4f; // Tempo extra per ammirare l'effetto
+        
+        // Riapplica le configurazioni
+        ConfigurePresentDefaults();
+        
+        LogDebug($"Configurato come Sweet Plaza Present - Oggetto da abilitare: {(sweetPlazaObjectToEnable != null ? sweetPlazaObjectToEnable.name : "NESSUNO")}");
+    }
+
+    /// <summary>
+    /// Gestisce la logica specifica per i regali della Sweet Plaza
+    /// </summary>
+    private void HandleSweetPlazaCollection()
+    {
+        LogDebug($"🍭 Sweet Plaza Present raccolto: {collectibleName}");
+        
+        // Attiva l'oggetto specificato
+        if (sweetPlazaObjectToEnable != null)
+        {
+            try
+            {
+                bool wasActive = sweetPlazaObjectToEnable.activeInHierarchy;
+                sweetPlazaObjectToEnable.SetActive(true);
+                
+                LogDebug($"✅ Oggetto Sweet Plaza abilitato: {sweetPlazaObjectToEnable.name} (era attivo: {wasActive})");
+                
+                // Log aggiuntivo se l'oggetto era già attivo
+                if (wasActive)
+                {
+                    LogDebug($"ℹ️ L'oggetto {sweetPlazaObjectToEnable.name} era già attivo");
+                }
+                
+                // Feedback visivo/audio aggiuntivo per Sweet Plaza
+                PlaySweetPlazaFeedback();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[Presents] ERRORE nell'abilitare oggetto Sweet Plaza {sweetPlazaObjectToEnable.name}: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[Presents] Sweet Plaza Present raccolto ma nessun oggetto da abilitare assegnato!");
+        }
+        
+        // Marca Sweet Plaza come raccolto e controlla completamento
+        sweetPlazaCollectedInScene = true;
+        CheckCollectionCompletion();
+    }
+
+    /// <summary>
+    /// Feedback aggiuntivo specifico per Sweet Plaza
+    /// </summary>
+    private void PlaySweetPlazaFeedback()
+    {
+        // Potresti aggiungere qui effetti speciali per Sweet Plaza
+        // Ad esempio: particelle speciali, suoni diversi, etc.
+        
+        LogDebug($"🎉 Feedback Sweet Plaza riprodotto per {collectibleName}");
+        
+        // Esempio: potresti aggiungere effetti particelle speciali
+        // o modificare temporaneamente i colori degli effetti esistenti
+    }
+
+    // ========== PLAYGROUND ARENA SYSTEM ==========
+
+    /// <summary>
+    /// Configura questo Present come regalo speciale del Playground Arena
+    /// </summary>
+    public void ConfigureAsPlaygroundArenaPresent(GameObject objectToEnable = null, string customMessage = null)
+    {
+        isPlaygroundArenaPresent = true;
+        isSweetPlazaPresent = false; // Esclude gli altri tipi
+        
+        if (objectToEnable != null)
+            playgroundArenaObjectToEnable = objectToEnable;
+        
+        if (!string.IsNullOrEmpty(customMessage))
+            playgroundArenaMessage = customMessage;
+        
+        // Configurazioni specifiche Playground Arena
+        collectibleName = "Playground Arena Gift";
+        presentSize = PresentSize.Large;
+        collectibleValue = 35;
+        rotationSpeed = 40f; // Leggermente più veloce per l'energia del playground
+        floatSpeed = 2.2f;
+        floatStrength = 0.5f;
+        displayMessage = string.IsNullOrEmpty(customMessage) ? playgroundArenaMessage : customMessage;
+        delayBeforeHiding = 5f; // Tempo extra per playground
+        
+        // Riapplica le configurazioni
+        ConfigurePresentDefaults();
+        
+        LogDebug($"Configurato come Playground Arena Present - Oggetto da abilitare: {(playgroundArenaObjectToEnable != null ? playgroundArenaObjectToEnable.name : "NESSUNO")}");
+    }
+
+    /// <summary>
+    /// Gestisce la logica specifica per i regali del Playground Arena
+    /// </summary>
+    private void HandlePlaygroundArenaCollection()
+    {
+        LogDebug($"🎮 Playground Arena Present raccolto: {collectibleName}");
+        
+        // Attiva l'oggetto specificato
+        if (playgroundArenaObjectToEnable != null)
+        {
+            try
+            {
+                bool wasActive = playgroundArenaObjectToEnable.activeInHierarchy;
+                playgroundArenaObjectToEnable.SetActive(true);
+                
+                LogDebug($"✅ Oggetto Playground Arena abilitato: {playgroundArenaObjectToEnable.name} (era attivo: {wasActive})");
+                
+                // Log aggiuntivo se l'oggetto era già attivo
+                if (wasActive)
+                {
+                    LogDebug($"ℹ️ L'oggetto {playgroundArenaObjectToEnable.name} era già attivo");
+                }
+                
+                // Feedback visivo/audio aggiuntivo per Playground Arena
+                PlayPlaygroundArenaFeedback();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[Presents] ERRORE nell'abilitare oggetto Playground Arena {playgroundArenaObjectToEnable.name}: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[Presents] Playground Arena Present raccolto ma nessun oggetto da abilitare assegnato!");
+        }
+        
+        // Marca Playground Arena come raccolto e controlla completamento
+        playgroundArenaCollectedInScene = true;
+        CheckCollectionCompletion();
+    }
+
+    /// <summary>
+    /// Feedback aggiuntivo specifico per Playground Arena
+    /// </summary>
+    private void PlayPlaygroundArenaFeedback()
+    {
+        // Potresti aggiungere qui effetti speciali per Playground Arena
+        // Ad esempio: particelle energetiche, suoni di attivazione, etc.
+        
+        LogDebug($"🎮 Feedback Playground Arena riprodotto per {collectibleName}");
+        
+        // Esempio: potresti aggiungere effetti particelle più dinamici
+        // o suoni più energici per il playground
+    }
+
+    // ========== COLLECTION COMPLETION SYSTEM ==========
+
+    /// <summary>
+    /// Controlla se entrambi i regali speciali sono stati raccolti e attiva l'oggetto di completamento
+    /// </summary>
+    private static void CheckCollectionCompletion()
+    {
+        if (sweetPlazaCollectedInScene && playgroundArenaCollectedInScene)
+        {
+            Debug.Log($"🎉 [Presents] COLLEZIONE COMPLETA! Entrambi i regali speciali sono stati raccolti!");
+            
+            // Attiva l'oggetto di completamento se presente
+            if (globalCompletionObject != null)
+            {
+                try
+                {
+                    bool wasActive = globalCompletionObject.activeInHierarchy;
+                    globalCompletionObject.SetActive(true);
+                    
+                    Debug.Log($"✅ [Presents] Oggetto di completamento attivato: {globalCompletionObject.name} (era attivo: {wasActive})");
+                    
+                    if (!string.IsNullOrEmpty(globalCompletionMessage))
+                    {
+                        Debug.Log($"📢 [Presents] {globalCompletionMessage}");
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[Presents] ERRORE nell'attivare oggetto di completamento {globalCompletionObject.name}: {e.Message}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[Presents] Collezione completata ma nessun oggetto di completamento configurato!");
+            }
+        }
+        else
+        {
+            Debug.Log($"[Presents] Progresso collezione: Sweet Plaza={sweetPlazaCollectedInScene}, Playground Arena={playgroundArenaCollectedInScene}");
+        }
+    }
+
+    /// <summary>
+    /// Resetta il tracking della collezione (utile per test o riavvio livello)
+    /// </summary>
+    public static void ResetCollectionTracking()
+    {
+        sweetPlazaCollectedInScene = false;
+        playgroundArenaCollectedInScene = false;
+        globalCompletionObject = null;
+        globalCompletionMessage = "";
+        Debug.Log($"[Presents] Tracking collezione resettato");
+    }
+
+    /// <summary>
+    /// Forza il completamento della collezione (per test)
+    /// </summary>
+    public static void ForceCollectionCompletion()
+    {
+        sweetPlazaCollectedInScene = true;
+        playgroundArenaCollectedInScene = true;
+        CheckCollectionCompletion();
+        Debug.Log($"[Presents] Completamento collezione forzato");
     }
 
     /// <summary>
@@ -272,6 +564,100 @@ public class Presents : Collectibles
     }
 
     /// <summary>
+    /// Validazione specifica per Sweet Plaza Present
+    /// </summary>
+    public bool ValidateSweetPlazaSetup()
+    {
+        bool valid = true;
+        
+        LogDebug($"=== VALIDAZIONE SWEET PLAZA SETUP ===");
+        
+        if (!isSweetPlazaPresent)
+        {
+            LogDebug($"ℹ️ Non è un Sweet Plaza Present - validazione non necessaria");
+            return true;
+        }
+        
+        // Verifica oggetto da abilitare
+        if (sweetPlazaObjectToEnable == null)
+        {
+            LogDebug($"❌ Sweet Plaza Present senza oggetto da abilitare!");
+            valid = false;
+        }
+        else
+        {
+            LogDebug($"✅ Oggetto da abilitare: {sweetPlazaObjectToEnable.name}");
+            
+            // Controlla se l'oggetto è già distrutto
+            if (sweetPlazaObjectToEnable == null)
+            {
+                LogDebug($"❌ L'oggetto assegnato è stato distrutto!");
+                valid = false;
+            }
+        }
+        
+        // Verifica messaggio
+        if (string.IsNullOrEmpty(sweetPlazaMessage))
+        {
+            LogDebug($"⚠️ Messaggio Sweet Plaza vuoto");
+        }
+        else
+        {
+            LogDebug($"✅ Messaggio: {sweetPlazaMessage}");
+        }
+        
+        LogDebug($"Validazione Sweet Plaza: {(valid ? "✅ VALIDA" : "❌ PROBLEMI")}");
+        return valid;
+    }
+
+    /// <summary>
+    /// Validazione specifica per Playground Arena Present
+    /// </summary>
+    public bool ValidatePlaygroundArenaSetup()
+    {
+        bool valid = true;
+        
+        LogDebug($"=== VALIDAZIONE PLAYGROUND ARENA SETUP ===");
+        
+        if (!isPlaygroundArenaPresent)
+        {
+            LogDebug($"ℹ️ Non è un Playground Arena Present - validazione non necessaria");
+            return true;
+        }
+        
+        // Verifica oggetto da abilitare
+        if (playgroundArenaObjectToEnable == null)
+        {
+            LogDebug($"❌ Playground Arena Present senza oggetto da abilitare!");
+            valid = false;
+        }
+        else
+        {
+            LogDebug($"✅ Oggetto da abilitare: {playgroundArenaObjectToEnable.name}");
+            
+            // Controlla se l'oggetto è già distrutto
+            if (playgroundArenaObjectToEnable == null)
+            {
+                LogDebug($"❌ L'oggetto assegnato è stato distrutto!");
+                valid = false;
+            }
+        }
+        
+        // Verifica messaggio
+        if (string.IsNullOrEmpty(playgroundArenaMessage))
+        {
+            LogDebug($"⚠️ Messaggio Playground Arena vuoto");
+        }
+        else
+        {
+            LogDebug($"✅ Messaggio: {playgroundArenaMessage}");
+        }
+        
+        LogDebug($"Validazione Playground Arena: {(valid ? "✅ VALIDA" : "❌ PROBLEMI")}");
+        return valid;
+    }
+
+    /// <summary>
     /// Test del ciclo di vita completo del Present
     /// </summary>
     public void TestPresentCycle()
@@ -295,6 +681,39 @@ public class Presents : Collectibles
         LogDebug("=== TEST CICLO COMPLETATO ===");
     }
 
+    /// <summary>
+    /// Test della funzionalità Sweet Plaza
+    /// </summary>
+    public void TestSweetPlazaToggle()
+    {
+        if (!isSweetPlazaPresent)
+        {
+            LogDebug("❌ Questo non è un Sweet Plaza Present. Configuralo prima con ConfigureAsSweetPlazaPresent()");
+            return;
+        }
+        
+        LogDebug($"🧪 === TEST SWEET PLAZA TOGGLE ===");
+        LogDebug($"Oggetto da abilitare: {(sweetPlazaObjectToEnable != null ? sweetPlazaObjectToEnable.name : "NESSUNO")}");
+        
+        if (sweetPlazaObjectToEnable != null)
+        {
+            bool currentState = sweetPlazaObjectToEnable.activeInHierarchy;
+            LogDebug($"Stato attuale oggetto: {(currentState ? "ATTIVO" : "DISATTIVO")}");
+            
+            // Simula la raccolta
+            LogDebug($"🍭 Simulazione raccolta Sweet Plaza...");
+            HandleSweetPlazaCollection();
+            
+            bool newState = sweetPlazaObjectToEnable.activeInHierarchy;
+            LogDebug($"Nuovo stato oggetto: {(newState ? "ATTIVO" : "DISATTIVO")}");
+            LogDebug($"Cambio stato: {(currentState != newState ? "✅ SUCCESSO" : "⚠️ NESSUN CAMBIO")}");
+        }
+        else
+        {
+            LogDebug($"⚠️ Nessun oggetto assegnato per il test!");
+        }
+    }
+
     // ========== GETTERS SPECIFICI PRESENT ==========
 
     public bool IsDetailedLogsEnabled() => enableDetailedLogs;
@@ -312,6 +731,34 @@ public class Presents : Collectibles
             _ => GetCollectibleValue()
         };
     }
+
+    // Sweet Plaza Getters
+    public bool IsSweetPlazaPresent() => isSweetPlazaPresent;
+    public GameObject GetSweetPlazaObjectToEnable() => sweetPlazaObjectToEnable;
+    public string GetSweetPlazaMessage() => sweetPlazaMessage;
+
+    // Playground Arena Getters
+    public bool IsPlaygroundArenaPresent() => isPlaygroundArenaPresent;
+    public GameObject GetPlaygroundArenaObjectToEnable() => playgroundArenaObjectToEnable;
+    public string GetPlaygroundArenaMessage() => playgroundArenaMessage;
+
+    // Special Present Type Detection
+    public string GetSpecialPresentType()
+    {
+        if (isSweetPlazaPresent) return "Sweet Plaza";
+        if (isPlaygroundArenaPresent) return "Playground Arena";
+        return "Standard";
+    }
+
+    public bool IsSpecialPresent() => isSweetPlazaPresent || isPlaygroundArenaPresent;
+
+    // Collection Completion Getters
+    public GameObject GetCompletionObjectToEnable() => completionObjectToEnable;
+    public string GetCompletionMessage() => completionMessage;
+    public static bool IsSweetPlazaCollectedInScene() => sweetPlazaCollectedInScene;
+    public static bool IsPlaygroundArenaCollectedInScene() => playgroundArenaCollectedInScene;
+    public static bool IsCollectionComplete() => sweetPlazaCollectedInScene && playgroundArenaCollectedInScene;
+    public static GameObject GetGlobalCompletionObject() => globalCompletionObject;
 
     // ========== SETTERS SPECIFICI PRESENT ==========
 
@@ -339,6 +786,75 @@ public class Presents : Collectibles
         enableRotation = rotation;
         enableFloating = floating;
         LogDebug($"Animazioni: Rotation={rotation}, Floating={floating}");
+    }
+
+    // Sweet Plaza Setters
+    public void SetSweetPlazaPresent(bool isSweet) 
+    {
+        isSweetPlazaPresent = isSweet;
+        if (isSweet) isPlaygroundArenaPresent = false; // Esclusività
+        LogDebug($"Sweet Plaza Present: {(isSweet ? "ABILITATO" : "DISABILITATO")}");
+    }
+
+    public void SetSweetPlazaObjectToEnable(GameObject obj)
+    {
+        sweetPlazaObjectToEnable = obj;
+        LogDebug($"Oggetto Sweet Plaza da abilitare impostato: {(obj != null ? obj.name : "NESSUNO")}");
+    }
+
+    public void SetSweetPlazaMessage(string message)
+    {
+        sweetPlazaMessage = message;
+        if (isSweetPlazaPresent && !string.IsNullOrEmpty(message))
+        {
+            displayMessage = message;
+        }
+        LogDebug($"Messaggio Sweet Plaza impostato: {message}");
+    }
+
+    // Playground Arena Setters
+    public void SetPlaygroundArenaPresent(bool isArena) 
+    {
+        isPlaygroundArenaPresent = isArena;
+        if (isArena) isSweetPlazaPresent = false; // Esclusività
+        LogDebug($"Playground Arena Present: {(isArena ? "ABILITATO" : "DISABILITATO")}");
+    }
+
+    public void SetPlaygroundArenaObjectToEnable(GameObject obj)
+    {
+        playgroundArenaObjectToEnable = obj;
+        LogDebug($"Oggetto Playground Arena da abilitare impostato: {(obj != null ? obj.name : "NESSUNO")}");
+    }
+
+    public void SetPlaygroundArenaMessage(string message)
+    {
+        playgroundArenaMessage = message;
+        if (isPlaygroundArenaPresent && !string.IsNullOrEmpty(message))
+        {
+            displayMessage = message;
+        }
+        LogDebug($"Messaggio Playground Arena impostato: {message}");
+    }
+
+    // Collection Completion Setters
+    public void SetCompletionObjectToEnable(GameObject obj)
+    {
+        completionObjectToEnable = obj;
+        if (obj != null && globalCompletionObject == null)
+        {
+            globalCompletionObject = obj;
+            LogDebug($"Oggetto di completamento globale impostato: {obj.name}");
+        }
+    }
+
+    public void SetCompletionMessage(string message)
+    {
+        completionMessage = message;
+        if (!string.IsNullOrEmpty(message) && string.IsNullOrEmpty(globalCompletionMessage))
+        {
+            globalCompletionMessage = message;
+        }
+        LogDebug($"Messaggio di completamento impostato: {message}");
     }
 
     // ========== METODI PER COMPATIBILITÀ ==========
@@ -370,6 +886,20 @@ public class Presents : Collectibles
     [ContextMenu("🎁 Configure as Small Surprise")]
     public void DebugConfigureSmallSurprise() => ConfigureAsSmallSurprise();
 
+    [ContextMenu("🍭 Configure as Sweet Plaza Present")]
+    public void DebugConfigureSweetPlaza()
+    {
+        ConfigureAsSweetPlazaPresent();
+        Debug.Log($"[Presents] {collectibleName} configurato come Sweet Plaza Present");
+    }
+
+    [ContextMenu("🎮 Configure as Playground Arena Present")]
+    public void DebugConfigurePlaygroundArena()
+    {
+        ConfigureAsPlaygroundArenaPresent();
+        Debug.Log($"[Presents] {collectibleName} configurato come Playground Arena Present");
+    }
+
     [ContextMenu("📝 Toggle Detailed Logs")]
     public void DebugToggleDetailedLogs()
     {
@@ -384,11 +914,59 @@ public class Presents : Collectibles
         Debug.Log($"[Presents] Present Events per {collectibleName}: {(enablePresentEvents ? "ABILITATI" : "DISABILITATI")}");
     }
 
+    [ContextMenu("🍭 Toggle Sweet Plaza Mode")]
+    public void DebugToggleSweetPlazaMode()
+    {
+        SetSweetPlazaPresent(!isSweetPlazaPresent);
+        
+        if (isSweetPlazaPresent && sweetPlazaObjectToEnable == null)
+        {
+            Debug.LogWarning($"[Presents] Sweet Plaza mode attivato ma nessun oggetto assegnato! Assegna 'Sweet Plaza Object To Enable' nell'Inspector.");
+        }
+        
+        Debug.Log($"[Presents] Sweet Plaza mode per {collectibleName}: {(isSweetPlazaPresent ? "ABILITATO" : "DISABILITATO")}");
+    }
+
+    [ContextMenu("🎮 Toggle Playground Arena Mode")]
+    public void DebugTogglePlaygroundArenaMode()
+    {
+        SetPlaygroundArenaPresent(!isPlaygroundArenaPresent);
+        
+        if (isPlaygroundArenaPresent && playgroundArenaObjectToEnable == null)
+        {
+            Debug.LogWarning($"[Presents] Playground Arena mode attivato ma nessun oggetto assegnato! Assegna 'Playground Arena Object To Enable' nell'Inspector.");
+        }
+        
+        Debug.Log($"[Presents] Playground Arena mode per {collectibleName}: {(isPlaygroundArenaPresent ? "ABILITATO" : "DISABILITATO")}");
+    }
+
     [ContextMenu("✅ Validate Present Components")]
     public void DebugValidatePresentComponents() => ValidatePresentComponents();
 
-    [ContextMenu("🔄 Test Present Cycle")]
-    public void DebugTestPresentCycle() => TestPresentCycle();
+    [ContextMenu("✅ Validate Sweet Plaza Setup")]
+    public void DebugValidateSweetPlaza() => ValidateSweetPlazaSetup();
+
+    [ContextMenu("✅ Validate Playground Arena Setup")]
+    public void DebugValidatePlaygroundArena() => ValidatePlaygroundArenaSetup();
+
+    [ContextMenu("🎉 Test Collection Completion")]
+    public void DebugTestCollectionCompletion()
+    {
+        Debug.Log($"🧪 === TEST COLLECTION COMPLETION ===");
+        Debug.Log($"Sweet Plaza raccolto: {sweetPlazaCollectedInScene}");
+        Debug.Log($"Playground Arena raccolto: {playgroundArenaCollectedInScene}");
+        Debug.Log($"Collezione completa: {IsCollectionComplete()}");
+        Debug.Log($"Oggetto di completamento: {(globalCompletionObject != null ? globalCompletionObject.name : "NESSUNO")}");
+        
+        if (!IsCollectionComplete())
+        {
+            Debug.Log($"🔄 Forzando completamento per test...");
+            ForceCollectionCompletion();
+        }
+    }
+
+    [ContextMenu("🔄 Reset Collection Tracking")]
+    public void DebugResetCollectionTracking() => ResetCollectionTracking();
 
     [ContextMenu("📊 Debug Present State")]
     public void DebugPresentState()
@@ -418,8 +996,66 @@ public class Presents : Collectibles
                       $"Collectible Value: {collectibleValue}\n" +
                       $"Expected Value by Size: {GetPresentValueBySize()}\n" +
                       $"Will Disable GameObject After Collection: {WillDisableGameObjectAfterCollection()}\n" +
-                      $"Will Hide Mesh Immediately: {WillHideMeshImmediately()}";
+                      $"Will Hide Mesh Immediately: {WillHideMeshImmediately()}\n" +
+                      $"🍭 Sweet Plaza Settings:\n" +
+                      $"   - Is Sweet Plaza Present: {isSweetPlazaPresent}\n" +
+                      $"   - Object To Enable: {(sweetPlazaObjectToEnable != null ? sweetPlazaObjectToEnable.name : "NULL")}\n" +
+                      $"   - Object Current State: {(sweetPlazaObjectToEnable != null ? (sweetPlazaObjectToEnable.activeInHierarchy ? "ACTIVE" : "INACTIVE") : "N/A")}\n" +
+                      $"   - Sweet Plaza Message: {(string.IsNullOrEmpty(sweetPlazaMessage) ? "EMPTY" : sweetPlazaMessage)}\n" +
+                      $"🎮 Playground Arena Settings:\n" +
+                      $"   - Is Playground Arena Present: {isPlaygroundArenaPresent}\n" +
+                      $"   - Object To Enable: {(playgroundArenaObjectToEnable != null ? playgroundArenaObjectToEnable.name : "NULL")}\n" +
+                      $"   - Object Current State: {(playgroundArenaObjectToEnable != null ? (playgroundArenaObjectToEnable.activeInHierarchy ? "ACTIVE" : "INACTIVE") : "N/A")}\n" +
+                      $"   - Playground Arena Message: {(string.IsNullOrEmpty(playgroundArenaMessage) ? "EMPTY" : playgroundArenaMessage)}\n" +
+                      $"Special Present Type: {GetSpecialPresentType()}\n" +
+                      $"🎉 Collection Completion:\n" +
+                      $"   - Sweet Plaza Collected: {sweetPlazaCollectedInScene}\n" +
+                      $"   - Playground Arena Collected: {playgroundArenaCollectedInScene}\n" +
+                      $"   - Collection Complete: {IsCollectionComplete()}\n" +
+                      $"   - Completion Object: {(globalCompletionObject != null ? globalCompletionObject.name : "NULL")}\n" +
+                      $"   - Completion Message: {(string.IsNullOrEmpty(globalCompletionMessage) ? "EMPTY" : globalCompletionMessage)}";
 
+        Debug.Log(state);
+    }
+
+    [ContextMenu("📊 Debug Collection Status")]
+    public void DebugCollectionStatus()
+    {
+        string status = $"=== STATO COLLEZIONE GLOBALE ===\n" +
+                       $"Sweet Plaza Collected: {sweetPlazaCollectedInScene}\n" +
+                       $"Playground Arena Collected: {playgroundArenaCollectedInScene}\n" +
+                       $"Collection Complete: {IsCollectionComplete()}\n" +
+                       $"Global Completion Object: {(globalCompletionObject != null ? globalCompletionObject.name : "NULL")}\n" +
+                       $"Global Completion Object Active: {(globalCompletionObject != null ? globalCompletionObject.activeInHierarchy.ToString() : "N/A")}\n" +
+                       $"Global Completion Message: {(string.IsNullOrEmpty(globalCompletionMessage) ? "EMPTY" : globalCompletionMessage)}\n" +
+                       $"This Present Completion Object: {(completionObjectToEnable != null ? completionObjectToEnable.name : "NULL")}";
+        
+        Debug.Log(status);
+    }
+
+    [ContextMenu("📊 Debug Sweet Plaza State")]
+    public void DebugSweetPlazaState()
+    {
+        string state = $"=== STATO SWEET PLAZA per {collectibleName} ===\n" +
+                      $"Is Sweet Plaza Present: {isSweetPlazaPresent}\n" +
+                      $"Object To Enable: {(sweetPlazaObjectToEnable != null ? sweetPlazaObjectToEnable.name : "NULL")}\n" +
+                      $"Object Current State: {(sweetPlazaObjectToEnable != null ? (sweetPlazaObjectToEnable.activeInHierarchy ? "ACTIVE" : "INACTIVE") : "N/A")}\n" +
+                      $"Sweet Plaza Message: {(string.IsNullOrEmpty(sweetPlazaMessage) ? "EMPTY" : sweetPlazaMessage)}\n" +
+                      $"Setup Valid: {(isSweetPlazaPresent ? ValidateSweetPlazaSetup().ToString() : "N/A")}";
+        
+        Debug.Log(state);
+    }
+
+    [ContextMenu("📊 Debug Playground Arena State")]
+    public void DebugPlaygroundArenaState()
+    {
+        string state = $"=== STATO PLAYGROUND ARENA per {collectibleName} ===\n" +
+                      $"Is Playground Arena Present: {isPlaygroundArenaPresent}\n" +
+                      $"Object To Enable: {(playgroundArenaObjectToEnable != null ? playgroundArenaObjectToEnable.name : "NULL")}\n" +
+                      $"Object Current State: {(playgroundArenaObjectToEnable != null ? (playgroundArenaObjectToEnable.activeInHierarchy ? "ACTIVE" : "INACTIVE") : "N/A")}\n" +
+                      $"Playground Arena Message: {(string.IsNullOrEmpty(playgroundArenaMessage) ? "EMPTY" : playgroundArenaMessage)}\n" +
+                      $"Setup Valid: {(isPlaygroundArenaPresent ? ValidatePlaygroundArenaSetup().ToString() : "N/A")}";
+        
         Debug.Log(state);
     }
 
@@ -519,6 +1155,24 @@ public class Presents : Collectibles
                   $"- Pre-audio DEVE essere in loop (suona continuamente)\n" +
                   $"- Post-audio NON deve essere in loop (suona solo alla raccolta)\n" +
                   $"- Present NON si disattiva mai (solo nasconde mesh)\n" +
-                  $"- Usa solo trigger per la raccolta (non click)");
+                  $"- Usa solo trigger per la raccolta (non click)\n\n" +
+                  $"🍭 SWEET PLAZA SPECIFICO:\n" +
+                  $"- Abilita 'Is Sweet Plaza Present' nell'Inspector\n" +
+                  $"- Assegna l'oggetto da attivare in 'Sweet Plaza Object To Enable'\n" +
+                  $"- Personalizza il messaggio se necessario\n" +
+                  $"- Test con '🧪 Test Sweet Plaza Toggle'\n\n" +
+                  $"🎮 PLAYGROUND ARENA SPECIFICO:\n" +
+                  $"- Abilita 'Is Playground Arena Present' nell'Inspector\n" +
+                  $"- Assegna l'oggetto da attivare in 'Playground Arena Object To Enable'\n" +
+                  $"- Personalizza il messaggio se necessario\n" +
+                  $"- Test con '🧪 Test Playground Arena Toggle'\n\n" +
+                  $"🎉 COLLECTION COMPLETION SYSTEM:\n" +
+                  $"- Su UNO dei Present: assegna 'Completion Object To Enable'\n" +
+                  $"- Questo oggetto si attiverà quando ENTRAMBI i tipi sono raccolti\n" +
+                  $"- Personalizza il messaggio di completamento\n" +
+                  $"- Test con '🎉 Test Collection Completion'\n" +
+                  $"- Reset con '🔄 Reset Collection Tracking'\n\n" +
+                  $"⚠️ NOTA: Sweet Plaza e Playground Arena sono MUTUAMENTE ESCLUSIVI!\n" +
+                  $"💡 SUGGERIMENTO: Il sistema traccia automaticamente la collezione globale!");
     }
 }

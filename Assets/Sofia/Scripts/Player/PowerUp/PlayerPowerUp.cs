@@ -12,6 +12,8 @@ public class PlayerPowerUp : MonoBehaviour
 
     public float CurrentPower => currentPower;
     public float MaxPower => maxPower;
+    [Header("Debug")]
+public float debugPowerAmount = 10f;
 
     [Header("UI")]
     public GameObject powerUI;
@@ -308,5 +310,10 @@ public class PlayerPowerUp : MonoBehaviour
         {
             DebugShowPowerStatus();
         }
+        if (Input.GetKeyDown(KeyCode.M))
+    {
+        Debug.Log($"[PlayerPowerUp] 🔋 Tasto M premuto - Aggiungendo {debugPowerAmount} power");
+        AddPower(debugPowerAmount);
+    }
     }
 }

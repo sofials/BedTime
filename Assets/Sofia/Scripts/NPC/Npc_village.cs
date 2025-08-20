@@ -38,6 +38,10 @@ public class Npc_village : MonoBehaviour
     [SerializeField] private LayerMask layerOstacoli = -1;
     [SerializeField] private float raggioControlloOstacoli = 1f;
 
+    [Header("Oggetti da Disattivare")]
+    [SerializeField] private GameObject[] oggettiDaDisattivare = new GameObject[2];
+    [SerializeField] private bool disattivaOggettiAllaLiberazione = true;
+
     [Header("Debug")]
     [SerializeField] private bool debugMode = true;
 
@@ -498,6 +502,13 @@ public class Npc_village : MonoBehaviour
                 if (regaliRaccoltiDaInizio >= regaliRichiestiPerLiberazione)
                 {
                     inAttesaRegali = false;
+                    
+                    // NUOVA FUNZIONALITÀ: Disattiva gli oggetti quando i regali sono stati raccolti
+                    if (disattivaOggettiAllaLiberazione)
+                    {
+                        DisattivaOggetti();
+                    }
+                    
                     if (debugMode) Debug.Log($"NPC {gameObject.name}: {regaliRichiestiPerLiberazione} regali raccolti! NPC liberato, avvio comportamento casuale.");
                     
                     AvviaComportamentoCasuale();
@@ -513,6 +524,85 @@ public class Npc_village : MonoBehaviour
             }
             
             yield return new WaitForSeconds(0.5f);
+        }
+    }
+
+    private void DisattivaOggetti()
+    {
+        if (oggettiDaDisattivare == null || oggettiDaDisattivare.Length == 0)
+        {
+            if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Nessun oggetto configurato per la disattivazione.");
+            return;
+        }
+        
+        int oggettiDisattivati = 0;
+        
+        for (int i = 0; i < oggettiDaDisattivare.Length; i++)
+        {
+            if (oggettiDaDisattivare[i] != null)
+            {
+                if (oggettiDaDisattivare[i].activeInHierarchy)
+                {
+                    oggettiDaDisattivare[i].SetActive(false);
+                    oggettiDisattivati++;
+                    
+                    if (debugMode) 
+                    {
+                        Debug.Log($"NPC {gameObject.name}: Oggetto #{i} '{oggettiDaDisattivare[i].name}' disattivato con successo!");
+                    }
+                }
+                else
+                {
+                    if (debugMode) 
+                    {
+                        Debug.Log($"NPC {gameObject.name}: Oggetto #{i} '{oggettiDaDisattivare[i].name}' era già disattivato.");
+                    }
+                }
+            }
+            else
+            {
+                if (debugMode) 
+                {
+                    Debug.LogWarning($"NPC {gameObject.name}: Oggetto #{i} nell'array è NULL!");
+                }
+            }
+        }
+        
+        if (debugMode) 
+        {
+            Debug.Log($"NPC {gameObject.name}: Disattivazione completata. {oggettiDisattivati}/{oggettiDaDisattivare.Length} oggetti disattivati.");
+        }
+    }
+
+    private void RiattivaOggetti()
+    {
+        if (oggettiDaDisattivare == null || oggettiDaDisattivare.Length == 0)
+        {
+            return;
+        }
+        
+        int oggettiRiattivati = 0;
+        
+        for (int i = 0; i < oggettiDaDisattivare.Length; i++)
+        {
+            if (oggettiDaDisattivare[i] != null)
+            {
+                if (!oggettiDaDisattivare[i].activeInHierarchy)
+                {
+                    oggettiDaDisattivare[i].SetActive(true);
+                    oggettiRiattivati++;
+                    
+                    if (debugMode) 
+                    {
+                        Debug.Log($"NPC {gameObject.name}: Oggetto #{i} '{oggettiDaDisattivare[i].name}' riattivato!");
+                    }
+                }
+            }
+        }
+        
+        if (debugMode) 
+        {
+            Debug.Log($"NPC {gameObject.name}: Riattivazione completata. {oggettiRiattivati}/{oggettiDaDisattivare.Length} oggetti riattivati.");
         }
     }
 
@@ -874,6 +964,12 @@ public class Npc_village : MonoBehaviour
         inAttesaRegali = false;
         regaliIniziali = 0;
         
+        // Riattiva gli oggetti quando l'NPC viene riavviato
+        if (disattivaOggettiAllaLiberazione)
+        {
+            RiattivaOggetti();
+        }
+        
         if (comportamentoRoutine != null)
         {
             StopCoroutine(comportamentoRoutine);
@@ -1058,6 +1154,45 @@ public class Npc_village : MonoBehaviour
         }
     }
 
+    // NUOVI METODI DI TEST PER GLI OGGETTI
+    [ContextMenu("Test - Disattiva Oggetti Manualmente")]
+    public void TestDisattivaOggetti()
+    {
+        DisattivaOggetti();
+    }
+
+    [ContextMenu("Test - Riattiva Oggetti Manualmente")]
+    public void TestRiattivaOggetti()
+    {
+        RiattivaOggetti();
+    }
+
+    [ContextMenu("Test - Verifica Configurazione Oggetti")]
+    public void TestVerificaConfigurazioneOggetti()
+    {
+        if (oggettiDaDisattivare == null)
+        {
+            Debug.LogError($"NPC {gameObject.name}: Array oggetti è NULL!");
+            return;
+        }
+        
+        Debug.Log($"NPC {gameObject.name}: Configurazione oggetti da disattivare:");
+        Debug.Log($"- Array size: {oggettiDaDisattivare.Length}");
+        Debug.Log($"- Disattivazione abilitata: {disattivaOggettiAllaLiberazione}");
+        
+        for (int i = 0; i < oggettiDaDisattivare.Length; i++)
+        {
+            if (oggettiDaDisattivare[i] != null)
+            {
+                Debug.Log($"- Slot {i}: '{oggettiDaDisattivare[i].name}' (Attivo: {oggettiDaDisattivare[i].activeInHierarchy})");
+            }
+            else
+            {
+                Debug.LogWarning($"- Slot {i}: VUOTO!");
+            }
+        }
+    }
+
     [ContextMenu("Debug - Stato Animator")]
     public void DebugAnimatorState()
     {
@@ -1169,6 +1304,8 @@ public class Npc_village : MonoBehaviour
     public bool InAttesaRegali => inAttesaRegali;
     public bool UsaPuntoFisso => usaPuntoFisso;
     public int RegaliRichiestiPerLiberazione => regaliRichiestiPerLiberazione;
+    public GameObject[] OggettiDaDisattivare => oggettiDaDisattivare;
+    public bool DisattivaOggettiAllaLiberazione => disattivaOggettiAllaLiberazione;
     public static int TotalStoppedNPCs => stoppedNPCs.Count;
     public static bool SlowdownWasUsed => slowdownAlreadyUsed;
 }
