@@ -13,6 +13,39 @@ public class DialogueLine
     public AudioClip audioClip; // Audio opzionale per questa linea
 }
 
+[System.Serializable]
+public class DissolveObject
+{
+    [Header("Oggetto da Dissolvere")]
+    [Tooltip("L'oggetto che avrà l'effetto dissolve")]
+    public GameObject targetObject;
+    
+    [Header("Materiali con Dissolve")]
+    [Tooltip("Lista dei materiali che hanno la proprietà '_Dissolve' o simile")]
+    public Material[] dissolveMaterials;
+    
+    [Header("Proprietà Dissolve")]
+    [Tooltip("Nome della proprietà dissolve nei materiali (es: '_Dissolve', '_DissolveAmount')")]
+    public string dissolvePropertyName = "_Dissolve";
+    
+    [Header("Timing")]
+    [Tooltip("Durata dell'effetto dissolve in secondi")]
+    [Range(0.1f, 10f)]
+    public float dissolveDuration = 2f;
+    
+    [Tooltip("Ritardo prima di iniziare l'effetto dissolve")]
+    [Range(0f, 5f)]
+    public float dissolveDelay = 0f;
+    
+    [Header("Mesh Collider")]
+    [Tooltip("Se true, attiverà il MeshCollider alla fine dell'effetto")]
+    public bool enableMeshColliderAfterDissolve = true;
+    
+    [Tooltip("Ritardo aggiuntivo prima di attivare il collider (dopo fine dissolve)")]
+    [Range(0f, 2f)]
+    public float colliderActivationDelay = 0f;
+}
+
 public class DialogueSystem : MonoBehaviour
 {
     [Header("UI Components")]
@@ -25,6 +58,22 @@ public class DialogueSystem : MonoBehaviour
     public bool autoCloseOnExit = false; // Se true, chiude il dialogo quando esci dalla zona
     public bool autoFinishLastLine = true; // Se true, l'ultima battuta finisce automaticamente
     public float autoFinishDelay = 2f; // Tempo di attesa per ultima battuta senza audio
+    
+    [Header("🆕 Sottodialogo System")]
+    [SerializeField] private bool enableSubDialogue = false;
+    [Tooltip("DialogueSystem che verrà attivato alla fine di questo dialogo")]
+    [SerializeField] private DialogueSystem subDialogueSystem;
+    [Tooltip("Ritardo prima di attivare il sottodialogo (in secondi)")]
+    [SerializeField] private float subDialogueDelay = 0.5f;
+    [Tooltip("Messaggio da loggare quando viene attivato il sottodialogo")]
+    [SerializeField] private string subDialogueMessage = "Attivando sottodialogo...";
+    
+    [Header("🆕 Dissolve System")]
+    [SerializeField] private bool enableDissolveEffect = false;
+    [Tooltip("Lista degli oggetti da dissolvere alla fine del dialogo")]
+    [SerializeField] private DissolveObject[] dissolveObjects;
+    [Tooltip("Se true, avvia il dissolve insieme al sottodialogo")]
+    [SerializeField] private bool dissolveWithSubDialogue = true;
     
     [Header("Object Activation System")]
     [SerializeField] private bool enableObjectActivation = false;
@@ -57,22 +106,31 @@ public class DialogueSystem : MonoBehaviour
     public UnityEvent OnDialogueEnded; // Quando finisce il dialogo
     public UnityEvent OnLastLineReached; // Quando viene mostrata l'ultima battuta
     public UnityEvent OnLastLineFinished; // Quando finisce l'ultima battuta
-    public UnityEvent OnObjectsActivated; // 🆕 Quando gli oggetti vengono attivati
+    public UnityEvent OnObjectsActivated; // Quando gli oggetti vengono attivati
+    public UnityEvent OnSubDialogueTriggered; // 🆕 Quando viene attivato un sottodialogo
+    public UnityEvent OnDissolveStarted; // 🆕 Quando inizia l'effetto dissolve
+    public UnityEvent OnDissolveCompleted; // 🆕 Quando finisce l'effetto dissolve
     
     // Eventi statici per comunicazione globale con gli NPC
     public static event Action<DialogueSystem> OnAnyDialogueStarted;
     public static event Action<DialogueSystem> OnAnyDialogueEnded; 
     public static event Action<DialogueSystem> OnAnyLastLineFinished;
-    public static event Action<DialogueSystem> OnAnyObjectsActivated; // 🆕 Evento globale per attivazione oggetti
+    public static event Action<DialogueSystem> OnAnyObjectsActivated;
+    public static event Action<DialogueSystem> OnAnySubDialogueTriggered; // 🆕
+    public static event Action<DialogueSystem> OnAnyDissolveStarted; // 🆕
+    public static event Action<DialogueSystem> OnAnyDissolveCompleted; // 🆕
     
     private int currentLineIndex = 0;
     private bool isDialogueActive = false;
     private bool isPlayingAudio = false;
     private bool hasBeenTriggered = false; // Per evitare ripetizioni
     private bool isOnLastLine = false; // Flag per tracciare se siamo sull'ultima battuta
-    private bool objectsAlreadyActivated = false; // 🆕 Per evitare attivazioni multiple
+    private bool objectsAlreadyActivated = false; // Per evitare attivazioni multiple
+    private bool subDialogueTriggered = false; // 🆕 Per evitare attivazioni multiple del sottodialogo
+    private bool dissolveTriggered = false; // 🆕 Per evitare attivazioni multiple del dissolve
     private Coroutine audioCoroutine;
     private Coroutine autoFinishCoroutine;
+    private List<Coroutine> dissolveCoroutines = new List<Coroutine>(); // 🆕 Lista delle coroutine di dissolve attive
     
     void Start()
     {
@@ -89,6 +147,8 @@ public class DialogueSystem : MonoBehaviour
         
         // Valida il setup degli oggetti
         ValidateObjectActivationSetup();
+        ValidateSubDialogueSetup(); // 🆕
+        ValidateDissolveSetup(); // 🆕
     }
     
     void Update()
@@ -175,7 +235,9 @@ public class DialogueSystem : MonoBehaviour
         hasBeenTriggered = true;
         currentLineIndex = 0;
         isOnLastLine = false;
-        objectsAlreadyActivated = false; // 🆕 Reset flag attivazione oggetti
+        objectsAlreadyActivated = false;
+        subDialogueTriggered = false; // 🆕 Reset flag sottodialogo
+        dissolveTriggered = false; // 🆕 Reset flag dissolve
         
         // Attiva l'UI del dialogo
         if (dialogueUI != null)
@@ -417,7 +479,7 @@ public class DialogueSystem : MonoBehaviour
         // Riabilita il salto
         EnablePlayerJumpOnly();
         
-        // 🆕 ATTIVA OGGETTI SE ABILITATO
+        // ATTIVA OGGETTI SE ABILITATO
         if (enableObjectActivation && !objectsAlreadyActivated)
         {
             if (activationDelay > 0)
@@ -430,6 +492,25 @@ public class DialogueSystem : MonoBehaviour
             }
         }
         
+        // 🆕 ATTIVA SOTTODIALOGO SE ABILITATO
+        if (enableSubDialogue && !subDialogueTriggered)
+        {
+            if (subDialogueDelay > 0)
+            {
+                StartCoroutine(TriggerSubDialogueWithDelay());
+            }
+            else
+            {
+                TriggerSubDialogue();
+            }
+        }
+        
+        // 🆕 AVVIA DISSOLVE SE ABILITATO E NON DEVE ESSERE INSIEME AL SOTTODIALOGO
+        if (enableDissolveEffect && !dissolveTriggered && !dissolveWithSubDialogue)
+        {
+            StartDissolveEffect();
+        }
+        
         // Notifica fine dialogo
         OnDialogueEnded?.Invoke();
         OnAnyDialogueEnded?.Invoke(this);
@@ -440,7 +521,7 @@ public class DialogueSystem : MonoBehaviour
     // ========== OBJECT ACTIVATION SYSTEM ==========
     
     /// <summary>
-    /// 🆕 Attiva gli oggetti con ritardo se specificato
+    /// Attiva gli oggetti con ritardo se specificato
     /// </summary>
     IEnumerator ActivateObjectsWithDelay()
     {
@@ -450,7 +531,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Attiva/disattiva gli oggetti configurati
+    /// Attiva/disattiva gli oggetti configurati
     /// </summary>
     void ActivateObjects()
     {
@@ -554,8 +635,508 @@ public class DialogueSystem : MonoBehaviour
         OnAnyObjectsActivated?.Invoke(this);
     }
     
+    // ========== 🆕 SUB-DIALOGUE SYSTEM ==========
+    
     /// <summary>
-    /// 🆕 Valida il setup degli oggetti all'avvio
+    /// 🆕 Attiva il sottodialogo con ritardo se specificato
+    /// </summary>
+    IEnumerator TriggerSubDialogueWithDelay()
+    {
+        Debug.Log($"[DialogueSystem] Attivazione sottodialogo ritardata di {subDialogueDelay} secondi...");
+        yield return new WaitForSeconds(subDialogueDelay);
+        TriggerSubDialogue();
+    }
+    
+    /// <summary>
+    /// 🆕 Attiva il sottodialogo
+    /// </summary>
+    void TriggerSubDialogue()
+    {
+        if (subDialogueTriggered)
+        {
+            Debug.Log("[DialogueSystem] Sottodialogo già attivato, skip.");
+            return;
+        }
+        
+        if (subDialogueSystem == null)
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Sottodialogo abilitato ma nessun DialogueSystem assegnato!");
+            return;
+        }
+        
+        Debug.Log("[DialogueSystem] 🎭 ATTIVAZIONE SOTTODIALOGO!");
+        
+        subDialogueTriggered = true;
+        
+        // Log messaggio personalizzato
+        if (!string.IsNullOrEmpty(subDialogueMessage))
+        {
+            Debug.Log($"[DialogueSystem] 📢 {subDialogueMessage}");
+        }
+        
+        // 🆕 AVVIA DISSOLVE SE ABILITATO E DEVE ESSERE INSIEME AL SOTTODIALOGO
+        if (enableDissolveEffect && !dissolveTriggered && dissolveWithSubDialogue)
+        {
+            StartDissolveEffect();
+        }
+        
+        // Attiva il sottodialogo
+        try
+        {
+            subDialogueSystem.TriggerDialogue();
+            Debug.Log($"[DialogueSystem] ✅ Sottodialogo '{subDialogueSystem.name}' attivato con successo!");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Errore nell'attivare sottodialogo: {e.Message}");
+        }
+        
+        // Invoca eventi
+        OnSubDialogueTriggered?.Invoke();
+        OnAnySubDialogueTriggered?.Invoke(this);
+    }
+    
+    /// <summary>
+    /// 🆕 Valida il setup del sottodialogo all'avvio
+    /// </summary>
+    void ValidateSubDialogueSetup()
+    {
+        if (!enableSubDialogue)
+        {
+            Debug.Log("[DialogueSystem] Sub-Dialogue disabilitato");
+            return;
+        }
+        
+        if (subDialogueSystem == null)
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Sub-Dialogue abilitato ma nessun DialogueSystem assegnato!");
+        }
+        else if (subDialogueSystem == this)
+        {
+            Debug.LogError("[DialogueSystem] ❌ ERRORE: Sub-Dialogue non può essere se stesso! Rischio loop infinito!");
+            enableSubDialogue = false;
+        }
+        else
+        {
+            Debug.Log($"[DialogueSystem] ✅ Sub-Dialogue setup: '{subDialogueSystem.name}'");
+        }
+    }
+    
+    // ========== 🆕 DISSOLVE SYSTEM ==========
+    
+    /// <summary>
+    /// 🆕 Avvia l'effetto dissolve per tutti gli oggetti configurati
+    /// </summary>
+    void StartDissolveEffect()
+    {
+        if (dissolveTriggered)
+        {
+            Debug.Log("[DialogueSystem] Dissolve già attivato, skip.");
+            return;
+        }
+        
+        if (dissolveObjects == null || dissolveObjects.Length == 0)
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Dissolve abilitato ma nessun oggetto configurato!");
+            return;
+        }
+        
+        Debug.Log("[DialogueSystem] 🌀 AVVIO EFFETTO DISSOLVE!");
+        
+        dissolveTriggered = true;
+        
+        // Avvia dissolve per ogni oggetto
+        for (int i = 0; i < dissolveObjects.Length; i++)
+        {
+            DissolveObject dissolveObj = dissolveObjects[i];
+            if (ValidateDissolveObject(dissolveObj, i))
+            {
+                Coroutine dissolveCoroutine = StartCoroutine(DissolveObjectCoroutine(dissolveObj, i));
+                dissolveCoroutines.Add(dissolveCoroutine);
+            }
+        }
+        
+        // Invoca eventi
+        OnDissolveStarted?.Invoke();
+        OnAnyDissolveStarted?.Invoke(this);
+    }
+    
+    /// <summary>
+    /// 🆕 Coroutine che gestisce l'effetto dissolve per un singolo oggetto
+    /// </summary>
+    IEnumerator DissolveObjectCoroutine(DissolveObject dissolveObj, int index)
+    {
+        Debug.Log($"[DialogueSystem] 🌀 Iniziando dissolve per '{dissolveObj.targetObject.name}' (#{index})");
+        
+        // Ritardo iniziale se specificato
+        if (dissolveObj.dissolveDelay > 0f)
+        {
+            Debug.Log($"[DialogueSystem] ⏳ Aspettando {dissolveObj.dissolveDelay}s prima del dissolve...");
+            yield return new WaitForSeconds(dissolveObj.dissolveDelay);
+        }
+        
+        // Verifica che i materiali siano ancora validi
+        if (dissolveObj.dissolveMaterials == null || dissolveObj.dissolveMaterials.Length == 0)
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Nessun materiale configurato per '{dissolveObj.targetObject.name}'!");
+            yield break;
+        }
+        
+        // Verifica che tutti i materiali abbiano la proprietà dissolve
+        List<Material> validMaterials = new List<Material>();
+        foreach (Material mat in dissolveObj.dissolveMaterials)
+        {
+            if (mat != null && mat.HasProperty(dissolveObj.dissolvePropertyName))
+            {
+                validMaterials.Add(mat);
+                Debug.Log($"[DialogueSystem] ✅ Materiale '{mat.name}' ha proprietà '{dissolveObj.dissolvePropertyName}'");
+            }
+            else if (mat != null)
+            {
+                Debug.LogWarning($"[DialogueSystem] ⚠️ Materiale '{mat.name}' NON ha proprietà '{dissolveObj.dissolvePropertyName}'!");
+            }
+        }
+        
+        if (validMaterials.Count == 0)
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Nessun materiale valido per dissolve di '{dissolveObj.targetObject.name}'!");
+            yield break;
+        }
+        
+        // Salva i valori iniziali di dissolve (dovrebbero essere 1)
+        float[] initialDissolveValues = new float[validMaterials.Count];
+        for (int i = 0; i < validMaterials.Count; i++)
+        {
+            initialDissolveValues[i] = validMaterials[i].GetFloat(dissolveObj.dissolvePropertyName);
+            Debug.Log($"[DialogueSystem] 📊 Valore iniziale dissolve per '{validMaterials[i].name}': {initialDissolveValues[i]}");
+        }
+        
+        // Animazione dissolve da 1 a 0
+        float elapsedTime = 0f;
+        Debug.Log($"[DialogueSystem] 🎬 Avviando animazione dissolve (durata: {dissolveObj.dissolveDuration}s)");
+        
+        while (elapsedTime < dissolveObj.dissolveDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float progress = elapsedTime / dissolveObj.dissolveDuration;
+            
+            // Interpola da 1 a 0
+            float currentDissolveValue = Mathf.Lerp(1f, 0f, progress);
+            
+            // Applica il valore a tutti i materiali validi
+            foreach (Material mat in validMaterials)
+            {
+                if (mat != null) // Double check per sicurezza
+                {
+                    mat.SetFloat(dissolveObj.dissolvePropertyName, currentDissolveValue);
+                }
+            }
+            
+            yield return null;
+        }
+        
+        // Assicurati che il valore finale sia esattamente 0
+        foreach (Material mat in validMaterials)
+        {
+            if (mat != null)
+            {
+                mat.SetFloat(dissolveObj.dissolvePropertyName, 0f);
+            }
+        }
+        
+        Debug.Log($"[DialogueSystem] ✅ Dissolve completato per '{dissolveObj.targetObject.name}'!");
+        
+        // Attiva il MeshCollider se richiesto
+        if (dissolveObj.enableMeshColliderAfterDissolve)
+        {
+            if (dissolveObj.colliderActivationDelay > 0f)
+            {
+                Debug.Log($"[DialogueSystem] ⏳ Aspettando {dissolveObj.colliderActivationDelay}s prima di attivare collider...");
+                yield return new WaitForSeconds(dissolveObj.colliderActivationDelay);
+            }
+            
+            EnableMeshCollider(dissolveObj.targetObject);
+        }
+        
+        // Controlla se tutte le coroutine di dissolve sono finite
+        CheckDissolveCompletion();
+    }
+    
+    /// <summary>
+    /// 🆕 Controlla se tutti i dissolve sono completati
+    /// </summary>
+    void CheckDissolveCompletion()
+    {
+        // Rimuovi le coroutine completate dalla lista
+        dissolveCoroutines.RemoveAll(coroutine => coroutine == null);
+        
+        // Se tutte le coroutine di dissolve sono finite, notifica completamento
+        if (dissolveCoroutines.Count == 0 && dissolveTriggered)
+        {
+            Debug.Log("[DialogueSystem] 🎉 TUTTI I DISSOLVE COMPLETATI!");
+            OnDissolveCompleted?.Invoke();
+            OnAnyDissolveCompleted?.Invoke(this);
+        }
+    }
+    
+    /// <summary>
+    /// 🆕 Attiva il MeshCollider di un oggetto
+    /// </summary>
+    void EnableMeshCollider(GameObject targetObject)
+    {
+        MeshCollider meshCollider = targetObject.GetComponent<MeshCollider>();
+        if (meshCollider != null)
+        {
+            bool wasEnabled = meshCollider.enabled;
+            meshCollider.enabled = true;
+            Debug.Log($"[DialogueSystem] 🔲 MeshCollider attivato per '{targetObject.name}' (era abilitato: {wasEnabled})");
+        }
+        else
+        {
+            Debug.LogWarning($"[DialogueSystem] ⚠️ Nessun MeshCollider trovato su '{targetObject.name}'!");
+        }
+    }
+    
+    /// <summary>
+    /// 🆕 Valida un oggetto dissolve
+    /// </summary>
+    bool ValidateDissolveObject(DissolveObject dissolveObj, int index)
+    {
+        if (dissolveObj.targetObject == null)
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Target Object NULL per dissolve #{index}!");
+            return false;
+        }
+        
+        if (!dissolveObj.targetObject.activeInHierarchy)
+        {
+            Debug.LogWarning($"[DialogueSystem] ⚠️ Target Object '{dissolveObj.targetObject.name}' non è attivo!");
+            return false;
+        }
+        
+        if (dissolveObj.dissolveMaterials == null || dissolveObj.dissolveMaterials.Length == 0)
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Nessun materiale configurato per dissolve #{index}!");
+            return false;
+        }
+        
+        if (string.IsNullOrEmpty(dissolveObj.dissolvePropertyName))
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Nome proprietà dissolve vuoto per #{index}!");
+            return false;
+        }
+        
+        if (dissolveObj.dissolveDuration <= 0f)
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Durata dissolve invalida per #{index}: {dissolveObj.dissolveDuration}");
+            return false;
+        }
+        
+        Debug.Log($"[DialogueSystem] ✅ Dissolve Object #{index} validato: '{dissolveObj.targetObject.name}'");
+        return true;
+    }
+    
+    /// <summary>
+    /// 🆕 Valida il setup del dissolve all'avvio
+    /// </summary>
+    void ValidateDissolveSetup()
+    {
+        if (!enableDissolveEffect)
+        {
+            Debug.Log("[DialogueSystem] Dissolve Effect disabilitato");
+            return;
+        }
+        
+        if (dissolveObjects == null || dissolveObjects.Length == 0)
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Dissolve Effect abilitato ma nessun oggetto configurato!");
+            return;
+        }
+        
+        int validObjects = 0;
+        for (int i = 0; i < dissolveObjects.Length; i++)
+        {
+            DissolveObject dissolveObj = dissolveObjects[i];
+            if (dissolveObj.targetObject != null && 
+                dissolveObj.dissolveMaterials != null && 
+                dissolveObj.dissolveMaterials.Length > 0)
+            {
+                validObjects++;
+                
+                // Controlla se i materiali hanno la proprietà dissolve
+                int validMaterials = 0;
+                foreach (Material mat in dissolveObj.dissolveMaterials)
+                {
+                    if (mat != null && mat.HasProperty(dissolveObj.dissolvePropertyName))
+                    {
+                        validMaterials++;
+                    }
+                }
+                
+                Debug.Log($"[DialogueSystem] 🔍 Dissolve Object #{i}: '{dissolveObj.targetObject.name}' - {validMaterials}/{dissolveObj.dissolveMaterials.Length} materiali validi");
+            }
+        }
+        
+        Debug.Log($"[DialogueSystem] ✅ Dissolve Effect setup: {validObjects}/{dissolveObjects.Length} oggetti configurati correttamente");
+    }
+    
+    /// <summary>
+    /// 🆕 Ferma tutte le coroutine di dissolve attive
+    /// </summary>
+    void StopAllDissolveCoroutines()
+    {
+        foreach (Coroutine coroutine in dissolveCoroutines)
+        {
+            if (coroutine != null)
+            {
+                StopCoroutine(coroutine);
+            }
+        }
+        dissolveCoroutines.Clear();
+        Debug.Log("[DialogueSystem] 🛑 Tutte le coroutine dissolve fermate");
+    }
+    
+    // ========== 🆕 DISSOLVE GETTERS/SETTERS ==========
+    
+    /// <summary>
+    /// 🆕 Abilita/disabilita il sistema di dissolve
+    /// </summary>
+    public void SetDissolveEffectEnabled(bool enabled)
+    {
+        enableDissolveEffect = enabled;
+        Debug.Log($"[DialogueSystem] Dissolve Effect {(enabled ? "abilitato" : "disabilitato")}");
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta se il dissolve deve avvenire con il sottodialogo
+    /// </summary>
+    public void SetDissolveWithSubDialogue(bool withSubDialogue)
+    {
+        dissolveWithSubDialogue = withSubDialogue;
+        Debug.Log($"[DialogueSystem] Dissolve con sottodialogo: {withSubDialogue}");
+    }
+    
+    /// <summary>
+    /// 🆕 Forza l'avvio dell'effetto dissolve (per test)
+    /// </summary>
+    public void ForceStartDissolve()
+    {
+        if (enableDissolveEffect)
+        {
+            dissolveTriggered = false; // Reset flag
+            StartDissolveEffect();
+        }
+        else
+        {
+            Debug.LogWarning("[DialogueSystem] Dissolve Effect disabilitato - impossibile forzare avvio");
+        }
+    }
+    
+    /// <summary>
+    /// 🆕 Ferma immediatamente tutti i dissolve
+    /// </summary>
+    public void ForceStopDissolve()
+    {
+        StopAllDissolveCoroutines();
+        dissolveTriggered = false;
+        Debug.Log("[DialogueSystem] Dissolve forzatamente fermato");
+    }
+    
+    /// <summary>
+    /// 🆕 Reset del flag di dissolve (per dialoghi ripetibili)
+    /// </summary>
+    public void ResetDissolve()
+    {
+        dissolveTriggered = false;
+        StopAllDissolveCoroutines();
+        Debug.Log("[DialogueSystem] Flag dissolve resettato");
+    }
+    
+    // ========== 🆕 SUB-DIALOGUE GETTERS/SETTERS ==========
+    
+    /// <summary>
+    /// 🆕 Abilita/disabilita il sistema di sottodialogo
+    /// </summary>
+    public void SetSubDialogueEnabled(bool enabled)
+    {
+        enableSubDialogue = enabled;
+        Debug.Log($"[DialogueSystem] Sub-Dialogue {(enabled ? "abilitato" : "disabilitato")}");
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta il DialogueSystem da usare come sottodialogo
+    /// </summary>
+    public void SetSubDialogueSystem(DialogueSystem subDialogue)
+    {
+        if (subDialogue == this)
+        {
+            Debug.LogError("[DialogueSystem] ❌ ERRORE: Sub-Dialogue non può essere se stesso!");
+            return;
+        }
+        
+        subDialogueSystem = subDialogue;
+        Debug.Log($"[DialogueSystem] Sub-Dialogue impostato: {(subDialogue != null ? subDialogue.name : "NULL")}");
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta il ritardo del sottodialogo
+    /// </summary>
+    public void SetSubDialogueDelay(float delay)
+    {
+        subDialogueDelay = delay;
+        Debug.Log($"[DialogueSystem] Ritardo sottodialogo impostato: {delay}s");
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta il messaggio del sottodialogo
+    /// </summary>
+    public void SetSubDialogueMessage(string message)
+    {
+        subDialogueMessage = message;
+        Debug.Log($"[DialogueSystem] Messaggio sottodialogo impostato: {message}");
+    }
+    
+    /// <summary>
+    /// 🆕 Forza l'attivazione del sottodialogo (per test)
+    /// </summary>
+    public void ForceTriggerSubDialogue()
+    {
+        if (enableSubDialogue)
+        {
+            subDialogueTriggered = false; // Reset flag
+            TriggerSubDialogue();
+        }
+        else
+        {
+            Debug.LogWarning("[DialogueSystem] Sub-Dialogue disabilitato - impossibile forzare attivazione");
+        }
+    }
+    
+    /// <summary>
+    /// 🆕 Reset del flag di sottodialogo (per dialoghi ripetibili)
+    /// </summary>
+    public void ResetSubDialogue()
+    {
+        subDialogueTriggered = false;
+        Debug.Log("[DialogueSystem] Flag sottodialogo resettato");
+    }
+    
+    // ========== 🆕 GETTERS NUOVE FUNZIONALITÀ ==========
+    
+    public bool IsSubDialogueEnabled() => enableSubDialogue;
+    public DialogueSystem GetSubDialogueSystem() => subDialogueSystem;
+    public float GetSubDialogueDelay() => subDialogueDelay;
+    public string GetSubDialogueMessage() => subDialogueMessage;
+    public bool WasSubDialogueTriggered() => subDialogueTriggered;
+    
+    public bool IsDissolveEffectEnabled() => enableDissolveEffect;
+    public DissolveObject[] GetDissolveObjects() => dissolveObjects;
+    public bool GetDissolveWithSubDialogue() => dissolveWithSubDialogue;
+    public bool WasDissolveTriggered() => dissolveTriggered;
+    public int GetActiveDissolveCoroutines() => dissolveCoroutines.Count;
+    
+    /// <summary>
+    /// Valida il setup degli oggetti all'avvio
     /// </summary>
     void ValidateObjectActivationSetup()
     {
@@ -585,7 +1166,7 @@ public class DialogueSystem : MonoBehaviour
     // ========== OBJECT ACTIVATION GETTERS/SETTERS ==========
     
     /// <summary>
-    /// 🆕 Abilita/disabilita il sistema di attivazione oggetti
+    /// Abilita/disabilita il sistema di attivazione oggetti
     /// </summary>
     public void SetObjectActivationEnabled(bool enabled)
     {
@@ -594,7 +1175,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Imposta l'oggetto da attivare
+    /// Imposta l'oggetto da attivare
     /// </summary>
     public void SetObjectToEnable(GameObject obj)
     {
@@ -603,7 +1184,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Imposta l'oggetto da disattivare
+    /// Imposta l'oggetto da disattivare
     /// </summary>
     public void SetObjectToDisable(GameObject obj)
     {
@@ -612,7 +1193,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Imposta il messaggio di attivazione
+    /// Imposta il messaggio di attivazione
     /// </summary>
     public void SetActivationMessage(string message)
     {
@@ -621,7 +1202,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Imposta il ritardo di attivazione
+    /// Imposta il ritardo di attivazione
     /// </summary>
     public void SetActivationDelay(float delay)
     {
@@ -630,7 +1211,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Forza l'attivazione degli oggetti (per test)
+    /// Forza l'attivazione degli oggetti (per test)
     /// </summary>
     public void ForceActivateObjects()
     {
@@ -646,7 +1227,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Reset del flag di attivazione (per dialoghi ripetibili)
+    /// Reset del flag di attivazione (per dialoghi ripetibili)
     /// </summary>
     public void ResetObjectActivation()
     {
@@ -724,6 +1305,8 @@ public class DialogueSystem : MonoBehaviour
     {
         hasBeenTriggered = false;
         ResetObjectActivation(); // Reset anche gli oggetti se il dialogo è ripetibile
+        ResetSubDialogue(); // 🆕 Reset sottodialogo
+        ResetDissolve(); // 🆕 Reset dissolve
     }
     
     // Metodo pubblico per controllare se il dialogo è attivo
@@ -770,7 +1353,7 @@ public class DialogueSystem : MonoBehaviour
         return null;
     }
     
-    // ========== DEBUG METHODS ==========
+    // ========== 🆕 DEBUG METHODS (AGGIORNATI) ==========
     
     [ContextMenu("Test - Forza Fine Ultima Battuta")]
     public void TestForceLastLineFinished()
@@ -799,6 +1382,36 @@ public class DialogueSystem : MonoBehaviour
         ResetObjectActivation();
     }
     
+    [ContextMenu("🆕 Test - Forza Sottodialogo")]
+    public void TestForceSubDialogue()
+    {
+        ForceTriggerSubDialogue();
+    }
+    
+    [ContextMenu("🆕 Test - Reset Sub-Dialogue")]
+    public void TestResetSubDialogue()
+    {
+        ResetSubDialogue();
+    }
+    
+    [ContextMenu("🆕 Test - Forza Dissolve")]
+    public void TestForceDissolve()
+    {
+        ForceStartDissolve();
+    }
+    
+    [ContextMenu("🆕 Test - Ferma Dissolve")]
+    public void TestStopDissolve()
+    {
+        ForceStopDissolve();
+    }
+    
+    [ContextMenu("🆕 Test - Reset Dissolve")]
+    public void TestResetDissolve()
+    {
+        ResetDissolve();
+    }
+    
     [ContextMenu("Debug - Stato Attuale")]
     public void DebugCurrentState()
     {
@@ -818,7 +1431,19 @@ public class DialogueSystem : MonoBehaviour
                  $"- Objects To Enable Count: {(objectsToEnable != null ? objectsToEnable.Length : 0)}\n" +
                  $"- Objects To Disable Count: {(objectsToDisable != null ? objectsToDisable.Length : 0)}\n" +
                  $"- Activation Delay: {activationDelay}s\n" +
-                 $"- Activation Message: {(string.IsNullOrEmpty(activationMessage) ? "DEFAULT" : activationMessage)}");
+                 $"- Activation Message: {(string.IsNullOrEmpty(activationMessage) ? "DEFAULT" : activationMessage)}\n" +
+                 $"🎭 Sub-Dialogue:\n" +
+                 $"- Abilitato: {enableSubDialogue}\n" +
+                 $"- Sistema: {(subDialogueSystem != null ? subDialogueSystem.name : "NULL")}\n" +
+                 $"- Già triggerato: {subDialogueTriggered}\n" +
+                 $"- Delay: {subDialogueDelay}s\n" +
+                 $"- Messaggio: {(string.IsNullOrEmpty(subDialogueMessage) ? "DEFAULT" : subDialogueMessage)}\n" +
+                 $"🌀 Dissolve Effect:\n" +
+                 $"- Abilitato: {enableDissolveEffect}\n" +
+                 $"- Oggetti configurati: {(dissolveObjects != null ? dissolveObjects.Length : 0)}\n" +
+                 $"- Già triggerato: {dissolveTriggered}\n" +
+                 $"- Con sottodialogo: {dissolveWithSubDialogue}\n" +
+                 $"- Coroutine attive: {dissolveCoroutines.Count}");
     }
     
     [ContextMenu("Debug - Traccia Eventi")]
@@ -828,8 +1453,14 @@ public class DialogueSystem : MonoBehaviour
                  $"- OnLastLineReached listeners: {OnLastLineReached.GetPersistentEventCount()}\n" +
                  $"- OnLastLineFinished listeners: {OnLastLineFinished.GetPersistentEventCount()}\n" +
                  $"- OnObjectsActivated listeners: {OnObjectsActivated.GetPersistentEventCount()}\n" +
+                 $"- OnSubDialogueTriggered listeners: {OnSubDialogueTriggered.GetPersistentEventCount()}\n" +
+                 $"- OnDissolveStarted listeners: {OnDissolveStarted.GetPersistentEventCount()}\n" +
+                 $"- OnDissolveCompleted listeners: {OnDissolveCompleted.GetPersistentEventCount()}\n" +
                  $"- OnAnyLastLineFinished subscribers: {(OnAnyLastLineFinished?.GetInvocationList()?.Length ?? 0)}\n" +
-                 $"- OnAnyObjectsActivated subscribers: {(OnAnyObjectsActivated?.GetInvocationList()?.Length ?? 0)}");
+                 $"- OnAnyObjectsActivated subscribers: {(OnAnyObjectsActivated?.GetInvocationList()?.Length ?? 0)}\n" +
+                 $"- OnAnySubDialogueTriggered subscribers: {(OnAnySubDialogueTriggered?.GetInvocationList()?.Length ?? 0)}\n" +
+                 $"- OnAnyDissolveStarted subscribers: {(OnAnyDissolveStarted?.GetInvocationList()?.Length ?? 0)}\n" +
+                 $"- OnAnyDissolveCompleted subscribers: {(OnAnyDissolveCompleted?.GetInvocationList()?.Length ?? 0)}");
     }
     
     [ContextMenu("Debug - Valida Setup Oggetti")]
@@ -860,6 +1491,72 @@ public class DialogueSystem : MonoBehaviour
                 {
                     var obj = objectsToDisable[i];
                     Debug.Log($"  [{i}] {(obj != null ? $"{obj.name} (Active: {obj.activeInHierarchy})" : "NULL")}");
+                }
+            }
+        }
+    }
+    
+    [ContextMenu("🆕 Debug - Valida Setup Sub-Dialogue")]
+    public void DebugValidateSubDialogueSetup()
+    {
+        ValidateSubDialogueSetup();
+        
+        if (enableSubDialogue && subDialogueSystem != null)
+        {
+            Debug.Log($"[DialogueSystem] 🎭 Dettagli Sub-Dialogue:\n" +
+                     $"- Sistema: {subDialogueSystem.name}\n" +
+                     $"- Attivo: {subDialogueSystem.gameObject.activeInHierarchy}\n" +
+                     $"- Enabled: {subDialogueSystem.enabled}\n" +
+                     $"- Già usato: {subDialogueTriggered}\n" +
+                     $"- Delay: {subDialogueDelay}s\n" +
+                     $"- Messaggio: {subDialogueMessage}");
+        }
+    }
+    
+    [ContextMenu("🆕 Debug - Valida Setup Dissolve")]
+    public void DebugValidateDissolveSetup()
+    {
+        ValidateDissolveSetup();
+        
+        if (enableDissolveEffect && dissolveObjects != null && dissolveObjects.Length > 0)
+        {
+            Debug.Log("[DialogueSystem] 🌀 Dettagli Dissolve Objects:");
+            for (int i = 0; i < dissolveObjects.Length; i++)
+            {
+                DissolveObject dissolveObj = dissolveObjects[i];
+                if (dissolveObj.targetObject != null)
+                {
+                    Debug.Log($"  [{i}] {dissolveObj.targetObject.name}:\n" +
+                             $"    - Active: {dissolveObj.targetObject.activeInHierarchy}\n" +
+                             $"    - Materiali: {(dissolveObj.dissolveMaterials != null ? dissolveObj.dissolveMaterials.Length : 0)}\n" +
+                             $"    - Proprietà: {dissolveObj.dissolvePropertyName}\n" +
+                             $"    - Durata: {dissolveObj.dissolveDuration}s\n" +
+                             $"    - Delay: {dissolveObj.dissolveDelay}s\n" +
+                             $"    - Enable Collider: {dissolveObj.enableMeshColliderAfterDissolve}\n" +
+                             $"    - Collider Delay: {dissolveObj.colliderActivationDelay}s");
+                    
+                    // Controlla i materiali
+                    if (dissolveObj.dissolveMaterials != null)
+                    {
+                        for (int j = 0; j < dissolveObj.dissolveMaterials.Length; j++)
+                        {
+                            Material mat = dissolveObj.dissolveMaterials[j];
+                            if (mat != null)
+                            {
+                                bool hasProperty = mat.HasProperty(dissolveObj.dissolvePropertyName);
+                                float currentValue = hasProperty ? mat.GetFloat(dissolveObj.dissolvePropertyName) : -1f;
+                                Debug.Log($"      Material[{j}] {mat.name}: HasProperty={hasProperty}, Value={currentValue}");
+                            }
+                            else
+                            {
+                                Debug.Log($"      Material[{j}] NULL");
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.Log($"  [{i}] NULL TARGET");
                 }
             }
         }
@@ -898,5 +1595,42 @@ public class DialogueSystem : MonoBehaviour
         NextLine();
         
         Debug.Log("[DialogueSystem] 🧪 Simulazione dialogo completata!");
+    }
+    
+    [ContextMenu("🆕 Test - Simula Tutto")]
+    public void TestSimulateEverything()
+    {
+        Debug.Log("[DialogueSystem] 🧪 Simulazione completa di tutte le funzionalità...");
+        StartCoroutine(SimulateEverything());
+    }
+    
+    IEnumerator SimulateEverything()
+    {
+        // 1. Avvia dialogo
+        if (!isDialogueActive)
+        {
+            StartDialogue();
+            yield return new WaitForSeconds(2f);
+        }
+        
+        // 2. Completa dialogo
+        if (isDialogueActive)
+        {
+            currentLineIndex = dialogueLines.Length - 1;
+            isOnLastLine = true;
+            DisplayLine();
+            yield return new WaitForSeconds(1f);
+            
+            NotifyLastLineFinished();
+            NextLine();
+            yield return new WaitForSeconds(1f);
+        }
+        
+        Debug.Log("[DialogueSystem] 🧪 Simulazione completa terminata!");
+        Debug.Log($"[DialogueSystem] 📊 Risultati:\n" +
+                 $"- Oggetti attivati: {objectsAlreadyActivated}\n" +
+                 $"- Sottodialogo triggerato: {subDialogueTriggered}\n" +
+                 $"- Dissolve triggerato: {dissolveTriggered}\n" +
+                 $"- Coroutine dissolve attive: {dissolveCoroutines.Count}");
     }
 }

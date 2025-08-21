@@ -22,6 +22,18 @@ public class ThirdPersonController : MonoBehaviour
     private float rotationVelocity;
     private float smoothInputMagnitude;
 
+    // ✅ NUOVO SISTEMA DI GESTIONE CAMERA DINAMICA CON INTEGRAZIONE CAMERAMANAGER
+    [Header("Camera Management")]
+    [SerializeField] private bool autoDetectActiveCamera = true;
+    [SerializeField] private float cameraCheckInterval = 0.1f;
+    [SerializeField] private bool useCameraManagerIntegration = true;
+    [SerializeField] private bool debugCameraChanges = false;
+    private float cameraCheckTimer = 0f;
+    private Camera currentActiveCamera;
+    
+    // ✅ EVENT SYSTEM PER NOTIFICHE DI CAMBIO CAMERA
+    public System.Action<Camera, Camera> OnCameraChanged;
+
     [Header("Jump Settings")]
     public float jumpHeight = 4f;
     public float gravity = -9.81f;
@@ -173,12 +185,274 @@ public class ThirdPersonController : MonoBehaviour
         attackVelocity += velocity;
     }
 
+    // ✅ NUOVI METODI PER GESTIONE CAMERA DINAMICA CON INTEGRAZIONE CAMERAMANAGER
+    
+    /// <summary>
+    /// Forza l'uso di una camera specifica per il movimento
+    /// </summary>
+    /// <param name="camera">La camera da utilizzare (null per auto-detect)</param>
+    public void SetActiveCamera(Camera camera)
+    {
+        if (camera != null)
+        {
+            currentActiveCamera = camera;
+            cameraTransform = camera.transform;
+            autoDetectActiveCamera = false;
+            
+            if (debugCameraChanges)
+                Debug.Log($"[ThirdPersonController] 🎮 Camera manualmente impostata: {camera.name}");
+        }
+        else
+        {
+            autoDetectActiveCamera = true;
+            if (debugCameraChanges)
+                Debug.Log("[ThirdPersonController] 🔄 Ripristinato auto-detect camera");
+        }
+    }
+
+    /// <summary>
+    /// Forza l'uso di una CinemachineCamera specifica tramite CameraManager
+    /// </summary>
+    /// <param name="cinemachineCamera">La CinemachineCamera da attivare</param>
+    public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
+    {
+        if (cinemachineCamera != null && useCameraManagerIntegration)
+        {
+            // Usa CameraManager per switchare
+            CameraManager.SwitchCamera(cinemachineCamera);
+            
+            // Forza un aggiornamento immediato
+            if (autoDetectActiveCamera)
+            {
+                DetectActiveCamera();
+            }
+            
+            if (debugCameraChanges)
+                Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via CameraManager: {cinemachineCamera.name}");
+        }
+        else if (!useCameraManagerIntegration)
+        {
+            Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
+        }
+    }
+
+    /// <summary>
+    /// Forza l'uso di una CinemachineCamera specifica tramite nome
+    /// </summary>
+    /// <param name="cameraName">Nome della CinemachineCamera da attivare</param>
+    public void SetActiveCinemachineCameraByName(string cameraName)
+    {
+        if (useCameraManagerIntegration)
+        {
+            CameraManager.SwitchCameraByName(cameraName);
+            
+            // Forza un aggiornamento immediato
+            if (autoDetectActiveCamera)
+            {
+                DetectActiveCamera();
+            }
+            
+            if (debugCameraChanges)
+                Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via nome: {cameraName}");
+        }
+        else
+        {
+            Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
+        }
+    }
+
+    /// <summary>
+    /// Ottieni la camera attualmente utilizzata per il movimento
+    /// </summary>
+    /// <returns>La camera attiva</returns>
+    public Camera GetActiveCamera()
+    {
+        return currentActiveCamera;
+    }
+
+    /// <summary>
+    /// Ottieni la CinemachineCamera attualmente attiva dal CameraManager
+    /// </summary>
+    /// <returns>La CinemachineCamera attiva o null</returns>
+    public CinemachineCamera GetActiveCinemachineCamera()
+    {
+        return useCameraManagerIntegration ? CameraManager.ActiveCamera : null;
+    }
+
+    /// <summary>
+    /// Abilita/disabilita il rilevamento automatico della camera
+    /// </summary>
+    /// <param name="enabled">True per abilitare l'auto-detect</param>
+    public void SetAutoDetectCamera(bool enabled)
+    {
+        autoDetectActiveCamera = enabled;
+        if (debugCameraChanges)
+        {
+            Debug.Log($"[ThirdPersonController] Auto-detect camera {(enabled ? "abilitato" : "disabilitato")}");
+        }
+    }
+
+    /// <summary>
+    /// Abilita/disabilita l'integrazione con CameraManager
+    /// </summary>
+    /// <param name="enabled">True per abilitare l'integrazione</param>
+    public void SetCameraManagerIntegration(bool enabled)
+    {
+        useCameraManagerIntegration = enabled;
+        if (debugCameraChanges)
+        {
+            Debug.Log($"[ThirdPersonController] CameraManager integration {(enabled ? "abilitata" : "disabilitata")}");
+        }
+    }
+
+    /// <summary>
+    /// Ottieni informazioni dettagliate sulla camera attiva
+    /// </summary>
+    /// <returns>Stringa con informazioni sulla camera</returns>
+    public string GetActiveCameraInfo()
+    {
+        if (currentActiveCamera == null) return "Nessuna camera attiva";
+        
+        string info = $"Camera: {currentActiveCamera.name}";
+        
+        if (useCameraManagerIntegration && CameraManager.ActiveCamera != null)
+        {
+            info += $"\nCinemachine: {CameraManager.ActiveCamera.name}";
+            info += $"\nPriorità: {CameraManager.ActiveCamera.Priority}";
+        }
+        
+        info += $"\nAuto-detect: {autoDetectActiveCamera}";
+        info += $"\nCameraManager: {useCameraManagerIntegration}";
+        
+        return info;
+    }
+
+    /// <summary>
+    /// Rileva automaticamente la camera attiva - Integrato con CameraManager
+    /// </summary>
+    private void DetectActiveCamera()
+    {
+        Camera newActiveCamera = null;
+        
+        // 1. ✅ PRIORITÀ: Usa CameraManager se disponibile
+        if (CameraManager.ActiveCamera != null)
+        {
+            // Ottieni la camera Unity dal CinemachineBrain
+            CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
+            if (brain != null && brain.OutputCamera != null)
+            {
+                newActiveCamera = brain.OutputCamera;
+                
+                if (debugCameraChanges)
+                {
+                    Debug.Log($"[ThirdPersonController] 🎥 Usando CameraManager - Camera attiva: {CameraManager.ActiveCamera.name}");
+                }
+            }
+        }
+        
+        // 2. FALLBACK: Trova CinemachineCamera con priorità più alta
+        if (newActiveCamera == null)
+        {
+            CinemachineCamera[] cinemachineCameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
+            CinemachineCamera highestPriorityCamera = null;
+            int highestPriority = -1;
+            
+            foreach (var cmCamera in cinemachineCameras)
+            {
+                if (cmCamera.isActiveAndEnabled && cmCamera.Priority > highestPriority)
+                {
+                    highestPriorityCamera = cmCamera;
+                    highestPriority = cmCamera.Priority;
+                }
+            }
+            
+            if (highestPriorityCamera != null)
+            {
+                CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
+                if (brain != null && brain.OutputCamera != null)
+                {
+                    newActiveCamera = brain.OutputCamera;
+                }
+            }
+        }
+        
+        // 3. FALLBACK: Camera.main
+        if (newActiveCamera == null)
+        {
+            newActiveCamera = Camera.main;
+        }
+        
+        // 4. FALLBACK FINALE: Prima camera attiva trovata
+        if (newActiveCamera == null)
+        {
+            Camera[] allCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            foreach (var cam in allCameras)
+            {
+                if (cam.isActiveAndEnabled)
+                {
+                    newActiveCamera = cam;
+                    break;
+                }
+            }
+        }
+        
+        // 5. ✅ AGGIORNA SOLO SE LA CAMERA È CAMBIATA
+        if (newActiveCamera != currentActiveCamera && newActiveCamera != null)
+        {
+            Camera previousCamera = currentActiveCamera;
+            
+            // ✅ AGGIORNA I RIFERIMENTI PER IL MOVIMENTO
+            currentActiveCamera = newActiveCamera;
+            cameraTransform = newActiveCamera.transform; // ← QUESTO È IL PUNTO CHIAVE!
+            
+            // Log più dettagliato con info CameraManager
+            string cameraManagerInfo = CameraManager.ActiveCamera != null ? 
+                $" (CameraManager: {CameraManager.ActiveCamera.name})" : " (No CameraManager)";
+            
+            if (debugCameraChanges)
+            {
+                Debug.Log($"[ThirdPersonController] ✅ Camera cambiata: {(previousCamera ? previousCamera.name : "nessuna")} → {newActiveCamera.name}{cameraManagerInfo}");
+                Debug.Log($"[ThirdPersonController] 🎮 cameraTransform aggiornato per il movimento: {cameraTransform.name}");
+            }
+            
+            // ✅ NOTIFICA EVENT (se necessario per altri sistemi)
+            OnCameraChanged?.Invoke(previousCamera, newActiveCamera);
+        }
+    }
+
+    /// <summary>
+    /// Forza un aggiornamento immediato della camera attiva - OTTIMIZZATO
+    /// </summary>
+    public void ForceUpdateActiveCamera()
+    {
+        if (autoDetectActiveCamera)
+        {
+            DetectActiveCamera();
+        }
+    }
+
+    /// <summary>
+    /// Callback statico per notificare tutti i controller del cambio camera
+    /// Da chiamare quando CameraManager cambia camera
+    /// </summary>
+    public static void NotifyAllControllersOfCameraChange()
+    {
+        ThirdPersonController[] controllers = FindObjectsByType<ThirdPersonController>(FindObjectsSortMode.None);
+        foreach (var controller in controllers)
+        {
+            if (controller.autoDetectActiveCamera)
+            {
+                controller.DetectActiveCamera();
+            }
+        }
+    }
+
     private void Awake()
     {
         controls = new PlayerControls();
         
-        if (cameraTransform == null && Camera.main) 
-            cameraTransform = Camera.main.transform;
+        // ✅ INIZIALIZZAZIONE CAMERA MIGLIORATA
+        InitializeCamera();
 
         controls.Gameplay.Move.performed += OnMovePerformed;
         controls.Gameplay.Move.canceled += OnMoveCanceled;
@@ -186,6 +460,37 @@ public class ThirdPersonController : MonoBehaviour
         controls.Gameplay.Sprint.canceled += OnSprintCanceled;
         controls.Gameplay.Jump.started += OnJumpStarted;
         controls.Gameplay.Jump.canceled += OnJumpCanceled;
+    }
+
+    /// <summary>
+    /// Inizializza il sistema di camera con integrazione CameraManager
+    /// </summary>
+    private void InitializeCamera()
+    {
+        // Se cameraTransform è già assegnato manualmente, usalo
+        if (cameraTransform != null)
+        {
+            currentActiveCamera = cameraTransform.GetComponent<Camera>();
+            autoDetectActiveCamera = false;
+            
+            if (debugCameraChanges)
+                Debug.Log($"[ThirdPersonController] 📹 Camera preassegnata: {cameraTransform.name}");
+            return;
+        }
+        
+        // ✅ INTEGRAZIONE CAMERAMANAGER
+        if (useCameraManagerIntegration)
+        {
+            // Registra per gli eventi di cambio camera (se CameraManager lo supporta)
+            // Al momento CameraManager non ha eventi, ma potremmo aggiungere questa funzionalità
+            
+            if (debugCameraChanges)
+                Debug.Log("[ThirdPersonController] 🎬 CameraManager integration abilitata");
+        }
+        
+        // Altrimenti, attiva l'auto-detect
+        autoDetectActiveCamera = true;
+        DetectActiveCamera();
     }
 
     private void OnMovePerformed(InputAction.CallbackContext ctx) => moveInput = ctx.ReadValue<Vector2>();
@@ -224,6 +529,12 @@ public class ThirdPersonController : MonoBehaviour
         if (sprintFX) sprintFX.StopEffect();
         
         SetupFootstepAudio();
+
+        // ✅ ASSICURATI CHE LA CAMERA SIA CONFIGURATA
+        if (autoDetectActiveCamera && currentActiveCamera == null)
+        {
+            DetectActiveCamera();
+        }
     }
 
     private void SetupFootstepAudio()
@@ -256,9 +567,12 @@ public class ThirdPersonController : MonoBehaviour
         StopFootstepAudio();
     }
 
-    // ✅ UPDATE OTTIMIZZATO CON SISTEMA PIATTAFORME MIGLIORATO
+    // ✅ UPDATE OTTIMIZZATO CON GESTIONE CAMERA DINAMICA
     private void Update()
     {
+        // 0. ✅ AGGIORNA CAMERA ATTIVA (se auto-detect è abilitato)
+        UpdateActiveCamera();
+        
         // 1. RILEVAMENTO E AGGIORNAMENTO PIATTAFORME
         DetectAndUpdatePlatform();
         
@@ -285,6 +599,22 @@ public class ThirdPersonController : MonoBehaviour
         HandleSprintFX();
     }
 
+    /// <summary>
+    /// Aggiorna la camera attiva se auto-detect è abilitato
+    /// </summary>
+    private void UpdateActiveCamera()
+    {
+        if (!autoDetectActiveCamera) return;
+        
+        cameraCheckTimer += Time.deltaTime;
+        if (cameraCheckTimer >= cameraCheckInterval)
+        {
+            cameraCheckTimer = 0f;
+            DetectActiveCamera();
+        }
+    }
+
+    // [Il resto dei metodi rimane identico al codice originale...]
     // ✅ NUOVO SISTEMA DI RILEVAMENTO PIATTAFORME INTELLIGENTE
     private void DetectAndUpdatePlatform()
     {
@@ -828,10 +1158,22 @@ public class ThirdPersonController : MonoBehaviour
         }
     }
 
+    // ✅ MOVIMENTO MIGLIORATO CON GESTIONE CAMERA DINAMICA
     private void HandleMovement()
     {
         if (IsMovementLocked)
         {
+            playerVelocity = Vector3.zero;
+            _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
+            return;
+        }
+
+        // ✅ VERIFICA CHE LA CAMERA SIA VALIDA PER IL MOVIMENTO
+        if (cameraTransform == null)
+        {
+            if (debugCameraChanges)
+                Debug.LogWarning("[ThirdPersonController] ⚠️ Nessuna cameraTransform disponibile per calcolare il movimento!");
+            
             playerVelocity = Vector3.zero;
             _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
             return;
@@ -858,6 +1200,8 @@ public class ThirdPersonController : MonoBehaviour
             return;
         }
 
+        // ✅ CALCOLO MOVIMENTO RELATIVO ALLA CAMERA ATTIVA (cameraTransform)
+        // Questo è il punto chiave: usa cameraTransform.eulerAngles.y per calcolare la direzione
         float targetAngle = Mathf.Atan2(tempVector3.x, tempVector3.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
         float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
         transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
@@ -871,6 +1215,13 @@ public class ThirdPersonController : MonoBehaviour
         Vector3 totalVelocity = playerVelocity + attackVelocity;
         float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
         _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
+        
+        // ✅ DEBUG: Mostra quale camera sta usando per il movimento
+        if (debugCameraChanges && inputMag > 0.1f)
+        {
+            Debug.DrawLine(transform.position, transform.position + moveDir * 2f, Color.green, 0.1f);
+            Debug.DrawLine(cameraTransform.position, cameraTransform.position + cameraTransform.forward * 3f, Color.blue, 0.1f);
+        }
     }
 
     private float fallingCheckTimer = 0f;
@@ -919,6 +1270,9 @@ public class ThirdPersonController : MonoBehaviour
     private void HandleAirControl()
     {
         if (controller.isGrounded || IsMovementLocked) return;
+
+        // ✅ VERIFICA CHE LA CAMERA SIA VALIDA ANCHE PER AIR CONTROL
+        if (cameraTransform == null) return;
 
         tempVector3.Set(moveInput.x, 0f, moveInput.y);
         float inputMag = tempVector3.magnitude;
@@ -1255,6 +1609,26 @@ public class ThirdPersonController : MonoBehaviour
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawLine(transform.position, transform.position + platformDeltaPosition * 10f);
+        }
+
+        // ✅ DISEGNA INFO CAMERA ATTIVA E CAMERAMANAGER
+        if (currentActiveCamera != null)
+        {
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireSphere(currentActiveCamera.transform.position, 1f);
+            Gizmos.DrawLine(transform.position, currentActiveCamera.transform.position);
+            
+            string cameraInfo = $"Camera Attiva: {currentActiveCamera.name}\nAuto-detect: {autoDetectActiveCamera}";
+            if (useCameraManagerIntegration && CameraManager.ActiveCamera != null)
+            {
+                cameraInfo += $"\nCinemachine: {CameraManager.ActiveCamera.name}\nPriorità: {CameraManager.ActiveCamera.Priority}";
+                
+                // Disegna anche la CinemachineCamera
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireCube(CameraManager.ActiveCamera.transform.position, Vector3.one * 0.5f);
+            }
+            
+            UnityEditor.Handles.Label(currentActiveCamera.transform.position + Vector3.up * 2, cameraInfo);
         }
     }
     #endif

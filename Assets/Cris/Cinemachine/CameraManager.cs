@@ -75,7 +75,7 @@ public class CameraManager : MonoBehaviour
             return;
         }
 
-        // Verifica se la camera è registrata
+        // Verifica se la camera ï¿½ registrata
         if (!cameras.Contains(newCamera))
         {
             Register(newCamera);
@@ -97,6 +97,7 @@ public class CameraManager : MonoBehaviour
         }
 
         LogRegisteredCameras();
+         ThirdPersonController.NotifyAllControllersOfCameraChange();
     }
 
     public static void SwitchCameraByName(string cameraName)
