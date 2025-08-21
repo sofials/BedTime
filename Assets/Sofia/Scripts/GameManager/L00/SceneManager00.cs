@@ -17,6 +17,9 @@ public class SceneManager00 : MonoBehaviour
     [Header("UI References - Specifiche della Scena")]
     [SerializeField] private GameObject levelTitleUI; // Opzionale
     [SerializeField] private PlayerAttack playerAttack; // Per accedere al PowerUp UI
+    [Header("Abilities Management")]
+[SerializeField] private AbilitiesManager abilitiesManager;
+
     
     [Header("Auto-Setup")]
     [SerializeField] private bool autoFindManagers = true;
@@ -210,27 +213,39 @@ public class SceneManager00 : MonoBehaviour
             DebugLog("[SceneManager00] Level Title nascosto");
         }
     }
-    
+
     // ========== SETUP MANAGER ==========
-    
+
     private void SetupManagers()
     {
         DebugLog("[SceneManager00] Setup manager...");
-        
+
         if (autoFindManagers)
         {
             FindManagers();
         }
-        
+
         if (createManagersIfMissing)
         {
             CreateMissingManagers();
         }
-        
+
         ConfigureManagers();
-        
+
         managersReady = checkpointManager != null && collectiblesManager != null;
         DebugLog($"[SceneManager00] Manager pronti: {managersReady}");
+         if (abilitiesManager == null && autoFindManagers)
+    {
+         abilitiesManager = FindFirstObjectByType<AbilitiesManager>();
+    }
+    
+    if (abilitiesManager == null && createManagersIfMissing)
+    {
+        GameObject abilitiesGO = new GameObject("AbilitiesManager");
+        abilitiesGO.transform.parent = transform;
+        abilitiesManager = abilitiesGO.AddComponent<AbilitiesManager>();
+        DebugLog("[SceneManager00] ✅ AbilitiesManager creato automaticamente");
+    }
     }
     
     private void FindManagers()
@@ -310,10 +325,20 @@ public class SceneManager00 : MonoBehaviour
             collectiblesManager.OnPresentCollected.AddListener(OnPresentCollected);
             collectiblesManager.OnMemoryCollected.AddListener(OnMemoryCollected);
         }
+        if (abilitiesManager != null)
+{
+    abilitiesManager.OnAbilityActivatedByEvent.AddListener(OnAbilityActivated);
+    abilitiesManager.SetDebugLogsEnabled(enableDebugLogs);
+}
         
         DebugLog("[SceneManager00] Manager connessi con successo");
     }
-    
+    private void OnAbilityActivated(string abilityName)
+{
+    DebugLog($"[SceneManager00] Abilità attivata: '{abilityName}'");
+}
+
+public AbilitiesManager GetAbilitiesManager() => abilitiesManager;
     private void InitializeScene()
     {
         if (sceneInitialized) return;

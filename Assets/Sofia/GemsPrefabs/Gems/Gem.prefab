@@ -26,7 +26,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1d259da673c643348b52a9bcd17e9614, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.7071067
+      value: 0.7071068
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1d259da673c643348b52a9bcd17e9614, type: 3}
       propertyPath: m_LocalRotation.x
@@ -34,15 +34,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1d259da673c643348b52a9bcd17e9614, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1d259da673c643348b52a9bcd17e9614, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1d259da673c643348b52a9bcd17e9614, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
+      value: -90
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1d259da673c643348b52a9bcd17e9614, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
@@ -91,6 +91,9 @@ MonoBehaviour:
   gemValue: 10
   respawnSec: 60
   collectSound: {fileID: 8300000, guid: 3f283c785af904c43991ab79c1435b70, type: 3}
+  floatAmplitude: 0.3
+  floatFrequency: 2
+  rotationSpeed: 30
 --- !u!65 &3856561378713260530
 BoxCollider:
   m_ObjectHideFlags: 0

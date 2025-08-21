@@ -75,6 +75,13 @@ public class DialogueSystem : MonoBehaviour
     [Tooltip("Se true, avvia il dissolve insieme al sottodialogo")]
     [SerializeField] private bool dissolveWithSubDialogue = true;
     
+    [Header("🆕 Dissolve Initialization")]
+    [Tooltip("Se true, forza tutti i materiali dissolve a valore 1 all'avvio (oggetti completamente visibili)")]
+    [SerializeField] private bool forceInitializeDissolveValues = true;
+    [Tooltip("Valore di dissolve da impostare all'avvio (1 = completamente visibile, 0 = completamente dissolto)")]
+    [Range(0f, 1f)]
+    [SerializeField] private float initialDissolveValue = 1f;
+    
     [Header("Object Activation System")]
     [SerializeField] private bool enableObjectActivation = false;
     [Tooltip("Oggetto che verrà attivato alla fine del dialogo")]
@@ -149,6 +156,80 @@ public class DialogueSystem : MonoBehaviour
         ValidateObjectActivationSetup();
         ValidateSubDialogueSetup(); // 🆕
         ValidateDissolveSetup(); // 🆕
+        
+        // 🆕 INIZIALIZZA I VALORI DISSOLVE ALL'AVVIO
+        if (enableDissolveEffect && forceInitializeDissolveValues)
+        {
+            InitializeDissolveValues();
+        }
+    }
+    
+    // 🆕 NUOVO METODO: Inizializza i valori dissolve all'avvio
+    /// <summary>
+    /// 🆕 Inizializza tutti i materiali dissolve al valore specificato all'avvio della scena
+    /// </summary>
+    void InitializeDissolveValues()
+    {
+        if (dissolveObjects == null || dissolveObjects.Length == 0)
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Nessun oggetto dissolve configurato per l'inizializzazione!");
+            return;
+        }
+        
+        Debug.Log($"[DialogueSystem] 🔧 INIZIALIZZAZIONE VALORI DISSOLVE (valore: {initialDissolveValue})");
+        
+        int totalMaterialsProcessed = 0;
+        int totalMaterialsInitialized = 0;
+        
+        for (int i = 0; i < dissolveObjects.Length; i++)
+        {
+            DissolveObject dissolveObj = dissolveObjects[i];
+            
+            if (dissolveObj.targetObject == null)
+            {
+                Debug.LogWarning($"[DialogueSystem] ⚠️ Target Object NULL per dissolve #{i} - skip inizializzazione");
+                continue;
+            }
+            
+            if (dissolveObj.dissolveMaterials == null || dissolveObj.dissolveMaterials.Length == 0)
+            {
+                Debug.LogWarning($"[DialogueSystem] ⚠️ Nessun materiale configurato per '{dissolveObj.targetObject.name}' - skip inizializzazione");
+                continue;
+            }
+            
+            Debug.Log($"[DialogueSystem] 🔧 Inizializzando dissolve per '{dissolveObj.targetObject.name}'...");
+            
+            foreach (Material mat in dissolveObj.dissolveMaterials)
+            {
+                totalMaterialsProcessed++;
+                
+                if (mat != null && mat.HasProperty(dissolveObj.dissolvePropertyName))
+                {
+                    try
+                    {
+                        float currentValue = mat.GetFloat(dissolveObj.dissolvePropertyName);
+                        mat.SetFloat(dissolveObj.dissolvePropertyName, initialDissolveValue);
+                        totalMaterialsInitialized++;
+                        
+                        Debug.Log($"[DialogueSystem] ✅ Materiale '{mat.name}': {currentValue} → {initialDissolveValue}");
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"[DialogueSystem] ❌ Errore nell'inizializzare materiale '{mat.name}': {e.Message}");
+                    }
+                }
+                else if (mat != null)
+                {
+                    Debug.LogWarning($"[DialogueSystem] ⚠️ Materiale '{mat.name}' NON ha proprietà '{dissolveObj.dissolvePropertyName}'!");
+                }
+                else
+                {
+                    Debug.LogWarning($"[DialogueSystem] ⚠️ Materiale NULL nell'oggetto '{dissolveObj.targetObject.name}'!");
+                }
+            }
+        }
+        
+        Debug.Log($"[DialogueSystem] 🎉 Inizializzazione dissolve completata: {totalMaterialsInitialized}/{totalMaterialsProcessed} materiali processati");
     }
     
     void Update()
@@ -937,7 +1018,7 @@ public class DialogueSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// 🆕 Valida il setup del dissolve all'avvio
+    /// 🆕 Valida il setup del dissolve all'avvio (VERSIONE AGGIORNATA)
     /// </summary>
     void ValidateDissolveSetup()
     {
@@ -954,6 +1035,9 @@ public class DialogueSystem : MonoBehaviour
         }
         
         int validObjects = 0;
+        int totalMaterials = 0;
+        int validMaterials = 0;
+        
         for (int i = 0; i < dissolveObjects.Length; i++)
         {
             DissolveObject dissolveObj = dissolveObjects[i];
@@ -964,20 +1048,42 @@ public class DialogueSystem : MonoBehaviour
                 validObjects++;
                 
                 // Controlla se i materiali hanno la proprietà dissolve
-                int validMaterials = 0;
+                int objValidMaterials = 0;
                 foreach (Material mat in dissolveObj.dissolveMaterials)
                 {
+                    totalMaterials++;
                     if (mat != null && mat.HasProperty(dissolveObj.dissolvePropertyName))
                     {
+                        objValidMaterials++;
                         validMaterials++;
+                        
+                        // 🆕 Mostra il valore attuale se forceInitializeDissolveValues è disabilitato
+                        if (!forceInitializeDissolveValues)
+                        {
+                            float currentValue = mat.GetFloat(dissolveObj.dissolvePropertyName);
+                            if (currentValue != 1f)
+                            {
+                                Debug.LogWarning($"[DialogueSystem] ⚠️ Materiale '{mat.name}' ha valore dissolve {currentValue} (non 1). Considera di abilitare forceInitializeDissolveValues!");
+                            }
+                        }
                     }
                 }
                 
-                Debug.Log($"[DialogueSystem] 🔍 Dissolve Object #{i}: '{dissolveObj.targetObject.name}' - {validMaterials}/{dissolveObj.dissolveMaterials.Length} materiali validi");
+                Debug.Log($"[DialogueSystem] 🔍 Dissolve Object #{i}: '{dissolveObj.targetObject.name}' - {objValidMaterials}/{dissolveObj.dissolveMaterials.Length} materiali validi");
             }
         }
         
         Debug.Log($"[DialogueSystem] ✅ Dissolve Effect setup: {validObjects}/{dissolveObjects.Length} oggetti configurati correttamente");
+        Debug.Log($"[DialogueSystem] 📊 Materiali: {validMaterials}/{totalMaterials} validi");
+        
+        if (forceInitializeDissolveValues)
+        {
+            Debug.Log($"[DialogueSystem] 🔧 Inizializzazione automatica ABILITATA (valore: {initialDissolveValue})");
+        }
+        else
+        {
+            Debug.Log($"[DialogueSystem] ⚠️ Inizializzazione automatica DISABILITATA - verifica manualmente i valori!");
+        }
     }
     
     /// <summary>
@@ -1051,6 +1157,94 @@ public class DialogueSystem : MonoBehaviour
         StopAllDissolveCoroutines();
         Debug.Log("[DialogueSystem] Flag dissolve resettato");
     }
+    
+    // ========== 🆕 DISSOLVE INITIALIZATION METHODS ==========
+    
+    /// <summary>
+    /// 🆕 Forza la re-inizializzazione dei valori dissolve (utile per testing)
+    /// </summary>
+    [ContextMenu("🆕 Test - Forza Re-Inizializzazione Dissolve")]
+    public void ForceReinitializeDissolve()
+    {
+        if (enableDissolveEffect)
+        {
+            Debug.Log("[DialogueSystem] 🧪 Forzando re-inizializzazione dissolve...");
+            InitializeDissolveValues();
+        }
+        else
+        {
+            Debug.LogWarning("[DialogueSystem] Dissolve Effect disabilitato - impossibile re-inizializzare");
+        }
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta un valore dissolve personalizzato per tutti i materiali configurati
+    /// </summary>
+    public void SetAllDissolveValues(float value)
+    {
+        if (dissolveObjects == null || dissolveObjects.Length == 0)
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Nessun oggetto dissolve configurato!");
+            return;
+        }
+        
+        value = Mathf.Clamp01(value); // Clamp tra 0 e 1
+        Debug.Log($"[DialogueSystem] 🎨 Impostando valore dissolve {value} per tutti i materiali...");
+        
+        int materialsSet = 0;
+        
+        foreach (DissolveObject dissolveObj in dissolveObjects)
+        {
+            if (dissolveObj.targetObject != null && dissolveObj.dissolveMaterials != null)
+            {
+                foreach (Material mat in dissolveObj.dissolveMaterials)
+                {
+                    if (mat != null && mat.HasProperty(dissolveObj.dissolvePropertyName))
+                    {
+                        try
+                        {
+                            mat.SetFloat(dissolveObj.dissolvePropertyName, value);
+                            materialsSet++;
+                        }
+                        catch (System.Exception e)
+                        {
+                            Debug.LogError($"[DialogueSystem] ❌ Errore nell'impostare valore per '{mat.name}': {e.Message}");
+                        }
+                    }
+                }
+            }
+        }
+        
+        Debug.Log($"[DialogueSystem] ✅ Valore {value} impostato su {materialsSet} materiali");
+    }
+    
+    /// <summary>
+    /// 🆕 Abilita/disabilita l'inizializzazione automatica dei valori dissolve
+    /// </summary>
+    public void SetForceInitializeDissolveValues(bool force)
+    {
+        forceInitializeDissolveValues = force;
+        Debug.Log($"[DialogueSystem] Inizializzazione automatica dissolve: {(force ? "ABILITATA" : "DISABILITATA")}");
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta il valore di dissolve iniziale
+    /// </summary>
+    public void SetInitialDissolveValue(float value)
+    {
+        initialDissolveValue = Mathf.Clamp01(value);
+        Debug.Log($"[DialogueSystem] Valore dissolve iniziale impostato: {initialDissolveValue}");
+    }
+    
+    /// <summary>
+    /// 🆕 Ottieni se l'inizializzazione automatica è abilitata
+    /// </summary>
+    public bool GetForceInitializeDissolveValues() => forceInitializeDissolveValues;
+    
+    /// <summary>
+    /// 🆕 Ottieni il valore di dissolve iniziale
+    /// </summary>
+    public float GetInitialDissolveValue() => initialDissolveValue;
     
     // ========== 🆕 SUB-DIALOGUE GETTERS/SETTERS ==========
     
@@ -1412,6 +1606,24 @@ public class DialogueSystem : MonoBehaviour
         ResetDissolve();
     }
     
+    [ContextMenu("🆕 Test - Imposta Tutti Dissolve a 1")]
+    public void TestSetAllDissolveToOne()
+    {
+        SetAllDissolveValues(1f);
+    }
+    
+    [ContextMenu("🆕 Test - Imposta Tutti Dissolve a 0")]
+    public void TestSetAllDissolveToZero()
+    {
+        SetAllDissolveValues(0f);
+    }
+    
+    [ContextMenu("🆕 Test - Imposta Tutti Dissolve a 0.5")]
+    public void TestSetAllDissolveToHalf()
+    {
+        SetAllDissolveValues(0.5f);
+    }
+    
     [ContextMenu("Debug - Stato Attuale")]
     public void DebugCurrentState()
     {
@@ -1443,7 +1655,10 @@ public class DialogueSystem : MonoBehaviour
                  $"- Oggetti configurati: {(dissolveObjects != null ? dissolveObjects.Length : 0)}\n" +
                  $"- Già triggerato: {dissolveTriggered}\n" +
                  $"- Con sottodialogo: {dissolveWithSubDialogue}\n" +
-                 $"- Coroutine attive: {dissolveCoroutines.Count}");
+                 $"- Coroutine attive: {dissolveCoroutines.Count}\n" +
+                 $"🔧 Dissolve Initialization:\n" +
+                 $"- Forza inizializzazione: {forceInitializeDissolveValues}\n" +
+                 $"- Valore iniziale: {initialDissolveValue}");
     }
     
     [ContextMenu("Debug - Traccia Eventi")]
@@ -1513,14 +1728,18 @@ public class DialogueSystem : MonoBehaviour
         }
     }
     
-    [ContextMenu("🆕 Debug - Valida Setup Dissolve")]
+    [ContextMenu("🆕 Debug - Valida Setup Dissolve (AGGIORNATO)")]
     public void DebugValidateDissolveSetup()
     {
         ValidateDissolveSetup();
         
+        Debug.Log($"[DialogueSystem] 🔧 Impostazioni Inizializzazione:\n" +
+                 $"- Forza inizializzazione: {forceInitializeDissolveValues}\n" +
+                 $"- Valore iniziale: {initialDissolveValue}");
+        
         if (enableDissolveEffect && dissolveObjects != null && dissolveObjects.Length > 0)
         {
-            Debug.Log("[DialogueSystem] 🌀 Dettagli Dissolve Objects:");
+            Debug.Log("[DialogueSystem] 🌀 Dettagli Dissolve Objects (con valori attuali):");
             for (int i = 0; i < dissolveObjects.Length; i++)
             {
                 DissolveObject dissolveObj = dissolveObjects[i];
@@ -1535,7 +1754,7 @@ public class DialogueSystem : MonoBehaviour
                              $"    - Enable Collider: {dissolveObj.enableMeshColliderAfterDissolve}\n" +
                              $"    - Collider Delay: {dissolveObj.colliderActivationDelay}s");
                     
-                    // Controlla i materiali
+                    // Controlla i materiali e i loro valori attuali
                     if (dissolveObj.dissolveMaterials != null)
                     {
                         for (int j = 0; j < dissolveObj.dissolveMaterials.Length; j++)
@@ -1545,7 +1764,8 @@ public class DialogueSystem : MonoBehaviour
                             {
                                 bool hasProperty = mat.HasProperty(dissolveObj.dissolvePropertyName);
                                 float currentValue = hasProperty ? mat.GetFloat(dissolveObj.dissolvePropertyName) : -1f;
-                                Debug.Log($"      Material[{j}] {mat.name}: HasProperty={hasProperty}, Value={currentValue}");
+                                string status = hasProperty ? (currentValue == 1f ? "✅ OK" : "⚠️ NON 1") : "❌ NO PROP";
+                                Debug.Log($"      Material[{j}] {mat.name}: HasProperty={hasProperty}, Value={currentValue} {status}");
                             }
                             else
                             {
