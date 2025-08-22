@@ -39,6 +39,11 @@ public class Slime : MonoBehaviour
     [Header("Death Effect Controller")]
     public CFXR_EffectController deathEffectController;
 
+    [Header("Chase Audio & VFX")]
+    public AudioSource chaseAudioSource;
+    public AudioClip chaseAudioClip;
+    public GameObject enemyChildObjectToActivate; // Oggetto figlio del nemico da attivare
+
     // Internal state
     private int currentWaypoint = 0;
     private float waitTimer;
@@ -49,6 +54,7 @@ public class Slime : MonoBehaviour
     private bool caughtPlayer = false;
     private bool isAttacking = false;
     private bool isDead = false;
+    private bool hasEverSeenPlayer = false; // Flag per la prima volta che vede il player (mai resettato)
     private Animator animator;
 
     private void Start()
@@ -69,6 +75,19 @@ public class Slime : MonoBehaviour
 
         if (deathEffectController != null)
             deathEffectController.StopEffect();
+
+        // Trova automaticamente l'oggetto figlio del nemico se non assegnato
+        if (enemyChildObjectToActivate == null)
+        {
+            // Cerca un oggetto figlio chiamato "ChaseIndicator" o simile
+            Transform chaseIndicator = transform.Find("ChaseIndicator");
+            if (chaseIndicator != null)
+                enemyChildObjectToActivate = chaseIndicator.gameObject;
+        }
+
+        // Assicurati che l'oggetto sia disattivato all'inizio
+        if (enemyChildObjectToActivate != null)
+            enemyChildObjectToActivate.SetActive(false);
     }
 
     private void Update()
@@ -85,7 +104,18 @@ public class Slime : MonoBehaviour
 
         if (playerVisible && !caughtPlayer)
         {
-            isPatrolling = false;
+            if (isPatrolling)
+            {
+                // Primo momento in cui inizia il chase
+                isPatrolling = false;
+                
+                // Solo se non ha mai visto il player prima
+                if (!hasEverSeenPlayer)
+                {
+                    hasEverSeenPlayer = true;
+                    StartChaseSequence();
+                }
+            }
             ChasePlayer();
         }
         else
@@ -95,6 +125,53 @@ public class Slime : MonoBehaviour
 
             Patrol();
         }
+    }
+
+    private void StartChaseSequence()
+    {
+        // Attiva l'oggetto figlio del nemico
+        if (enemyChildObjectToActivate != null)
+            enemyChildObjectToActivate.SetActive(true);
+
+        // Riproduci l'audio
+        if (chaseAudioSource != null && chaseAudioClip != null)
+        {
+            chaseAudioSource.PlayOneShot(chaseAudioClip);
+            
+            // Avvia la coroutine per spegnere l'oggetto quando finisce l'audio
+            StartCoroutine(DisableEnemyObjectAfterAudio());
+        }
+        else
+        {
+            // Se non c'è audio, disattiva dopo un tempo fisso (es. 2 secondi)
+            StartCoroutine(DisableEnemyObjectAfterDelay(2f));
+        }
+    }
+
+    private IEnumerator DisableEnemyObjectAfterAudio()
+    {
+        if (chaseAudioClip != null)
+        {
+            // Aspetta per la durata dell'audio clip
+            yield return new WaitForSeconds(chaseAudioClip.length);
+        }
+        else
+        {
+            // Fallback se non c'è clip
+            yield return new WaitForSeconds(2f);
+        }
+
+        // Disattiva l'oggetto figlio del nemico
+        if (enemyChildObjectToActivate != null)
+            enemyChildObjectToActivate.SetActive(false);
+    }
+
+    private IEnumerator DisableEnemyObjectAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        
+        if (enemyChildObjectToActivate != null)
+            enemyChildObjectToActivate.SetActive(false);
     }
 
     private void StopAgentSafely()
@@ -305,6 +382,7 @@ public class Slime : MonoBehaviour
     private void ResetToPatrol()
     {
         isPatrolling = true;
+        
         if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             agent.isStopped = false;
 
@@ -315,6 +393,10 @@ public class Slime : MonoBehaviour
 
         if (animator != null)
             animator.SetBool("isAttacking", false);
+
+        // Assicurati che l'oggetto del nemico sia disattivato quando torna al patrol
+        if (enemyChildObjectToActivate != null)
+            enemyChildObjectToActivate.SetActive(false);
 
         FindClosestWaypoint();
 
@@ -388,6 +470,10 @@ public class Slime : MonoBehaviour
             isPatrolling = false;
             caughtPlayer = false;
             isAttacking = false;
+
+            // Disattiva l'oggetto del nemico se è attivo
+            if (enemyChildObjectToActivate != null)
+                enemyChildObjectToActivate.SetActive(false);
 
             // Setta trigger Die DOPO GetHit
             animator?.SetTrigger("Die");

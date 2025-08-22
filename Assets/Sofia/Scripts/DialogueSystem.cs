@@ -74,6 +74,21 @@ public class DialogueSystem : MonoBehaviour
     [SerializeField] private DissolveObject[] dissolveObjects;
     [Tooltip("Se true, avvia il dissolve insieme al sottodialogo")]
     [SerializeField] private bool dissolveWithSubDialogue = true;
+    [Header("🆕 Dissolve Audio")]
+[SerializeField] private bool enableDissolveAudio = false;
+[Tooltip("AudioSource che verrà riprodotto durante l'effetto dissolve")]
+[SerializeField] private AudioSource dissolveAudioSource;
+[Tooltip("AudioClip da riprodurre durante il dissolve")]
+[SerializeField] private AudioClip dissolveAudioClip;
+[Tooltip("Se true, ferma l'audio quando tutti i dissolve sono completati")]
+[SerializeField] private bool stopAudioOnDissolveComplete = true;
+[Tooltip("Tempo di fade out per l'audio dissolve (secondi)")]
+[Range(0f, 2f)]
+[SerializeField] private float dissolveAudioFadeTime = 0.5f;
+
+// Variabili private per gestire l'audio dissolve
+private Coroutine dissolveAudioCoroutine;
+private bool dissolveAudioPlaying = false;
     
     [Header("🆕 Dissolve Initialization")]
     [Tooltip("Se true, forza tutti i materiali dissolve a valore 1 all'avvio (oggetti completamente visibili)")]
@@ -156,6 +171,7 @@ public class DialogueSystem : MonoBehaviour
         ValidateObjectActivationSetup();
         ValidateSubDialogueSetup(); // 🆕
         ValidateDissolveSetup(); // 🆕
+        ValidateDissolveAudioSetup();
         
         // 🆕 INIZIALIZZA I VALORI DISSOLVE ALL'AVVIO
         if (enableDissolveEffect && forceInitializeDissolveValues)
@@ -163,7 +179,45 @@ public class DialogueSystem : MonoBehaviour
             InitializeDissolveValues();
         }
     }
-    
+    /// <summary>
+/// 🆕 Abilita/disabilita l'audio dissolve
+/// </summary>
+public void SetDissolveAudioEnabled(bool enabled)
+{
+    enableDissolveAudio = enabled;
+    Debug.Log($"[DialogueSystem] Audio Dissolve {(enabled ? "abilitato" : "disabilitato")}");
+}
+
+/// <summary>
+/// 🆕 Imposta l'AudioClip per il dissolve
+/// </summary>
+public void SetDissolveAudioClip(AudioClip clip)
+{
+    dissolveAudioClip = clip;
+    Debug.Log($"[DialogueSystem] AudioClip dissolve impostato: {(clip != null ? clip.name : "NULL")}");
+}
+
+/// <summary>
+/// 🆕 Imposta l'AudioSource per il dissolve
+/// </summary>
+public void SetDissolveAudioSource(AudioSource source)
+{
+    dissolveAudioSource = source;
+    Debug.Log($"[DialogueSystem] AudioSource dissolve impostato: {(source != null ? source.name : "NULL")}");
+}
+
+/// <summary>
+/// 🆕 Forza stop dell'audio dissolve
+/// </summary>
+public void ForceStopDissolveAudio()
+{
+    StopDissolveAudio();
+}
+
+/// <summary>
+/// 🆕 Controlla se l'audio dissolve è in riproduzione
+/// </summary>
+public bool IsDissolveAudioPlaying() => dissolveAudioPlaying;
     // 🆕 NUOVO METODO: Inizializza i valori dissolve all'avvio
     /// <summary>
     /// 🆕 Inizializza tutti i materiali dissolve al valore specificato all'avvio della scena
@@ -273,6 +327,27 @@ public class DialogueSystem : MonoBehaviour
             }
         }
     }
+    void OnApplicationPause(bool pauseStatus)
+{
+    if (pauseStatus && enableDissolveEffect)
+    {
+        ResetDissolveToInitialState();
+    }
+}
+
+void OnApplicationFocus(bool hasFocus)
+{
+    if (!hasFocus && enableDissolveEffect)
+    {
+        ResetDissolveToInitialState();
+    }
+}
+
+void ResetDissolveToInitialState()
+{
+    SetAllDissolveValues(1f);
+    Debug.Log("[DialogueSystem] 🔄 Materiali dissolve ripristinati allo stato iniziale");
+}
     
     void OnTriggerEnter(Collider other)
     {
@@ -802,9 +877,12 @@ public class DialogueSystem : MonoBehaviour
             Debug.Log($"[DialogueSystem] ✅ Sub-Dialogue setup: '{subDialogueSystem.name}'");
         }
     }
-    
+
     // ========== 🆕 DISSOLVE SYSTEM ==========
-    
+
+    /// <summary>
+    /// 🆕 Avvia l'effetto dissolve per tutti gli oggetti configurati
+    /// </summary>
     /// <summary>
     /// 🆕 Avvia l'effetto dissolve per tutti gli oggetti configurati
     /// </summary>
@@ -815,17 +893,23 @@ public class DialogueSystem : MonoBehaviour
             Debug.Log("[DialogueSystem] Dissolve già attivato, skip.");
             return;
         }
-        
+
         if (dissolveObjects == null || dissolveObjects.Length == 0)
         {
             Debug.LogWarning("[DialogueSystem] ⚠️ Dissolve abilitato ma nessun oggetto configurato!");
             return;
         }
-        
+
         Debug.Log("[DialogueSystem] 🌀 AVVIO EFFETTO DISSOLVE!");
-        
+
         dissolveTriggered = true;
-        
+
+        // 🆕 AVVIA AUDIO DISSOLVE SE ABILITATO
+        if (enableDissolveAudio)
+        {
+            StartDissolveAudio();
+        }
+
         // Avvia dissolve per ogni oggetto
         for (int i = 0; i < dissolveObjects.Length; i++)
         {
@@ -836,11 +920,107 @@ public class DialogueSystem : MonoBehaviour
                 dissolveCoroutines.Add(dissolveCoroutine);
             }
         }
-        
+
         // Invoca eventi
         OnDissolveStarted?.Invoke();
         OnAnyDissolveStarted?.Invoke(this);
     }
+/// <summary>
+/// 🆕 Avvia l'audio durante il dissolve
+/// </summary>
+void StartDissolveAudio()
+{
+    if (dissolveAudioSource == null && dissolveAudioClip == null)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Audio dissolve abilitato ma nessun AudioSource o AudioClip configurato!");
+        return;
+    }
+    
+    // Se non c'è AudioSource ma c'è il clip, usa l'AudioSource principale
+    if (dissolveAudioSource == null && dissolveAudioClip != null)
+    {
+        dissolveAudioSource = audioSource;
+        Debug.Log("[DialogueSystem] 🔊 Usando AudioSource principale per dissolve audio");
+    }
+    
+    if (dissolveAudioSource != null && dissolveAudioClip != null)
+    {
+        Debug.Log("[DialogueSystem] 🔊 AVVIO AUDIO DISSOLVE");
+        
+        dissolveAudioSource.clip = dissolveAudioClip;
+        dissolveAudioSource.loop = false; 
+        dissolveAudioSource.Play();
+        dissolveAudioPlaying = true;
+        
+        Debug.Log($"[DialogueSystem] 🎵 Audio dissolve avviato: {dissolveAudioClip.name}");
+    }
+    else
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Impossibile avviare audio dissolve - AudioSource o AudioClip mancante!");
+    }
+}
+
+/// <summary>
+/// 🆕 Ferma l'audio dissolve con fade out
+/// </summary>
+void StopDissolveAudio()
+{
+    if (!dissolveAudioPlaying || dissolveAudioSource == null)
+    {
+        return;
+    }
+    
+    Debug.Log("[DialogueSystem] 🔇 FERMANDO AUDIO DISSOLVE");
+    
+    if (dissolveAudioFadeTime > 0f)
+    {
+        // Ferma con fade out
+        if (dissolveAudioCoroutine != null)
+        {
+            StopCoroutine(dissolveAudioCoroutine);
+        }
+        dissolveAudioCoroutine = StartCoroutine(FadeOutDissolveAudio());
+    }
+    else
+    {
+        // Ferma immediatamente
+        dissolveAudioSource.Stop();
+        dissolveAudioPlaying = false;
+        Debug.Log("[DialogueSystem] ⏹️ Audio dissolve fermato immediatamente");
+    }
+}
+
+/// <summary>
+/// 🆕 Coroutine per fade out dell'audio dissolve
+/// </summary>
+IEnumerator FadeOutDissolveAudio()
+{
+    if (dissolveAudioSource == null)
+    {
+        yield break;
+    }
+    
+    float startVolume = dissolveAudioSource.volume;
+    float elapsedTime = 0f;
+    
+    Debug.Log($"[DialogueSystem] 🎵 Fade out audio dissolve (durata: {dissolveAudioFadeTime}s)");
+    
+    while (elapsedTime < dissolveAudioFadeTime && dissolveAudioSource.isPlaying)
+    {
+        elapsedTime += Time.deltaTime;
+        float progress = elapsedTime / dissolveAudioFadeTime;
+        dissolveAudioSource.volume = Mathf.Lerp(startVolume, 0f, progress);
+        yield return null;
+    }
+    
+    // Ferma l'audio e ripristina il volume
+    dissolveAudioSource.Stop();
+    dissolveAudioSource.volume = startVolume;
+    dissolveAudioPlaying = false;
+    dissolveAudioCoroutine = null;
+    
+    Debug.Log("[DialogueSystem] ✅ Fade out audio dissolve completato");
+}
     
     /// <summary>
     /// 🆕 Coroutine che gestisce l'effetto dissolve per un singolo oggetto
@@ -942,7 +1122,10 @@ public class DialogueSystem : MonoBehaviour
         // Controlla se tutte le coroutine di dissolve sono finite
         CheckDissolveCompletion();
     }
-    
+
+    /// <summary>
+    /// 🆕 Controlla se tutti i dissolve sono completati
+    /// </summary>
     /// <summary>
     /// 🆕 Controlla se tutti i dissolve sono completati
     /// </summary>
@@ -950,15 +1133,51 @@ public class DialogueSystem : MonoBehaviour
     {
         // Rimuovi le coroutine completate dalla lista
         dissolveCoroutines.RemoveAll(coroutine => coroutine == null);
-        
+
         // Se tutte le coroutine di dissolve sono finite, notifica completamento
         if (dissolveCoroutines.Count == 0 && dissolveTriggered)
         {
             Debug.Log("[DialogueSystem] 🎉 TUTTI I DISSOLVE COMPLETATI!");
+
+            // 🆕 FERMA AUDIO DISSOLVE SE ABILITATO
+            if (enableDissolveAudio && stopAudioOnDissolveComplete)
+            {
+                StopDissolveAudio();
+            }
+
             OnDissolveCompleted?.Invoke();
             OnAnyDissolveCompleted?.Invoke(this);
         }
     }
+/// <summary>
+/// 🆕 Valida il setup audio dissolve
+/// </summary>
+void ValidateDissolveAudioSetup()
+{
+    if (!enableDissolveAudio)
+    {
+        Debug.Log("[DialogueSystem] Audio Dissolve disabilitato");
+        return;
+    }
+    
+    if (dissolveAudioClip == null)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Audio Dissolve abilitato ma nessun AudioClip assegnato!");
+        return;
+    }
+    
+    if (dissolveAudioSource == null && audioSource == null)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Nessun AudioSource disponibile per audio dissolve!");
+        return;
+    }
+    
+    Debug.Log($"[DialogueSystem] ✅ Audio Dissolve setup: '{dissolveAudioClip.name}'");
+    if (dissolveAudioSource == null)
+    {
+        Debug.Log("[DialogueSystem] 📢 Userà AudioSource principale per dissolve");
+    }
+}
     
     /// <summary>
     /// 🆕 Attiva il MeshCollider di un oggetto

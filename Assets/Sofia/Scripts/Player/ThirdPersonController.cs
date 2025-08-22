@@ -77,6 +77,12 @@ public class ThirdPersonController : MonoBehaviour
     [SerializeField] private float footstepVolumeRun = 0.5f;
     [SerializeField] private float footstepVolumeSprint = 0.5f;
     [SerializeField] private float pitchVariation = 0.1f;
+    [Header("Jump Audio")]
+[SerializeField] private AudioSource jumpAudioSource;
+[SerializeField] private AudioClip[] jumpSounds;
+[SerializeField] private float jumpVolume = 0.7f;
+[SerializeField] private float jumpPitchVariation = 0.1f;
+[SerializeField] private bool useRandomJumpSound = true;
     
     private float footstepTimer = 0f;
     private bool wasMovingLastFrame = false;
@@ -539,6 +545,7 @@ public class ThirdPersonController : MonoBehaviour
 
     private void SetupFootstepAudio()
     {
+        // Setup footstep audio (codice esistente)
         if (footstepAudioSource == null)
         {
             footstepAudioSource = GetComponent<AudioSource>();
@@ -550,13 +557,85 @@ public class ThirdPersonController : MonoBehaviour
                 footstepAudioSource = audioGO.AddComponent<AudioSource>();
             }
         }
-        
+
         footstepAudioSource.playOnAwake = false;
         footstepAudioSource.loop = false;
         footstepAudioSource.spatialBlend = 0.7f;
         footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
         footstepAudioSource.maxDistance = 15f;
+
+        // ✅ SETUP JUMP AUDIO SOURCE
+        SetupJumpAudio();
     }
+    // ✅ NUOVO METODO PER SETUP DELL'AUDIO DEL SALTO
+    private void SetupJumpAudio()
+    {
+        if (jumpAudioSource == null)
+        {
+            // Se non è assegnato, usa lo stesso AudioSource dei footsteps o creane uno nuovo
+            jumpAudioSource = footstepAudioSource;
+
+            // Opzionalmente, puoi creare un AudioSource separato per i salti:
+            /*
+            GameObject jumpAudioGO = new GameObject("JumpAudio");
+            jumpAudioGO.transform.SetParent(transform);
+            jumpAudioGO.transform.localPosition = Vector3.zero;
+            jumpAudioSource = jumpAudioGO.AddComponent<AudioSource>();
+            */
+        }
+
+        // Configura l'AudioSource per il salto (se è separato)
+        if (jumpAudioSource != footstepAudioSource)
+        {
+            jumpAudioSource.playOnAwake = false;
+            jumpAudioSource.loop = false;
+            jumpAudioSource.spatialBlend = 0.7f;
+            jumpAudioSource.rolloffMode = AudioRolloffMode.Linear;
+            jumpAudioSource.maxDistance = 20f; // Leggermente più lontano dei footsteps
+        }
+    }
+
+// ✅ NUOVO METODO PER RIPRODURRE IL SUONO DEL SALTO
+private void PlayJumpSound()
+{
+    if (jumpAudioSource == null || jumpSounds == null || jumpSounds.Length == 0) 
+    {
+        Debug.LogWarning("[ThirdPersonController] Jump audio non configurato correttamente!");
+        return;
+    }
+    
+    AudioClip clipToPlay;
+    
+    if (useRandomJumpSound && jumpSounds.Length > 1)
+    {
+        // Scegli un suono casuale
+        clipToPlay = jumpSounds[Random.Range(0, jumpSounds.Length)];
+    }
+    else
+    {
+        // Usa sempre il primo suono
+        clipToPlay = jumpSounds[0];
+    }
+    
+    // Configura e riproduci il suono
+    jumpAudioSource.pitch = 1f + Random.Range(-jumpPitchVariation, jumpPitchVariation);
+    jumpAudioSource.volume = jumpVolume;
+    
+    // Se usi lo stesso AudioSource dei footsteps, usa PlayOneShot per non interrompere i footsteps
+    if (jumpAudioSource == footstepAudioSource)
+    {
+        jumpAudioSource.PlayOneShot(clipToPlay, jumpVolume);
+    }
+    else
+    {
+        jumpAudioSource.clip = clipToPlay;
+        jumpAudioSource.Play();
+    }
+    
+    // Debug per verificare che funzioni
+    Debug.Log($"[ThirdPersonController] 🔊 Riprodotto suono salto: {clipToPlay.name}");
+}
+
 
     private void OnEnable() => controls.Gameplay.Enable();
     private void OnDisable()
@@ -1082,31 +1161,34 @@ public class ThirdPersonController : MonoBehaviour
         UpdateJumpAnimations();
     }
 
-    private void ExecuteJump(bool isFirstJump)
+   private void ExecuteJump(bool isFirstJump)
+{
+    if (velocity.y < 0) velocity.y = 0f;
+    velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+
+    if (isFirstJump)
     {
-        if (velocity.y < 0) velocity.y = 0f;
-        velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-
-        if (isFirstJump)
-        {
-            _animator.SetBool(JumpHash, true);
-            _animator.SetBool(DoubleJumpHash, false);
-            jumpCount = 1;
-        }
-        else
-        {
-            _animator.SetBool(JumpHash, false);
-            _animator.SetBool(DoubleJumpHash, true);
-            jumpCount++;
-        }
-
-        coyoteTimeCounter = 0;
-        // ✅ NON sganciare automaticamente dalla piattaforma al salto
-        // Lascia che il sistema di rilevamento gestisca naturalmente il distacco
-        fallingTimer = 0f;
+        _animator.SetBool(JumpHash, true);
+        _animator.SetBool(DoubleJumpHash, false);
+        jumpCount = 1;
         
-        StopFootstepAudio();
+        // ✅ RIPRODUCI SUONO SOLO PER IL PRIMO SALTO
+        PlayJumpSound();
     }
+    else
+    {
+        _animator.SetBool(JumpHash, false);
+        _animator.SetBool(DoubleJumpHash, true);
+        jumpCount++;
+        
+        // NON riprodurre suono per i doppi salti (come richiesto)
+    }
+
+    coyoteTimeCounter = 0;
+    fallingTimer = 0f;
+    
+    StopFootstepAudio();
+}
 
     private bool IsGroundedAccurate()
     {

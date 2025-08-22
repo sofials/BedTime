@@ -11,6 +11,9 @@ public class Mushroom : MonoBehaviour
     public float walkSpeed = 6f;
     public float runSpeed = 9f;
     public Transform[] waypoints;
+    [Header("Custom Audio")]
+    public AudioSource customAudioSource;
+    public AudioClip customAudioClip;
 
     [Header("Vision & Attack")]
     public float viewRadius = 15f;
@@ -43,6 +46,10 @@ public class Mushroom : MonoBehaviour
     public AudioSource chaseAudioSource;
     public AudioClip chaseAudioClip;
     public GameObject enemyChildObjectToActivate; // Oggetto figlio del nemico da attivare
+
+    [Header("Death Audio")]
+    public AudioSource deathAudioSource;
+    public AudioClip deathAudioClip;
 
     // Internal state
     private int currentWaypoint = 0;
@@ -88,6 +95,10 @@ public class Mushroom : MonoBehaviour
         // Assicurati che l'oggetto sia disattivato all'inizio
         if (enemyChildObjectToActivate != null)
             enemyChildObjectToActivate.SetActive(false);
+
+        // Se non è assegnato un AudioSource per la morte, usa quello del chase come fallback
+        if (deathAudioSource == null && chaseAudioSource != null)
+            deathAudioSource = chaseAudioSource;
     }
 
     private void Update()
@@ -108,7 +119,7 @@ public class Mushroom : MonoBehaviour
             {
                 // Primo momento in cui inizia il chase
                 isPatrolling = false;
-                
+
                 // Solo se non ha mai visto il player prima
                 if (!hasEverSeenPlayer)
                 {
@@ -137,7 +148,7 @@ public class Mushroom : MonoBehaviour
         if (chaseAudioSource != null && chaseAudioClip != null)
         {
             chaseAudioSource.PlayOneShot(chaseAudioClip);
-            
+
             // Avvia la coroutine per spegnere l'oggetto quando finisce l'audio
             StartCoroutine(DisableEnemyObjectAfterAudio());
         }
@@ -169,7 +180,7 @@ public class Mushroom : MonoBehaviour
     private IEnumerator DisableEnemyObjectAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
-        
+
         if (enemyChildObjectToActivate != null)
             enemyChildObjectToActivate.SetActive(false);
     }
@@ -382,7 +393,7 @@ public class Mushroom : MonoBehaviour
     private void ResetToPatrol()
     {
         isPatrolling = true;
-        
+
         if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             agent.isStopped = false;
 
@@ -510,12 +521,21 @@ public class Mushroom : MonoBehaviour
     {
         yield return new WaitForSeconds(2f);
 
+        // Riproduci il suono di morte
+        if (deathAudioSource != null && deathAudioClip != null)
+        {
+            deathAudioSource.PlayOneShot(deathAudioClip);
+        }
+
+        // Avvia l'effetto visivo di morte
         if (deathEffectController != null)
             deathEffectController.PlayEffect();
 
+        // Nasconde il renderer del modello
         if (Renderer != null)
             Renderer.enabled = false;
 
+        // Aspetta che l'effetto particle finisca
         if (deathEffectController != null)
         {
             ParticleSystem ps = deathEffectController.GetComponent<ParticleSystem>();
@@ -529,8 +549,24 @@ public class Mushroom : MonoBehaviour
             yield return new WaitForSeconds(1.5f);
         }
 
+        // Spawna la gemma
         GemManager.Instance?.SpawnLifeGem(transform.position);
 
+        // Distrugge il GameObject
         Destroy(gameObject);
     }
+    // Metodo per riprodurre l'audio custom tramite Animation Event
+public void PlayCustomAudio()
+{
+    if (isDead) return; // Opzionale: non riprodurre audio se il nemico è morto
+    
+    if (customAudioSource != null && customAudioClip != null)
+    {
+        customAudioSource.PlayOneShot(customAudioClip);
+    }
+    else
+    {
+        Debug.LogWarning("CustomAudioSource o CustomAudioClip non sono assegnati nell'Inspector");
+    }
+}
 }

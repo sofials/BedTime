@@ -9592,10 +9592,10 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 41bd13112bdebbf4fa1f80a5cd659f6c, type: 3}
-  m_Resource: {fileID: 8300000, guid: 41bd13112bdebbf4fa1f80a5cd659f6c, type: 3}
+  m_audioClip: {fileID: 8300000, guid: bdc00e2a5fc98c9448cee8b4f106e30b, type: 3}
+  m_Resource: {fileID: 8300000, guid: bdc00e2a5fc98c9448cee8b4f106e30b, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 0.5
+  m_Volume: 0.685
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -15450,6 +15450,135 @@ Transform:
   - {fileID: 8730740578125586888}
   m_Father: {fileID: 8789503920994408504}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2014046611662557299
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1242341259779561421}
+  - component: {fileID: 8416528360325935993}
+  m_Layer: 6
+  m_Name: Jump
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1242341259779561421
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2014046611662557299}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 109849861056120627}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &8416528360325935993
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2014046611662557299}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 8300000, guid: 4720419468f79984f98638e229eb6da4, type: 3}
+  m_Resource: {fileID: 8300000, guid: 4720419468f79984f98638e229eb6da4, type: 3}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &2117817252263773732
 GameObject:
   m_ObjectHideFlags: 0
@@ -15549,6 +15678,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerController: {fileID: 7402629981581973632}
+  enableDebugLogs: 1
 --- !u!1 &2424387775684368719
 GameObject:
   m_ObjectHideFlags: 0
@@ -30534,6 +30664,7 @@ Transform:
   - {fileID: 6504970197395789386}
   - {fileID: 5576720279379818127}
   - {fileID: 2449897802332071118}
+  - {fileID: 1242341259779561421}
   m_Father: {fileID: 6453789389885122214}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4451514779048696703
@@ -30743,6 +30874,10 @@ MonoBehaviour:
   runSpeed: 25
   sprintSpeed: 30
   rotationSmoothTime: 0.1
+  autoDetectActiveCamera: 1
+  cameraCheckInterval: 0.1
+  useCameraManagerIntegration: 1
+  debugCameraChanges: 0
   jumpHeight: 13
   gravity: -40
   maxJumps: 2
@@ -30776,7 +30911,19 @@ MonoBehaviour:
   footstepVolumeRun: 0.1
   footstepVolumeSprint: 0.1
   pitchVariation: 0.1
+  jumpAudioSource: {fileID: 8416528360325935993}
+  jumpSounds:
+  - {fileID: 8300000, guid: 4720419468f79984f98638e229eb6da4, type: 3}
+  jumpVolume: 0.7
+  jumpPitchVariation: 0.1
+  useRandomJumpSound: 0
   cameraTransform: {fileID: 0}
+  platformLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  platformDetectionRadius: 0.8
+  maxPlatformHeight: 2
+  debugPlatformMovement: 0
   pushRecoverySpeed: 1
   attackVelocityDecay: 8
   sprintFX: {fileID: 8547473516092134913}
@@ -30829,6 +30976,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   attackAdvanceDuration: 0.4
+  teleportAbility: {fileID: 0}
 --- !u!114 &328773549392567367
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -30844,6 +30992,7 @@ MonoBehaviour:
   playerUI: {fileID: 0}
   maxPower: 200
   currentPower: 0
+  debugPowerAmount: 10
   powerUI: {fileID: 0}
   PlatformSpawnerForwardAbility: {fileID: 0}
   SlowdownAbility: {fileID: 0}
@@ -30877,6 +31026,13 @@ MonoBehaviour:
   baseScale: 2
   minScale: 0.3
   maxHeight: 10
+  updateFrequency: 2
+  minMovementThreshold: 0.1
+  useSmoothTransitions: 1
+  positionSmoothSpeed: 10
+  scaleSmoothSpeed: 8
+  onlyShowWhenJumping: 1
+  jumpDetectionHeight: 1.5
   proceduralSettings:
     segments: 32
     radius: 1
@@ -30884,6 +31040,7 @@ MonoBehaviour:
     shadowMaterial: {fileID: 2100000, guid: 524832e6a5857c84dbbd526aecc3ab1c, type: 2}
   customShadowMaterial: {fileID: 2100000, guid: 524832e6a5857c84dbbd526aecc3ab1c, type: 2}
   showDebugRays: 0
+  teleportAbility: {fileID: 0}
 --- !u!1 &4640162231798183033
 GameObject:
   m_ObjectHideFlags: 0

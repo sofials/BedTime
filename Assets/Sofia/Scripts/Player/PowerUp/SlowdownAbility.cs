@@ -13,7 +13,7 @@ public class SlowdownAbility : AbilityBase
     public AudioClip effectAudioClip;
     private AudioSource effectAudioSource;
 
-    public override int powerCost => 20;
+    public override int powerCost => 25;
     protected override bool HasFixedDuration => true;
 
     private struct PlatformData

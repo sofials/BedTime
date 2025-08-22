@@ -123,18 +123,18 @@ public class GemSpawnerSpline : MonoBehaviour
         Spline spline = setting.splineContainer.Spline;
 
         for (int i = 0; i < setting.gemCount; i++)
-        {
-            float t = (float)i / (setting.gemCount - 1);
-            Vector3 localPos = spline.EvaluatePosition(t);
-            Vector3 worldPos = setting.splineContainer.transform.TransformPoint(localPos);
+{
+    float t = (float)i / (setting.gemCount - 1);
+    Vector3 localPos = spline.EvaluatePosition(t);
+    Vector3 worldPos = setting.splineContainer.transform.TransformPoint(localPos);
 
-            Quaternion rotation = Quaternion.Euler(setting.customRotation);
-            GameObject newGem = Instantiate(gemPrefab, worldPos, rotation);
+    // Usa la rotazione originale del prefab
+    GameObject newGem = Instantiate(gemPrefab, worldPos, gemPrefab.transform.rotation);
 
-            // Salva il riferimento alla gemma
-            spawnedGems[splineIndex][i] = newGem;
-            newGem.transform.rotation = rotation;
-        }
+    // Salva il riferimento alla gemma
+    spawnedGems[splineIndex][i] = newGem;
+    // Rimuovi: newGem.transform.rotation = rotation;
+}
 
         Debug.Log($"Spawnatе {setting.gemCount} gemme sulla spline {splineIndex}");
     }
