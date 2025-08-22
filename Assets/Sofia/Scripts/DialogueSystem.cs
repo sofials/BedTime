@@ -1655,53 +1655,7 @@ void ValidateDissolveAudioSetup()
     public float GetActivationDelay() => activationDelay;
     public bool AreObjectsActivated() => objectsAlreadyActivated;
     
-    // Disabilita SOLO il salto, mantiene movimento e rotazione
-    void DisablePlayerJumpOnly()
-    {
-        if (playerController != null)
-        {
-            playerController.SetJumpEnabled(false);
-            Debug.Log("[DialogueSystem] Salto del player disabilitato durante dialogo");
-        }
-        else
-        {
-            // Fallback: cerca automaticamente il ThirdPersonController
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                ThirdPersonController tpc = player.GetComponent<ThirdPersonController>();
-                if (tpc != null)
-                {
-                    tpc.SetJumpEnabled(false);
-                    Debug.Log("[DialogueSystem] Salto disabilitato via auto-found ThirdPersonController");
-                }
-            }
-        }
-    }
-    
-    // Riabilita SOLO il salto
-    void EnablePlayerJumpOnly()
-    {
-        if (playerController != null)
-        {
-            playerController.SetJumpEnabled(true);
-            Debug.Log("[DialogueSystem] Salto del player riabilitato");
-        }
-        else
-        {
-            // Fallback: cerca automaticamente il ThirdPersonController
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                ThirdPersonController tpc = player.GetComponent<ThirdPersonController>();
-                if (tpc != null)
-                {
-                    tpc.SetJumpEnabled(true);
-                    Debug.Log("[DialogueSystem] Salto riabilitato via auto-found ThirdPersonController");
-                }
-            }
-        }
-    }
+
     
     // Metodo pubblico per iniziare il dialogo da altri script
     public void TriggerDialogue()

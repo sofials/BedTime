@@ -41,6 +41,20 @@ public class ThirdPersonController : MonoBehaviour
     private int jumpCount = 0;
     private Vector3 velocity;
     private bool isJumpEnabled = true; 
+    [Header("Ledge Grab Settings")]
+public bool ledgeGrabEnabled = true;
+public float ledgeDetectionDistance = 1f;
+public LayerMask ledgeLayerMask = 1; // Assegna il layer "Ground" o crea uno specifico per i ledge
+public float hangDelayAfterJump = 0.25f;
+
+[Header("Ledge Grab Position")]
+[SerializeField] private float hangHeightOffset = -0.4f; // ← REGOLA QUI L'ALTEZZA! Negativo = più in basso
+[SerializeField] private float hangDistanceFromWall = 0.15f; // Distanza dal muro
+[SerializeField] private bool useSmoothedHanging = true; // Anti-flickering
+[SerializeField] private float hangingSmoothSpeed = 25f; // Velocità di stabilizzazione
+
+[Header("Ledge Grab Debug")]
+public bool debugLedgeGrab = false;
 
     [Header("Advanced Jump Timing")]
     public float coyoteTime = 0.15f;
@@ -137,6 +151,12 @@ public class ThirdPersonController : MonoBehaviour
     private bool jumpInput;
     private bool isSprinting;
     private bool isHoldingJump;
+    private bool hanging = false;
+private bool canMoveAfterHang = true;
+private Vector3 hangPosition;
+private Vector3 hangForward;
+private Vector3 targetHangPosition;
+
 
     [Header("Sprint Effect (assign CFXR_EffectController)")]
     public CFXR_EffectController sprintFX;
@@ -658,6 +678,7 @@ private void PlayJumpSound()
         // 2. Gestisci input e logica
         UpdateJumpTimers();
         HandleJumpInput();
+        HandleLedgeGrab();
         HandleJump();
         HandleAttackVelocity();
         HandleFootstepAudio();
@@ -674,9 +695,118 @@ private void PlayJumpSound()
         // 6. Update stati finali
         UpdateGroundedState();
         HandleFalling();
+        CheckForLedgeRelease(); 
         HandleAirControl();
         HandleSprintFX();
     }
+   private void HandleLedgeGrab()
+{
+    if (!ledgeGrabEnabled) return;
+    
+    // Se siamo già hanging, verifica che il ledge sia ancora valido
+    if (hanging)
+    {
+        if (!IsLedgeStillValid())
+        {
+            // Se il ledge non è più valido, rilascia
+            ReleaseLedgeGrab();
+        }
+        return; // Non cercare altri ledge se siamo già appesi
+    }
+    
+    // Controlla solo se stiamo cadendo e non siamo già appesi
+    if (velocity.y < 0 && !controller.isGrounded && canMoveAfterHang)
+    {
+        TryLedgeGrab();
+    }
+}
+private void TryLedgeGrab()
+{
+    // Ray verso il basso per trovare il top del ledge
+    RaycastHit downHit;
+    Vector3 lineDownStart = (transform.position + Vector3.up * 1.5f) + transform.forward * ledgeDetectionDistance;
+    Vector3 lineDownEnd = (transform.position + Vector3.up * 0.7f) + transform.forward * ledgeDetectionDistance;
+    
+    if (Physics.Linecast(lineDownStart, lineDownEnd, out downHit, ledgeLayerMask))
+    {
+        if (debugLedgeGrab)
+            Debug.DrawLine(lineDownStart, lineDownEnd, Color.red, 0.1f);
+        
+        // Ray in avanti per trovare la parete del ledge
+        RaycastHit fwdHit;
+        Vector3 lineFwdStart = new Vector3(transform.position.x, downHit.point.y - 0.1f, transform.position.z);
+        Vector3 lineFwdEnd = lineFwdStart + transform.forward * ledgeDetectionDistance;
+        
+        if (Physics.Linecast(lineFwdStart, lineFwdEnd, out fwdHit, ledgeLayerMask))
+        {
+            if (debugLedgeGrab)
+                Debug.DrawLine(lineFwdStart, lineFwdEnd, Color.green, 0.1f);
+            
+            // Esegui il ledge grab
+            ExecuteLedgeGrab(downHit, fwdHit);
+        }
+        else if (debugLedgeGrab)
+        {
+            Debug.DrawLine(lineFwdStart, lineFwdEnd, Color.yellow, 0.1f);
+        }
+    }
+    else if (debugLedgeGrab)
+    {
+        Debug.DrawLine(lineDownStart, lineDownEnd, Color.white, 0.1f);
+    }
+}
+private void ExecuteLedgeGrab(RaycastHit downHit, RaycastHit fwdHit)
+{
+    // Ferma movimento e caduta IMMEDIATAMENTE
+    velocity = Vector3.zero;
+    playerVelocity = Vector3.zero;
+    attackVelocity = Vector3.zero;
+    externalPush = Vector3.zero;
+    
+    // ✅ DISABILITA CHARACTERCONTROLLER DURANTE HANGING
+    controller.enabled = false;
+    
+    // Imposta stato hanging
+    hanging = true;
+    
+    // Calcolo posizione
+    hangPosition = new Vector3(fwdHit.point.x, downHit.point.y + hangHeightOffset, fwdHit.point.z);
+    Vector3 wallOffset = (-fwdHit.normal) * hangDistanceFromWall;
+    hangPosition += wallOffset;
+    
+    // ✅ POSIZIONAMENTO DIRETTO SENZA INTERFERENZE
+    transform.position = hangPosition;
+    
+    // Orienta verso il muro
+    hangForward = -fwdHit.normal;
+    transform.rotation = Quaternion.LookRotation(hangForward);
+    
+    // Reset vari...
+    StopFootstepAudio();
+    jumpBufferCounter = 0f;
+    coyoteTimeCounter = 0f;
+    jumpCount = 0;
+    
+    Debug.Log("[LedgeGrab] ✅ Appeso al ledge - CharacterController disabilitato");
+}
+private bool IsLedgeStillValid()
+{
+    if (!hanging) return false;
+    
+    // Verifica che ci sia ancora un muro davanti
+    RaycastHit hit;
+    Vector3 rayStart = transform.position + Vector3.up * 0.5f;
+    Vector3 rayDirection = hangForward * -1f; // Direzione verso il muro
+    
+    bool wallStillThere = Physics.Raycast(rayStart, rayDirection, out hit, 0.3f, ledgeLayerMask);
+    
+    if (debugLedgeGrab && !wallStillThere)
+    {
+        Debug.Log("[LedgeGrab] ⚠️ Muro non più rilevato - rilascio ledge");
+    }
+    
+    return wallStillThere;
+}
 
     /// <summary>
     /// Aggiorna la camera attiva se auto-detect è abilitato
@@ -863,90 +993,96 @@ private void PlayJumpSound()
     }
 
     // ✅ SISTEMA DI APPLICAZIONE MOVIMENTO COMPLETO E OTTIMIZZATO
-    private void ApplyAllMovement()
+private void ApplyAllMovement()
+{
+    // ✅ SE SIAMO HANGING, NON FARE NULLA
+    if (hanging)
     {
-        if (!controller.enabled) return;
-        
-        Vector3 totalMovement = Vector3.zero;
-        
-        // 1. ✅ MOVIMENTO PIATTAFORMA (se presente e valida)
-        if (currentPlatform != null && !isOnObstaclePlatform)
-        {
-            Vector3 platformMovement = ApplyPlatformMovement();
-            totalMovement += platformMovement;
-        }
-        
-        // 2. MOVIMENTO PLAYER (orizzontale + verticale)
-        Vector3 playerMovement = Vector3.zero;
-        playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
-        playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
-        playerMovement.y = velocity.y * Time.deltaTime;
-        
-        totalMovement += playerMovement;
-        
-        // 3. ✅ APPLICA TUTTO IL MOVIMENTO IN UNA SOLA CHIAMATA
-        controller.Move(totalMovement);
+        // Il CharacterController è disabilitato, quindi non chiamare controller.Move()
+        // La posizione è già fissata in ExecuteLedgeGrab()
+        return;
     }
-
-    // ✅ APPLICA IL MOVIMENTO SPECIFICO DELLA PIATTAFORMA
-    private Vector3 ApplyPlatformMovement()
+    
+    if (!controller.enabled) return;
+    
+    Vector3 totalMovement = Vector3.zero;
+    
+    // 1. ✅ MOVIMENTO PIATTAFORMA (se presente e valida)
+    if (currentPlatform != null && !isOnObstaclePlatform)
     {
-        Vector3 totalPlatformMovement = Vector3.zero;
-        
-        // A) MOVIMENTO LINEARE della piattaforma
-        totalPlatformMovement += platformDeltaPosition;
-        
-        // B) MOVIMENTO DOVUTO ALLA ROTAZIONE
-        if (platformDeltaRotation != Quaternion.identity)
-        {
-            // Applica rotazione al player
-            transform.rotation = platformDeltaRotation * transform.rotation;
-            
-            // Calcola spostamento dovuto alla rotazione
-            Vector3 relativePosition = transform.position - currentPlatform.position;
-            Vector3 rotatedRelativePosition = platformDeltaRotation * relativePosition;
-            Vector3 rotationMovement = rotatedRelativePosition - relativePosition;
-            
-            totalPlatformMovement += rotationMovement;
-        }
-        
-        // C) ✅ COMPENSAZIONE VELOCITÀ VERTICALE INTELLIGENTE
-        if (controller.isGrounded && totalPlatformMovement.y != 0f)
-        {
-            float platformVerticalSpeed = totalPlatformMovement.y / Time.deltaTime;
-            
-            // Strategia di compensazione basata sulla velocità
-            if (Mathf.Abs(platformVerticalSpeed) > 5f)
-            {
-                // Movimento verticale molto rapido (ascensori veloci)
-                velocity.y = platformVerticalSpeed;
-            }
-            else if (Mathf.Abs(platformVerticalSpeed) > 2f)
-            {
-                // Movimento verticale rapido con smoothing
-                velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 20f);
-            }
-            else if (Mathf.Abs(platformVerticalSpeed) > 0.5f)
-            {
-                // Movimento verticale moderato
-                if (platformVerticalSpeed > 0 || velocity.y > -5f)
-                {
-                    float targetVelocity = Mathf.Max(platformVerticalSpeed, velocity.y);
-                    velocity.y = Mathf.Lerp(velocity.y, targetVelocity, Time.deltaTime * 12f);
-                }
-            }
-            else if (Mathf.Abs(platformVerticalSpeed) > 0.1f)
-            {
-                // Movimento verticale lento (ondulazioni)
-                if (platformVerticalSpeed > 0.1f || (platformVerticalSpeed < -0.1f && velocity.y > -2f))
-                {
-                    velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 6f);
-                }
-            }
-        }
-        
-        return totalPlatformMovement;
+        Vector3 platformMovement = ApplyPlatformMovement();
+        totalMovement += platformMovement;
     }
+    
+    // 2. MOVIMENTO PLAYER (orizzontale + verticale)
+    Vector3 playerMovement = Vector3.zero;
+    playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
+    playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
+    playerMovement.y = velocity.y * Time.deltaTime;
+    
+    totalMovement += playerMovement;
+    
+    // 3. ✅ APPLICA TUTTO IL MOVIMENTO IN UNA SOLA CHIAMATA
+    controller.Move(totalMovement);
+}
+private Vector3 ApplyPlatformMovement()
+{
+    Vector3 totalPlatformMovement = Vector3.zero;
+    
+    // A) MOVIMENTO LINEARE della piattaforma
+    totalPlatformMovement += platformDeltaPosition;
+    
+    // B) MOVIMENTO DOVUTO ALLA ROTAZIONE
+    if (platformDeltaRotation != Quaternion.identity)
+    {
+        // Applica rotazione al player
+        transform.rotation = platformDeltaRotation * transform.rotation;
+        
+        // Calcola spostamento dovuto alla rotazione
+        Vector3 relativePosition = transform.position - currentPlatform.position;
+        Vector3 rotatedRelativePosition = platformDeltaRotation * relativePosition;
+        Vector3 rotationMovement = rotatedRelativePosition - relativePosition;
+        
+        totalPlatformMovement += rotationMovement;
+    }
+    
+    // C) ✅ COMPENSAZIONE VELOCITÀ VERTICALE INTELLIGENTE
+    if (controller.isGrounded && totalPlatformMovement.y != 0f)
+    {
+        float platformVerticalSpeed = totalPlatformMovement.y / Time.deltaTime;
+        
+        // Strategia di compensazione basata sulla velocità
+        if (Mathf.Abs(platformVerticalSpeed) > 5f)
+        {
+            // Movimento verticale molto rapido (ascensori veloci)
+            velocity.y = platformVerticalSpeed;
+        }
+        else if (Mathf.Abs(platformVerticalSpeed) > 2f)
+        {
+            // Movimento verticale rapido con smoothing
+            velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 20f);
+        }
+        else if (Mathf.Abs(platformVerticalSpeed) > 0.5f)
+        {
+            // Movimento verticale moderato
+            if (platformVerticalSpeed > 0 || velocity.y > -5f)
+            {
+                float targetVelocity = Mathf.Max(platformVerticalSpeed, velocity.y);
+                velocity.y = Mathf.Lerp(velocity.y, targetVelocity, Time.deltaTime * 12f);
+            }
+        }
+        else if (Mathf.Abs(platformVerticalSpeed) > 0.1f)
+        {
+            // Movimento verticale lento (ondulazioni)
+            if (platformVerticalSpeed > 0.1f || (platformVerticalSpeed < -0.1f && velocity.y > -2f))
+            {
+                velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 6f);
+            }
+        }
+    }
+    
+    return totalPlatformMovement;
+}
 
     private void HandleFootstepAudio()
     {
@@ -1058,49 +1194,68 @@ private void PlayJumpSound()
         }
     }
 
-    private void UpdateGroundedState()
+   private void UpdateGroundedState()
+{
+    // ✅ Se siamo hanging, non aggiornare lo stato grounded
+    if (hanging)
     {
-        bool grounded = controller.isGrounded;
+        // Mantieni lo stato precedente dell'animazione
+        return;
+    }
+    
+    bool grounded = controller.isGrounded;
 
-        if (!grounded)
+    if (!grounded)
+    {
+        tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
+        int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.1f);
+
+        if (hitCount > 0)
         {
-            tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
-            int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.1f);
-
-            if (hitCount > 0)
-            {
-                grounded = true;
-            }
+            grounded = true;
         }
-
-        _animator.SetBool(IsGroundedHash, grounded);
-
-        if (grounded && !wasGroundedLastFrame)
-        {
-            OnLanding();
-        }
-
-        wasGroundedLastFrame = grounded;
     }
 
-    public bool IsJumpEnabled
+    _animator.SetBool(IsGroundedHash, grounded);
+
+    if (grounded && !wasGroundedLastFrame)
     {
-        get => isJumpEnabled;
-        set => isJumpEnabled = value;
+        OnLanding();
     }
 
-    public void SetJumpEnabled(bool enabled)
+    wasGroundedLastFrame = grounded;
+}
+private void CheckForLedgeRelease()
+{
+    if (!hanging) return;
+    
+    // Rilascia se il player si muove all'indietro
+    if (moveInput.y < -0.5f) // Input verso il basso/indietro
     {
-        isJumpEnabled = enabled;
+        // ✅ USA IL METODO UNIFICATO
+        ReleaseLedgeGrab();
+        StartCoroutine(EnableMovementAfterHangJump()); // Usa lo stesso delay
         
-        if (!enabled)
-        {
-            jumpBufferCounter = 0f;
-            isHoldingJump = false;
-        }
-        
-        Debug.Log($"[ThirdPersonController] Salto {(enabled ? "abilitato" : "disabilitato")}");
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] Rilasciato manualmente con input indietro");
     }
+}
+private void ReleaseLedgeGrab()
+{
+    if (!hanging) return;
+    
+    // ✅ RIABILITA CHARACTERCONTROLLER
+    if (!controller.enabled)
+    {
+        controller.enabled = true;
+    }
+    
+    hanging = false;
+    velocity.y = -1f; // Inizia a cadere dolcemente
+    
+    if (debugLedgeGrab)
+        Debug.Log("[LedgeGrab] Rilasciato automaticamente - CharacterController riabilitato");
+}
 
     private void OnLanding()
     {
@@ -1124,42 +1279,180 @@ private void PlayJumpSound()
     }
 
     private bool TryJump()
+{
+    if (!isJumpEnabled) return false;
+    
+    // ✅ GESTIONE SALTO DA HANGING
+    if (hanging)
     {
-        if (!isJumpEnabled) return false;
-        
-        bool grounded = IsGroundedAccurate();
-        bool canJump = false;
-        bool isFirstJump = false;
-
-        if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
-        {
-            canJump = true;
-            isFirstJump = true;
-        }
-        else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
-        {
-            canJump = true;
-            isFirstJump = false;
-        }
-
-        if (canJump)
-        {
-            ExecuteJump(isFirstJump);
-            return true;
-        }
-        
-        return false;
+        ExecuteJumpFromHang();
+        return true;
     }
+    
+    // Resto della logica di salto normale rimane uguale...
+    bool grounded = IsGroundedAccurate();
+    bool canJump = false;
+    bool isFirstJump = false;
+
+    if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
+    {
+        canJump = true;
+        isFirstJump = true;
+    }
+    else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
+    {
+        canJump = true;
+        isFirstJump = false;
+    }
+
+    if (canJump)
+    {
+        ExecuteJump(isFirstJump);
+        return true;
+    }
+    
+    return false;
+}
+
+private void HandleMovement()
+{
+    // ✅ BLOCCA MOVIMENTO DURANTE HANGING (prima di tutto)
+    if (hanging || IsMovementLocked)
+    {
+        playerVelocity = Vector3.zero;
+        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
+        return;
+    }
+
+    // ✅ VERIFICA CHE LA CAMERA SIA VALIDA PER IL MOVIMENTO
+    if (cameraTransform == null)
+    {
+        if (debugCameraChanges)
+            Debug.LogWarning("[ThirdPersonController] ⚠️ Nessuna cameraTransform disponibile per calcolare il movimento!");
+        
+        playerVelocity = Vector3.zero;
+        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
+        return;
+    }
+
+    // ✅ CONTROLLO AGGIUNTIVO PER canMoveAfterHang
+    if (!canMoveAfterHang)
+    {
+        playerVelocity = Vector3.zero;
+        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
+        return;
+    }
+
+    float h = moveInput.x;
+    float v = moveInput.y;
+
+    tempVector3.Set(h, 0f, v);
+    float inputMag = tempVector3.magnitude;
+    
+    if (inputMag > 1f)
+    {
+        tempVector3.Normalize();
+        inputMag = 1f;
+    }
+    
+    smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMag, Time.deltaTime * 5f);
+
+    if (inputMag < 0.1f)
+    {
+        playerVelocity = Vector3.zero;
+        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
+        return;
+    }
+
+    // ✅ CALCOLO MOVIMENTO RELATIVO ALLA CAMERA ATTIVA
+    float targetAngle = Mathf.Atan2(tempVector3.x, tempVector3.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+    float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
+    transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+
+    Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+    moveDir = Vector3.ProjectOnPlane(moveDir, GetGroundNormal());
+
+    float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
+    playerVelocity = moveDir * targetSpeed;
+
+    Vector3 totalVelocity = playerVelocity + attackVelocity;
+    float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
+    _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
+    
+    // ✅ DEBUG: Mostra quale camera sta usando per il movimento
+    if (debugCameraChanges && inputMag > 0.1f)
+    {
+        Debug.DrawLine(transform.position, transform.position + moveDir * 2f, Color.green, 0.1f);
+        Debug.DrawLine(cameraTransform.position, cameraTransform.position + cameraTransform.forward * 3f, Color.blue, 0.1f);
+    }
+}
+
+
+/// <summary>
+/// Esegue il salto da ledge grab
+/// </summary>
+private void ExecuteJumpFromHang()
+{   
+    // ✅ RIABILITA CHARACTERCONTROLLER PRIMA DI MUOVERSI
+    if (!controller.enabled)
+    {
+        controller.enabled = true;
+    }
+    
+    // Termina hanging
+    hanging = false;
+    
+    // Posiziona leggermente davanti al muro
+    Vector3 jumpStartPosition = hangPosition + hangForward * 0.3f;
+    transform.position = jumpStartPosition;
+    
+    // Salto normale verso l'alto
+    velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+    
+    // Piccolo impulso in avanti per staccarsi dal muro
+    Vector3 jumpDirection = hangForward * 2f;
+    playerVelocity = new Vector3(jumpDirection.x, 0f, jumpDirection.z);
+    
+    // Reset jump count
+    jumpCount = 1;
+    
+    // Disabilita movimento temporaneamente
+    StartCoroutine(EnableMovementAfterHangJump());
+    
+    // Riproduci suono del salto
+    PlayJumpSound();
+    
+    if (debugLedgeGrab)
+        Debug.Log("[LedgeGrab] 🚀 Saltato dal ledge! CharacterController riabilitato");
+}
+/// <summary>
+/// Riabilita il movimento dopo un breve delay dal salto da hang
+/// </summary>
+private IEnumerator EnableMovementAfterHangJump()
+{
+    canMoveAfterHang = false;
+    yield return new WaitForSeconds(hangDelayAfterJump);
+    canMoveAfterHang = true;
+}
+
 
     private void HandleJump()
+{
+    bool grounded = controller.isGrounded;
+    
+    // ✅ SE SIAMO HANGING, NON APPLICARE GRAVITÀ NÉ MOVIMENTO VERTICALE
+    if (hanging)
     {
-        bool grounded = controller.isGrounded;
-        if (grounded && velocity.y < 0)
-            velocity.y = -2f;
-
-        ApplyGravity();
-        UpdateJumpAnimations();
+        velocity.y = 0f; // Ferma completamente il movimento verticale
+        return; // Esce senza applicare gravità
     }
+    
+    if (grounded && velocity.y < 0)
+        velocity.y = -2f;
+
+    ApplyGravity();
+    UpdateJumpAnimations();
+}
 
    private void ExecuteJump(bool isFirstJump)
 {
@@ -1240,72 +1533,6 @@ private void PlayJumpSound()
         }
     }
 
-    // ✅ MOVIMENTO MIGLIORATO CON GESTIONE CAMERA DINAMICA
-    private void HandleMovement()
-    {
-        if (IsMovementLocked)
-        {
-            playerVelocity = Vector3.zero;
-            _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
-            return;
-        }
-
-        // ✅ VERIFICA CHE LA CAMERA SIA VALIDA PER IL MOVIMENTO
-        if (cameraTransform == null)
-        {
-            if (debugCameraChanges)
-                Debug.LogWarning("[ThirdPersonController] ⚠️ Nessuna cameraTransform disponibile per calcolare il movimento!");
-            
-            playerVelocity = Vector3.zero;
-            _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
-            return;
-        }
-
-        float h = moveInput.x;
-        float v = moveInput.y;
-
-        tempVector3.Set(h, 0f, v);
-        float inputMag = tempVector3.magnitude;
-        
-        if (inputMag > 1f)
-        {
-            tempVector3.Normalize();
-            inputMag = 1f;
-        }
-        
-        smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMag, Time.deltaTime * 5f);
-
-        if (inputMag < 0.1f)
-        {
-            playerVelocity = Vector3.zero;
-            _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
-            return;
-        }
-
-        // ✅ CALCOLO MOVIMENTO RELATIVO ALLA CAMERA ATTIVA (cameraTransform)
-        // Questo è il punto chiave: usa cameraTransform.eulerAngles.y per calcolare la direzione
-        float targetAngle = Mathf.Atan2(tempVector3.x, tempVector3.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-        float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
-        transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
-
-        Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-        moveDir = Vector3.ProjectOnPlane(moveDir, GetGroundNormal());
-
-        float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
-        playerVelocity = moveDir * targetSpeed;
-
-        Vector3 totalVelocity = playerVelocity + attackVelocity;
-        float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
-        _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
-        
-        // ✅ DEBUG: Mostra quale camera sta usando per il movimento
-        if (debugCameraChanges && inputMag > 0.1f)
-        {
-            Debug.DrawLine(transform.position, transform.position + moveDir * 2f, Color.green, 0.1f);
-            Debug.DrawLine(cameraTransform.position, cameraTransform.position + cameraTransform.forward * 3f, Color.blue, 0.1f);
-        }
-    }
-
     private float fallingCheckTimer = 0f;
     private const float FALLING_CHECK_INTERVAL = 0.1f;
 
@@ -1348,79 +1575,136 @@ private void PlayJumpSound()
         int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.3f);
         return hitCount > 0;
     }
+private void HandleAirControl()
+{
+    // ✅ NON APPLICARE AIR CONTROL DURANTE HANGING
+    if (controller.isGrounded || IsMovementLocked || hanging || !canMoveAfterHang) return;
 
-    private void HandleAirControl()
+    // ✅ VERIFICA CHE LA CAMERA SIA VALIDA ANCHE PER AIR CONTROL
+    if (cameraTransform == null) return;
+
+    tempVector3.Set(moveInput.x, 0f, moveInput.y);
+    float inputMag = tempVector3.magnitude;
+    
+    if (inputMag < 0.1f) return;
+    
+    if (inputMag > 1f)
     {
-        if (controller.isGrounded || IsMovementLocked) return;
-
-        // ✅ VERIFICA CHE LA CAMERA SIA VALIDA ANCHE PER AIR CONTROL
-        if (cameraTransform == null) return;
-
-        tempVector3.Set(moveInput.x, 0f, moveInput.y);
-        float inputMag = tempVector3.magnitude;
-        
-        if (inputMag < 0.1f) return;
-        
-        if (inputMag > 1f)
-        {
-            tempVector3.Normalize();
-        }
-
-        float targetAngle = Mathf.Atan2(tempVector3.x, tempVector3.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-        float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
-        transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
-
-        Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-        
-        tempVector3.Set(moveDir.x * airControlSpeed, 0f, moveDir.z * airControlSpeed);
-        playerVelocity += tempVector3;
+        tempVector3.Normalize();
     }
 
-    public void Respawn()
+    float targetAngle = Mathf.Atan2(tempVector3.x, tempVector3.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+    float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, airRotationSmoothTime);
+    transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+
+    Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+    
+    tempVector3.Set(moveDir.x * airControlSpeed, 0f, moveDir.z * airControlSpeed);
+    playerVelocity += tempVector3;
+}
+public void Respawn()
+{
+    // ✅ ASSICURATI CHE IL CHARACTERCONTROLLER SIA ABILITATO
+    if (!controller.enabled)
     {
-        controller.enabled = false;
-
-        Transform spawnPoint = GetRespawnPoint();
-        transform.position = spawnPoint.position;
-        transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-
-        velocity = Vector3.zero;
-        attackVelocity = Vector3.zero;
-        
-        // ✅ Sgancia dalla piattaforma durante il respawn
-        DetachFromCurrentPlatform();
-        
-        if (playerCamera != null)
-        {
-            CinemachineCore.ResetCameraState();
-        }
-        else
-        {
-            Debug.LogWarning("[ThirdPersonController] playerCamera non assegnata - impossibile resettare camera");
-        }
-
         controller.enabled = true;
-
-        _animator.SetBool(JumpHash, false);
-        _animator.SetBool(DoubleJumpHash, false);
-        _animator.SetBool(IsFallingHash, false);
-        _animator.SetBool(IsGroundedHash, true);
-
-        jumpCount = 0;
-        coyoteTimeCounter = 0f;
-        jumpBufferCounter = 0f;
-        fallingTimer = 0f;
-        wasGroundedLastFrame = true;
-
-        StopAllCoroutines();
-        if (sprintFX) sprintFX.StopEffect();
-        sprintFXActive = false;
-        StopFootstepAudio();
-
-        IsMovementLocked = false;
-
-        Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
     }
+    
+    controller.enabled = false;
+
+    Transform spawnPoint = GetRespawnPoint();
+    transform.position = spawnPoint.position;
+    transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+
+    velocity = Vector3.zero;
+    attackVelocity = Vector3.zero;
+    
+    // ✅ RESET LEDGE GRAB STATE
+    hanging = false;
+    canMoveAfterHang = true;
+    
+    // Sgancia dalla piattaforma durante il respawn
+    DetachFromCurrentPlatform();
+    
+    if (playerCamera != null)
+    {
+        CinemachineCore.ResetCameraState();
+    }
+    else
+    {
+        Debug.LogWarning("[ThirdPersonController] playerCamera non assegnata - impossibile resettare camera");
+    }
+
+    controller.enabled = true;
+
+    _animator.SetBool(JumpHash, false);
+    _animator.SetBool(DoubleJumpHash, false);
+    _animator.SetBool(IsFallingHash, false);
+    _animator.SetBool(IsGroundedHash, true);
+
+    jumpCount = 0;
+    coyoteTimeCounter = 0f;
+    jumpBufferCounter = 0f;
+    fallingTimer = 0f;
+    wasGroundedLastFrame = true;
+
+    StopAllCoroutines();
+    if (sprintFX) sprintFX.StopEffect();
+    sprintFXActive = false;
+    StopFootstepAudio();
+
+    IsMovementLocked = false;
+
+    Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
+}
+
+/// <summary>
+/// Abilita/disabilita il sistema di ledge grab
+/// </summary>
+public void SetLedgeGrabEnabled(bool enabled)
+{
+    ledgeGrabEnabled = enabled;
+    
+    if (!enabled && hanging)
+    {
+        // Se disabilitiamo durante hanging, forza il rilascio
+        hanging = false;
+        canMoveAfterHang = true;
+    }
+    
+    Debug.Log($"[LedgeGrab] Sistema {(enabled ? "abilitato" : "disabilitato")}");
+}
+/// <summary>
+/// Verifica se il player è attualmente appeso
+/// </summary>
+public bool IsHanging()
+{
+    return hanging;
+}
+
+/// <summary>
+/// Forza il rilascio dal ledge (per eventi speciali)
+/// </summary>
+public void ForceReleaseLedge()
+{
+    if (hanging)
+    {
+        ReleaseLedgeGrab();
+        canMoveAfterHang = true;
+        
+        Debug.Log("[LedgeGrab] Rilascio forzato dal ledge");
+    }
+}
+/// <summary>
+/// Ottieni informazioni sullo stato del ledge grab
+/// </summary>
+public string GetLedgeGrabInfo()
+{
+    if (!ledgeGrabEnabled) return "Ledge Grab disabilitato";
+    if (hanging) return $"Appeso al ledge - Posizione: {hangPosition}";
+    if (!canMoveAfterHang) return "Delay dopo salto da ledge";
+    return "Ledge Grab pronto";
+}
 
     private Transform GetRespawnPoint()
     {
@@ -1712,6 +1996,34 @@ private void PlayJumpSound()
             
             UnityEditor.Handles.Label(currentActiveCamera.transform.position + Vector3.up * 2, cameraInfo);
         }
+        if (debugLedgeGrab && Application.isPlaying)
+    {
+        // Disegna i raggi di rilevamento ledge
+        if (!hanging && velocity.y < 0)
+        {
+            // Ray verso il basso
+            Vector3 lineDownStart = (transform.position + Vector3.up * 1.5f) + transform.forward * ledgeDetectionDistance;
+            Vector3 lineDownEnd = (transform.position + Vector3.up * 0.7f) + transform.forward * ledgeDetectionDistance;
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(lineDownStart, lineDownEnd);
+            
+            // Ray in avanti (approssimativo per il gizmo)
+            Vector3 lineFwdStart = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+            Vector3 lineFwdEnd = lineFwdStart + transform.forward * ledgeDetectionDistance;
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(lineFwdStart, lineFwdEnd);
+        }
+        
+        // Disegna la posizione di hang
+        if (hanging)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(hangPosition, 0.2f);
+            Gizmos.DrawLine(transform.position, transform.position + hangForward * 1.5f);
+            
+            UnityEditor.Handles.Label(transform.position + Vector3.up * 2, "HANGING");
+        }
+    }
     }
     #endif
 }
