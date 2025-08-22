@@ -402,8 +402,6 @@ void ResetDissolveToInitialState()
             Debug.Log("[DEBUG] DialogueUI attivato");
         }
         
-        // Disabilita SOLO il salto, mantiene movimento
-        DisablePlayerJumpOnly();
         
         // Mostra la prima battuta
         DisplayLine();
@@ -632,8 +630,6 @@ void ResetDissolveToInitialState()
             autoFinishCoroutine = null;
         }
         
-        // Riabilita il salto
-        EnablePlayerJumpOnly();
         
         // ATTIVA OGGETTI SE ABILITATO
         if (enableObjectActivation && !objectsAlreadyActivated)

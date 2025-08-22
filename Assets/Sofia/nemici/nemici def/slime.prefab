@@ -25026,6 +25026,8 @@ MonoBehaviour:
   waypoints:
   - {fileID: 0}
   - {fileID: 0}
+  customAudioSource: {fileID: 2847167632046886891}
+  customAudioClip: {fileID: 8300000, guid: a8700dd4737bf0141ab6729b4aad634d, type: 3}
   viewRadius: 15
   viewAngle: 360
   attackRange: 7
@@ -25048,6 +25050,8 @@ MonoBehaviour:
   chaseAudioSource: {fileID: 7941009738608889585}
   chaseAudioClip: {fileID: 8300000, guid: 55856e346ef541c49855514916063f6f, type: 3}
   enemyChildObjectToActivate: {fileID: 4368185358940078356}
+  deathAudioSource: {fileID: 8562091660273535826}
+  deathAudioClip: {fileID: 8300000, guid: 8c161e178dd282e4198bf88c5e451c28, type: 3}
 --- !u!1 &6507963002113007953
 GameObject:
   m_ObjectHideFlags: 0
@@ -39894,6 +39898,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: AudioContainer
       objectReference: {fileID: 0}
+    - target: {fileID: 3151181848605578389, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
+      propertyPath: m_Resource
+      value: 
+      objectReference: {fileID: 8300000, guid: a8700dd4737bf0141ab6729b4aad634d, type: 3}
+    - target: {fileID: 3151181848605578389, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
+      propertyPath: m_audioClip
+      value: 
+      objectReference: {fileID: 8300000, guid: a8700dd4737bf0141ab6729b4aad634d, type: 3}
     - target: {fileID: 5937912210040601558, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -39939,6 +39951,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
+--- !u!82 &2847167632046886891 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 3151181848605578389, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
+  m_PrefabInstance: {fileID: 880476620550200190}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &6800338008580219048 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5937912210040601558, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
@@ -39947,6 +39964,11 @@ Transform:
 --- !u!82 &7941009738608889585 stripped
 AudioSource:
   m_CorrespondingSourceObject: {fileID: 7065081954707510671, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
+  m_PrefabInstance: {fileID: 880476620550200190}
+  m_PrefabAsset: {fileID: 0}
+--- !u!82 &8562091660273535826 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 8857100326820253740, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
   m_PrefabInstance: {fileID: 880476620550200190}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &2250581309411524757
