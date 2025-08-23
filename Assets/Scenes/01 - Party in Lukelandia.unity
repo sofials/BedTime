@@ -10702,6 +10702,20 @@ MonoBehaviour:
   autoCloseOnExit: 0
   autoFinishLastLine: 1
   autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
   enableObjectActivation: 1
   objectToEnable: {fileID: 0}
   objectToDisable: {fileID: 0}
@@ -10728,6 +10742,15 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &83584028
@@ -35574,6 +35597,84 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.0007253586, y: 0.00144, z: 0.0000924466}
   m_Center: {x: 3.4438928e-13, y: -1.7219464e-12, z: 0.00004622316}
+--- !u!1001 &501645576
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 640796237}
+    m_Modifications:
+    - target: {fileID: 3561595179647060586, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_Name
+      value: UI
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 571.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1702.9343
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 1047.9252
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+--- !u!4 &501645577 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8005371528478339123, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+  m_PrefabInstance: {fileID: 501645576}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &501645578 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4951438992689643037, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+  m_PrefabInstance: {fileID: 501645576}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &501645579 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1042727461152258232, guid: fdb4e0c121473b64e8cda61b8ad03af9, type: 3}
+  m_PrefabInstance: {fileID: 501645576}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 501645578}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &507490167
 GameObject:
   m_ObjectHideFlags: 0
@@ -46662,6 +46763,7 @@ Transform:
   - {fileID: 366461998}
   - {fileID: 1620208354}
   - {fileID: 1008552490}
+  - {fileID: 501645577}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &642187819 stripped
@@ -47249,8 +47351,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dialogueUI: {fileID: 0}
-  dialogueText: {fileID: 0}
+  dialogueUI: {fileID: 501645578}
+  dialogueText: {fileID: 501645579}
   dialogueLines:
   - text: "Whoa\u2026 what\u2019s going on here?"
     audioClip: {fileID: 8300000, guid: 04260505d6e84d64ab14dd8793478746, type: 3}
@@ -47268,6 +47370,20 @@ MonoBehaviour:
   autoCloseOnExit: 0
   autoFinishLastLine: 1
   autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
   enableObjectActivation: 0
   objectToEnable: {fileID: 0}
   objectToDisable: {fileID: 0}
@@ -47293,6 +47409,15 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &675038156
@@ -68113,8 +68238,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dialogueUI: {fileID: 0}
-  dialogueText: {fileID: 0}
+  dialogueUI: {fileID: 501645578}
+  dialogueText: {fileID: 501645579}
   dialogueLines:
   - text: Happy birthday Dreamer!
     audioClip: {fileID: 8300000, guid: b8e59832a4798724bbd0c003b83a36b9, type: 3}
@@ -68140,6 +68265,20 @@ MonoBehaviour:
   autoCloseOnExit: 0
   autoFinishLastLine: 1
   autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
   enableObjectActivation: 0
   objectToEnable: {fileID: 0}
   objectToDisable: {fileID: 0}
@@ -68165,6 +68304,15 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &796352742
@@ -98414,6 +98562,20 @@ MonoBehaviour:
   autoCloseOnExit: 0
   autoFinishLastLine: 1
   autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
   enableObjectActivation: 0
   objectToEnable: {fileID: 0}
   objectToDisable: {fileID: 0}
@@ -98439,6 +98601,15 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &1191129736
@@ -171827,6 +171998,20 @@ MonoBehaviour:
   autoCloseOnExit: 0
   autoFinishLastLine: 1
   autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
   enableObjectActivation: 0
   objectToEnable: {fileID: 0}
   objectToDisable: {fileID: 0}
@@ -171852,6 +172037,15 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &1842528077
@@ -187388,8 +187582,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gemPrefab: {fileID: 1413473904258511810, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
-  splineContainers: []
-  gemCount: 20
+  splineSettings: []
+  canSpawn: 1
 --- !u!114 &1916954269
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -187760,8 +187954,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dialogueUI: {fileID: 0}
-  dialogueText: {fileID: 0}
+  dialogueUI: {fileID: 501645578}
+  dialogueText: {fileID: 501645579}
   dialogueLines:
   - text: "Hey hey hey! You can\u2019t go this way yet!"
     audioClip: {fileID: 0}
@@ -187773,6 +187967,20 @@ MonoBehaviour:
   autoCloseOnExit: 0
   autoFinishLastLine: 1
   autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
   enableObjectActivation: 0
   objectToEnable: {fileID: 0}
   objectToDisable: {fileID: 0}
@@ -187798,6 +188006,15 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &1925509999
@@ -189502,6 +189719,20 @@ MonoBehaviour:
   autoCloseOnExit: 0
   autoFinishLastLine: 1
   autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
   enableObjectActivation: 0
   objectToEnable: {fileID: 0}
   objectToDisable: {fileID: 0}
@@ -189527,6 +189758,15 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &2012671186
