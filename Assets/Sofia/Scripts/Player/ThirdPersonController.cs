@@ -45,13 +45,17 @@ public class ThirdPersonController : MonoBehaviour
 public bool ledgeGrabEnabled = true;
 public float ledgeDetectionDistance = 1f;
 public LayerMask ledgeLayerMask = 1; // Assegna il layer "Ground" o crea uno specifico per i ledge
-public float hangDelayAfterJump = 0.25f;
+    public float hangDelayAfterJump = 0.25f;
+[SerializeField] private float ledgeGrabCooldown = 0.5f; // Cooldown per prevenire grab ripetuti
+private float lastLedgeGrabTime = 0f; // Ultimo tempo di rilascio dal ledge
 
 [Header("Ledge Grab Position")]
 [SerializeField] private float hangHeightOffset = -0.4f; // ← REGOLA QUI L'ALTEZZA! Negativo = più in basso
 [SerializeField] private float hangDistanceFromWall = 0.15f; // Distanza dal muro
 [SerializeField] private bool useSmoothedHanging = true; // Anti-flickering
-[SerializeField] private float hangingSmoothSpeed = 25f; // Velocità di stabilizzazione
+    [SerializeField] private float hangingSmoothSpeed = 25f; // Velocità di stabilizzazione
+[SerializeField] private float hangStabilizationForce = 15f; // Forza per mantenere posizione
+[SerializeField] private float hangPositionTolerance = 0.1f; // Tolleranza per considerare "in posizione"
 
 [Header("Ledge Grab Debug")]
 public bool debugLedgeGrab = false;
@@ -96,7 +100,13 @@ public bool debugLedgeGrab = false;
 [SerializeField] private AudioClip[] jumpSounds;
 [SerializeField] private float jumpVolume = 0.7f;
 [SerializeField] private float jumpPitchVariation = 0.1f;
-[SerializeField] private bool useRandomJumpSound = true;
+    [SerializeField] private bool useRandomJumpSound = true;
+[Header("Hit Audio")]
+[SerializeField] private AudioSource hitAudioSource;
+[SerializeField] private AudioClip[] hitSounds;
+[SerializeField] private float hitVolume = 0.8f;
+[SerializeField] private float hitPitchVariation = 0.15f;
+[SerializeField] private bool useRandomHitSound = true;
     
     private float footstepTimer = 0f;
     private bool wasMovingLastFrame = false;
@@ -155,7 +165,13 @@ public bool debugLedgeGrab = false;
 private bool canMoveAfterHang = true;
 private Vector3 hangPosition;
 private Vector3 hangForward;
-private Vector3 targetHangPosition;
+    private Vector3 lastValidHangPosition; // Backup dell'ultima posizione valida
+private float hangStabilityTimer = 0f; // Timer per stabilizzazione
+private const float HANG_STABILITY_TIME = 0.1f; // Tempo minimo prima di validare hang
+    private bool isHangPositionStable = false;
+private float? wallLostTimer = null;
+[SerializeField] private float wallLostTolerance = 0.2f; // Tolleranza per muro temporaneamente perso
+
 
 
     [Header("Sprint Effect (assign CFXR_EffectController)")]
@@ -564,46 +580,35 @@ private Vector3 targetHangPosition;
     }
 
     private void SetupFootstepAudio()
+{
+    // Setup footstep audio (codice esistente)
+    if (footstepAudioSource == null)
     {
-        // Setup footstep audio (codice esistente)
+        footstepAudioSource = GetComponent<AudioSource>();
         if (footstepAudioSource == null)
         {
-            footstepAudioSource = GetComponent<AudioSource>();
-            if (footstepAudioSource == null)
-            {
-                GameObject audioGO = new GameObject("FootstepAudio");
-                audioGO.transform.SetParent(transform);
-                audioGO.transform.localPosition = Vector3.zero;
-                footstepAudioSource = audioGO.AddComponent<AudioSource>();
-            }
+            GameObject audioGO = new GameObject("FootstepAudio");
+            audioGO.transform.SetParent(transform);
+            audioGO.transform.localPosition = Vector3.zero;
+            footstepAudioSource = audioGO.AddComponent<AudioSource>();
         }
-
-        footstepAudioSource.playOnAwake = false;
-        footstepAudioSource.loop = false;
-        footstepAudioSource.spatialBlend = 0.7f;
-        footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
-        footstepAudioSource.maxDistance = 15f;
-
-        // ✅ SETUP JUMP AUDIO SOURCE
-        SetupJumpAudio();
     }
+
+    footstepAudioSource.playOnAwake = false;
+    footstepAudioSource.loop = false;
+    footstepAudioSource.spatialBlend = 0.7f;
+    footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
+    footstepAudioSource.maxDistance = 15f;
+
+    // ✅ SETUP JUMP AUDIO SOURCE
+    SetupJumpAudio();
+    
+    // ✅ SETUP HIT AUDIO SOURCE
+    SetupHitAudio();
+}
     // ✅ NUOVO METODO PER SETUP DELL'AUDIO DEL SALTO
     private void SetupJumpAudio()
     {
-        if (jumpAudioSource == null)
-        {
-            // Se non è assegnato, usa lo stesso AudioSource dei footsteps o creane uno nuovo
-            jumpAudioSource = footstepAudioSource;
-
-            // Opzionalmente, puoi creare un AudioSource separato per i salti:
-            /*
-            GameObject jumpAudioGO = new GameObject("JumpAudio");
-            jumpAudioGO.transform.SetParent(transform);
-            jumpAudioGO.transform.localPosition = Vector3.zero;
-            jumpAudioSource = jumpAudioGO.AddComponent<AudioSource>();
-            */
-        }
-
         // Configura l'AudioSource per il salto (se è separato)
         if (jumpAudioSource != footstepAudioSource)
         {
@@ -614,47 +619,101 @@ private Vector3 targetHangPosition;
             jumpAudioSource.maxDistance = 20f; // Leggermente più lontano dei footsteps
         }
     }
-
-// ✅ NUOVO METODO PER RIPRODURRE IL SUONO DEL SALTO
-private void PlayJumpSound()
+    private void SetupHitAudio()
 {
-    if (jumpAudioSource == null || jumpSounds == null || jumpSounds.Length == 0) 
+
+    // Configura l'AudioSource per i colpi (se è separato)
+    if (hitAudioSource != footstepAudioSource)
     {
-        Debug.LogWarning("[ThirdPersonController] Jump audio non configurato correttamente!");
+        hitAudioSource.playOnAwake = false;
+        hitAudioSource.loop = false;
+        hitAudioSource.spatialBlend = 0.8f; // Più spaziale dei footsteps
+        hitAudioSource.rolloffMode = AudioRolloffMode.Linear;
+        hitAudioSource.maxDistance = 25f; // Più lontano dei footsteps
+        hitAudioSource.priority = 128; // Priorità normale
+    }
+}
+public void PlayHitSound()
+{
+    if (hitAudioSource == null || hitSounds == null || hitSounds.Length == 0) 
+    {
+        Debug.LogWarning("[ThirdPersonController] Hit audio non configurato correttamente!");
         return;
     }
     
     AudioClip clipToPlay;
     
-    if (useRandomJumpSound && jumpSounds.Length > 1)
+    if (useRandomHitSound && hitSounds.Length > 1)
     {
         // Scegli un suono casuale
-        clipToPlay = jumpSounds[Random.Range(0, jumpSounds.Length)];
+        clipToPlay = hitSounds[Random.Range(0, hitSounds.Length)];
     }
     else
     {
         // Usa sempre il primo suono
-        clipToPlay = jumpSounds[0];
+        clipToPlay = hitSounds[0];
     }
     
     // Configura e riproduci il suono
-    jumpAudioSource.pitch = 1f + Random.Range(-jumpPitchVariation, jumpPitchVariation);
-    jumpAudioSource.volume = jumpVolume;
+    float randomPitch = 1f + Random.Range(-hitPitchVariation, hitPitchVariation);
     
-    // Se usi lo stesso AudioSource dei footsteps, usa PlayOneShot per non interrompere i footsteps
-    if (jumpAudioSource == footstepAudioSource)
+    // Se usi lo stesso AudioSource di altri suoni, usa PlayOneShot per non interrompere
+    if (hitAudioSource == footstepAudioSource || hitAudioSource == jumpAudioSource)
     {
-        jumpAudioSource.PlayOneShot(clipToPlay, jumpVolume);
+        hitAudioSource.pitch = randomPitch;
+        hitAudioSource.PlayOneShot(clipToPlay, hitVolume);
     }
     else
     {
-        jumpAudioSource.clip = clipToPlay;
-        jumpAudioSource.Play();
+        hitAudioSource.pitch = randomPitch;
+        hitAudioSource.volume = hitVolume;
+        hitAudioSource.clip = clipToPlay;
+        hitAudioSource.Play();
     }
     
     // Debug per verificare che funzioni
-    Debug.Log($"[ThirdPersonController] 🔊 Riprodotto suono salto: {clipToPlay.name}");
+    Debug.Log($"[ThirdPersonController] 💥 Riprodotto suono colpo: {clipToPlay.name}");
 }
+// ✅ NUOVO METODO PER RIPRODURRE IL SUONO DEL SALTO
+    private void PlayJumpSound()
+    {
+        if (jumpAudioSource == null || jumpSounds == null || jumpSounds.Length == 0)
+        {
+            Debug.LogWarning("[ThirdPersonController] Jump audio non configurato correttamente!");
+            return;
+        }
+
+        AudioClip clipToPlay;
+
+        if (useRandomJumpSound && jumpSounds.Length > 1)
+        {
+            // Scegli un suono casuale
+            clipToPlay = jumpSounds[Random.Range(0, jumpSounds.Length)];
+        }
+        else
+        {
+            // Usa sempre il primo suono
+            clipToPlay = jumpSounds[0];
+        }
+
+        // Configura e riproduci il suono
+        jumpAudioSource.pitch = 1f + Random.Range(-jumpPitchVariation, jumpPitchVariation);
+        jumpAudioSource.volume = jumpVolume;
+
+        // Se usi lo stesso AudioSource dei footsteps, usa PlayOneShot per non interrompere i footsteps
+        if (jumpAudioSource == footstepAudioSource)
+        {
+            jumpAudioSource.PlayOneShot(clipToPlay, jumpVolume);
+        }
+        else
+        {
+            jumpAudioSource.clip = clipToPlay;
+            jumpAudioSource.Play();
+        }
+
+        // Debug per verificare che funzioni
+        Debug.Log($"[ThirdPersonController] 🔊 Riprodotto suono salto: {clipToPlay.name}");
+    }
 
 
     private void OnEnable() => controls.Gameplay.Enable();
@@ -699,114 +758,355 @@ private void PlayJumpSound()
         HandleAirControl();
         HandleSprintFX();
     }
-   private void HandleLedgeGrab()
+   private void CheckForLedgeRelease()
 {
-    if (!ledgeGrabEnabled) return;
+    if (!hanging || !isHangPositionStable) return;
     
-    // Se siamo già hanging, verifica che il ledge sia ancora valido
-    if (hanging)
+    // ✅ RILASCIA con input verso il basso/indietro
+    if (moveInput.y < -0.3f) // Soglia ridotta per più responsività
     {
-        if (!IsLedgeStillValid())
-        {
-            // Se il ledge non è più valido, rilascia
-            ReleaseLedgeGrab();
-        }
-        return; // Non cercare altri ledge se siamo già appesi
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] 🎮 Rilasciato manualmente con input indietro");
+        
+        ReleaseLedgeGrab();
+        StartCoroutine(EnableMovementAfterHangJump());
     }
     
+    // ✅ OPZIONALE: Rilascia anche con input laterali forti (per scendere di lato)
+    if (Mathf.Abs(moveInput.x) > 0.8f && moveInput.y < 0.1f)
+    {
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] 🎮 Rilasciato con movimento laterale");
+        
+        ReleaseLedgeGrab();
+        StartCoroutine(EnableMovementAfterHangJump());
+    }
+}
+
+  private void HandleLedgeGrab()
+{
+    if (!ledgeGrabEnabled) return;
+
+    // ✅ GESTIONE HANGING ESISTENTE CON STABILIZZAZIONE
+    if (hanging)
+    {
+        // Mantieni posizione stabile usando CharacterController.Move invece di transform.position
+        StabilizeHangPosition();
+
+        // ✅ VERIFICA VALIDITÀ SOLO DOPO STABILIZZAZIONE E CON TOLLERANZA
+        if (isHangPositionStable && !IsLedgeStillValid())
+        {
+            if (debugLedgeGrab)
+                Debug.Log("[LedgeGrab] 🔽 Rilascio per perdita validità ledge");
+            ReleaseLedgeGrab();
+        }
+        return;
+    }
+
     // Controlla solo se stiamo cadendo e non siamo già appesi
-    if (velocity.y < 0 && !controller.isGrounded && canMoveAfterHang)
+    if (velocity.y < -2f && !controller.isGrounded && canMoveAfterHang)
     {
         TryLedgeGrab();
     }
 }
+private void StabilizeHangPosition()
+{
+    if (!hanging) return;
+    
+    // Incrementa timer di stabilità
+    hangStabilityTimer += Time.deltaTime;
+    if (!isHangPositionStable && hangStabilityTimer >= HANG_STABILITY_TIME)
+    {
+        isHangPositionStable = true;
+        lastValidHangPosition = transform.position; // ✅ SALVA SOLO UNA VOLTA QUANDO STABILE
+        
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] ✅ Posizione stabilizzata e salvata");
+    }
+    
+    // ✅ CALCOLA DIFFERENZA E APPLICA CORREZIONE GRADUALE
+    Vector3 currentPos = transform.position;
+    Vector3 targetPos = hangPosition;
+    Vector3 positionDifference = targetPos - currentPos;
+    
+    // Solo se la differenza è significativa
+    if (positionDifference.magnitude > hangPositionTolerance)
+    {
+        // ✅ USA CHARACTERCONTROLLER.MOVE PER CORREZIONI GRADUALI
+        Vector3 correctionMove = positionDifference * hangStabilizationForce * Time.deltaTime;
+        
+        // Limita la correzione per evitare overshooting
+        if (correctionMove.magnitude > positionDifference.magnitude)
+        {
+            correctionMove = positionDifference;
+        }
+        
+        controller.Move(correctionMove);
+        
+        if (debugLedgeGrab && isHangPositionStable && Time.frameCount % 10 == 0) // ✅ RIDOTTO SPAM
+        {
+            Debug.DrawLine(currentPos, targetPos, Color.red, 0.1f);
+            Debug.Log($"[LedgeGrab] Correzione posizione: {correctionMove.magnitude:F3}");
+        }
+    }
+    
+    // ✅ FORZA COMPLETAMENTE LA VELOCITÀ A ZERO DURANTE HANGING
+    velocity = Vector3.zero;
+    playerVelocity = Vector3.zero;
+    attackVelocity = Vector3.zero;
+    externalPush = Vector3.zero;
+}
+
 private void TryLedgeGrab()
 {
+    if (!CanGrabLedge()) return;
+    
+    // ✅ MIGLIORATO: Usa la direzione FORWARD del player per il rilevamento
+    Vector3 playerForward = transform.forward;
+    
     // Ray verso il basso per trovare il top del ledge
     RaycastHit downHit;
-    Vector3 lineDownStart = (transform.position + Vector3.up * 1.5f) + transform.forward * ledgeDetectionDistance;
-    Vector3 lineDownEnd = (transform.position + Vector3.up * 0.7f) + transform.forward * ledgeDetectionDistance;
+    Vector3 lineDownStart = (transform.position + Vector3.up * 1.5f) + playerForward * ledgeDetectionDistance;
+    Vector3 lineDownEnd = (transform.position + Vector3.up * 0.7f) + playerForward * ledgeDetectionDistance;
+    
+    if (debugLedgeGrab)
+        Debug.DrawLine(lineDownStart, lineDownEnd, Color.red, 0.5f);
     
     if (Physics.Linecast(lineDownStart, lineDownEnd, out downHit, ledgeLayerMask))
     {
-        if (debugLedgeGrab)
-            Debug.DrawLine(lineDownStart, lineDownEnd, Color.red, 0.1f);
-        
-        // Ray in avanti per trovare la parete del ledge
+        // ✅ MIGLIORATO: Ray in avanti dalla posizione del ledge trovato
         RaycastHit fwdHit;
         Vector3 lineFwdStart = new Vector3(transform.position.x, downHit.point.y - 0.1f, transform.position.z);
-        Vector3 lineFwdEnd = lineFwdStart + transform.forward * ledgeDetectionDistance;
+        Vector3 lineFwdEnd = lineFwdStart + playerForward * (ledgeDetectionDistance + 0.3f);
+        
+        if (debugLedgeGrab)
+            Debug.DrawLine(lineFwdStart, lineFwdEnd, Color.green, 0.5f);
         
         if (Physics.Linecast(lineFwdStart, lineFwdEnd, out fwdHit, ledgeLayerMask))
         {
             if (debugLedgeGrab)
-                Debug.DrawLine(lineFwdStart, lineFwdEnd, Color.green, 0.1f);
+            {
+                Debug.DrawLine(fwdHit.point, fwdHit.point + fwdHit.normal * 2f, Color.blue, 0.5f);
+                Debug.Log($"[LedgeGrab] Muro trovato! Normale: {fwdHit.normal}, Angolo: {Vector3.Angle(fwdHit.normal, Vector3.up)}°");
+            }
             
-            // Esegui il ledge grab
-            ExecuteLedgeGrab(downHit, fwdHit);
+            if (IsValidLedgeGrab(downHit, fwdHit))
+            {
+                ExecuteLedgeGrab(downHit, fwdHit);
+            }
         }
         else if (debugLedgeGrab)
         {
-            Debug.DrawLine(lineFwdStart, lineFwdEnd, Color.yellow, 0.1f);
+            Debug.Log("[LedgeGrab] ❌ Nessuna parete trovata per il ledge");
         }
     }
     else if (debugLedgeGrab)
     {
-        Debug.DrawLine(lineDownStart, lineDownEnd, Color.white, 0.1f);
+        Debug.DrawLine(lineDownStart, lineDownEnd, Color.white, 0.5f);
     }
 }
+
+
+private bool CanGrabLedge()
+{
+    // ✅ COOLDOWN PER PREVENIRE GRAB RIPETUTI
+    if (Time.time - lastLedgeGrabTime < ledgeGrabCooldown)
+    {
+        if (debugLedgeGrab && Time.frameCount % 30 == 0) // Ridotto spam debug
+        {
+            Debug.Log($"[LedgeGrab] Cooldown attivo: {(ledgeGrabCooldown - (Time.time - lastLedgeGrabTime)):F2}s rimanenti");
+        }
+        return false;
+    }
+    
+    // Non afferrare se siamo troppo vicini al suolo
+    if (Physics.Raycast(transform.position, Vector3.down, 0.8f, ledgeLayerMask))
+    {
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] Troppo vicino al suolo");
+        return false;
+    }
+    
+    // ✅ AGGIUSTATO per gravity -40: velocità più realistiche
+    if (velocity.y < -35f) // Era -75f, troppo restrittivo
+    {
+        if (debugLedgeGrab)
+            Debug.Log($"[LedgeGrab] Velocità di caduta troppo alta: {velocity.y:F1}");
+        return false;
+    }
+    
+    // ✅ NUOVO: Verifica che stiamo effettivamente cadendo
+    if (velocity.y > -2f)
+    {
+        if (debugLedgeGrab)
+            Debug.Log($"[LedgeGrab] Non abbastanza in caduta: {velocity.y:F1}");
+        return false;
+    }
+    
+    return true;
+}
+private bool IsValidLedgeGrab(RaycastHit downHit, RaycastHit fwdHit)
+{
+    // Verifica che l'angolo del muro sia appropriato
+    float wallAngle = Vector3.Angle(fwdHit.normal, Vector3.up);
+    if (wallAngle < 70f)
+    {
+        if (debugLedgeGrab)
+            Debug.Log($"[LedgeGrab] ❌ Muro troppo inclinato: {wallAngle:F1}° (minimo: 70°)");
+        return false;
+    }
+    
+    // ✅ CALCOLO POSIZIONE DI HANG PRECISO - CORRETTO
+    Vector3 proposedHangPos = new Vector3(fwdHit.point.x, downHit.point.y + hangHeightOffset, fwdHit.point.z);
+    Vector3 wallOffset = fwdHit.normal * hangDistanceFromWall; // ✅ NORMALE verso l'esterno
+    proposedHangPos += wallOffset;
+    
+    // ✅ CONTROLLO SPAZIO OTTIMIZZATO
+    float checkRadius = 1.2f;
+    float checkHeight = 4f;
+    
+    LayerMask solidLayers = LayerMask.GetMask("Default", "Ground");
+    
+    Vector3 capsuleTop = proposedHangPos + Vector3.up * (checkHeight * 0.5f);
+    Vector3 capsuleBottom = proposedHangPos - Vector3.up * (checkHeight * 0.5f);
+    
+    bool spaceOccupied = Physics.CapsuleCast(
+        capsuleTop, 
+        capsuleBottom, 
+        checkRadius, 
+        Vector3.up, 
+        0.01f, 
+        solidLayers
+    );
+    
+    if (spaceOccupied)
+    {
+        if (debugLedgeGrab)
+        {
+            Debug.Log("[LedgeGrab] ❌ Spazio di hang occupato");
+            Debug.DrawLine(capsuleTop, capsuleBottom, Color.red, 1f);
+        }
+        return false;
+    }
+    
+    if (debugLedgeGrab)
+    {
+        Debug.Log($"[LedgeGrab] ✅ Ledge valido! Ang.muro: {wallAngle:F1}°, Pos: {proposedHangPos}");
+        Debug.DrawLine(capsuleTop, capsuleBottom, Color.green, 2f);
+        Debug.DrawLine(proposedHangPos, proposedHangPos + fwdHit.normal * 1f, Color.yellow, 2f);
+    }
+    
+    return true;
+}
+
+
 private void ExecuteLedgeGrab(RaycastHit downHit, RaycastHit fwdHit)
 {
-    // Ferma movimento e caduta IMMEDIATAMENTE
+    if (debugLedgeGrab)
+        Debug.Log($"[LedgeGrab] 🎯 Iniziando ledge grab... Normal muro: {fwdHit.normal}");
+    
+    // ✅ RESET COMPLETO DELLE VELOCITÀ PRIMA DI TUTTO
     velocity = Vector3.zero;
     playerVelocity = Vector3.zero;
     attackVelocity = Vector3.zero;
     externalPush = Vector3.zero;
     
-    // ✅ DISABILITA CHARACTERCONTROLLER DURANTE HANGING
-    controller.enabled = false;
-    
-    // Imposta stato hanging
-    hanging = true;
-    
-    // Calcolo posizione
+    // ✅ CALCOLA POSIZIONE TARGET PRECISA
     hangPosition = new Vector3(fwdHit.point.x, downHit.point.y + hangHeightOffset, fwdHit.point.z);
-    Vector3 wallOffset = (-fwdHit.normal) * hangDistanceFromWall;
+    Vector3 wallOffset = fwdHit.normal * hangDistanceFromWall; // ✅ CORRETTO: normale verso l'esterno
     hangPosition += wallOffset;
     
-    // ✅ POSIZIONAMENTO DIRETTO SENZA INTERFERENZE
-    transform.position = hangPosition;
+    // ✅ CORRETTO: SALVA DIREZIONE VERSO IL MURO (per il salto)
+    hangForward = -fwdHit.normal; // Direzione dal player verso il muro
     
-    // Orienta verso il muro
-    hangForward = -fwdHit.normal;
-    transform.rotation = Quaternion.LookRotation(hangForward);
+    // ✅ MOVIMENTO IMMEDIATO VERSO LA POSIZIONE DI HANG
+    Vector3 moveToHang = hangPosition - transform.position;
+    controller.Move(moveToHang);
     
-    // Reset vari...
+    // ✅ CORRETTO: Orienta il player guardando VERSO IL MURO (non lontano!)
+    // Il player deve guardare il muro per sembrare che si stia aggrappando
+    Vector3 lookDirection = hangForward; // Guarda VERSO il muro
+    transform.rotation = Quaternion.LookRotation(lookDirection);
+    
+    // ✅ IMPOSTA STATO HANGING CON RESET TIMER
+    hanging = true;
+    hangStabilityTimer = 0f;
+    isHangPositionStable = false;
+    
+    // Reset vari
     StopFootstepAudio();
     jumpBufferCounter = 0f;
     coyoteTimeCounter = 0f;
     jumpCount = 0;
     
-    Debug.Log("[LedgeGrab] ✅ Appeso al ledge - CharacterController disabilitato");
+    if (debugLedgeGrab)
+    {
+        Debug.Log($"[LedgeGrab] ✅ Appeso al ledge! Posizione: {hangPosition}");
+        Debug.Log($"[LedgeGrab] 🧭 Player guarda VERSO il muro: {lookDirection}");
+        Debug.Log($"[LedgeGrab] 📍 Offset dalla parete: {hangDistanceFromWall}m");
+    }
 }
 private bool IsLedgeStillValid()
 {
-    if (!hanging) return false;
+    if (!hanging) return true;
     
-    // Verifica che ci sia ancora un muro davanti
-    RaycastHit hit;
-    Vector3 rayStart = transform.position + Vector3.up * 0.5f;
-    Vector3 rayDirection = hangForward * -1f; // Direzione verso il muro
-    
-    bool wallStillThere = Physics.Raycast(rayStart, rayDirection, out hit, 0.3f, ledgeLayerMask);
-    
-    if (debugLedgeGrab && !wallStillThere)
+    // ✅ NON CONTROLLARE SE NON SIAMO ANCORA STABILIZZATI (evita rilasci prematuri)
+    if (!isHangPositionStable) 
     {
-        Debug.Log("[LedgeGrab] ⚠️ Muro non più rilevato - rilascio ledge");
+        if (debugLedgeGrab && Time.frameCount % 30 == 0)
+            Debug.Log("[LedgeGrab] ⏳ Aspettando stabilizzazione...");
+        return true;
     }
     
-    return wallStillThere;
+    // ✅ RAYCAST MIGLIORATO: Usa posizione leggermente elevata e direzione salvata
+    Vector3 rayStart = transform.position + Vector3.up * 0.5f; // Più alto per sicurezza
+    Vector3 rayDirection = hangForward; // Direzione verso il muro salvata durante grab
+    float rayDistance = hangDistanceFromWall + 0.3f; // Distanza aumentata per tolleranza
+    
+    bool wallStillThere = Physics.Raycast(rayStart, rayDirection, rayDistance, ledgeLayerMask);
+    
+    // ✅ DEBUG MIGLIORATO - Solo quando necessario
+    if (debugLedgeGrab && Time.frameCount % 60 == 0) // Ogni 60 frame = ~1 secondo
+    {
+        Color rayColor = wallStillThere ? Color.green : Color.red;
+        Debug.DrawLine(rayStart, rayStart + rayDirection * rayDistance, rayColor, 1f);
+        
+        Debug.Log($"[LedgeGrab] Controllo validità - Muro: {(wallStillThere ? "✅ PRESENTE" : "❌ PERSO")}");
+        Debug.Log($"[LedgeGrab] Ray da: {rayStart} verso: {rayDirection} dist: {rayDistance}");
+    }
+    
+    // ✅ TOLLERANZA: Permetti qualche frame di "muro perso" prima di rilasciare
+    if (!wallStillThere)
+    {
+        // Incrementa un contatore di "muro perso"
+        if (!wallLostTimer.HasValue)
+        {
+            wallLostTimer = Time.time;
+            if (debugLedgeGrab)
+                Debug.Log("[LedgeGrab] ⚠️ Muro temporaneamente perso - Inizio timer tolleranza");
+        }
+        else if (Time.time - wallLostTimer.Value > wallLostTolerance)
+        {
+            if (debugLedgeGrab)
+                Debug.Log("[LedgeGrab] ❌ Muro perso definitivamente - Rilascio ledge");
+            wallLostTimer = null;
+            return false;
+        }
+    }
+    else
+    {
+        // Reset del timer se il muro è presente
+        if (wallLostTimer.HasValue)
+        {
+            if (debugLedgeGrab)
+                Debug.Log("[LedgeGrab] ✅ Muro ritrovato - Reset timer");
+            wallLostTimer = null;
+        }
+    }
+    
+    return true;
 }
+
 
     /// <summary>
     /// Aggiorna la camera attiva se auto-detect è abilitato
@@ -995,11 +1295,10 @@ private bool IsLedgeStillValid()
     // ✅ SISTEMA DI APPLICAZIONE MOVIMENTO COMPLETO E OTTIMIZZATO
 private void ApplyAllMovement()
 {
-    // ✅ SE SIAMO HANGING, NON FARE NULLA
+    // ✅ SE SIAMO HANGING, USA SOLO LA STABILIZZAZIONE
     if (hanging)
     {
-        // Il CharacterController è disabilitato, quindi non chiamare controller.Move()
-        // La posizione è già fissata in ExecuteLedgeGrab()
+        // Non chiamare controller.Move qui, è gestito in StabilizeHangPosition
         return;
     }
     
@@ -1007,14 +1306,14 @@ private void ApplyAllMovement()
     
     Vector3 totalMovement = Vector3.zero;
     
-    // 1. ✅ MOVIMENTO PIATTAFORMA (se presente e valida)
+    // 1. Movimento piattaforma (se presente e valida)
     if (currentPlatform != null && !isOnObstaclePlatform)
     {
         Vector3 platformMovement = ApplyPlatformMovement();
         totalMovement += platformMovement;
     }
     
-    // 2. MOVIMENTO PLAYER (orizzontale + verticale)
+    // 2. Movimento player (orizzontale + verticale)
     Vector3 playerMovement = Vector3.zero;
     playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
     playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
@@ -1022,7 +1321,7 @@ private void ApplyAllMovement()
     
     totalMovement += playerMovement;
     
-    // 3. ✅ APPLICA TUTTO IL MOVIMENTO IN UNA SOLA CHIAMATA
+    // 3. Applica tutto il movimento in una sola chiamata
     controller.Move(totalMovement);
 }
 private Vector3 ApplyPlatformMovement()
@@ -1225,38 +1524,27 @@ private Vector3 ApplyPlatformMovement()
 
     wasGroundedLastFrame = grounded;
 }
-private void CheckForLedgeRelease()
-{
-    if (!hanging) return;
-    
-    // Rilascia se il player si muove all'indietro
-    if (moveInput.y < -0.5f) // Input verso il basso/indietro
-    {
-        // ✅ USA IL METODO UNIFICATO
-        ReleaseLedgeGrab();
-        StartCoroutine(EnableMovementAfterHangJump()); // Usa lo stesso delay
-        
-        if (debugLedgeGrab)
-            Debug.Log("[LedgeGrab] Rilasciato manualmente con input indietro");
-    }
-}
-private void ReleaseLedgeGrab()
-{
-    if (!hanging) return;
-    
-    // ✅ RIABILITA CHARACTERCONTROLLER
-    if (!controller.enabled)
-    {
-        controller.enabled = true;
-    }
-    
-    hanging = false;
-    velocity.y = -1f; // Inizia a cadere dolcemente
-    
-    if (debugLedgeGrab)
-        Debug.Log("[LedgeGrab] Rilasciato automaticamente - CharacterController riabilitato");
-}
 
+    private void ReleaseLedgeGrab()
+{
+    if (!hanging) return;
+
+    if (debugLedgeGrab)
+        Debug.Log("[LedgeGrab] 🔽 Rilasciato dal ledge con cooldown");
+
+    hanging = false;
+    isHangPositionStable = false;
+    hangStabilityTimer = 0f;
+    
+    // ✅ RESET TIMER TOLLERANZA
+    wallLostTimer = null;
+    
+    // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
+    lastLedgeGrabTime = Time.time;
+
+    // Inizia a cadere dolcemente
+    velocity.y = -2f;
+}
     private void OnLanding()
     {
         jumpCount = 0;
@@ -1393,28 +1681,33 @@ private void HandleMovement()
 /// </summary>
 private void ExecuteJumpFromHang()
 {   
-    // ✅ RIABILITA CHARACTERCONTROLLER PRIMA DI MUOVERSI
-    if (!controller.enabled)
-    {
-        controller.enabled = true;
-    }
+    if (debugLedgeGrab)
+        Debug.Log("[LedgeGrab] 🚀 Saltando dal ledge...");
     
     // Termina hanging
     hanging = false;
+    isHangPositionStable = false;
+    hangStabilityTimer = 0f;
     
-    // Posiziona leggermente davanti al muro
-    Vector3 jumpStartPosition = hangPosition + hangForward * 0.3f;
-    transform.position = jumpStartPosition;
+    // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
+    lastLedgeGrabTime = Time.time;
+    
+    // ✅ MOVIMENTO VERSO L'ESTERNO DAL MURO
+    // hangForward punta verso il muro, quindi -hangForward ci allontana
+    Vector3 jumpOffset = -hangForward * 0.4f + Vector3.up * 0.1f;
+    controller.Move(jumpOffset);
     
     // Salto normale verso l'alto
     velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
     
-    // Piccolo impulso in avanti per staccarsi dal muro
-    Vector3 jumpDirection = hangForward * 2f;
+    // ✅ IMPULSO IN DIREZIONE OPPOSTA AL MURO (allontanandosi)
+    Vector3 jumpDirection = -hangForward * 3f;
     playerVelocity = new Vector3(jumpDirection.x, 0f, jumpDirection.z);
     
-    // Reset jump count
+    // Reset jump count e animazioni
     jumpCount = 1;
+    _animator.SetBool(JumpHash, true);
+    _animator.SetBool(DoubleJumpHash, false);
     
     // Disabilita movimento temporaneamente
     StartCoroutine(EnableMovementAfterHangJump());
@@ -1423,8 +1716,12 @@ private void ExecuteJumpFromHang()
     PlayJumpSound();
     
     if (debugLedgeGrab)
-        Debug.Log("[LedgeGrab] 🚀 Saltato dal ledge! CharacterController riabilitato");
+    {
+        Debug.Log($"[LedgeGrab] ✅ Salto completato! Direzione: {-hangForward}");
+        Debug.DrawLine(transform.position, transform.position + jumpDirection, Color.cyan, 2f);
+    }
 }
+
 /// <summary>
 /// Riabilita il movimento dopo un breve delay dal salto da hang
 /// </summary>
@@ -1436,15 +1733,16 @@ private IEnumerator EnableMovementAfterHangJump()
 }
 
 
-    private void HandleJump()
+private void HandleJump()
 {
     bool grounded = controller.isGrounded;
     
     // ✅ SE SIAMO HANGING, NON APPLICARE GRAVITÀ NÉ MOVIMENTO VERTICALE
     if (hanging)
     {
-        velocity.y = 0f; // Ferma completamente il movimento verticale
-        return; // Esce senza applicare gravità
+        // Durante hanging, forza tutto a zero
+        velocity = Vector3.zero;
+        return;
     }
     
     if (grounded && velocity.y < 0)
@@ -1996,32 +2294,46 @@ public string GetLedgeGrabInfo()
             
             UnityEditor.Handles.Label(currentActiveCamera.transform.position + Vector3.up * 2, cameraInfo);
         }
-        if (debugLedgeGrab && Application.isPlaying)
+         if (debugLedgeGrab && Application.isPlaying)
     {
-        // Disegna i raggi di rilevamento ledge
-        if (!hanging && velocity.y < 0)
+        Vector3 playerForward = transform.forward;
+        
+        // Disegna i raggi di rilevamento ledge con direzione corretta
+        if (!hanging && velocity.y < -2f)
         {
             // Ray verso il basso
-            Vector3 lineDownStart = (transform.position + Vector3.up * 1.5f) + transform.forward * ledgeDetectionDistance;
-            Vector3 lineDownEnd = (transform.position + Vector3.up * 0.7f) + transform.forward * ledgeDetectionDistance;
+            Vector3 lineDownStart = (transform.position + Vector3.up * 1.5f) + playerForward * ledgeDetectionDistance;
+            Vector3 lineDownEnd = (transform.position + Vector3.up * 0.7f) + playerForward * ledgeDetectionDistance;
             Gizmos.color = Color.red;
             Gizmos.DrawLine(lineDownStart, lineDownEnd);
             
-            // Ray in avanti (approssimativo per il gizmo)
+            // Ray in avanti
             Vector3 lineFwdStart = new Vector3(transform.position.x, transform.position.y, transform.position.z);
-            Vector3 lineFwdEnd = lineFwdStart + transform.forward * ledgeDetectionDistance;
+            Vector3 lineFwdEnd = lineFwdStart + playerForward * (ledgeDetectionDistance + 0.3f);
             Gizmos.color = Color.yellow;
             Gizmos.DrawLine(lineFwdStart, lineFwdEnd);
+            
+            // Mostra direzione forward del player
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawLine(transform.position, transform.position + playerForward * 2f);
         }
         
-        // Disegna la posizione di hang
+        // Disegna la posizione di hang e orientamento
         if (hanging)
         {
             Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(hangPosition, 0.2f);
+            Gizmos.DrawWireSphere(hangPosition, 0.3f);
+            
+            // Direzione verso il muro (hangForward)
+            Gizmos.color = Color.red;
             Gizmos.DrawLine(transform.position, transform.position + hangForward * 1.5f);
             
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 2, "HANGING");
+            // Direzione del player (verso dove guarda)
+            Gizmos.color = Color.blue;
+            Gizmos.DrawLine(transform.position, transform.position + transform.forward * 1f);
+            
+            UnityEditor.Handles.Label(transform.position + Vector3.up * 2, 
+                $"HANGING\nVel: {velocity.y:F1}\nStabile: {isHangPositionStable}");
         }
     }
     }
