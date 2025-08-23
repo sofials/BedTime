@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 4889601977321789463}
   - component: {fileID: 3116263618469385518}
   - component: {fileID: 886566393792333390}
-  - component: {fileID: 5308900937626862456}
   - component: {fileID: 534537337231376565}
   - component: {fileID: 2567233737890376390}
   m_Layer: 0
@@ -142,35 +141,6 @@ MonoBehaviour:
       Wait: 1
       Time: 2
     Restrictions: 0
---- !u!114 &5308900937626862456
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3950009083078100798}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f38bda98361e1de48a4ca2bd86ea3c17, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Composition:
-    ScreenPosition: {x: 0, y: 0}
-    DeadZone:
-      Enabled: 1
-      Size: {x: 0.41, y: 0.64}
-    HardLimits:
-      Enabled: 1
-      Size: {x: 0.98, y: 0.79}
-      Offset: {x: 0, y: 0}
-  CenterOnActivate: 1
-  TargetOffset: {x: 0, y: 0, z: 0}
-  Damping: {x: 0.5, y: 0.1}
-  Lookahead:
-    Enabled: 1
-    Time: 0
-    Smoothing: 30
-    IgnoreY: 1
 --- !u!114 &534537337231376565
 MonoBehaviour:
   m_ObjectHideFlags: 0
