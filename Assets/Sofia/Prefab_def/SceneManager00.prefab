@@ -47,6 +47,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 1
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
   platformPrefab: {fileID: 7169113157556343471, guid: 64e509d991a2dde47908d012713ac623, type: 3}
@@ -94,9 +95,11 @@ Transform:
   - {fileID: 6173843468554629101}
   - {fileID: 7248895162523089367}
   - {fileID: 1618363178740101345}
+  - {fileID: 7997599838143083052}
   - {fileID: 7284148347196032062}
   - {fileID: 6422159006629045719}
   - {fileID: 6517215568821617346}
+  - {fileID: 4675106022402979437}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5424070467849329967
@@ -116,6 +119,7 @@ MonoBehaviour:
   collectiblesManager: {fileID: 3094165188421987631}
   levelTitleUI: {fileID: 0}
   playerAttack: {fileID: 0}
+  abilitiesManager: {fileID: 3981567130020583549}
   autoFindManagers: 0
   createManagersIfMissing: 0
   autoFindUIElements: 0
@@ -179,11 +183,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gemPrefab: {fileID: 1413473904258511810, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
-  splineContainers:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  gemCount: 20
+  splineSettings:
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 0
+    gemCount: 20
+    customRotation: {x: 0, y: 1, z: 0}
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 1
+    gemCount: 20
+    customRotation: {x: 0, y: 1, z: 0}
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 1
+    gemCount: 20
+    customRotation: {x: 0, y: 1, z: 0}
+  canSpawn: 1
 --- !u!114 &9170783885585029028
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -259,6 +272,85 @@ MonoBehaviour:
   OnPlayerCheckpointChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &4155365983503213339
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4675106022402979437}
+  - component: {fileID: 3981567130020583549}
+  m_Layer: 0
+  m_Name: AbilitiesManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4675106022402979437
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4155365983503213339}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4910115921502916631}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3981567130020583549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4155365983503213339}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c37084b96482fd54eafb81d196de8f83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneName: 
+  autoDetectSceneName: 1
+  abilities:
+  - ability: {fileID: 1894042503411416285}
+    abilityName: PlatformSpawnerForwardAbility
+    disabledInLevel: 1
+    canBeActivatedByEvents: 0
+  - ability: {fileID: 8377514343371162182}
+    abilityName: SlowdownAbility
+    disabledInLevel: 1
+    canBeActivatedByEvents: 1
+  - ability: {fileID: 9022234784484670217}
+    abilityName: TeleportAbility
+    disabledInLevel: 1
+    canBeActivatedByEvents: 0
+  eventActivations: []
+  autoFindAbilities: 0
+  applyConfigurationOnStart: 1
+  autoSaveConfiguration: 1
+  enableDebugLogs: 0
+  OnAbilitiesConfigured:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityActivatedByEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityFailedToActivate:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityEnabled:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityDisabled:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &4883016082477140456
 GameObject:
   m_ObjectHideFlags: 0
@@ -286,7 +378,7 @@ Transform:
   m_GameObject: {fileID: 4883016082477140456}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1487, y: 974, z: -232}
+  m_LocalPosition: {x: 1487, y: 974, z: -68}
   m_LocalScale: {x: 5, y: 1, z: 5}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -311,7 +403,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 500, y: 400, z: 200}
+  m_Size: {x: 500, y: 400, z: 300}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &6160263028527200179
 MonoBehaviour:
@@ -372,6 +464,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 2
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
   slowdownRadius: 60
@@ -425,6 +518,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 2
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
   teleportableLayers:
@@ -579,6 +673,72 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8562877742221916186}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0b3815d2af552043be75bc6bdf9b1d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!1 &8586476219675485839
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7997599838143083052}
+  - component: {fileID: 4430491729319670079}
+  - component: {fileID: 966134834612128016}
+  m_Layer: 0
+  m_Name: KillZoneDreamWave
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7997599838143083052
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8586476219675485839}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -208.5, y: 1130.1, z: -721.6}
+  m_LocalScale: {x: 5, y: 1, z: 5}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4910115921502916631}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &4430491729319670079
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8586476219675485839}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 30, y: 200, z: 40}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &966134834612128016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8586476219675485839}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e0b3815d2af552043be75bc6bdf9b1d3, type: 3}

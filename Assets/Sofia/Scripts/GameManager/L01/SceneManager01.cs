@@ -18,6 +18,9 @@ public class SceneManager01 : MonoBehaviour
     [SerializeField] private GameObject levelTitleUI; // Opzionale
     [SerializeField] private PlayerAttack playerAttack; // Per accedere al PowerUp UI
     
+    [Header("Abilities Management")]
+    [SerializeField] private AbilitiesManager abilitiesManager;
+    
     [Header("Auto-Setup")]
     [SerializeField] private bool autoFindManagers = true;
     [SerializeField] private bool createManagersIfMissing = true;
@@ -231,6 +234,20 @@ public class SceneManager01 : MonoBehaviour
         
         managersReady = checkpointManager != null && collectiblesManager != null;
         DebugLog($"[SceneManager01] Manager pronti: {managersReady}");
+        
+        // Setup AbilitiesManager
+        if (abilitiesManager == null && autoFindManagers)
+        {
+            abilitiesManager = FindFirstObjectByType<AbilitiesManager>();
+        }
+        
+        if (abilitiesManager == null && createManagersIfMissing)
+        {
+            GameObject abilitiesGO = new GameObject("AbilitiesManager");
+            abilitiesGO.transform.parent = transform;
+            abilitiesManager = abilitiesGO.AddComponent<AbilitiesManager>();
+            DebugLog("[SceneManager01] ✅ AbilitiesManager creato automaticamente");
+        }
     }
     
     private void FindManagers()
@@ -311,6 +328,12 @@ public class SceneManager01 : MonoBehaviour
             collectiblesManager.OnMemoryCollected.AddListener(OnMemoryCollected);
         }
         
+        if (abilitiesManager != null)
+        {
+            abilitiesManager.OnAbilityActivatedByEvent.AddListener(OnAbilityActivated);
+            abilitiesManager.SetDebugLogsEnabled(enableDebugLogs);
+        }
+        
         DebugLog("[SceneManager01] Manager connessi con successo");
     }
     
@@ -369,6 +392,11 @@ public class SceneManager01 : MonoBehaviour
     {
         DebugLog("[SceneManager01] 🏆 Tutti i collectibles completati!");
         OnSceneCompleted?.Invoke();
+    }
+    
+    private void OnAbilityActivated(string abilityName)
+    {
+        DebugLog($"[SceneManager01] Abilità attivata: '{abilityName}'");
     }
     
     // ========== METODI PUBBLICI PER COMPATIBILITÀ ==========
@@ -499,7 +527,7 @@ public class SceneManager01 : MonoBehaviour
     
     private string GetNextLevelName()
     {
-        return "01 - Party in Lukelandia";
+        return "02 - Next Level"; // Aggiorna con il nome del livello successivo
     }
     
     public void ShowCollectibleNotification(string type, string name)
@@ -535,6 +563,10 @@ public class SceneManager01 : MonoBehaviour
     
     public bool IsUISetupComplete() => uiSetupComplete;
     public bool IsLevelTitleEnabled() => showLevelTitle;
+    
+    // ========== GETTERS - ABILITIES ==========
+    
+    public AbilitiesManager GetAbilitiesManager() => abilitiesManager;
     
     // ========== UTILITY METHODS ==========
     
@@ -605,6 +637,11 @@ public class SceneManager01 : MonoBehaviour
             collectiblesManager.SetDebugLogsEnabled(enabled);
         }
         
+        if (abilitiesManager != null)
+        {
+            abilitiesManager.SetDebugLogsEnabled(enabled);
+        }
+        
         DebugLog($"[SceneManager01] Debug mode {(enabled ? "abilitato" : "disabilitato")}");
     }
     
@@ -644,6 +681,7 @@ public class SceneManager01 : MonoBehaviour
                   $"All Ready: {AreAllManagersReady()}\n" +
                   $"CheckpointManager: {(checkpointManager != null ? "✅" : "❌")}\n" +
                   $"CollectiblesManager: {(collectiblesManager != null ? "✅" : "❌")}\n" +
+                  $"AbilitiesManager: {(abilitiesManager != null ? "✅" : "❌")}\n" +
                   $"Current Checkpoint: '{GetCurrentCheckpoint()}'\n" +
                   $"Collectibles: {GetTotalCollected()}/{GetTotalAvailable()} ({GetOverallProgress() * 100:F1}%)\n" +
                   $"Presents: {GetCollectedPresents()}/{GetTotalPresents()}\n" +
@@ -716,6 +754,11 @@ public class SceneManager01 : MonoBehaviour
             collectiblesManager.OnAllCollectiblesCompleted.RemoveListener(OnAllCollectiblesCompleted);
             collectiblesManager.OnPresentCollected.RemoveListener(OnPresentCollected);
             collectiblesManager.OnMemoryCollected.RemoveListener(OnMemoryCollected);
+        }
+        
+        if (abilitiesManager != null)
+        {
+            abilitiesManager.OnAbilityActivatedByEvent.RemoveListener(OnAbilityActivated);
         }
         
         if (Instance == this)

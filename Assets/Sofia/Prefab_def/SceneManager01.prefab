@@ -59,6 +59,9 @@ MonoBehaviour:
   OnSpawnPointChanged:
     m_PersistentCalls:
       m_Calls: []
+  OnPlayerCheckpointChanged:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &2000280248881653336
 GameObject:
   m_ObjectHideFlags: 0
@@ -106,14 +109,16 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 2
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
-  telePointerPrefab: {fileID: 807697996776966529, guid: e1442c3cd4617754ea595d83d78c9806, type: 3}
   teleportableLayers:
     serializedVersion: 2
-    m_Bits: 128
+    m_Bits: 1048576
   meshesToHide:
   - {fileID: 0}
+  teleportPointer: {fileID: 1151521275250858014, guid: 2bfd0bb5aa39b95419ddcb576b68f546, type: 3}
+  playerCamera: {fileID: 0}
   controllerGameObject: {fileID: 0}
   teleportEffectController: {fileID: 0}
   teleportConfirmSound: {fileID: 8300000, guid: 923127e12013cf04a876c1968f550fd0, type: 3}
@@ -230,6 +235,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 1
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
   platformPrefab: {fileID: 7169113157556343471, guid: 64e509d991a2dde47908d012713ac623, type: 3}
@@ -239,7 +245,7 @@ MonoBehaviour:
   checkRadius: 0.4
   obstacleMask:
     serializedVersion: 2
-    m_Bits: 128
+    m_Bits: 129
   footTarget: {fileID: 0}
   cameraTransform: {fileID: 0}
 --- !u!1 &3805639130609102155
@@ -288,9 +294,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gemPrefab: {fileID: 1413473904258511810, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
-  splineContainers:
-  - {fileID: 0}
-  gemCount: 20
+  splineSettings: []
+  canSpawn: 1
 --- !u!114 &365894166687735104
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -351,20 +356,13 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 3
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
-  slowdownRadius: 20
+  slowdownRadius: 120
   slowdownFactor: 0.5
   customDuration: 10
   effectAudioClip: {fileID: 8300000, guid: 43351392746a1e74683ba5106d9f01fc, type: 3}
-  villageNPCsToSlow:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  verdeNPCsToSlow:
-  - {fileID: 0}
 --- !u!1 &5218453879098039499
 GameObject:
   m_ObjectHideFlags: 0
@@ -402,6 +400,7 @@ Transform:
   - {fileID: 310970925138420479}
   - {fileID: 522936544769405277}
   - {fileID: 8374732861754324822}
+  - {fileID: 666845088873259502}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4321529036344408051
@@ -419,9 +418,13 @@ MonoBehaviour:
   sceneName: 01 - Party in Lukelandia
   checkpointManager: {fileID: 4776120784136467073}
   collectiblesManager: {fileID: 4495384067855860588}
+  levelTitleUI: {fileID: 0}
+  playerAttack: {fileID: 0}
+  abilitiesManager: {fileID: 0}
   autoFindManagers: 0
   createManagersIfMissing: 0
-  developmentMode: 1
+  autoFindUIElements: 1
+  showLevelTitle: 0
   enableDebugLogs: 0
   OnSceneInitialized:
     m_PersistentCalls:
@@ -430,6 +433,88 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnSceneCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnUISetupComplete:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &5426847829900036635
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 666845088873259502}
+  - component: {fileID: 707331388174613333}
+  m_Layer: 0
+  m_Name: AbilitiesManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &666845088873259502
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5426847829900036635}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3883109068011121836}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &707331388174613333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5426847829900036635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c37084b96482fd54eafb81d196de8f83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneName: 01 - Party in Lukelandia
+  autoDetectSceneName: 1
+  abilities:
+  - ability: {fileID: 5711221398288499069}
+    abilityName: SlowdownAbility
+    disabledInLevel: 0
+    canBeActivatedByEvents: 0
+  - ability: {fileID: 6977967467466513698}
+    abilityName: PlatformSpawnerForward
+    disabledInLevel: 1
+    canBeActivatedByEvents: 0
+  - ability: {fileID: 8225886054587838259}
+    abilityName: TeleportAbility
+    disabledInLevel: 1
+    canBeActivatedByEvents: 1
+  eventActivations: []
+  autoFindAbilities: 0
+  applyConfigurationOnStart: 1
+  autoSaveConfiguration: 1
+  enableDebugLogs: 0
+  OnAbilitiesConfigured:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityActivatedByEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityFailedToActivate:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityEnabled:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityDisabled:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &6906271849495561496
