@@ -395,13 +395,18 @@ public void AutoDiscoverUISystems()
         
         switch (type)
         {
-            case CollectibleType.Present:
-                allPresents[name] = data;
-                if (!collectedPresentNames.Contains(name))
-                {
-                    totalPresents++;
-                }
-                break;
+           // ✅ CODICE CORRETTO:
+case CollectibleType.Present:
+    if (!allPresents.ContainsKey(name))
+    {
+        allPresents[name] = data;
+        totalPresents++;
+    }
+    else
+    {
+        allPresents[name] = data; // Aggiorna solo i dati, non il contatore
+    }
+    break;
                 
             case CollectibleType.Memory:
                 allMemories[name] = data;

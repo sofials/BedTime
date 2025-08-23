@@ -18,13 +18,18 @@ public class CheckpointManager : MonoBehaviour
     [SerializeField] private bool autoSaveOnCheckpoint = true;
     [SerializeField] private bool enableDebugLogs = true;
     
+    [Header("Test & Debug")]
+    [SerializeField] private bool testMode = false;
+    [SerializeField] private bool resetOnSceneReload = false; // ← Nuovo flag specifico
+    
     [Header("Checkpoint Events")]
     public UnityEvent<string> OnCheckpointActivated;
     public UnityEvent<string> OnCheckpointCleared;
     public UnityEvent<Vector3, Quaternion> OnSpawnPointChanged;
     
-[Header("Raft Integration")]
-public UnityEvent<Vector3> OnPlayerCheckpointChanged; 
+    [Header("Raft Integration")]
+    public UnityEvent<Vector3> OnPlayerCheckpointChanged; 
+    
     // Stato interno
     private string currentCheckpoint = "";
     private Dictionary<string, CheckpointData> registeredCheckpoints = new Dictionary<string, CheckpointData>();
@@ -70,7 +75,18 @@ public UnityEvent<Vector3> OnPlayerCheckpointChanged;
     
     private void Start()
     {
-        LoadCheckpointData();
+        bool shouldReset = testMode || resetOnSceneReload;
+        
+        if (shouldReset)
+        {
+            ClearSavedCheckpointData();
+            currentCheckpoint = "";
+            DebugLog($"[CheckpointManager] 🧪 RESET: {(testMode ? "Test Mode" : "Scene Reload Reset")}");
+        }
+        else
+        {
+            LoadCheckpointData();
+        }
         
         // Registra automaticamente il defaultSpawnPoint se presente
         if (defaultSpawnPoint != null)
@@ -115,50 +131,54 @@ public UnityEvent<Vector3> OnPlayerCheckpointChanged;
     /// <summary>
     /// Attiva un checkpoint (lo imposta come checkpoint corrente)
     /// </summary>
-public bool ActivateCheckpoint(string checkpointName)
-{
-    if (!enableCheckpointSystem)
+    public bool ActivateCheckpoint(string checkpointName)
     {
-        DebugLog("[CheckpointManager] Sistema checkpoint disabilitato");
-        return false;
-    }
-    
-    if (string.IsNullOrEmpty(checkpointName))
-    {
-        DebugLog("[CheckpointManager] ⚠️ Nome checkpoint vuoto per attivazione");
-        return false;
-    }
-    
-    // Se il checkpoint non è registrato, registralo come posizione corrente
-    if (!registeredCheckpoints.ContainsKey(checkpointName))
-    {
-        DebugLog($"[CheckpointManager] ⚠️ Checkpoint '{checkpointName}' non registrato, uso posizione di default");
-        RegisterCheckpoint(checkpointName, GetCurrentSpawnPosition(), GetCurrentSpawnRotation(), "Auto-registered");
-    }
-    
-    currentCheckpoint = checkpointName;
-    DebugLog($"[CheckpointManager] ✅ Checkpoint attivato: '{checkpointName}'");
-    
-    // Salva automaticamente se abilitato
-    if (autoSaveOnCheckpoint)
-    {
-        SaveCheckpointData();
-    }
-    
-    // Notifica eventi
-    OnCheckpointActivated?.Invoke(checkpointName);
-    
-    if (registeredCheckpoints.ContainsKey(checkpointName))
-    {
-        var data = registeredCheckpoints[checkpointName];
-        OnSpawnPointChanged?.Invoke(data.position, data.rotation);
+        if (!enableCheckpointSystem)
+        {
+            DebugLog("[CheckpointManager] Sistema checkpoint disabilitato");
+            return false;
+        }
         
-        // ✅ NUOVO: Notifica alle zattere la nuova posizione del player
-        OnPlayerCheckpointChanged?.Invoke(data.position);
+        if (string.IsNullOrEmpty(checkpointName))
+        {
+            DebugLog("[CheckpointManager] ⚠️ Nome checkpoint vuoto per attivazione");
+            return false;
+        }
+        
+        // Se il checkpoint non è registrato, registralo come posizione corrente
+        if (!registeredCheckpoints.ContainsKey(checkpointName))
+        {
+            DebugLog($"[CheckpointManager] ⚠️ Checkpoint '{checkpointName}' non registrato, uso posizione di default");
+            RegisterCheckpoint(checkpointName, GetCurrentSpawnPosition(), GetCurrentSpawnRotation(), "Auto-registered");
+        }
+        
+        currentCheckpoint = checkpointName;
+        DebugLog($"[CheckpointManager] ✅ Checkpoint attivato: '{checkpointName}'");
+        
+        // Salva automaticamente se abilitato (e non in modalità test)
+        if (autoSaveOnCheckpoint && !testMode)
+        {
+            SaveCheckpointData();
+        }
+        else if (testMode)
+        {
+            DebugLog("[CheckpointManager] 🧪 Test Mode: Salvataggio saltato");
+        }
+        
+        // Notifica eventi
+        OnCheckpointActivated?.Invoke(checkpointName);
+        
+        if (registeredCheckpoints.ContainsKey(checkpointName))
+        {
+            var data = registeredCheckpoints[checkpointName];
+            OnSpawnPointChanged?.Invoke(data.position, data.rotation);
+            
+            // ✅ NUOVO: Notifica alle zattere la nuova posizione del player
+            OnPlayerCheckpointChanged?.Invoke(data.position);
+        }
+        
+        return true;
     }
-    
-    return true;
-}
     
     /// <summary>
     /// Cancella il checkpoint corrente
@@ -176,7 +196,7 @@ public bool ActivateCheckpoint(string checkpointName)
         
         DebugLog($"[CheckpointManager] 🗑️ Checkpoint '{previousCheckpoint}' cancellato");
         
-        if (autoSaveOnCheckpoint)
+        if (autoSaveOnCheckpoint && !testMode)
         {
             SaveCheckpointData();
         }
@@ -291,6 +311,12 @@ public bool ActivateCheckpoint(string checkpointName)
     /// </summary>
     public void SaveCheckpointData()
     {
+        if (testMode)
+        {
+            DebugLog("[CheckpointManager] 🧪 Test Mode: Salvataggio ignorato");
+            return;
+        }
+        
         if (string.IsNullOrEmpty(sceneName))
         {
             DebugLog("[CheckpointManager] ⚠️ Scene name vuoto, impossibile salvare");
@@ -381,6 +407,65 @@ public bool ActivateCheckpoint(string checkpointName)
         }
     }
     
+    // ========== METODI PER MODALITÀ TEST ==========
+    
+    /// <summary>
+    /// Imposta la modalità test (disabilita salvataggio e carica sempre da zero)
+    /// </summary>
+    public void SetTestMode(bool enabled)
+    {
+        testMode = enabled;
+        
+        if (testMode)
+        {
+            ClearSavedCheckpointData();
+            currentCheckpoint = "";
+            DebugLog("[CheckpointManager] 🧪 Modalità test ATTIVATA");
+        }
+        else
+        {
+            LoadCheckpointData();
+            DebugLog("[CheckpointManager] 🎮 Modalità normale ATTIVATA");
+        }
+    }
+    
+    /// <summary>
+    /// Imposta il flag di reset al reload della scena
+    /// </summary>
+    public void SetResetOnSceneReload(bool enabled)
+    {
+        resetOnSceneReload = enabled;
+        DebugLog($"[CheckpointManager] Reset on Scene Reload: {(enabled ? "ATTIVATO" : "DISATTIVATO")}");
+    }
+    
+    /// <summary>
+    /// Forza un reset completo (utile per bottone "Restart Level")
+    /// </summary>
+    public void ForceResetToBeginning()
+    {
+        ClearSavedCheckpointData();
+        currentCheckpoint = "";
+        
+        DebugLog("[CheckpointManager] 🔄 RESET FORZATO: Torna all'inizio");
+        
+        // Notifica il cambio spawn point
+        if (defaultSpawnPoint != null)
+        {
+            OnSpawnPointChanged?.Invoke(defaultSpawnPoint.position, defaultSpawnPoint.rotation);
+            OnPlayerCheckpointChanged?.Invoke(defaultSpawnPoint.position);
+        }
+    }
+    
+    /// <summary>
+    /// Verifica se siamo in modalità test
+    /// </summary>
+    public bool IsTestModeActive() => testMode;
+    
+    /// <summary>
+    /// Verifica se il reset al reload è attivo
+    /// </summary>
+    public bool IsResetOnReloadActive() => resetOnSceneReload;
+    
     // ========== UTILITY ==========
     
     /// <summary>
@@ -446,6 +531,8 @@ public bool ActivateCheckpoint(string checkpointName)
                   $"Registered Checkpoints: {registeredCheckpoints.Count}\n" +
                   $"System Enabled: {enableCheckpointSystem}\n" +
                   $"Auto-Save: {autoSaveOnCheckpoint}\n" +
+                  $"Test Mode: {testMode}\n" +
+                  $"Reset on Scene Reload: {resetOnSceneReload}\n" +
                   $"Default Spawn: {(defaultSpawnPoint != null ? defaultSpawnPoint.position.ToString() : "NULL")}");
         
         if (registeredCheckpoints.Count > 0)
@@ -492,11 +579,55 @@ public bool ActivateCheckpoint(string checkpointName)
         LoadCheckpointData();
     }
     
+    // ========== CONTEXT MENU PER MODALITÀ TEST ==========
+    
+    [ContextMenu("Enable Test Mode")]
+    public void DebugEnableTestMode()
+    {
+        SetTestMode(true);
+    }
+    
+    [ContextMenu("Disable Test Mode")]
+    public void DebugDisableTestMode()
+    {
+        SetTestMode(false);
+    }
+    
+    [ContextMenu("Toggle Test Mode")]
+    public void DebugToggleTestMode()
+    {
+        SetTestMode(!testMode);
+    }
+    
+    [ContextMenu("Enable Reset on Scene Reload")]
+    public void DebugEnableResetOnReload()
+    {
+        SetResetOnSceneReload(true);
+    }
+    
+    [ContextMenu("Disable Reset on Scene Reload")]
+    public void DebugDisableResetOnReload()
+    {
+        SetResetOnSceneReload(false);
+    }
+    
+    [ContextMenu("Toggle Reset on Scene Reload")]
+    public void DebugToggleResetOnReload()
+    {
+        SetResetOnSceneReload(!resetOnSceneReload);
+    }
+    
+    [ContextMenu("Force Reset to Beginning")]
+    public void DebugForceResetToBeginning()
+    {
+        ForceResetToBeginning();
+    }
+    
     // ========== CLEANUP ==========
     
     private void OnDestroy()
     {
-        if (autoSaveOnCheckpoint)
+        if (autoSaveOnCheckpoint && !testMode)
         {
             SaveCheckpointData();
         }

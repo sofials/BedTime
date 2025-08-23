@@ -126,6 +126,7 @@ public bool debugLedgeGrab = false;
     private static readonly int HitHash = Animator.StringToHash("Hit");
     private static readonly int HitRealHash = Animator.StringToHash("HitReal");
     private static readonly int VerticalVelocityHash = Animator.StringToHash("VerticalVelocity");
+    private static readonly int HangingHash = Animator.StringToHash("Hanging");
 
     private bool wasGroundedLastFrame;
 
@@ -763,7 +764,7 @@ public void PlayHitSound()
     if (!hanging || !isHangPositionStable) return;
     
     // ✅ RILASCIA con input verso il basso/indietro
-    if (moveInput.y < -0.3f) // Soglia ridotta per più responsività
+    if (moveInput.y < -0.3f) // Soglia per rilascio manuale
     {
         if (debugLedgeGrab)
             Debug.Log("[LedgeGrab] 🎮 Rilasciato manualmente con input indietro");
@@ -772,34 +773,36 @@ public void PlayHitSound()
         StartCoroutine(EnableMovementAfterHangJump());
     }
     
-    // ✅ OPZIONALE: Rilascia anche con input laterali forti (per scendere di lato)
-    if (Mathf.Abs(moveInput.x) > 0.8f && moveInput.y < 0.1f)
+    // ✅ RILASCIA con movimento laterale forte (scendere di lato)
+    else if (Mathf.Abs(moveInput.x) > 0.8f && moveInput.y < 0.1f)
     {
         if (debugLedgeGrab)
-            Debug.Log("[LedgeGrab] 🎮 Rilasciato con movimento laterale");
+            Debug.Log("[LedgeGrab] 🎮 Rilasciato con movimento laterale forte");
         
         ReleaseLedgeGrab();
         StartCoroutine(EnableMovementAfterHangJump());
     }
+    
+    // ✅ DEBUG: Mostra controlli disponibili
+    else if (debugLedgeGrab && Time.frameCount % 180 == 0) // Ogni 3 secondi
+    {
+        Debug.Log("[LedgeGrab] 🎮 CONTROLLI: ↓ per rilasciare, ↑ per saltare, ← → forte per scendere di lato");
+    }
 }
 
-  private void HandleLedgeGrab()
+private void HandleLedgeGrab()
 {
     if (!ledgeGrabEnabled) return;
 
-    // ✅ GESTIONE HANGING ESISTENTE CON STABILIZZAZIONE
+    // ✅ GESTIONE HANGING - SOLO STABILIZZAZIONE, NESSUN RILASCIO AUTOMATICO
     if (hanging)
     {
-        // Mantieni posizione stabile usando CharacterController.Move invece di transform.position
+        // Mantieni posizione stabile usando CharacterController.Move
         StabilizeHangPosition();
 
-        // ✅ VERIFICA VALIDITÀ SOLO DOPO STABILIZZAZIONE E CON TOLLERANZA
-        if (isHangPositionStable && !IsLedgeStillValid())
-        {
-            if (debugLedgeGrab)
-                Debug.Log("[LedgeGrab] 🔽 Rilascio per perdita validità ledge");
-            ReleaseLedgeGrab();
-        }
+        // ✅ RIMOSSO: Non controllare più la validità del ledge automaticamente
+        // Il player rimane appeso fino a input manuale o salto
+        
         return;
     }
 
@@ -856,7 +859,6 @@ private void StabilizeHangPosition()
     attackVelocity = Vector3.zero;
     externalPush = Vector3.zero;
 }
-
 private void TryLedgeGrab()
 {
     if (!CanGrabLedge()) return;
@@ -1032,9 +1034,10 @@ private void ExecuteLedgeGrab(RaycastHit downHit, RaycastHit fwdHit)
     hanging = true;
     hangStabilityTimer = 0f;
     isHangPositionStable = false;
+    _animator.SetBool(HangingHash, true);
     
     // Reset vari
-    StopFootstepAudio();
+        StopFootstepAudio();
     jumpBufferCounter = 0f;
     coyoteTimeCounter = 0f;
     jumpCount = 0;
@@ -1058,55 +1061,25 @@ private bool IsLedgeStillValid()
         return true;
     }
     
-    // ✅ RAYCAST MIGLIORATO: Usa posizione leggermente elevata e direzione salvata
-    Vector3 rayStart = transform.position + Vector3.up * 0.5f; // Più alto per sicurezza
-    Vector3 rayDirection = hangForward; // Direzione verso il muro salvata durante grab
-    float rayDistance = hangDistanceFromWall + 0.3f; // Distanza aumentata per tolleranza
-    
-    bool wallStillThere = Physics.Raycast(rayStart, rayDirection, rayDistance, ledgeLayerMask);
-    
-    // ✅ DEBUG MIGLIORATO - Solo quando necessario
-    if (debugLedgeGrab && Time.frameCount % 60 == 0) // Ogni 60 frame = ~1 secondo
+    // ✅ SOLO DEBUG - NON RILASCIA MAI AUTOMATICAMENTE
+    if (debugLedgeGrab && Time.frameCount % 120 == 0) // Ogni 2 secondi circa
     {
-        Color rayColor = wallStillThere ? Color.green : Color.red;
-        Debug.DrawLine(rayStart, rayStart + rayDirection * rayDistance, rayColor, 1f);
+        Vector3 rayStart = transform.position + Vector3.up * 0.5f;
+        Vector3 rayDirection = hangForward;
+        float rayDistance = hangDistanceFromWall + 0.3f;
         
-        Debug.Log($"[LedgeGrab] Controllo validità - Muro: {(wallStillThere ? "✅ PRESENTE" : "❌ PERSO")}");
-        Debug.Log($"[LedgeGrab] Ray da: {rayStart} verso: {rayDirection} dist: {rayDistance}");
+        bool wallStillThere = Physics.Raycast(rayStart, rayDirection, rayDistance, ledgeLayerMask);
+        
+        Color rayColor = wallStillThere ? Color.green : Color.yellow;
+        Debug.DrawLine(rayStart, rayStart + rayDirection * rayDistance, rayColor, 2f);
+        
+        Debug.Log($"[LedgeGrab] 🔒 APPESO PERMANENTE - Muro: {(wallStillThere ? "✅ PRESENTE" : "⚠️ NON RILEVATO (ma rimango appeso)")}");
+        Debug.Log($"[LedgeGrab] 💡 Per rilasciare: muovi stick giù o salta");
     }
     
-    // ✅ TOLLERANZA: Permetti qualche frame di "muro perso" prima di rilasciare
-    if (!wallStillThere)
-    {
-        // Incrementa un contatore di "muro perso"
-        if (!wallLostTimer.HasValue)
-        {
-            wallLostTimer = Time.time;
-            if (debugLedgeGrab)
-                Debug.Log("[LedgeGrab] ⚠️ Muro temporaneamente perso - Inizio timer tolleranza");
-        }
-        else if (Time.time - wallLostTimer.Value > wallLostTolerance)
-        {
-            if (debugLedgeGrab)
-                Debug.Log("[LedgeGrab] ❌ Muro perso definitivamente - Rilascio ledge");
-            wallLostTimer = null;
-            return false;
-        }
-    }
-    else
-    {
-        // Reset del timer se il muro è presente
-        if (wallLostTimer.HasValue)
-        {
-            if (debugLedgeGrab)
-                Debug.Log("[LedgeGrab] ✅ Muro ritrovato - Reset timer");
-            wallLostTimer = null;
-        }
-    }
-    
+    // ✅ RITORNA SEMPRE TRUE - Non rilascia mai automaticamente
     return true;
 }
-
 
     /// <summary>
     /// Aggiorna la camera attiva se auto-detect è abilitato
@@ -1530,17 +1503,16 @@ private Vector3 ApplyPlatformMovement()
     if (!hanging) return;
 
     if (debugLedgeGrab)
-        Debug.Log("[LedgeGrab] 🔽 Rilasciato dal ledge con cooldown");
+        Debug.Log("[LedgeGrab] 🔽 Rilasciato dal ledge - SOLO tramite input manuale");
 
     hanging = false;
     isHangPositionStable = false;
     hangStabilityTimer = 0f;
+    _animator.SetBool(HangingHash, false);
     
-    // ✅ RESET TIMER TOLLERANZA
-    wallLostTimer = null;
     
     // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
-    lastLedgeGrabTime = Time.time;
+        lastLedgeGrabTime = Time.time;
 
     // Inizia a cadere dolcemente
     velocity.y = -2f;
@@ -1688,9 +1660,10 @@ private void ExecuteJumpFromHang()
     hanging = false;
     isHangPositionStable = false;
     hangStabilityTimer = 0f;
+    _animator.SetBool(HangingHash, false);
     
     // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
-    lastLedgeGrabTime = Time.time;
+        lastLedgeGrabTime = Time.time;
     
     // ✅ MOVIMENTO VERSO L'ESTERNO DAL MURO
     // hangForward punta verso il muro, quindi -hangForward ci allontana
