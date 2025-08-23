@@ -1183,7 +1183,7 @@ private bool IsLedgeStillValid()
     // ✅ VERIFICA SE È UN TAG DI PIATTAFORMA
     private bool IsPlatformTag(string tag)
     {
-        return tag == "MovingPlatform" || tag == "RotatingPlatform" || tag == "RaftPlatform";
+        return tag == "MovingPlatform" || tag == "RotatingPlatform" || tag == "RaftPlatform" || tag == "FallBlock";
     }
 
     // ✅ ATTACCA IL PLAYER ALLA PIATTAFORMA
