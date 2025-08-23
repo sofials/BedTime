@@ -14,6 +14,14 @@ public class DestructibleObject : MonoBehaviour
     [Header("Damage Detection")]
     public float damageAmount = 25f;
     
+    [Header("Drop Settings")]
+    public bool canDropLifeGem = true;
+    public GameObject lifeGemPrefab; // Assegna il prefab della life gem nell'inspector
+    [Range(0f, 1f)]
+    public float dropChance = 0.3f; // 30% di chance di default
+    public float dropUpwardForce = 5f;
+    public float dropScatterForce = 3f;
+
     public CFXR_EffectController deathEffect;
     
     private Rigidbody rb;
@@ -249,6 +257,12 @@ public class DestructibleObject : MonoBehaviour
         if (deathEffect != null)
             deathEffect.PlayEffect();
 
+        // Tenta di droppare una life gem
+        if (canDropLifeGem && lifeGemPrefab != null && Random.value < dropChance)
+        {
+            SpawnLifeGem();
+        }
+
         var renderer = GetComponentInChildren<Renderer>();
         if (renderer != null)
             renderer.enabled = false;
@@ -256,7 +270,7 @@ public class DestructibleObject : MonoBehaviour
         // Mantieni la fisica anche dopo la morte
         if (rb != null && !rb.isKinematic)
         {
-            rb.mass *= 0.5f; // Rendi più leggero per un effetto migliore
+            rb.mass *= 0.5f;
         }
         
         // Disabilita il trigger per evitare ulteriori danni
@@ -264,6 +278,34 @@ public class DestructibleObject : MonoBehaviour
             triggerCollider.enabled = false;
 
         Destroy(gameObject, 2f);
+    }
+
+    private void SpawnLifeGem()
+    {
+        // Spawn la gem leggermente sopra l'oggetto per evitare collisioni
+        Vector3 spawnPos = transform.position + Vector3.up * 0.5f;
+        
+        GameObject gem = Instantiate(lifeGemPrefab, spawnPos, Quaternion.identity);
+        
+        // Aggiungi forze casuali per un effetto più dinamico
+        Rigidbody gemRb = gem.GetComponent<Rigidbody>();
+        if (gemRb != null)
+        {
+            // Forza verso l'alto + scatter casuale
+            Vector3 randomDirection = new Vector3(
+                Random.Range(-1f, 1f),
+                1f,
+                Random.Range(-1f, 1f)
+            ).normalized;
+
+            Vector3 dropForce = (Vector3.up * dropUpwardForce) + (randomDirection * dropScatterForce);
+            gemRb.AddForce(dropForce, ForceMode.Impulse);
+            
+            // Aggiungi una leggera rotazione casuale
+            gemRb.AddTorque(Random.insideUnitSphere * dropScatterForce, ForceMode.Impulse);
+        }
+        
+        Debug.Log($"[DestructibleObject] Life Gem droppata a {spawnPos}");
     }
 
     #endregion
