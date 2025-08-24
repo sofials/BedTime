@@ -63,7 +63,6 @@ public class CameraManager : MonoBehaviour
 
     public static void SwitchCamera(CinemachineCamera newCamera)
     {
-
         if (newCamera == null)
         {
             Debug.LogError("SwitchCamera: newCamera is null!");
@@ -75,7 +74,10 @@ public class CameraManager : MonoBehaviour
             return;
         }
 
-        // Verifica se la camera � registrata
+        // Log del cambio camera
+        Debug.Log($"[CameraManager] Cambio camera: da {(ActiveCamera != null ? ActiveCamera.name : "nessuna")} a {newCamera.name}");
+
+        // Verifica se la camera è registrata
         if (!cameras.Contains(newCamera))
         {
             Register(newCamera);

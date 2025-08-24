@@ -13,7 +13,8 @@ public class RotatingObject : MonoBehaviour
     [Header("Rotation Settings")]
     public Vector3 rotationAxis = Vector3.up;
     public float rotationSpeed = 360f;
-    
+
+    // ✅ SEMPLIFICATO: Una sola variabile per la velocità
     private float currentRotationSpeed;
     private float originalRotationSpeed;
     private bool isSlowdownActive = false;
@@ -29,7 +30,6 @@ public class RotatingObject : MonoBehaviour
 
     [Header("Modalità Girandola")]
     public bool usePinwheelMode = false;
-    public Transform pinwheelPivot;
     public Transform visualToRotate;
 
     [Header("Rotazione attorno a oggetto")]
@@ -55,14 +55,14 @@ public class RotatingObject : MonoBehaviour
     [Header("Platform Behavior")]
     [SerializeField] private PlatformType platformType = PlatformType.SupportPlatform;
     [SerializeField] private bool detachPlayerOnHit = false;
-    
+
     [Header("Damage Settings")]
     [SerializeField] private bool canDamagePlayer = true;
     [SerializeField] public float damageAmount = 10f;
     [SerializeField] public bool triggerHitWhenNoDamage = false;
     [Header("Slowdown Custom Duration")]
-[Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
-public float customSlowdownDuration = 15f;
+    [Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
+    public float customSlowdownDuration = 15f;
 
     // Overlay materials
     private MeshRenderer[] meshRenderers;
@@ -78,11 +78,12 @@ public float customSlowdownDuration = 15f;
 
     void Awake()
     {
+        // ✅ INIZIALIZZAZIONE PULITA
         originalRotationSpeed = rotationSpeed;
         currentRotationSpeed = rotationSpeed;
-        
+
         InitializeMaterials();
-        
+
         if (slowdownEffect != null)
         {
             slowdownEffect.gameObject.SetActive(false);
@@ -115,9 +116,8 @@ public float customSlowdownDuration = 15f;
 
         if (usePinwheelMode && visualToRotate != null)
         {
-            visualToRotate.Rotate(0f, 0f, rotationSpeed * Time.deltaTime, Space.Self);
+            visualToRotate.Rotate(rotationAxis.normalized, rotationThisFrame, Space.Self);
         }
-
         else if (rotateAroundObject && targetObject != null)
         {
             transform.RotateAround(targetObject.position, rotationAxis.normalized, rotationThisFrame);
@@ -137,17 +137,17 @@ public float customSlowdownDuration = 15f;
     private void UpdatePendulumMovement()
     {
         pendulumTimer += Time.deltaTime * pendulumSpeed * (currentRotationSpeed / originalRotationSpeed);
-        
+
         float currentAngle = Mathf.Sin(pendulumTimer) * pendulumMaxAngle;
-        
+
         Vector3 directionFromAnchor = (pendulumInitialPosition - pendulumAnchorPosition).normalized;
         float originalDistance = Vector3.Distance(pendulumAnchorPosition, pendulumInitialPosition);
-        
+
         Quaternion oscillationRotation = Quaternion.AngleAxis(currentAngle, rotationAxis.normalized);
         Vector3 rotatedDirection = oscillationRotation * directionFromAnchor;
-        
+
         transform.position = pendulumAnchorPosition + (rotatedDirection * originalDistance);
-        
+
         if (maintainOrientation)
         {
             Quaternion naturalRotation = Quaternion.AngleAxis(currentAngle, rotationAxis.normalized);
@@ -165,17 +165,17 @@ public float customSlowdownDuration = 15f;
         {
             pendulumAnchor = transform.parent;
         }
-        
+
         if (pendulumAnchor == null)
         {
             Debug.LogWarning($"[RotatingObject] Pendolo: nessun anchor trovato su {gameObject.name}");
             return;
         }
-        
+
         pendulumAnchorPosition = pendulumAnchor.position;
         pendulumInitialPosition = transform.position;
         pendulumInitialRotation = transform.rotation;
-        
+
         Debug.Log($"[RotatingObject] Pendolo inizializzato su {gameObject.name}");
     }
 
@@ -183,7 +183,7 @@ public float customSlowdownDuration = 15f;
     private void InitializeMaterials()
     {
         meshRenderers = GetComponentsInChildren<MeshRenderer>();
-        
+
         if (meshRenderers.Length == 0)
         {
             Debug.LogWarning($"[RotatingObject] Nessun MeshRenderer trovato su {gameObject.name}");
@@ -194,7 +194,7 @@ public float customSlowdownDuration = 15f;
         {
             // Salva i materiali originali
             rendererOriginalMaterials[renderer] = renderer.sharedMaterials;
-            
+
             // Crea istanze per l'overlay
             Material[] instanceMaterials = new Material[renderer.materials.Length];
             for (int i = 0; i < renderer.materials.Length; i++)
@@ -206,18 +206,20 @@ public float customSlowdownDuration = 15f;
             }
             rendererInstanceMaterials[renderer] = instanceMaterials;
         }
-        
+
         materialsInitialized = true;
         Debug.Log($"[RotatingObject] Materiali inizializzati per {meshRenderers.Length} renderer su {gameObject.name}");
     }
+
+    // ✅ CONTROLLO SLOWDOWN SEMPLIFICATO
     public void SetSlowdownState(bool inSlowdown, float newSpeed = 0f)
     {
         Debug.Log($"[RotatingObject] {gameObject.name} - SetSlowdownState({inSlowdown}, {newSpeed})");
-        
+
         if (inSlowdown)
         {
             isSlowdownActive = true;
-            
+
             if (useCustomSlowdown)
             {
                 currentRotationSpeed = customSlowdownFactor;
@@ -230,7 +232,7 @@ public float customSlowdownDuration = 15f;
             {
                 currentRotationSpeed = originalRotationSpeed * 0.5f; // Fallback
             }
-            
+
             Debug.Log($"[RotatingObject] {gameObject.name} - SLOWDOWN ATTIVATO: {originalRotationSpeed} → {currentRotationSpeed}");
         }
         else
@@ -248,6 +250,7 @@ public float customSlowdownDuration = 15f;
         Debug.Log($"[RotatingObject] {gameObject.name} - velocità ripristinata a {originalRotationSpeed}");
     }
 
+    // ✅ OVERLAY SEMPLIFICATO
     public void SetOverlayActive(bool active)
     {
         if (!materialsInitialized || meshRenderers == null)
@@ -255,9 +258,9 @@ public float customSlowdownDuration = 15f;
             Debug.LogWarning($"[RotatingObject] Materiali non inizializzati su {gameObject.name}");
             return;
         }
-        
+
         Debug.Log($"[RotatingObject] SetOverlayActive({active}) su {gameObject.name}");
-        
+
         foreach (MeshRenderer renderer in meshRenderers)
         {
             ApplyOverlayToRenderer(renderer, active);
@@ -273,12 +276,12 @@ public float customSlowdownDuration = 15f;
         }
 
         Material[] materialsToUse;
-        
+
         if (active)
         {
             // Usa le istanze e applica l'overlay
             materialsToUse = rendererInstanceMaterials[renderer];
-            
+
             for (int i = 0; i < materialsToUse.Length; i++)
             {
                 if (materialsToUse[i] != null)
@@ -292,21 +295,21 @@ public float customSlowdownDuration = 15f;
             // Ripristina i materiali originali
             materialsToUse = rendererOriginalMaterials[renderer];
         }
-        
+
         renderer.materials = materialsToUse;
     }
 
     private void ApplyEmissionOverlay(Material material, bool active)
     {
         if (!material.HasProperty("_EmissionColor")) return;
-        
+
         if (active)
         {
             Color hdrEmission = overlayColor * overlayIntensity * hdrMultiplier;
             material.SetColor("_EmissionColor", hdrEmission);
             material.EnableKeyword("_EMISSION");
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-            
+
             if (applyColorTint && material.HasProperty("_BaseColor"))
             {
                 Color baseColor = material.GetColor("_BaseColor");
@@ -323,6 +326,7 @@ public float customSlowdownDuration = 15f;
         }
     }
 
+    // ✅ EFFETTI AUDIO
     public void PlaySlowdownEffect(float duration = 1f)
     {
         if (slowdownEffect != null)
@@ -348,11 +352,12 @@ public float customSlowdownDuration = 15f;
         }
     }
 
+    // ✅ PROPRIETÀ PUBBLICHE
     public bool IsInSlowdown => isSlowdownActive;
     public PlatformType GetPlatformType() => platformType;
     public bool GetDetachPlayerOnHit() => detachPlayerOnHit;
     public bool CanDamagePlayer => canDamagePlayer && !isSlowdownActive;
-    
+
     public bool CanCauseDamage()
     {
         bool canDamage = canDamagePlayer && !isSlowdownActive;
@@ -367,6 +372,7 @@ public float customSlowdownDuration = 15f;
         return shouldTrigger;
     }
 
+    // ✅ SETTER PUBBLICI
     public void SetPlatformType(PlatformType type)
     {
         platformType = type;
@@ -408,6 +414,7 @@ public float customSlowdownDuration = 15f;
         Debug.Log($"[RotatingObject] Player sganciato dalla piattaforma {gameObject.name}");
     }
 
+    // ✅ METODI LEGACY PER COMPATIBILITÀ (deprecati)
     [System.Obsolete("Usa SetSlowdownState invece")]
     public void SetSpeedMultiplier(float multiplier)
     {
