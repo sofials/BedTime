@@ -46,6 +46,9 @@ public class Mushroom : MonoBehaviour
     public AudioSource chaseAudioSource;
     public AudioClip chaseAudioClip;
     public GameObject enemyChildObjectToActivate; // Oggetto figlio del nemico da attivare
+    [Header("Second Audio After Chase")]
+public AudioSource secondAudioSource; // Nuovo AudioSource per il secondo suono
+public AudioClip secondAudioClip; // Nuovo AudioClip per il secondo suono
 
     [Header("Death Audio")]
     public AudioSource deathAudioSource;
@@ -163,7 +166,7 @@ public class Mushroom : MonoBehaviour
     {
         if (chaseAudioClip != null)
         {
-            // Aspetta per la durata dell'audio clip
+            // Aspetta per la durata dell'audio clip del chase
             yield return new WaitForSeconds(chaseAudioClip.length);
         }
         else
@@ -172,11 +175,25 @@ public class Mushroom : MonoBehaviour
             yield return new WaitForSeconds(2f);
         }
 
+        // NUOVO: Riproduci il secondo audio appena dopo la fine del chase audio
+        PlaySecondAudio();
+
         // Disattiva l'oggetto figlio del nemico
         if (enemyChildObjectToActivate != null)
             enemyChildObjectToActivate.SetActive(false);
     }
-
+private void PlaySecondAudio()
+{
+    if (secondAudioSource != null && secondAudioClip != null)
+    {
+        secondAudioSource.PlayOneShot(secondAudioClip);
+    }
+    else if (secondAudioClip != null && chaseAudioSource != null)
+    {
+        // Se non hai un AudioSource dedicato, usa quello del chase come fallback
+        chaseAudioSource.PlayOneShot(secondAudioClip);
+    }
+}
     private IEnumerator DisableEnemyObjectAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);

@@ -11,6 +11,9 @@ public class GameManager : MonoBehaviour
 
     [Header("Scene Management")]
     [SerializeField] private SceneController sceneController;
+    
+    [Header("Cursor Settings")]
+    [SerializeField] private bool debugCursorState = false; // Per debugging
 
     // Eventi per compatibilità con SceneManager
     public System.Action<string> OnSceneReady;
@@ -42,6 +45,20 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // Update per forzare lo stato del cursore se necessario (solo per debugging)
+    private void Update()
+    {
+        if (debugCursorState && !IsInMainMenu())
+        {
+            // Forza lo stato del cursore se si "sblocca" accidentalmente
+            if (Cursor.visible || Cursor.lockState != CursorLockMode.Locked)
+            {
+                Debug.LogWarning("[GameManager] Cursore si è sbloccato, lo riforzo nascosto");
+                SetGameCursorState();
+            }
+        }
+    }
+
     private void HandleTitleScreen()
     {
         if (startMenu != null)
@@ -49,25 +66,51 @@ public class GameManager : MonoBehaviour
             
         // Configurazione cursore per menu
         Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        SetMenuCursorState();
+        
+        Debug.Log("[GameManager] Configurazione Title Screen - Cursore visibile");
     }
 
     private void HandleGameScene()
     {
         // Configurazione cursore per gioco
         Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        SetGameCursorState();
+        
+        Debug.Log("[GameManager] Configurazione Game Scene - Cursore nascosto");
         
         // Notifica lo SceneManager che il GameManager è pronto
         StartCoroutine(NotifySceneManagerAfterDelay());
+    }
+    
+    /// <summary>
+    /// Imposta il cursore per il gameplay (nascosto e bloccato)
+    /// </summary>
+    private void SetGameCursorState()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+    
+    /// <summary>
+    /// Imposta il cursore per i menu (visibile e libero)
+    /// </summary>
+    private void SetMenuCursorState()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
     
     private IEnumerator NotifySceneManagerAfterDelay()
     {
         // Piccolo delay per assicurarsi che tutto sia inizializzato
         yield return new WaitForSeconds(0.1f);
+        
+        // Ri-forza lo stato del cursore dopo l'inizializzazione
+        if (!IsInMainMenu())
+        {
+            SetGameCursorState();
+        }
         
         string currentScene = SceneManager.GetActiveScene().name;
         
@@ -146,6 +189,45 @@ public class GameManager : MonoBehaviour
         LoadSceneWithFade("Title Screen");
     }
 
+    // ========== GESTIONE EVENTI SCENA ==========
+    
+    /// <summary>
+    /// Chiamato automaticamente quando una scena viene caricata
+    /// </summary>
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log($"[GameManager] Scena caricata: {scene.name}");
+        
+        // Aspetta un frame per permettere l'inizializzazione
+        StartCoroutine(ConfigureCursorForNewScene(scene.name));
+    }
+    
+    private IEnumerator ConfigureCursorForNewScene(string sceneName)
+    {
+        yield return null; // Aspetta un frame
+        
+        if (sceneName == "Title Screen")
+        {
+            SetMenuCursorState();
+            Debug.Log("[GameManager] Nuovo caricamento - Cursore configurato per menu");
+        }
+        else
+        {
+            SetGameCursorState();
+            Debug.Log("[GameManager] Nuovo caricamento - Cursore configurato per gameplay");
+        }
+    }
+
+    private void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
     // ========== METODI UTILITY ==========
 
     /// <summary>
@@ -173,23 +255,36 @@ public class GameManager : MonoBehaviour
         
         if (paused)
         {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            // Quando in pausa, mostra il cursore (per future pause menu)
+            SetMenuCursorState();
         }
         else if (!IsInMainMenu())
         {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            // Quando riprendi, nascondi il cursore se non siamo nel menu
+            SetGameCursorState();
         }
     }
 
     /// <summary>
-    /// Imposta la configurazione del cursore
+    /// Forza lo stato del cursore per il gameplay
+    /// </summary>
+    public void ForceCursorForGameplay()
+    {
+        if (!IsInMainMenu())
+        {
+            SetGameCursorState();
+            Debug.Log("[GameManager] Cursore forzato per gameplay");
+        }
+    }
+
+    /// <summary>
+    /// Imposta la configurazione del cursore (per compatibilità)
     /// </summary>
     public void SetCursorState(bool visible, CursorLockMode lockMode)
     {
         Cursor.visible = visible;
         Cursor.lockState = lockMode;
+        Debug.Log($"[GameManager] Cursore impostato manualmente - Visible: {visible}, Lock: {lockMode}");
     }
 
     // ========== DEBUG ==========
@@ -203,7 +298,14 @@ public class GameManager : MonoBehaviour
                   $"Time Scale: {Time.timeScale}\n" +
                   $"Cursor Visible: {Cursor.visible}\n" +
                   $"Cursor Lock: {Cursor.lockState}\n" +
-                  $"SceneController: {(sceneController != null ? "✅" : "❌")}");
+                  $"SceneController: {(sceneController != null ? "✅" : "❌")}\n" +
+                  $"Debug Mode: {debugCursorState}");
+    }
+
+    [ContextMenu("Test - Force Cursor for Gameplay")]
+    public void DebugForceCursor()
+    {
+        ForceCursorForGameplay();
     }
 
     [ContextMenu("Test - Restart Scene")]

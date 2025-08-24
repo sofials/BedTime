@@ -82,9 +82,20 @@ public class DialogueSystem : MonoBehaviour
 [SerializeField] private AudioClip dissolveAudioClip;
 [Tooltip("Se true, ferma l'audio quando tutti i dissolve sono completati")]
 [SerializeField] private bool stopAudioOnDissolveComplete = true;
-[Tooltip("Tempo di fade out per l'audio dissolve (secondi)")]
+    [Tooltip("Tempo di fade out per l'audio dissolve (secondi)")]
+    [Range(0f, 2f)]
+    [SerializeField] private float dissolveAudioFadeTime = 0.5f;
+[Header("🎮 Player Movement Control")]
+[SerializeField] private bool lockPlayerMovement = false;
+[Tooltip("Se true, blocca completamente i controlli del player durante questo dialogo")]
+[SerializeField] private bool lockMovementDuringDialogue = false;
+[Tooltip("Ritardo prima di bloccare il movimento (utile per transizioni fluide)")]
 [Range(0f, 2f)]
-[SerializeField] private float dissolveAudioFadeTime = 0.5f;
+[SerializeField] private float movementLockDelay = 0f;
+[Tooltip("Se true, blocca anche la rotazione della camera")]
+[SerializeField] private bool lockCameraRotation = false;
+[Tooltip("Player Controller da controllare (se null, verrà cercato automaticamente)")]
+[SerializeField] private ThirdPersonController targetPlayerController;
 
 // Variabili private per gestire l'audio dissolve
 private Coroutine dissolveAudioCoroutine;
@@ -111,6 +122,9 @@ private bool dissolveAudioPlaying = false;
     [SerializeField] private string activationMessage = "Oggetti attivati dal dialogo!";
     [Tooltip("Ritardo prima di attivare gli oggetti (in secondi)")]
     [SerializeField] private float activationDelay = 0f;
+    private bool wasMovementLocked = false;
+private bool movementLockApplied = false;
+private Coroutine movementLockCoroutine = null;
     
     [Header("Audio Settings")]
     public AudioSource audioSource; // AudioSource per riprodurre i suoni del dialogo
@@ -172,6 +186,7 @@ private bool dissolveAudioPlaying = false;
         ValidateSubDialogueSetup(); // 🆕
         ValidateDissolveSetup(); // 🆕
         ValidateDissolveAudioSetup();
+        ValidateMovementControlSetup();
         
         // 🆕 INIZIALIZZA I VALORI DISSOLVE ALL'AVVIO
         if (enableDissolveEffect && forceInitializeDissolveValues)
@@ -212,6 +227,95 @@ public void SetDissolveAudioSource(AudioSource source)
 public void ForceStopDissolveAudio()
 {
     StopDissolveAudio();
+}
+    void ValidateMovementControlSetup()
+    {
+        if (!lockMovementDuringDialogue)
+        {
+            Debug.Log("[DialogueSystem] Player Movement Lock disabilitato");
+            return;
+        }
+
+        // Cerca automaticamente il ThirdPersonController se non assegnato
+        if (targetPlayerController == null)
+        {
+            targetPlayerController = FindFirstObjectByType<ThirdPersonController>();
+
+            if (targetPlayerController == null)
+            {
+                Debug.LogWarning("[DialogueSystem] ⚠️ Movement Lock abilitato ma nessun ThirdPersonController trovato!");
+                lockMovementDuringDialogue = false;
+                return;
+            }
+            else
+            {
+                Debug.Log($"[DialogueSystem] 🎮 ThirdPersonController trovato automaticamente: {targetPlayerController.name}");
+            }
+        }
+
+        Debug.Log($"[DialogueSystem] ✅ Player Movement Lock configurato per: {targetPlayerController.name}");
+    }
+    void LockPlayerMovement()
+    {
+        if (!lockMovementDuringDialogue || targetPlayerController == null || movementLockApplied)
+        {
+            return;
+        }
+
+        Debug.Log("[DialogueSystem] 🔒 Bloccando movimento del player...");
+
+        // Salva lo stato precedente
+        wasMovementLocked = targetPlayerController.IsMovementLocked;
+
+        // Blocca il movimento
+        targetPlayerController.IsMovementLocked = true;
+        movementLockApplied = true;
+
+        // TODO: Se implementato in futuro, blocca anche la rotazione camera
+        if (lockCameraRotation)
+        {
+            Debug.Log("[DialogueSystem] 📷 Camera rotation lock non ancora implementato");
+            // Qui potresti aggiungere codice per bloccare la rotazione della camera
+        }
+
+        Debug.Log($"[DialogueSystem] ✅ Movimento bloccato! (Era già bloccato: {wasMovementLocked})");
+    }
+    void UnlockPlayerMovement()
+    {
+        if (!lockMovementDuringDialogue || targetPlayerController == null || !movementLockApplied)
+        {
+            return;
+        }
+
+        Debug.Log("[DialogueSystem] 🔓 Sbloccando movimento del player...");
+
+        // Ripristina lo stato precedente solo se non era già bloccato prima
+        if (!wasMovementLocked)
+        {
+            targetPlayerController.IsMovementLocked = false;
+        }
+
+        movementLockApplied = false;
+
+        // Sblocca camera se era bloccata
+        if (lockCameraRotation)
+        {
+            Debug.Log("[DialogueSystem] 📷 Camera rotation unlock non ancora implementato");
+            // Qui potresti aggiungere codice per sbloccare la rotazione della camera
+        }
+
+        Debug.Log($"[DialogueSystem] ✅ Movimento sbloccato! (Stato precedente: {(wasMovementLocked ? "bloccato" : "libero")})");
+    }
+IEnumerator LockPlayerMovementWithDelay()
+{
+    if (movementLockDelay > 0f)
+    {
+        Debug.Log($"[DialogueSystem] ⏳ Aspettando {movementLockDelay}s prima di bloccare movimento...");
+        yield return new WaitForSeconds(movementLockDelay);
+    }
+    
+    LockPlayerMovement();
+    movementLockCoroutine = null;
 }
 
 /// <summary>
@@ -373,46 +477,59 @@ void ResetDissolveToInitialState()
         }
     }
     
-    public void StartDialogue()
+   public void StartDialogue()
+{
+    Debug.Log($"[DEBUG] StartDialogue chiamato. DialogueLines.Length = {dialogueLines.Length}");
+    
+    if (dialogueLines.Length == 0) 
     {
-        Debug.Log($"[DEBUG] StartDialogue chiamato. DialogueLines.Length = {dialogueLines.Length}");
-        
-        if (dialogueLines.Length == 0) 
-        {
-            Debug.LogError("[DEBUG] Nessuna DialogueLine configurata!");
-            return;
-        }
-        
-        Debug.Log($"[DEBUG] Prima linea: '{dialogueLines[0].text}'");
-        Debug.Log($"[DEBUG] DialogueUI assigned: {dialogueUI != null}");
-        Debug.Log($"[DEBUG] DialogueText assigned: {dialogueText != null}");
-        
-        isDialogueActive = true;
-        hasBeenTriggered = true;
-        currentLineIndex = 0;
-        isOnLastLine = false;
-        objectsAlreadyActivated = false;
-        subDialogueTriggered = false; // 🆕 Reset flag sottodialogo
-        dissolveTriggered = false; // 🆕 Reset flag dissolve
-        
-        // Attiva l'UI del dialogo
-        if (dialogueUI != null)
-        {
-            dialogueUI.SetActive(true);
-            Debug.Log("[DEBUG] DialogueUI attivato");
-        }
-        
-        
-        // Mostra la prima battuta
-        DisplayLine();
-        
-        // Notifica inizio dialogo
-        OnDialogueStarted?.Invoke();
-        OnAnyDialogueStarted?.Invoke(this);
-        
-        Debug.Log("[DialogueSystem] Dialogo iniziato. Usa " + nextLineKey + " per continuare, " + cancelDialogueKey + " per chiudere.");
+        Debug.LogError("[DEBUG] Nessuna DialogueLine configurata!");
+        return;
     }
     
+    Debug.Log($"[DEBUG] Prima linea: '{dialogueLines[0].text}'");
+    Debug.Log($"[DEBUG] DialogueUI assigned: {dialogueUI != null}");
+    Debug.Log($"[DEBUG] DialogueText assigned: {dialogueText != null}");
+    
+    isDialogueActive = true;
+    hasBeenTriggered = true;
+    currentLineIndex = 0;
+    isOnLastLine = false;
+    objectsAlreadyActivated = false;
+    subDialogueTriggered = false;
+    dissolveTriggered = false;
+    movementLockApplied = false; // 🎮 RESET STATO LOCK
+    
+    // Attiva l'UI del dialogo
+    if (dialogueUI != null)
+    {
+        dialogueUI.SetActive(true);
+        Debug.Log("[DEBUG] DialogueUI attivato");
+    }
+    
+    // 🎮 BLOCCA MOVIMENTO DEL PLAYER SE ABILITATO
+    if (lockMovementDuringDialogue)
+    {
+        if (movementLockDelay > 0f)
+        {
+            movementLockCoroutine = StartCoroutine(LockPlayerMovementWithDelay());
+        }
+        else
+        {
+            LockPlayerMovement();
+        }
+    }
+    
+    // Mostra la prima battuta
+    DisplayLine();
+    
+    // Notifica inizio dialogo
+    OnDialogueStarted?.Invoke();
+    OnAnyDialogueStarted?.Invoke(this);
+    
+    Debug.Log("[DialogueSystem] Dialogo iniziato. Usa " + nextLineKey + " per continuare, " + cancelDialogueKey + " per chiudere.");
+}
+
     void DisplayLine()
     {
         Debug.Log($"[DEBUG] DisplayLine chiamato. CurrentLineIndex = {currentLineIndex}");
@@ -599,76 +716,89 @@ void ResetDissolveToInitialState()
     }
     
     public void EndDialogue()
+{
+    Debug.Log("[DialogueSystem] 🏁 EndDialogue chiamato");
+    
+    isDialogueActive = false;
+    currentLineIndex = 0;
+    isPlayingAudio = false;
+    isOnLastLine = false;
+    
+    // Ferma l'audio se in riproduzione
+    if (audioSource != null && audioSource.isPlaying)
     {
-        Debug.Log("[DialogueSystem] 🏁 EndDialogue chiamato");
-        
-        isDialogueActive = false;
-        currentLineIndex = 0;
-        isPlayingAudio = false;
-        isOnLastLine = false;
-        
-        // Ferma l'audio se in riproduzione
-        if (audioSource != null && audioSource.isPlaying)
-        {
-            audioSource.Stop();
-        }
-        
-        // Nascondi l'UI del dialogo
-        if (dialogueUI != null)
-            dialogueUI.SetActive(false);
-        
-        // Ferma le coroutine se attive
-        if (audioCoroutine != null)
-        {
-            StopCoroutine(audioCoroutine);
-            audioCoroutine = null;
-        }
-        
-        if (autoFinishCoroutine != null)
-        {
-            StopCoroutine(autoFinishCoroutine);
-            autoFinishCoroutine = null;
-        }
-        
-        
-        // ATTIVA OGGETTI SE ABILITATO
-        if (enableObjectActivation && !objectsAlreadyActivated)
-        {
-            if (activationDelay > 0)
-            {
-                StartCoroutine(ActivateObjectsWithDelay());
-            }
-            else
-            {
-                ActivateObjects();
-            }
-        }
-        
-        // 🆕 ATTIVA SOTTODIALOGO SE ABILITATO
-        if (enableSubDialogue && !subDialogueTriggered)
-        {
-            if (subDialogueDelay > 0)
-            {
-                StartCoroutine(TriggerSubDialogueWithDelay());
-            }
-            else
-            {
-                TriggerSubDialogue();
-            }
-        }
-        
-        // 🆕 AVVIA DISSOLVE SE ABILITATO E NON DEVE ESSERE INSIEME AL SOTTODIALOGO
-        if (enableDissolveEffect && !dissolveTriggered && !dissolveWithSubDialogue)
-        {
-            StartDissolveEffect();
-        }
-        
-        // Notifica fine dialogo
-        OnDialogueEnded?.Invoke();
-        OnAnyDialogueEnded?.Invoke(this);
-        
-        Debug.Log("[DialogueSystem] Dialogo terminato.");
+        audioSource.Stop();
     }
+    
+    // 🎮 SBLOCCA MOVIMENTO DEL PLAYER
+    if (lockMovementDuringDialogue)
+    {
+        // Ferma la coroutine del lock se attiva
+        if (movementLockCoroutine != null)
+        {
+            StopCoroutine(movementLockCoroutine);
+            movementLockCoroutine = null;
+        }
+        
+        UnlockPlayerMovement();
+    }
+    
+    // Nascondi l'UI del dialogo
+    if (dialogueUI != null)
+        dialogueUI.SetActive(false);
+    
+    // Ferma le coroutine se attive
+    if (audioCoroutine != null)
+    {
+        StopCoroutine(audioCoroutine);
+        audioCoroutine = null;
+    }
+    
+    if (autoFinishCoroutine != null)
+    {
+        StopCoroutine(autoFinishCoroutine);
+        autoFinishCoroutine = null;
+    }
+    
+    // ATTIVA OGGETTI SE ABILITATO
+    if (enableObjectActivation && !objectsAlreadyActivated)
+    {
+        if (activationDelay > 0)
+        {
+            StartCoroutine(ActivateObjectsWithDelay());
+        }
+        else
+        {
+            ActivateObjects();
+        }
+    }
+    
+    // ATTIVA SOTTODIALOGO SE ABILITATO
+    if (enableSubDialogue && !subDialogueTriggered)
+    {
+        if (subDialogueDelay > 0)
+        {
+            StartCoroutine(TriggerSubDialogueWithDelay());
+        }
+        else
+        {
+            TriggerSubDialogue();
+        }
+    }
+    
+    // AVVIA DISSOLVE SE ABILITATO E NON DEVE ESSERE INSIEME AL SOTTODIALOGO
+    if (enableDissolveEffect && !dissolveTriggered && !dissolveWithSubDialogue)
+    {
+        StartDissolveEffect();
+    }
+    
+    // Notifica fine dialogo
+    OnDialogueEnded?.Invoke();
+    OnAnyDialogueEnded?.Invoke(this);
+    
+    Debug.Log("[DialogueSystem] Dialogo terminato.");
+}
+
     
     // ========== OBJECT ACTIVATION SYSTEM ==========
     
@@ -1316,7 +1446,81 @@ void ValidateDissolveAudioSetup()
         dissolveCoroutines.Clear();
         Debug.Log("[DialogueSystem] 🛑 Tutte le coroutine dissolve fermate");
     }
-    
+    // ========== GETTERS E SETTERS PER PLAYER MOVEMENT CONTROL ==========
+
+/// <summary>
+/// 🎮 Abilita/disabilita il blocco movimento durante il dialogo
+/// </summary>
+public void SetMovementLockEnabled(bool enabled)
+{
+    lockMovementDuringDialogue = enabled;
+    Debug.Log($"[DialogueSystem] 🎮 Player Movement Lock {(enabled ? "abilitato" : "disabilitato")}");
+}
+
+/// <summary>
+/// 🎮 Imposta il ritardo per il blocco movimento
+/// </summary>
+public void SetMovementLockDelay(float delay)
+{
+    movementLockDelay = delay;
+    Debug.Log($"[DialogueSystem] 🎮 Movement Lock Delay impostato: {delay}s");
+}
+
+/// <summary>
+/// 🎮 Imposta il ThirdPersonController target
+/// </summary>
+public void SetTargetPlayerController(ThirdPersonController controller)
+{
+    targetPlayerController = controller;
+    Debug.Log($"[DialogueSystem] 🎮 Target Player Controller impostato: {(controller != null ? controller.name : "NULL")}");
+}
+
+/// <summary>
+/// 🎮 Abilita/disabilita il blocco rotazione camera
+/// </summary>
+public void SetCameraRotationLock(bool enabled)
+{
+    lockCameraRotation = enabled;
+    Debug.Log($"[DialogueSystem] 📷 Camera Rotation Lock {(enabled ? "abilitato (non implementato)" : "disabilitato")}");
+}
+
+    /// <summary>
+    /// 🎮 Forza il blocco del movimento (per test)
+    /// </summary>
+    public void ForceLockPlayerMovement()
+    {
+        if (targetPlayerController != null)
+        {
+            LockPlayerMovement();
+        }
+        else
+        {
+            Debug.LogWarning("[DialogueSystem] Impossibile forzare lock - nessun controller assegnato");
+        }
+    }
+// ========== GETTERS PUBBLICI ==========
+
+public bool IsMovementLockEnabled() => lockMovementDuringDialogue;
+public bool IsCameraRotationLockEnabled() => lockCameraRotation;
+public float GetMovementLockDelay() => movementLockDelay;
+public ThirdPersonController GetTargetPlayerController() => targetPlayerController;
+public bool IsPlayerMovementCurrentlyLocked() => movementLockApplied;
+
+
+/// <summary>
+/// 🎮 Forza lo sblocco del movimento (per test)
+/// </summary>
+public void ForceUnlockPlayerMovement()
+{
+    if (targetPlayerController != null)
+    {
+        UnlockPlayerMovement();
+    }
+    else
+    {
+        Debug.LogWarning("[DialogueSystem] Impossibile forzare unlock - nessun controller assegnato");
+    }
+}
     // ========== 🆕 DISSOLVE GETTERS/SETTERS ==========
     
     /// <summary>
