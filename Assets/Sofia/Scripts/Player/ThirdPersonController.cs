@@ -75,6 +75,11 @@ public bool debugLedgeGrab = false;
     public float airControlStrength = 0.5f;
     public float airControlSpeed = 2f;
     public float airRotationSmoothTime = 0.3f;
+   [Header("Climb Movement")]
+[SerializeField] private float climbHeightBoost = 0.2f; // Altezza da salire durante climbing
+[SerializeField] private float climbBoostSpeed = 2f; // Velocità della salita
+[SerializeField] private AnimationCurve climbHeightCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f); // Curva di salita
+private Coroutine climbHeightCoroutine;
 
     [Header("Player Stats")]
     public float maxHealth = 300f;
@@ -127,6 +132,7 @@ public bool debugLedgeGrab = false;
     private static readonly int HitRealHash = Animator.StringToHash("HitReal");
     private static readonly int VerticalVelocityHash = Animator.StringToHash("VerticalVelocity");
     private static readonly int HangingHash = Animator.StringToHash("Hanging");
+private static readonly int ClimbHash = Animator.StringToHash("Climb");
 
     private bool wasGroundedLastFrame;
 
@@ -163,6 +169,7 @@ public bool debugLedgeGrab = false;
     private bool isSprinting;
     private bool isHoldingJump;
     private bool hanging = false;
+
 private bool canMoveAfterHang = true;
 private Vector3 hangPosition;
 private Vector3 hangForward;
@@ -170,7 +177,8 @@ private Vector3 hangForward;
 private float hangStabilityTimer = 0f; // Timer per stabilizzazione
 private const float HANG_STABILITY_TIME = 0.1f; // Tempo minimo prima di validare hang
     private bool isHangPositionStable = false;
-private float? wallLostTimer = null;
+    private float? wallLostTimer = null;
+private bool isClimbing = false;
 [SerializeField] private float wallLostTolerance = 0.2f; // Tolleranza per muro temporaneamente perso
 
 
@@ -759,12 +767,55 @@ public void PlayHitSound()
         HandleAirControl();
         HandleSprintFX();
     }
-   private void CheckForLedgeRelease()
+private void CheckForLedgeRelease()
 {
     if (!hanging || !isHangPositionStable) return;
     
+    // ✅ ARRAMPICATA CON MOVIMENTO VERTICALE
+    if (moveInput.y > 0.3f) // Soglia per arrampicata
+    {
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] 🧗 Iniziando arrampicata con movimento verticale");
+        
+        // ✅ AVVIA STATO ARRAMPICATA PRIMA DI TERMINARE HANGING
+        isClimbing = true;
+        
+        // ✅ AVVIA IL MOVIMENTO DI SALITA
+        if (climbHeightCoroutine != null)
+            StopCoroutine(climbHeightCoroutine);
+        climbHeightCoroutine = StartCoroutine(ExecuteClimbMovement());
+        
+        // ✅ TRIGGER ANIMAZIONE
+        _animator.SetTrigger(ClimbHash);
+        
+        // ✅ TERMINA HANGING
+        hanging = false;
+        isHangPositionStable = false;
+        hangStabilityTimer = 0f;
+        _animator.SetBool(HangingHash, false);
+        
+        // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
+        lastLedgeGrabTime = Time.time;
+        
+        // ✅ RESET VELOCITÀ (ma non fermare il movimento di climbing)
+        velocity = Vector3.zero;
+        playerVelocity = Vector3.zero;
+        attackVelocity = Vector3.zero;
+        externalPush = Vector3.zero;
+        
+        // ✅ DELAY PER EVITARE RIATTACCO
+        StartCoroutine(EnableMovementAfterClimb());
+        
+        if (debugLedgeGrab)
+        {
+            Debug.Log($"[LedgeGrab] ✅ Arrampicata iniziata - salita di {climbHeightBoost}m in corso!");
+        }
+        
+        return;
+    }
+    
     // ✅ RILASCIA con input verso il basso/indietro
-    if (moveInput.y < -0.3f) // Soglia per rilascio manuale
+    else if (moveInput.y < -0.3f) // Soglia per rilascio manuale
     {
         if (debugLedgeGrab)
             Debug.Log("[LedgeGrab] 🎮 Rilasciato manualmente con input indietro");
@@ -786,32 +837,123 @@ public void PlayHitSound()
     // ✅ DEBUG: Mostra controlli disponibili
     else if (debugLedgeGrab && Time.frameCount % 180 == 0) // Ogni 3 secondi
     {
-        Debug.Log("[LedgeGrab] 🎮 CONTROLLI: ↓ per rilasciare, ↑ per saltare, ← → forte per scendere di lato");
+        Debug.Log("[LedgeGrab] 🎮 CONTROLLI: ↑ per arrampicare, ↓ per rilasciare, Spazio per saltare, ← → forte per scendere di lato");
     }
 }
-
-private void HandleLedgeGrab()
+public void OnClimbAnimationEnd()
 {
-    if (!ledgeGrabEnabled) return;
-
-    // ✅ GESTIONE HANGING - SOLO STABILIZZAZIONE, NESSUN RILASCIO AUTOMATICO
-    if (hanging)
+    isClimbing = false;
+    
+    // ✅ FERMA LA COROUTINE SE ANCORA ATTIVA
+    if (climbHeightCoroutine != null)
     {
-        // Mantieni posizione stabile usando CharacterController.Move
-        StabilizeHangPosition();
-
-        // ✅ RIMOSSO: Non controllare più la validità del ledge automaticamente
-        // Il player rimane appeso fino a input manuale o salto
+        StopCoroutine(climbHeightCoroutine);
+        climbHeightCoroutine = null;
         
-        return;
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] 🛑 Movimento di salita interrotto dall'Animation Event");
     }
-
-    // Controlla solo se stiamo cadendo e non siamo già appesi
-    if (velocity.y < -2f && !controller.isGrounded && canMoveAfterHang)
-    {
-        TryLedgeGrab();
-    }
+    
+    if (debugLedgeGrab)
+        Debug.Log("[LedgeGrab] ✅ Animation Event: Arrampicata completata - gravità riabilitata");
 }
+    // ✅ AGGIUNGI QUESTO NUOVO METODO (dopo EnableMovementAfterHangJump, circa linea 750)
+    /// <summary>
+    /// Riabilita il movimento dopo l'arrampicata
+    /// </summary>
+
+    private void HandleLedgeGrab()
+    {
+        if (!ledgeGrabEnabled) return;
+
+        // ✅ GESTIONE HANGING - SOLO STABILIZZAZIONE, NESSUN RILASCIO AUTOMATICO
+        if (hanging)
+        {
+            // Mantieni posizione stabile usando CharacterController.Move
+            StabilizeHangPosition();
+
+            // ✅ RIMOSSO: Non controllare più la validità del ledge automaticamente
+            // Il player rimane appeso fino a input manuale o salto
+
+            return;
+        }
+
+        // Controlla solo se stiamo cadendo e non siamo già appesi
+        if (velocity.y < -2f && !controller.isGrounded && canMoveAfterHang)
+        {
+            TryLedgeGrab();
+        }
+    }
+    private IEnumerator ExecuteClimbMovement()
+{
+    if (debugLedgeGrab)
+        Debug.Log("[LedgeGrab] 🏃 Iniziando movimento di salita durante climbing");
+    
+    Vector3 startPosition = transform.position;
+    Vector3 targetPosition = startPosition + Vector3.up * climbHeightBoost;
+    
+    float elapsedTime = 0f;
+    float duration = 1f / climbBoostSpeed; // Calcola durata basata sulla velocità
+    
+    while (elapsedTime < duration && isClimbing)
+    {
+        elapsedTime += Time.deltaTime;
+        float progress = Mathf.Clamp01(elapsedTime / duration);
+        
+        // ✅ USA LA CURVA PER UN MOVIMENTO FLUIDO
+        float curveValue = climbHeightCurve.Evaluate(progress);
+        Vector3 currentTargetPos = Vector3.Lerp(startPosition, targetPosition, curveValue);
+        
+        // ✅ CALCOLA IL MOVIMENTO DA APPLICARE QUESTO FRAME
+        Vector3 moveThisFrame = currentTargetPos - transform.position;
+        
+        // ✅ APPLICA IL MOVIMENTO USANDO CHARACTERCONTROLLER
+        if (controller.enabled && moveThisFrame.magnitude > 0.001f)
+        {
+            controller.Move(moveThisFrame);
+        }
+        
+        // Debug opzionale
+        if (debugLedgeGrab && Time.frameCount % 10 == 0)
+        {
+            Debug.Log($"[LedgeGrab] 📈 Climbing progress: {progress:P0} - Altezza: {(transform.position.y - startPosition.y):F3}m");
+            Debug.DrawLine(startPosition, targetPosition, Color.green, 0.1f);
+            Debug.DrawLine(transform.position, transform.position + Vector3.up * 0.5f, Color.yellow, 0.1f);
+        }
+        
+        yield return null; // Aspetta il prossimo frame
+    }
+    
+    // ✅ ASSICURATI DI RAGGIUNGERE LA POSIZIONE FINALE
+    if (isClimbing)
+    {
+        Vector3 finalMove = targetPosition - transform.position;
+        if (controller.enabled && finalMove.magnitude > 0.001f)
+        {
+            controller.Move(finalMove);
+        }
+        
+        if (debugLedgeGrab)
+        {
+            float totalHeight = transform.position.y - startPosition.y;
+            Debug.Log($"[LedgeGrab] ✅ Movimento di salita completato! Altezza totale: {totalHeight:F3}m");
+        }
+    }
+    
+    climbHeightCoroutine = null;
+}
+private IEnumerator EnableMovementAfterClimb()
+    {
+        canMoveAfterHang = false;
+
+        // ✅ BREVE DELAY SOLO PER EVITARE RIATTACCO IMMEDIATO AL LEDGE
+        yield return new WaitForSeconds(0.3f);
+
+        canMoveAfterHang = true;
+
+        if (debugLedgeGrab)
+            Debug.Log("[LedgeGrab] ✅ Movimento riabilitato dopo arrampicata");
+    }
 private void StabilizeHangPosition()
 {
     if (!hanging) return;
@@ -1274,6 +1416,11 @@ private void ApplyAllMovement()
         // Non chiamare controller.Move qui, è gestito in StabilizeHangPosition
         return;
     }
+    if (isClimbing)
+    {
+        // Durante climbing, non muovere il CharacterController
+        return;
+    }
     
     if (!controller.enabled) return;
     
@@ -1545,8 +1692,13 @@ private Vector3 ApplyPlatformMovement()
     // ✅ GESTIONE SALTO DA HANGING
     if (hanging)
     {
+       if (jumpBufferCounter > 0f) // Solo se è stato premuto il pulsante salto
+    {
         ExecuteJumpFromHang();
         return true;
+    }
+    // Se siamo hanging ma non c'è input di salto, non fare nulla
+    return false;
     }
     
     // Resto della logica di salto normale rimane uguale...
@@ -1577,7 +1729,7 @@ private Vector3 ApplyPlatformMovement()
 private void HandleMovement()
 {
     // ✅ BLOCCA MOVIMENTO DURANTE HANGING (prima di tutto)
-    if (hanging || IsMovementLocked)
+    if (hanging ||isClimbing || IsMovementLocked)
     {
         playerVelocity = Vector3.zero;
         _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
@@ -1606,7 +1758,7 @@ private void HandleMovement()
     float h = moveInput.x;
     float v = moveInput.y;
 
-    tempVector3.Set(h, 0f, v);
+    Vector3 tempVector3 = new Vector3(h, 0f, v);
     float inputMag = tempVector3.magnitude;
     
     if (inputMag > 1f)
@@ -1646,7 +1798,6 @@ private void HandleMovement()
         Debug.DrawLine(cameraTransform.position, cameraTransform.position + cameraTransform.forward * 3f, Color.blue, 0.1f);
     }
 }
-
 
 /// <summary>
 /// Esegue il salto da ledge grab
@@ -1710,11 +1861,15 @@ private void HandleJump()
 {
     bool grounded = controller.isGrounded;
     
-    // ✅ SE SIAMO HANGING, NON APPLICARE GRAVITÀ NÉ MOVIMENTO VERTICALE
-    if (hanging)
+    // ✅ SE SIAMO HANGING O IN ARRAMPICATA, NON APPLICARE GRAVITÀ NÉ MOVIMENTO VERTICALE
+    if (hanging || isClimbing)
     {
-        // Durante hanging, forza tutto a zero
+        // Durante hanging o climbing, forza tutto a zero
         velocity = Vector3.zero;
+        
+        if (debugLedgeGrab && isClimbing && Time.frameCount % 30 == 0)
+            Debug.Log("[LedgeGrab] 🧗 Climbing attivo - gravità disabilitata (Animation Event controllerà la fine)");
+        
         return;
     }
     
@@ -1854,7 +2009,7 @@ private void HandleAirControl()
     // ✅ VERIFICA CHE LA CAMERA SIA VALIDA ANCHE PER AIR CONTROL
     if (cameraTransform == null) return;
 
-    tempVector3.Set(moveInput.x, 0f, moveInput.y);
+    Vector3 tempVector3 = new Vector3(moveInput.x, 0f, moveInput.y);
     float inputMag = tempVector3.magnitude;
     
     if (inputMag < 0.1f) return;
@@ -2207,18 +2362,26 @@ public string GetLedgeGrabInfo()
     }
 
     private void OnDestroy()
+{
+    // ✅ FERMA LA COROUTINE DI CLIMBING
+    if (climbHeightCoroutine != null)
     {
-        if (controls != null)
-        {
-            controls.Gameplay.Move.performed -= OnMovePerformed;
-            controls.Gameplay.Move.canceled -= OnMoveCanceled;
-            controls.Gameplay.Sprint.performed -= OnSprintPerformed;
-            controls.Gameplay.Sprint.canceled -= OnSprintCanceled;
-            controls.Gameplay.Jump.started -= OnJumpStarted;
-            controls.Gameplay.Jump.canceled -= OnJumpCanceled;
-            controls.Dispose();
-        }
+        StopCoroutine(climbHeightCoroutine);
+        climbHeightCoroutine = null;
     }
+    
+    // Cleanup esistente
+    if (controls != null)
+    {
+        controls.Gameplay.Move.performed -= OnMovePerformed;
+        controls.Gameplay.Move.canceled -= OnMoveCanceled;
+        controls.Gameplay.Sprint.performed -= OnSprintPerformed;
+        controls.Gameplay.Sprint.canceled -= OnSprintCanceled;
+        controls.Gameplay.Jump.started -= OnJumpStarted;
+        controls.Gameplay.Jump.canceled -= OnJumpCanceled;
+        controls.Dispose();
+    }
+}
 
     // ✅ METODI DI DEBUG (solo in build di sviluppo)
     #if UNITY_EDITOR || DEVELOPMENT_BUILD
