@@ -23,6 +23,9 @@ public class TeleportAbility : AbilityBase
     public AudioClip teleportConfirmSound;  // Audio specifico per conferma teletrasporto
     private AudioSource teleportConfirmAudioSource;
 
+    [Header("Direct Teleport")]
+    public KeyCode directTeleportKey = KeyCode.E; // Tasto per teletrasporto diretto
+
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
 
@@ -89,12 +92,17 @@ public class TeleportAbility : AbilityBase
     {
         base.Update();
 
+        // Controllo per teletrasporto diretto su TeleportBase
+        if (Input.GetKeyDown(directTeleportKey))
+        {
+            TryDirectTeleport();
+        }
+
         if (!IsActive) 
         {
             return;
         }
 
-       
         UpdateTeleportTarget();
 
         if (confirmPressed)
@@ -123,6 +131,115 @@ public class TeleportAbility : AbilityBase
 
             StartCoroutine(ConfirmTeleportRoutine());
         }
+    }
+
+    /// <summary>
+    /// Tenta il teletrasporto diretto su una TeleportBase sotto hover
+    /// </summary>
+    private void TryDirectTeleport()
+    {
+        // Controlla se c'è una TeleportBase sotto hover
+        if (TeleportBase.currentHoveredBase == null)
+        {
+            Debug.Log("Nessuna TeleportBase sotto hover per il teletrasporto diretto.");
+            
+            // AUDIO FALLIMENTO - non stiamo facendo hover su una base
+            if (failureSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(failureSound);
+            }
+            return;
+        }
+
+        Debug.Log($"Tentativo teletrasporto diretto su: {TeleportBase.currentHoveredBase.gameObject.name}");
+
+        // Controlla se hai abbastanza potere
+        if (!powerUpScript.HasEnoughPower(powerCost))
+        {
+            Debug.Log("Non hai abbastanza potere per il teletrasporto diretto.");
+            
+            // AUDIO FALLIMENTO - non hai abbastanza potere
+            if (failureSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(failureSound);
+            }
+            return;
+        }
+
+        // Nascondi immediatamente le mesh quando premiamo E
+        SetVisible(false);
+
+        // Spendi il potere
+        powerUpScript.SpendPower(powerCost);
+
+        // Esegui audio conferma
+        if (teleportConfirmSound != null)
+        {
+            teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
+        }
+
+        // Esegui il teletrasporto diretto
+        Vector3 targetPosition = TeleportBase.currentHoveredBase.GetTeleportPosition();
+        StartCoroutine(DirectTeleportRoutine(targetPosition, TeleportBase.currentHoveredBase));
+    }
+
+    /// <summary>
+    /// Routine per il teletrasporto diretto
+    /// </summary>
+    private IEnumerator DirectTeleportRoutine(Vector3 targetPosition, TeleportBase targetBase)
+    {
+        // Disattiva il movimento del player
+        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
+        if (controller != null) controller.IsMovementLocked = true;
+
+        // Nascondi il player
+        SetVisible(false);
+
+        // Attiva effetti di teletrasporto
+        if (teleportEffectController != null)
+        {
+            teleportEffectController.gameObject.SetActive(true);
+            teleportEffectController.PlayEffect();
+        }
+
+        // Aspetta un momento per l'effetto
+        yield return new WaitForSeconds(0.2f);
+
+        // Esegui il teletrasporto
+        if (controllerGameObject && controllerGameObject.TryGetComponent(out CharacterController cc))
+        {
+            Vector3 target = targetPosition;
+            target.y += cc.height * 0.5f; // Alza leggermente per evitare che spawni nel terreno
+
+            cc.enabled = false;
+            controllerGameObject.transform.position = target;
+            cc.enabled = true;
+
+            Debug.Log($"Player teletrasportato a: {target}");
+        }
+        else
+        {
+            Debug.LogWarning("CharacterController non trovato per il teletrasporto diretto.");
+        }
+
+        // Mostra il player
+        SetVisible(true);
+
+        // Aspetta un momento
+        yield return new WaitForSeconds(0.3f);
+
+        // Ferma gli effetti
+        if (teleportEffectController != null)
+        {
+            teleportEffectController.StopEffect();
+            teleportEffectController.gameObject.SetActive(false);
+        }
+
+        // Riattiva il movimento
+        if (controller != null) controller.IsMovementLocked = false;
+
+        // Chiama l'evento sulla TeleportBase
+        targetBase.OnPlayerTeleported();
     }
 
     public override void TryActivate()

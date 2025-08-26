@@ -454,13 +454,22 @@ void ResetDissolveToInitialState()
 }
     
     void OnTriggerEnter(Collider other)
+{
+    // Controlla se l'oggetto che entra nel trigger è il player
+    // E se il dialogo non è già in corso (nuovo controllo)
+    if (other.CompareTag("Player") && 
+        !isDialogueActive && // Nuovo: non avviare se già attivo
+        (!hasBeenTriggered || canRepeatDialogue))
     {
-        // Controlla se l'oggetto che entra nel trigger è il player
-        if (other.CompareTag("Player") && (!hasBeenTriggered || canRepeatDialogue))
-        {
-            StartDialogue();
-        }
+        StartDialogue();
     }
+    
+    // Log per debug quando il trigger viene attivato ma il dialogo non parte
+    if (other.CompareTag("Player") && isDialogueActive)
+    {
+        Debug.Log("[DialogueSystem] Player entrato nella zona ma dialogo già attivo - non riavvio");
+    }
+}
     
     void OnTriggerExit(Collider other)
     {

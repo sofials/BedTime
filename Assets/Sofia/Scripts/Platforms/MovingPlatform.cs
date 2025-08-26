@@ -15,9 +15,16 @@ public class MovingPlatform : MonoBehaviour
     public Vector3 forwardAxis = Vector3.forward;
     public Vector3 upAxis = Vector3.up;
     public float rotationSpeed = 5f;
-    [Header("Slowdown Custom Duration")]
-[Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
-public float customSlowdownDuration = 15f;
+
+    [Header("Slowdown Settings")]
+    [Tooltip("Se false, questa piattaforma non può essere rallentata")]
+    public bool canBeSlowed = true;
+    [Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
+    public float customSlowdownDuration = 15f;
+    [Tooltip("Se true, usa una velocità personalizzata durante lo slowdown invece del moltiplicatore")]
+    public bool useCustomSlowdown = false;
+    [Tooltip("Velocità da applicare temporaneamente durante lo slowdown.")]
+    public float customSlowdownFactor = 3f;
 
     private List<Vector3> sampledPoints = new List<Vector3>();
     private List<Vector3> sampledTangents = new List<Vector3>();
@@ -45,11 +52,6 @@ public float customSlowdownDuration = 15f;
 
     [Header("Slowdown FX")]
     [SerializeField] private CFXR_EffectController slowdownEffect;
-
-    [Header("Slowdown Custom Settings")]
-    public bool useCustomSlowdown = false;
-    [Tooltip("Velocità da applicare temporaneamente durante lo slowdown.")]
-    public float customSlowdownFactor = 3f;
 
     private MeshRenderer meshRenderer;
     private bool patinaActive = false;
@@ -236,6 +238,13 @@ public float customSlowdownDuration = 15f;
 
     public void SetSpeedMultiplier(float multiplier)
     {
+        // Controlla se la piattaforma può essere rallentata
+        if (!canBeSlowed)
+        {
+            Debug.Log($"[MovingPlatform] {gameObject.name} non può essere rallentata (canBeSlowed = false)");
+            return;
+        }
+
         if (useCustomSlowdown)
         {
             originalSpeed = speed;
@@ -251,6 +260,12 @@ public float customSlowdownDuration = 15f;
 
     public void RestoreOriginalSpeed()
     {
+        // Anche per il restore controlliamo canBeSlowed per coerenza
+        if (!canBeSlowed)
+        {
+            return;
+        }
+
         if (useCustomSlowdown)
         {
             speed = originalSpeed;
@@ -260,6 +275,13 @@ public float customSlowdownDuration = 15f;
 
     public void PlaySlowdownEffect(float duration = 1f)
     {
+        // Controlla se la piattaforma può essere rallentata
+        if (!canBeSlowed)
+        {
+            Debug.Log($"[MovingPlatform] {gameObject.name} non può essere rallentata, ignorando slowdown effect");
+            return;
+        }
+
         if (slowdownEffect != null)
         {
             StartCoroutine(SlowdownWithFxRoutine(duration));
@@ -310,144 +332,143 @@ public float customSlowdownDuration = 15f;
     }
 
     // OVERLAY EMISSIVO LUMINOSO per URP Simple Lit
-   public void SetOverlayActive(bool active)
-{
-    Debug.Log($"[MovingPlatform] *** SetOverlayActive({active}) chiamato su {gameObject.name} ***");
-    
-    if (meshRenderer == null) 
+    public void SetOverlayActive(bool active)
     {
-        Debug.LogWarning($"[MovingPlatform] MeshRenderer nullo su {gameObject.name}");
-        return;
-    }
-    
-    Debug.Log($"[MovingPlatform] MeshRenderer OK, chiamando SetEmissiveOverlay({active})");
-    SetEmissiveOverlay(active);
-}
-
-
-   private void SetEmissiveOverlay(bool active)
-{
-    Debug.Log($"[MovingPlatform] SetEmissiveOverlay({active}) - inizio processing su {gameObject.name}");
-    
-    // INIZIALIZZA i materiali originali solo la prima volta
-    if (!materialsInitialized)
-    {
-        originalMaterials = meshRenderer.sharedMaterials; // USA sharedMaterials per ottenere gli originali
-        materialsInitialized = true;
-        Debug.Log($"[MovingPlatform] Materiali originali salvati: {originalMaterials.Length}");
-    }
-    
-    Material[] currentMaterials = meshRenderer.materials; // Questi possono essere istanze
-    bool materialsChanged = false;
-
-    Debug.Log($"[MovingPlatform] Materiali da processare: {currentMaterials.Length}");
-
-    for (int i = 0; i < originalMaterials.Length; i++)
-    {
-        Material originalMat = originalMaterials[i];
-        if (originalMat == null) continue;
-
-        Debug.Log($"[MovingPlatform] Processando materiale {i}: {originalMat.name}");
-
-        Material instanceMat;
-
-        // Crea istanza del materiale SOLO se non esiste ancora
-        if (!materialInstances.ContainsKey(originalMat))
+        Debug.Log($"[MovingPlatform] *** SetOverlayActive({active}) chiamato su {gameObject.name} ***");
+        
+        if (meshRenderer == null) 
         {
-            Material newInstance = new Material(originalMat);
-            materialInstances[originalMat] = newInstance;
-            currentMaterials[i] = newInstance;
-            materialsChanged = true;
-            instanceMat = newInstance;
-            Debug.Log($"[MovingPlatform] Creata PRIMA istanza per materiale {originalMat.name}");
+            Debug.LogWarning($"[MovingPlatform] MeshRenderer nullo su {gameObject.name}");
+            return;
         }
-        else
+        
+        Debug.Log($"[MovingPlatform] MeshRenderer OK, chiamando SetEmissiveOverlay({active})");
+        SetEmissiveOverlay(active);
+    }
+
+    private void SetEmissiveOverlay(bool active)
+    {
+        Debug.Log($"[MovingPlatform] SetEmissiveOverlay({active}) - inizio processing su {gameObject.name}");
+        
+        // INIZIALIZZA i materiali originali solo la prima volta
+        if (!materialsInitialized)
         {
-            // Usa l'istanza esistente
-            instanceMat = materialInstances[originalMat];
-            if (currentMaterials[i] != instanceMat)
+            originalMaterials = meshRenderer.sharedMaterials; // USA sharedMaterials per ottenere gli originali
+            materialsInitialized = true;
+            Debug.Log($"[MovingPlatform] Materiali originali salvati: {originalMaterials.Length}");
+        }
+        
+        Material[] currentMaterials = meshRenderer.materials; // Questi possono essere istanze
+        bool materialsChanged = false;
+
+        Debug.Log($"[MovingPlatform] Materiali da processare: {currentMaterials.Length}");
+
+        for (int i = 0; i < originalMaterials.Length; i++)
+        {
+            Material originalMat = originalMaterials[i];
+            if (originalMat == null) continue;
+
+            Debug.Log($"[MovingPlatform] Processando materiale {i}: {originalMat.name}");
+
+            Material instanceMat;
+
+            // Crea istanza del materiale SOLO se non esiste ancora
+            if (!materialInstances.ContainsKey(originalMat))
             {
-                currentMaterials[i] = instanceMat;
+                Material newInstance = new Material(originalMat);
+                materialInstances[originalMat] = newInstance;
+                currentMaterials[i] = newInstance;
                 materialsChanged = true;
-            }
-            Debug.Log($"[MovingPlatform] Usando istanza ESISTENTE per materiale {originalMat.name}");
-        }
-
-        if (active)
-        {
-            Debug.Log($"[MovingPlatform] ATTIVANDO overlay per materiale {instanceMat.name}");
-            
-            // EMISSION LUMINOSO (principale)
-            if (instanceMat.HasProperty("_EmissionColor"))
-            {
-                // Calcola colore emission HDR per massima luminosità
-                Color hdrEmission = overlayColor * overlayIntensity * hdrMultiplier;
-                instanceMat.SetColor("_EmissionColor", hdrEmission);
-                
-                // Abilita emission
-                instanceMat.EnableKeyword("_EMISSION");
-                
-                // Forza il material a essere emission-enabled
-                instanceMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-                
-                Debug.Log($"[MovingPlatform] Emission attivata con colore {hdrEmission}");
+                instanceMat = newInstance;
+                Debug.Log($"[MovingPlatform] Creata PRIMA istanza per materiale {originalMat.name}");
             }
             else
             {
-                Debug.LogWarning($"[MovingPlatform] Materiale {instanceMat.name} non ha _EmissionColor");
+                // Usa l'istanza esistente
+                instanceMat = materialInstances[originalMat];
+                if (currentMaterials[i] != instanceMat)
+                {
+                    currentMaterials[i] = instanceMat;
+                    materialsChanged = true;
+                }
+                Debug.Log($"[MovingPlatform] Usando istanza ESISTENTE per materiale {originalMat.name}");
             }
 
-            // BASE COLOR TINT (opzionale, per colorare anche la texture)
-            if (applyColorTint && instanceMat.HasProperty("_BaseColor"))
+            if (active)
             {
-                if (originalBaseColors.ContainsKey(originalMat))
+                Debug.Log($"[MovingPlatform] ATTIVANDO overlay per materiale {instanceMat.name}");
+                
+                // EMISSION LUMINOSO (principale)
+                if (instanceMat.HasProperty("_EmissionColor"))
                 {
-                    Color originalColor = originalBaseColors[originalMat];
-                    // Mescola il colore originale con l'overlay
-                    Color tintedColor = Color.Lerp(originalColor, originalColor * overlayColor, 0.3f);
-                    tintedColor.a = originalColor.a;
-                    instanceMat.SetColor("_BaseColor", tintedColor);
-                    Debug.Log($"[MovingPlatform] BaseColor tint applicato");
+                    // Calcola colore emission HDR per massima luminosità
+                    Color hdrEmission = overlayColor * overlayIntensity * hdrMultiplier;
+                    instanceMat.SetColor("_EmissionColor", hdrEmission);
+                    
+                    // Abilita emission
+                    instanceMat.EnableKeyword("_EMISSION");
+                    
+                    // Forza il material a essere emission-enabled
+                    instanceMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                    
+                    Debug.Log($"[MovingPlatform] Emission attivata con colore {hdrEmission}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[MovingPlatform] Materiale {instanceMat.name} non ha _EmissionColor");
+                }
+
+                // BASE COLOR TINT (opzionale, per colorare anche la texture)
+                if (applyColorTint && instanceMat.HasProperty("_BaseColor"))
+                {
+                    if (originalBaseColors.ContainsKey(originalMat))
+                    {
+                        Color originalColor = originalBaseColors[originalMat];
+                        // Mescola il colore originale con l'overlay
+                        Color tintedColor = Color.Lerp(originalColor, originalColor * overlayColor, 0.3f);
+                        tintedColor.a = originalColor.a;
+                        instanceMat.SetColor("_BaseColor", tintedColor);
+                        Debug.Log($"[MovingPlatform] BaseColor tint applicato");
+                    }
+                }
+            }
+            else
+            {
+                Debug.Log($"[MovingPlatform] DISATTIVANDO overlay per materiale {instanceMat.name}");
+                
+                // Ripristina colori originali
+                if (instanceMat.HasProperty("_EmissionColor") && originalEmissionColors.ContainsKey(originalMat))
+                {
+                    Color originalEmission = originalEmissionColors[originalMat];
+                    instanceMat.SetColor("_EmissionColor", originalEmission);
+                    
+                    // Se l'originale non aveva emission, disabilitalo
+                    if (originalEmission == Color.black || originalEmission.maxColorComponent <= 0.01f)
+                    {
+                        instanceMat.DisableKeyword("_EMISSION");
+                        instanceMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+                    }
+                    
+                    Debug.Log($"[MovingPlatform] Emission disattivata, ripristinato colore originale {originalEmission}");
+                }
+
+                if (instanceMat.HasProperty("_BaseColor") && originalBaseColors.ContainsKey(originalMat))
+                {
+                    instanceMat.SetColor("_BaseColor", originalBaseColors[originalMat]);
+                    Debug.Log($"[MovingPlatform] BaseColor ripristinato");
                 }
             }
         }
-        else
+
+        if (materialsChanged)
         {
-            Debug.Log($"[MovingPlatform] DISATTIVANDO overlay per materiale {instanceMat.name}");
-            
-            // Ripristina colori originali
-            if (instanceMat.HasProperty("_EmissionColor") && originalEmissionColors.ContainsKey(originalMat))
-            {
-                Color originalEmission = originalEmissionColors[originalMat];
-                instanceMat.SetColor("_EmissionColor", originalEmission);
-                
-                // Se l'originale non aveva emission, disabilitalo
-                if (originalEmission == Color.black || originalEmission.maxColorComponent <= 0.01f)
-                {
-                    instanceMat.DisableKeyword("_EMISSION");
-                    instanceMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
-                }
-                
-                Debug.Log($"[MovingPlatform] Emission disattivata, ripristinato colore originale {originalEmission}");
-            }
-
-            if (instanceMat.HasProperty("_BaseColor") && originalBaseColors.ContainsKey(originalMat))
-            {
-                instanceMat.SetColor("_BaseColor", originalBaseColors[originalMat]);
-                Debug.Log($"[MovingPlatform] BaseColor ripristinato");
-            }
+            meshRenderer.materials = currentMaterials;
+            Debug.Log($"[MovingPlatform] Materiali aggiornati nel renderer");
         }
+        
+        patinaActive = active;
+        Debug.Log($"[MovingPlatform] SetEmissiveOverlay completato - patinaActive = {patinaActive}");
     }
-
-    if (materialsChanged)
-    {
-        meshRenderer.materials = currentMaterials;
-        Debug.Log($"[MovingPlatform] Materiali aggiornati nel renderer");
-    }
-    
-    patinaActive = active;
-    Debug.Log($"[MovingPlatform] SetEmissiveOverlay completato - patinaActive = {patinaActive}");
-}
 
     // Helper per trovare il materiale originale da un'istanza
     private Material GetOriginalMaterial(Material instance)
@@ -458,5 +479,11 @@ public float customSlowdownDuration = 15f;
                 return kvp.Key;
         }
         return null;
+    }
+
+    // Metodo pubblico per controllare se la piattaforma può essere rallentata
+    public bool CanBeSlowed()
+    {
+        return canBeSlowed;
     }
 }

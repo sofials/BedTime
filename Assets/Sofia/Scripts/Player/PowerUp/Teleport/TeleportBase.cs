@@ -17,6 +17,9 @@ public class TeleportBase : MonoBehaviour
     private Color originalStartColor;
     private bool isHovering = false;
     
+    // Riferimento statico alla base attualmente sotto hover
+    public static TeleportBase currentHoveredBase = null;
+    
     private void Start()
     {
         // Verifica che l'oggetto abbia un collider per il raycast
@@ -63,6 +66,7 @@ public class TeleportBase : MonoBehaviour
         if (!isHovering && particleSystem != null)
         {
             isHovering = true;
+            currentHoveredBase = this; // Imposta questa base come quella sotto hover
             SetParticleStartColor(hoverColor);
             
             if (showDebugLogs)
@@ -77,6 +81,8 @@ public class TeleportBase : MonoBehaviour
         if (isHovering && particleSystem != null)
         {
             isHovering = false;
+            if (currentHoveredBase == this)
+                currentHoveredBase = null; // Rimuovi il riferimento se è questa base
             SetParticleStartColor(originalStartColor);
             
             if (showDebugLogs)
@@ -93,6 +99,16 @@ public class TeleportBase : MonoBehaviour
             var main = particleSystem.main;
             main.startColor = color;
         }
+    }
+    
+    /// <summary>
+    /// Ottieni la posizione di teletrasporto per questa base
+    /// </summary>
+    public Vector3 GetTeleportPosition()
+    {
+        // Puoi personalizzare questo metodo per ogni base se necessario
+        // Per esempio, potresti avere un Transform specifico come punto di spawn
+        return transform.position;
     }
     
     /// <summary>

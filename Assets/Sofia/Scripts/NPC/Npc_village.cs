@@ -41,6 +41,9 @@ public class Npc_village : MonoBehaviour
     [Header("Oggetti da Disattivare")]
     [SerializeField] private GameObject[] oggettiDaDisattivare = new GameObject[2];
     [SerializeField] private bool disattivaOggettiAllaLiberazione = true;
+    [Header("Attivazione Oggetto al Punto Fisso")]
+    [SerializeField] private GameObject[] oggettiDaAttivareAlPuntoFisso = new GameObject[2];
+    [SerializeField] private bool attivaOggettiAlPuntoFisso = true;
 
     [Header("Debug")]
     [SerializeField] private bool debugMode = true;
@@ -54,7 +57,7 @@ public class Npc_village : MonoBehaviour
     private bool inAttesaRegali = false;
     private CollectiblesManager collectiblesManager;
     private int regaliIniziali = 0;
-    
+
     private enum StatoPostDialogo { Idle, Walking }
     private StatoPostDialogo statoAttuale = StatoPostDialogo.Idle;
     private Coroutine comportamentoRoutine;
@@ -72,7 +75,7 @@ public class Npc_village : MonoBehaviour
 
         if (animator == null)
             animator = GetComponent<Animator>();
-        
+
         animator.applyRootMotion = false;
 
         agent.speed = 15f;
@@ -116,14 +119,14 @@ public class Npc_village : MonoBehaviour
     public void StopNPC()
     {
         if (debugMode) Debug.Log($"StopNPC chiamato su: {gameObject.name}");
-        
+
         if (slowdownAlreadyUsed)
         {
             if (debugMode) Debug.Log($"Slowdown già usato in precedenza. NPC {gameObject.name} viene fermato senza evento globale.");
             StopThisNPCOnly();
             return;
         }
-        
+
         if (!slowdownAlreadyUsed)
         {
             slowdownAlreadyUsed = true;
@@ -143,7 +146,7 @@ public class Npc_village : MonoBehaviour
         }
 
         isStopped = true;
-        
+
         agent.ResetPath();
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
@@ -164,17 +167,17 @@ public class Npc_village : MonoBehaviour
     private void SetSlowAnimationImmediate()
     {
         if (animator == null) return;
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: SetSlowAnimationImmediate chiamato");
-        
+
         animator.SetBool("IsRunning", false);
         animator.SetBool("isIdle", true);
         animator.SetBool("isWalking", false);
         animator.SetBool("Slow", true);
-        
+
         animator.Update(0f);
-        
-        if (debugMode) 
+
+        if (debugMode)
         {
             Debug.Log($"NPC {gameObject.name}: Parametri animator impostati:" +
                      $"\n- IsRunning: {animator.GetBool("IsRunning")}" +
@@ -189,19 +192,19 @@ public class Npc_village : MonoBehaviour
         if (sharedSpline == null)
         {
             Debug.LogWarning($"Spline non assegnata per NPC {gameObject.name}!");
-            
+
             agent.ResetPath();
             agent.isStopped = true;
             agent.velocity = Vector3.zero;
             posizioneSpawn = transform.position;
-            
+
             SetSlowAnimationImmediate();
-            
+
             if (slowdownEffect != null)
             {
                 slowdownEffect.PlayEffect();
             }
-            
+
             if (debugMode) Debug.Log($"NPC {gameObject.name}: Fallback completato - Avvio controllo dialogo");
             IniciaControlloDialogo();
             yield break;
@@ -209,47 +212,47 @@ public class Npc_village : MonoBehaviour
 
         Vector3 targetPosition = CalculateSplinePosition();
         posizioneSpawn = targetPosition;
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Inizio teleport istantaneo verso {targetPosition}");
-        
+
         agent.ResetPath();
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
-        
+
         SetSlowAnimationImmediate();
-        
+
         yield return null;
         yield return null;
-        
-        if (debugMode) 
+
+        if (debugMode)
         {
             CheckCurrentAnimationState("Dopo 2 frame");
         }
-        
+
         if (slowdownEffect != null)
         {
             slowdownEffect.PlayEffect();
             if (debugMode) Debug.Log($"NPC {gameObject.name}: Effetto slowdown attivato");
-            
+
             yield return new WaitForSeconds(0.2f);
-            
+
             slowdownEffect.StopEffect();
         }
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Teleport a {targetPosition}");
-        
+
         transform.position = targetPosition;
-        
+
         agent.ResetPath();
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
-        
+
         SetSlowAnimationImmediate();
-        
+
         LookAtPlayer();
-        
+
         yield return new WaitForSeconds(0.1f);
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Posizionamento completato - Avvio controllo dialogo per {dialogueSystem?.name}");
         IniciaControlloDialogo();
     }
@@ -257,7 +260,7 @@ public class Npc_village : MonoBehaviour
     private void CheckCurrentAnimationState(string context)
     {
         if (animator == null) return;
-        
+
         AnimatorStateInfo currentState = animator.GetCurrentAnimatorStateInfo(0);
         Debug.Log($"NPC {gameObject.name} - {context}:" +
                  $"\n- State Hash: {currentState.shortNameHash}" +
@@ -279,7 +282,7 @@ public class Npc_village : MonoBehaviour
         }
 
         if (debugMode) Debug.Log($"NPC {gameObject.name}: DialogueSystem assegnato: {dialogueSystem.name}. Aspetto che il dialogo inizi...");
-        
+
         staControllandoDialogo = true;
         StartCoroutine(AspettaInizioDialogo());
     }
@@ -287,30 +290,30 @@ public class Npc_village : MonoBehaviour
     IEnumerator AspettaInizioDialogo()
     {
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Aspetto che il dialogo {dialogueSystem.name} inizi...");
-        
+
         float timeoutInizio = 30f;
         float tempoInizio = Time.time;
-        
+
         while (staControllandoDialogo && !dialogoFinito)
         {
             if (Time.time - tempoInizio > timeoutInizio)
             {
                 if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: TIMEOUT - Il dialogo non è mai iniziato dopo {timeoutInizio}s. Avvio comportamento di fallback.");
-                
+
                 dialogoFinito = true;
                 staControllandoDialogo = false;
                 AvviaComportamentoPostDialogo();
                 yield break;
             }
-            
+
             if (dialogueSystem != null && dialogueSystem.IsDialogueActive())
             {
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: ✅ Il dialogo {dialogueSystem.name} è iniziato! Ora aspetto che finisca...");
-                
+
                 StartCoroutine(ControllaDialogoBackup());
                 yield break;
             }
-            
+
             yield return new WaitForSeconds(0.2f);
         }
     }
@@ -318,44 +321,44 @@ public class Npc_village : MonoBehaviour
     IEnumerator ControllaDialogoBackup()
     {
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Il dialogo è attivo - ora controllo periodicamente se finisce (ogni {tempoCheckDialogo}s)");
-        
+
         while (staControllandoDialogo && !dialogoFinito)
         {
             if (dialogueSystem != null && !dialogueSystem.IsDialogueActive())
             {
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: BACKUP - DialogueSystem indica che il dialogo è finito! Avvio comportamento post-dialogo");
-                
+
                 dialogoFinito = true;
                 staControllandoDialogo = false;
-                
+
                 StartCoroutine(AvviaComportamentoConDelay());
                 yield break;
             }
-            
+
             yield return new WaitForSeconds(tempoCheckDialogo);
         }
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Uscito dal loop di controllo dialogo. DialogoFinito: {dialogoFinito}");
     }
 
     void OnDialogueLastLineFinished(DialogueSystem finishedDialogue)
     {
         if (debugMode) Debug.Log($"NPC {gameObject.name}: 📢 Ricevuto evento OnDialogueLastLineFinished da {finishedDialogue?.name}");
-        
+
         if (dialogueSystem != null && finishedDialogue == dialogueSystem)
         {
             if (debugMode) Debug.Log($"NPC {gameObject.name}: 🚀 IL MIO DIALOGO HA FINITO L'ULTIMA BATTUTA! Avvio comportamento post-dialogo");
-            
+
             if (isStopped && !dialogoFinito)
             {
                 dialogoFinito = true;
                 staControllandoDialogo = false;
-                
+
                 if (comportamentoRoutine != null)
                 {
                     StopCoroutine(comportamentoRoutine);
                 }
-                
+
                 StartCoroutine(AvviaComportamentoConDelay());
             }
             else
@@ -372,7 +375,7 @@ public class Npc_village : MonoBehaviour
     IEnumerator AvviaComportamentoConDelay()
     {
         yield return new WaitForSeconds(0.1f);
-        
+
         if (dialogoFinito && isStopped)
         {
             AvviaComportamentoPostDialogo();
@@ -383,15 +386,15 @@ public class Npc_village : MonoBehaviour
     {
         agent.speed = velocitaPostDialogo;
         agent.isStopped = false;
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Reset animazioni per comportamento post-dialogo");
-        
+
         animator.SetBool("Slow", false);
         animator.SetBool("IsRunning", false);
         animator.Update(0f);
-        
+
         if (debugMode) CheckCurrentAnimationState("Dopo reset per post-dialogo");
-        
+
         if (usaPuntoFisso)
         {
             collectiblesManager = FindCollectiblesManager();
@@ -406,7 +409,7 @@ public class Npc_village : MonoBehaviour
                 usaPuntoFisso = false;
             }
         }
-        
+
         if (usaPuntoFisso && puntoDestinazione != null)
         {
             AvviaComportamentoPuntoFisso();
@@ -415,26 +418,26 @@ public class Npc_village : MonoBehaviour
         {
             AvviaComportamentoCasuale();
         }
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Comportamento post-dialogo avviato (Punto fisso: {usaPuntoFisso})");
     }
 
     void AvviaComportamentoPuntoFisso()
     {
         inAttesaRegali = true;
-        
+
         statoAttuale = StatoPostDialogo.Walking;
         animator.SetBool("isIdle", false);
         animator.SetBool("isWalking", true);
-        
+
         agent.SetDestination(puntoDestinazione.position);
-        
+
         if (comportamentoRoutine != null)
         {
             StopCoroutine(comportamentoRoutine);
         }
         comportamentoRoutine = StartCoroutine(ComportamentoPuntoFisso());
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Avviato comportamento punto fisso verso {puntoDestinazione.position}");
     }
 
@@ -443,20 +446,20 @@ public class Npc_village : MonoBehaviour
         statoAttuale = StatoPostDialogo.Idle;
         animator.SetBool("isIdle", true);
         animator.SetBool("isWalking", false);
-        
+
         if (comportamentoRoutine != null)
         {
             StopCoroutine(comportamentoRoutine);
         }
         comportamentoRoutine = StartCoroutine(ComportamentoPostDialogo());
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Avviato comportamento casuale POST-DIALOGO");
     }
 
     IEnumerator ComportamentoPuntoFisso()
     {
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Camminando verso punto fisso...");
-        
+
         while (inAttesaRegali && dialogoFinito)
         {
             if (!agent.pathPending && agent.remainingDistance < 1f)
@@ -465,52 +468,64 @@ public class Npc_village : MonoBehaviour
                 statoAttuale = StatoPostDialogo.Idle;
                 animator.SetBool("isIdle", true);
                 animator.SetBool("isWalking", false);
-                
+
                 LookAtPlayer();
-                
+
+                // NUOVA FUNZIONALITÀ: Attiva gli oggetti quando raggiunge il punto fisso
+                if (attivaOggettiAlPuntoFisso)
+                {
+                    AttivaOggettiPuntoFisso();
+                }
+
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: Punto fisso raggiunto, aspetto {regaliRichiestiPerLiberazione} regali...");
                 break;
             }
-            
+
             if (agent.velocity.sqrMagnitude > 0.1f)
             {
                 Vector3 direction = agent.velocity.normalized;
                 direction.y = 0;
                 transform.rotation = Quaternion.LookRotation(direction);
             }
-            
+
             yield return new WaitForSeconds(0.1f);
         }
-        
+
         while (inAttesaRegali && dialogoFinito)
         {
             if (Time.frameCount % 60 == 0)
             {
                 LookAtPlayer();
             }
-            
+
             if (collectiblesManager != null)
             {
                 int regaliAttuali = collectiblesManager.GetCollectedPresents();
                 int regaliRaccoltiDaInizio = regaliAttuali - regaliIniziali;
-                
+
                 if (debugMode && Time.frameCount % 300 == 0)
                 {
                     Debug.Log($"NPC {gameObject.name}: Regali raccolti dall'inizio: {regaliRaccoltiDaInizio}/{regaliRichiestiPerLiberazione}");
                 }
-                
+
                 if (regaliRaccoltiDaInizio >= regaliRichiestiPerLiberazione)
                 {
                     inAttesaRegali = false;
-                    
-                    // NUOVA FUNZIONALITÀ: Disattiva gli oggetti quando i regali sono stati raccolti
+
+                    // Disattiva gli oggetti quando i regali sono stati raccolti
                     if (disattivaOggettiAllaLiberazione)
                     {
                         DisattivaOggetti();
                     }
-                    
+
+                    // NUOVA FUNZIONALITÀ: Disattiva anche gli oggetti del punto fisso quando l'NPC viene liberato
+                    if (attivaOggettiAlPuntoFisso)
+                    {
+                        DisattivaOggettiPuntoFisso();
+                    }
+
                     if (debugMode) Debug.Log($"NPC {gameObject.name}: {regaliRichiestiPerLiberazione} regali raccolti! NPC liberato, avvio comportamento casuale.");
-                    
+
                     AvviaComportamentoCasuale();
                     yield break;
                 }
@@ -522,10 +537,120 @@ public class Npc_village : MonoBehaviour
                 AvviaComportamentoCasuale();
                 yield break;
             }
-            
+
             yield return new WaitForSeconds(0.5f);
         }
     }
+    private void AttivaOggettiPuntoFisso()
+    {
+        if (oggettiDaAttivareAlPuntoFisso == null || oggettiDaAttivareAlPuntoFisso.Length == 0)
+        {
+            if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Nessun oggetto configurato per l'attivazione al punto fisso.");
+            return;
+        }
+
+        int oggettiAttivati = 0;
+
+        for (int i = 0; i < oggettiDaAttivareAlPuntoFisso.Length; i++)
+        {
+            if (oggettiDaAttivareAlPuntoFisso[i] != null)
+            {
+                if (!oggettiDaAttivareAlPuntoFisso[i].activeInHierarchy)
+                {
+                    oggettiDaAttivareAlPuntoFisso[i].SetActive(true);
+                    oggettiAttivati++;
+
+                    if (debugMode)
+                    {
+                        Debug.Log($"NPC {gameObject.name}: Oggetto punto fisso #{i} '{oggettiDaAttivareAlPuntoFisso[i].name}' attivato con successo!");
+                    }
+                }
+                else
+                {
+                    if (debugMode)
+                    {
+                        Debug.Log($"NPC {gameObject.name}: Oggetto punto fisso #{i} '{oggettiDaAttivareAlPuntoFisso[i].name}' era già attivo.");
+                    }
+                }
+            }
+            else
+            {
+                if (debugMode)
+                {
+                    Debug.LogWarning($"NPC {gameObject.name}: Oggetto punto fisso #{i} nell'array è NULL!");
+                }
+            }
+        }
+
+        if (debugMode)
+        {
+            Debug.Log($"NPC {gameObject.name}: Attivazione oggetti punto fisso completata. {oggettiAttivati}/{oggettiDaAttivareAlPuntoFisso.Length} oggetti attivati.");
+        }
+    }
+    private void DisattivaOggettiPuntoFisso()
+    {
+        if (oggettiDaAttivareAlPuntoFisso == null || oggettiDaAttivareAlPuntoFisso.Length == 0)
+        {
+            return;
+        }
+
+        int oggettiDisattivati = 0;
+
+        for (int i = 0; i < oggettiDaAttivareAlPuntoFisso.Length; i++)
+        {
+            if (oggettiDaAttivareAlPuntoFisso[i] != null)
+            {
+                if (oggettiDaAttivareAlPuntoFisso[i].activeInHierarchy)
+                {
+                    oggettiDaAttivareAlPuntoFisso[i].SetActive(false);
+                    oggettiDisattivati++;
+
+                    if (debugMode)
+                    {
+                        Debug.Log($"NPC {gameObject.name}: Oggetto punto fisso #{i} '{oggettiDaAttivareAlPuntoFisso[i].name}' disattivato!");
+                    }
+                }
+            }
+        }
+
+        if (debugMode)
+        {
+            Debug.Log($"NPC {gameObject.name}: Disattivazione oggetti punto fisso completata. {oggettiDisattivati}/{oggettiDaAttivareAlPuntoFisso.Length} oggetti disattivati.");
+        }
+    }
+    // Nuovo metodo per riattivare gli oggetti del punto fisso al restart
+    private void RiattivaOggettiPuntoFissoAlRestart()
+    {
+        if (oggettiDaAttivareAlPuntoFisso == null || oggettiDaAttivareAlPuntoFisso.Length == 0)
+        {
+            return;
+        }
+
+        int oggettiDisattivati = 0;
+
+        for (int i = 0; i < oggettiDaAttivareAlPuntoFisso.Length; i++)
+        {
+            if (oggettiDaAttivareAlPuntoFisso[i] != null)
+            {
+                if (oggettiDaAttivareAlPuntoFisso[i].activeInHierarchy)
+                {
+                    oggettiDaAttivareAlPuntoFisso[i].SetActive(false);
+                    oggettiDisattivati++;
+
+                    if (debugMode)
+                    {
+                        Debug.Log($"NPC {gameObject.name}: Oggetto punto fisso #{i} '{oggettiDaAttivareAlPuntoFisso[i].name}' disattivato al restart!");
+                    }
+                }
+            }
+        }
+
+        if (debugMode && oggettiDisattivati > 0)
+        {
+            Debug.Log($"NPC {gameObject.name}: Reset oggetti punto fisso completato. {oggettiDisattivati}/{oggettiDaAttivareAlPuntoFisso.Length} oggetti disattivati.");
+        }
+    }
+
 
     private void DisattivaOggetti()
     {
@@ -534,9 +659,9 @@ public class Npc_village : MonoBehaviour
             if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Nessun oggetto configurato per la disattivazione.");
             return;
         }
-        
+
         int oggettiDisattivati = 0;
-        
+
         for (int i = 0; i < oggettiDaDisattivare.Length; i++)
         {
             if (oggettiDaDisattivare[i] != null)
@@ -545,15 +670,15 @@ public class Npc_village : MonoBehaviour
                 {
                     oggettiDaDisattivare[i].SetActive(false);
                     oggettiDisattivati++;
-                    
-                    if (debugMode) 
+
+                    if (debugMode)
                     {
                         Debug.Log($"NPC {gameObject.name}: Oggetto #{i} '{oggettiDaDisattivare[i].name}' disattivato con successo!");
                     }
                 }
                 else
                 {
-                    if (debugMode) 
+                    if (debugMode)
                     {
                         Debug.Log($"NPC {gameObject.name}: Oggetto #{i} '{oggettiDaDisattivare[i].name}' era già disattivato.");
                     }
@@ -561,14 +686,14 @@ public class Npc_village : MonoBehaviour
             }
             else
             {
-                if (debugMode) 
+                if (debugMode)
                 {
                     Debug.LogWarning($"NPC {gameObject.name}: Oggetto #{i} nell'array è NULL!");
                 }
             }
         }
-        
-        if (debugMode) 
+
+        if (debugMode)
         {
             Debug.Log($"NPC {gameObject.name}: Disattivazione completata. {oggettiDisattivati}/{oggettiDaDisattivare.Length} oggetti disattivati.");
         }
@@ -580,9 +705,9 @@ public class Npc_village : MonoBehaviour
         {
             return;
         }
-        
+
         int oggettiRiattivati = 0;
-        
+
         for (int i = 0; i < oggettiDaDisattivare.Length; i++)
         {
             if (oggettiDaDisattivare[i] != null)
@@ -591,16 +716,16 @@ public class Npc_village : MonoBehaviour
                 {
                     oggettiDaDisattivare[i].SetActive(true);
                     oggettiRiattivati++;
-                    
-                    if (debugMode) 
+
+                    if (debugMode)
                     {
                         Debug.Log($"NPC {gameObject.name}: Oggetto #{i} '{oggettiDaDisattivare[i].name}' riattivato!");
                     }
                 }
             }
         }
-        
-        if (debugMode) 
+
+        if (debugMode)
         {
             Debug.Log($"NPC {gameObject.name}: Riattivazione completata. {oggettiRiattivati}/{oggettiDaDisattivare.Length} oggetti riattivati.");
         }
@@ -616,38 +741,38 @@ public class Npc_village : MonoBehaviour
                 float tempoIdleBase = Mathf.Lerp(tempoIdleMin, tempoIdleMax, personalityFactor);
                 float variazione = UnityEngine.Random.Range(-1f, 1f);
                 float tempoIdle = Mathf.Max(1f, tempoIdleBase + variazione);
-                
+
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: Idle per {tempoIdle:F1} secondi (personalità: {personalityFactor:F2})");
-                
+
                 if (UnityEngine.Random.Range(0f, 1f) < 0.3f)
                 {
                     yield return new WaitForSeconds(tempoIdle * 0.3f);
-                    
+
                     Vector3 randomDirection = new Vector3(
-                        UnityEngine.Random.Range(-1f, 1f), 
-                        0, 
+                        UnityEngine.Random.Range(-1f, 1f),
+                        0,
                         UnityEngine.Random.Range(-1f, 1f)
                     ).normalized;
-                    
+
                     transform.rotation = Quaternion.LookRotation(randomDirection);
                     if (debugMode) Debug.Log($"NPC {gameObject.name}: Guardo in direzione casuale durante idle");
-                    
+
                     yield return new WaitForSeconds(tempoIdle * 0.7f);
                 }
                 else
                 {
                     yield return new WaitForSeconds(tempoIdle);
                 }
-                
+
                 if (inAttesaRegali) continue;
-                
+
                 statoAttuale = StatoPostDialogo.Walking;
                 animator.SetBool("isIdle", false);
                 animator.SetBool("isWalking", true);
-                
+
                 Vector3 posizioneTarget = TrovaPosizioneRandomIntornoAllaSpawn();
                 agent.SetDestination(posizioneTarget);
-                
+
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: Inizio camminata verso {posizioneTarget}");
             }
             else if (statoAttuale == StatoPostDialogo.Walking)
@@ -656,9 +781,9 @@ public class Npc_village : MonoBehaviour
                 float tempoWalkBase = Mathf.Lerp(tempoWalkMin, tempoWalkMax, personalityFactor);
                 float tempoWalk = tempoWalkBase + UnityEngine.Random.Range(-1f, 2f);
                 tempoWalk = Mathf.Max(2f, tempoWalk);
-                
+
                 float tempoInizio = Time.time;
-                
+
                 while (Time.time - tempoInizio < tempoWalk && dialogoFinito && !inAttesaRegali)
                 {
                     if (!agent.pathPending && agent.remainingDistance < 1f)
@@ -666,24 +791,24 @@ public class Npc_village : MonoBehaviour
                         if (debugMode) Debug.Log($"NPC {gameObject.name}: Destinazione raggiunta");
                         break;
                     }
-                    
+
                     if (agent.velocity.sqrMagnitude > 0.1f)
                     {
                         Vector3 direction = agent.velocity.normalized;
                         direction.y = 0;
                         transform.rotation = Quaternion.LookRotation(direction);
                     }
-                    
+
                     if (UnityEngine.Random.Range(0f, 1f) < 0.05f)
                     {
                         Vector3 currentDestination = agent.destination;
                         Vector3 slightVariation = new Vector3(
-                            UnityEngine.Random.Range(-2f, 2f), 
-                            0, 
+                            UnityEngine.Random.Range(-2f, 2f),
+                            0,
                             UnityEngine.Random.Range(-2f, 2f)
                         );
                         Vector3 newDestination = currentDestination + slightVariation;
-                        
+
                         NavMeshHit hit;
                         if (NavMesh.SamplePosition(newDestination, out hit, 3f, NavMesh.AllAreas))
                         {
@@ -691,22 +816,22 @@ public class Npc_village : MonoBehaviour
                             if (debugMode) Debug.Log($"NPC {gameObject.name}: Leggera correzione di rotta");
                         }
                     }
-                    
+
                     yield return new WaitForSeconds(0.1f);
                 }
-                
+
                 if (inAttesaRegali) continue;
-                
+
                 agent.ResetPath();
                 agent.isStopped = false;
-                
+
                 statoAttuale = StatoPostDialogo.Idle;
                 animator.SetBool("isIdle", true);
                 animator.SetBool("isWalking", false);
-                
+
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: Fine camminata, torno in idle");
             }
-            
+
             yield return null;
         }
     }
@@ -717,14 +842,14 @@ public class Npc_village : MonoBehaviour
         {
             return CollectiblesManager.Instance;
         }
-        
+
         CollectiblesManager manager = UnityEngine.Object.FindFirstObjectByType<CollectiblesManager>();
         if (manager != null)
         {
             if (debugMode) Debug.Log($"NPC {gameObject.name}: CollectiblesManager trovato: {manager.name}");
             return manager;
         }
-        
+
         if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Nessun CollectiblesManager trovato nella scena!");
         return null;
     }
@@ -734,7 +859,7 @@ public class Npc_village : MonoBehaviour
         for (int i = 0; i < 30; i++)
         {
             Vector3 targetPos;
-            
+
             if (i < 10)
             {
                 Vector2 randomDir = UnityEngine.Random.insideUnitCircle * raggioMovimento;
@@ -747,11 +872,11 @@ public class Npc_village : MonoBehaviour
                     new Vector3(1, 0, 1).normalized, new Vector3(-1, 0, 1).normalized,
                     new Vector3(1, 0, -1).normalized, new Vector3(-1, 0, -1).normalized
                 };
-                
+
                 Vector3 direzioneBase = direzioniCardinali[UnityEngine.Random.Range(0, direzioniCardinali.Length)];
                 float distanza = UnityEngine.Random.Range(raggioMovimento * 0.3f, raggioMovimento);
                 float variazione = UnityEngine.Random.Range(-45f, 45f);
-                
+
                 Vector3 direzioneVariata = Quaternion.AngleAxis(variazione, Vector3.up) * direzioneBase;
                 targetPos = posizioneSpawn + direzioneVariata * distanza;
             }
@@ -759,11 +884,11 @@ public class Npc_village : MonoBehaviour
             {
                 float angolo = UnityEngine.Random.Range(0f, 360f);
                 float distanza = UnityEngine.Random.Range(raggioMovimento * 0.5f, raggioMovimento * 1.2f);
-                
+
                 Vector3 direzione = new Vector3(Mathf.Cos(angolo * Mathf.Deg2Rad), 0, Mathf.Sin(angolo * Mathf.Deg2Rad));
                 targetPos = posizioneSpawn + direzione * distanza;
             }
-            
+
             NavMeshHit navHit;
             if (NavMesh.SamplePosition(targetPos, out navHit, 3f, NavMesh.AllAreas))
             {
@@ -790,17 +915,17 @@ public class Npc_village : MonoBehaviour
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: Tentativo {i + 1} - Posizione non valida sulla NavMesh: {targetPos}");
             }
         }
-        
+
         Vector2 fallbackDir = UnityEngine.Random.insideUnitCircle.normalized * 3f;
         Vector3 fallbackPos = transform.position + new Vector3(fallbackDir.x, 0, fallbackDir.y);
-        
+
         NavMeshHit fallbackHit;
         if (NavMesh.SamplePosition(fallbackPos, out fallbackHit, 5f, NavMesh.AllAreas))
         {
             if (debugMode) Debug.Log($"NPC {gameObject.name}: Usando posizione fallback: {fallbackHit.position}");
             return fallbackHit.position;
         }
-        
+
         if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Non riesco a trovare posizione valida dopo 30 tentativi, resto fermo");
         return transform.position;
     }
@@ -808,18 +933,18 @@ public class Npc_village : MonoBehaviour
     bool CiSonoOstacoliNellaPosizione(Vector3 posizione)
     {
         Collider[] ostacoli = Physics.OverlapSphere(posizione, raggioControlloOstacoli, layerOstacoli);
-        
+
         int ostacoliSignificativi = 0;
         foreach (Collider ostacolo in ostacoli)
         {
             if (ostacolo.bounds.size.magnitude < 1f) continue;
             if (ostacolo.isTrigger) continue;
-            
+
             if (ostacolo.GetComponent<Npc_village>() != null) continue;
-            
+
             ostacoliSignificativi++;
         }
-        
+
         if (ostacoliSignificativi > 0)
         {
             if (debugMode)
@@ -839,38 +964,38 @@ public class Npc_village : MonoBehaviour
             }
             return true;
         }
-        
+
         RaycastHit groundHit;
         if (!Physics.Raycast(posizione + Vector3.up * 2f, Vector3.down, out groundHit, 5f))
         {
             if (debugMode) Debug.Log($"NPC {gameObject.name}: Nessun terreno rilevato sotto {posizione}");
             return true;
         }
-        
+
         return false;
     }
 
     Vector3 CalculateSplinePosition()
     {
         int myIndex = stoppedNPCs.IndexOf(this);
-        
+
         int knotCount = sharedSpline.Spline.Count;
-        
+
         if (knotCount == 0)
         {
             Debug.LogWarning($"Spline {sharedSpline.name} non ha knots!");
             return transform.position;
         }
-        
+
         int targetKnotIndex = myIndex % knotCount;
-        
+
         BezierKnot knot = sharedSpline.Spline[targetKnotIndex];
         float3 knotPosition = knot.Position;
-        
+
         Vector3 worldPosition = sharedSpline.transform.TransformPoint(new Vector3(knotPosition.x, knotPosition.y, knotPosition.z));
-        
+
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Posizione calcolata - Index: {myIndex}, Knot: {targetKnotIndex}, Pos: {worldPosition}");
-        
+
         return worldPosition;
     }
 
@@ -881,16 +1006,16 @@ public class Npc_village : MonoBehaviour
         {
             Vector3 direction = player.transform.position - transform.position;
             direction.y = 0;
-            
+
             if (direction.sqrMagnitude > 0.01f)
             {
                 Quaternion targetRotation = Quaternion.LookRotation(direction);
-                
+
                 if (agent.isStopped || agent.velocity.sqrMagnitude < 0.1f)
                 {
                     StartCoroutine(RotateTowardsTarget(targetRotation, 1f));
                 }
-                
+
                 if (debugMode) Debug.Log($"NPC {gameObject.name}: Guardando verso il player");
             }
         }
@@ -904,18 +1029,18 @@ public class Npc_village : MonoBehaviour
     {
         Quaternion startRotation = transform.rotation;
         float elapsed = 0f;
-        
+
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-            
+
             t = Mathf.SmoothStep(0f, 1f, t);
-            
+
             transform.rotation = Quaternion.Slerp(startRotation, targetRotation, t);
             yield return null;
         }
-        
+
         transform.rotation = targetRotation;
     }
 
@@ -941,12 +1066,12 @@ public class Npc_village : MonoBehaviour
     void OnDestroy()
     {
         DialogueSystem.OnAnyLastLineFinished -= OnDialogueLastLineFinished;
-        
+
         if (comportamentoRoutine != null)
         {
             StopCoroutine(comportamentoRoutine);
         }
-        
+
         if (stoppedNPCs.Contains(this))
         {
             stoppedNPCs.Remove(this);
@@ -957,38 +1082,44 @@ public class Npc_village : MonoBehaviour
     public void RestartMovement()
     {
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Riavvio movimento");
-        
+
         isStopped = false;
         dialogoFinito = false;
         staControllandoDialogo = false;
         inAttesaRegali = false;
         regaliIniziali = 0;
-        
+
         // Riattiva gli oggetti quando l'NPC viene riavviato
         if (disattivaOggettiAllaLiberazione)
         {
             RiattivaOggetti();
         }
-        
+
+        // NUOVA FUNZIONALITÀ: Disattiva gli oggetti del punto fisso al restart
+        if (attivaOggettiAlPuntoFisso)
+        {
+            RiattivaOggettiPuntoFissoAlRestart();
+        }
+
         if (comportamentoRoutine != null)
         {
             StopCoroutine(comportamentoRoutine);
             comportamentoRoutine = null;
         }
-        
+
         agent.isStopped = false;
         agent.speed = 15f;
-        
+
         if (stoppedNPCs.Contains(this))
         {
             stoppedNPCs.Remove(this);
         }
-        
+
         animator.SetBool("IsRunning", true);
         animator.SetBool("Slow", false);
         animator.SetBool("isIdle", false);
         animator.SetBool("isWalking", false);
-        
+
         if (waypoints.Length > 0)
         {
             GoToRandomWaypoint();
@@ -999,7 +1130,7 @@ public class Npc_village : MonoBehaviour
     public static void ResetSlowdownSystem()
     {
         slowdownAlreadyUsed = false;
-        
+
         for (int i = stoppedNPCs.Count - 1; i >= 0; i--)
         {
             if (stoppedNPCs[i] != null)
@@ -1007,7 +1138,7 @@ public class Npc_village : MonoBehaviour
                 stoppedNPCs[i].RestartMovement();
             }
         }
-        
+
         stoppedNPCs.Clear();
         Debug.Log("Sistema slowdown resettato e tutti gli NPC riavviati!");
     }
@@ -1034,23 +1165,23 @@ public class Npc_village : MonoBehaviour
     {
         Debug.Log($"NPC {gameObject.name}: TEST - Stato prima del cambio");
         CheckCurrentAnimationState("Prima del cambio");
-        
+
         agent.ResetPath();
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
-        
+
         SetSlowAnimationImmediate();
-        
+
         Debug.Log($"NPC {gameObject.name}: TEST - Stato subito dopo SetSlowAnimationImmediate");
         CheckCurrentAnimationState("Subito dopo SetSlowAnimationImmediate");
-        
+
         yield return null;
-        
+
         Debug.Log($"NPC {gameObject.name}: TEST - Stato dopo 1 frame");
         CheckCurrentAnimationState("Dopo 1 frame");
-        
+
         yield return null;
-        
+
         Debug.Log($"NPC {gameObject.name}: TEST - Stato dopo 2 frame");
         CheckCurrentAnimationState("Dopo 2 frame");
     }
@@ -1115,7 +1246,7 @@ public class Npc_village : MonoBehaviour
     {
         usaPuntoFisso = !usaPuntoFisso;
         if (debugMode) Debug.Log($"NPC {gameObject.name}: Punto fisso {(usaPuntoFisso ? "ATTIVATO" : "DISATTIVATO")}");
-        
+
         if (dialogoFinito)
         {
             if (comportamentoRoutine != null)
@@ -1175,11 +1306,11 @@ public class Npc_village : MonoBehaviour
             Debug.LogError($"NPC {gameObject.name}: Array oggetti è NULL!");
             return;
         }
-        
+
         Debug.Log($"NPC {gameObject.name}: Configurazione oggetti da disattivare:");
         Debug.Log($"- Array size: {oggettiDaDisattivare.Length}");
         Debug.Log($"- Disattivazione abilitata: {disattivaOggettiAllaLiberazione}");
-        
+
         for (int i = 0; i < oggettiDaDisattivare.Length; i++)
         {
             if (oggettiDaDisattivare[i] != null)
@@ -1225,19 +1356,19 @@ public class Npc_village : MonoBehaviour
         }
 
         Debug.Log($"NPC {gameObject.name}: Animator Controller: {animator.runtimeAnimatorController.name}");
-        
+
         var parameters = animator.parameters;
         Debug.Log($"Parametri trovati nell'Animator Controller:");
         foreach (var param in parameters)
         {
             Debug.Log($"- {param.name} (Type: {param.type})");
         }
-        
+
         bool hasIsRunning = System.Array.Exists(parameters, p => p.name == "IsRunning");
         bool hasIsIdle = System.Array.Exists(parameters, p => p.name == "isIdle");
         bool hasIsWalking = System.Array.Exists(parameters, p => p.name == "isWalking");
         bool hasSlow = System.Array.Exists(parameters, p => p.name == "Slow");
-        
+
         Debug.Log($"Parametri richiesti:" +
                  $"\n- IsRunning: {(hasIsRunning ? "✅" : "❌")}" +
                  $"\n- isIdle: {(hasIsIdle ? "✅" : "❌")}" +
@@ -1248,29 +1379,29 @@ public class Npc_village : MonoBehaviour
     void OnDrawGizmosSelected()
     {
         if (!dialogoFinito || !Application.isPlaying) return;
-        
+
         Gizmos.color = Color.green;
         DrawWireCircle(posizioneSpawn, raggioMovimento);
-        
+
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(posizioneSpawn, 0.5f);
-        
+
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, raggioControlloOstacoli);
-        
+
         if (usaPuntoFisso && puntoDestinazione != null)
         {
             Gizmos.color = Color.magenta;
             Gizmos.DrawWireSphere(puntoDestinazione.position, 1f);
             Gizmos.DrawLine(transform.position, puntoDestinazione.position);
-            
+
             if (inAttesaRegali)
             {
                 Gizmos.color = new Color(1f, 0.5f, 0f);
                 Gizmos.DrawWireCube(puntoDestinazione.position + Vector3.up * 2f, Vector3.one * 0.5f);
             }
         }
-        
+
         if (statoAttuale == StatoPostDialogo.Walking && agent.hasPath)
         {
             Gizmos.color = Color.yellow;
@@ -1284,13 +1415,13 @@ public class Npc_village : MonoBehaviour
         const int segments = 32;
         float angleStep = 360f / segments;
         Vector3 prevPoint = center + new Vector3(radius, 0, 0);
-        
+
         for (int i = 1; i <= segments; i++)
         {
             float angle = i * angleStep * Mathf.Deg2Rad;
             Vector3 newPoint = center + new Vector3(
-                Mathf.Cos(angle) * radius, 
-                0, 
+                Mathf.Cos(angle) * radius,
+                0,
                 Mathf.Sin(angle) * radius
             );
             Gizmos.DrawLine(prevPoint, newPoint);
@@ -1308,4 +1439,6 @@ public class Npc_village : MonoBehaviour
     public bool DisattivaOggettiAllaLiberazione => disattivaOggettiAllaLiberazione;
     public static int TotalStoppedNPCs => stoppedNPCs.Count;
     public static bool SlowdownWasUsed => slowdownAlreadyUsed;
+    public GameObject[] OggettiDaAttivareAlPuntoFisso => oggettiDaAttivareAlPuntoFisso;
+public bool AttivaOggettiAlPuntoFisso => attivaOggettiAlPuntoFisso;
 }

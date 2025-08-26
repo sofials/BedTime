@@ -18903,6 +18903,75 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 6296663804657301524, guid: eff52ae2b0cf1554aa73b45e5284bb30, type: 3}
+--- !u!1 &256511976
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 256511977}
+  - component: {fileID: 256511979}
+  - component: {fileID: 256511978}
+  m_Layer: 0
+  m_Name: Mario1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &256511977
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 256511976}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: -119.6, y: 175, z: -177.1}
+  m_LocalScale: {x: 100, y: 50, z: 10}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1532979206}
+  m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
+--- !u!114 &256511978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 256511976}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ef9331273877a4a93e6e2eec2525fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  checkpointName: Mario1
+  isActivated: 0
+  description: 
+--- !u!65 &256511979
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 256511976}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &260781084
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -19971,10 +20040,6 @@ Transform:
   m_Children:
   - {fileID: 1875297390}
   - {fileID: 341732914}
-  - {fileID: 1944524602}
-  - {fileID: 1608415450}
-  - {fileID: 1716117163}
-  - {fileID: 1223130386}
   m_Father: {fileID: 1007615196}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!64 &320117071
@@ -20638,14 +20703,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!65 &356146483
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20828,14 +20894,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 1
+  customSlowdownFactor: 5
   overlayColor: {r: 0.5613208, g: 0.7512277, b: 1, a: 1}
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
   slowdownEffect: {fileID: 985048100}
-  useCustomSlowdown: 1
-  customSlowdownFactor: 5
 --- !u!65 &363207918
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -32216,7 +32283,7 @@ Transform:
   m_GameObject: {fileID: 449577118}
   serializedVersion: 2
   m_LocalRotation: {x: 0.1542334, y: 0.000000026205072, z: -0.000000004090644, w: 0.9880345}
-  m_LocalPosition: {x: 153.9, y: 134.19998, z: -198.49994}
+  m_LocalPosition: {x: 159.9, y: 134.19998, z: -188.60004}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -32566,14 +32633,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!43 &470226981
 Mesh:
   m_ObjectHideFlags: 0
@@ -33296,6 +33364,75 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7322510366621077878, guid: a37a0205e0f913544986df5bf6973066, type: 3}
   m_PrefabInstance: {fileID: 1171589038}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &519423847
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 519423848}
+  - component: {fileID: 519423850}
+  - component: {fileID: 519423849}
+  m_Layer: 0
+  m_Name: Mario2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &519423848
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519423847}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0.38342533, z: -0, w: 0.9235719}
+  m_LocalPosition: {x: -199.3, y: 222.6, z: -199.8}
+  m_LocalScale: {x: 40, y: 50, z: 10}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1532979206}
+  m_LocalEulerAnglesHint: {x: 0, y: -45.092, z: 0}
+--- !u!114 &519423849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519423847}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ef9331273877a4a93e6e2eec2525fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  checkpointName: Mario2
+  isActivated: 0
+  description: 
+--- !u!65 &519423850
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519423847}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!64 &523964544
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -38631,6 +38768,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0a4ab75cd07b454f94480b74569178f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!198 &543755448 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 8038366183242076605, guid: f0ae4009c5035b24db1734d746fe1cf0, type: 3}
+  m_PrefabInstance: {fileID: 9156764404963096163}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &544814990
 GameObject:
   m_ObjectHideFlags: 0
@@ -43870,14 +44012,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 1
+  customSlowdownFactor: 5
   overlayColor: {r: 0.2807049, g: 0.50290674, b: 0.7169812, a: 1}
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
   slowdownEffect: {fileID: 1237358453}
-  useCustomSlowdown: 1
-  customSlowdownFactor: 5
 --- !u!65 &586442762
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -44043,14 +44186,15 @@ MonoBehaviour:
   forwardAxis: {x: 1, y: 0, z: 0}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 1
+  customSlowdownFactor: 5
   overlayColor: {r: 0.5424528, g: 0.7394407, b: 1, a: 1}
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
   slowdownEffect: {fileID: 550176178}
-  useCustomSlowdown: 1
-  customSlowdownFactor: 5
 --- !u!65 &594622942
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -44477,6 +44621,67 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1971099641175596178, guid: 08a51d53a2c00ba4697dab6942d65994, type: 3}
   m_PrefabInstance: {fileID: 617337427}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &617566715
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1572196353}
+    m_Modifications:
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.0005
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.0006
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.0142
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7467352258111983371, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_Name
+      value: vfx_Impact_01
+      objectReference: {fileID: 0}
+    - target: {fileID: 7467352258111983371, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
 --- !u!64 &618551437
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -45027,6 +45232,10 @@ Transform:
   - {fileID: 8055576570382353908}
   - {fileID: 366461998}
   - {fileID: 543755444}
+  - {fileID: 1944524602}
+  - {fileID: 1608415450}
+  - {fileID: 1223130386}
+  - {fileID: 1716117163}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &642187819 stripped
@@ -45179,14 +45388,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 1
+  customSlowdownFactor: 5
   overlayColor: {r: 0.4532307, g: 0.6039934, b: 0.990566, a: 1}
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
   slowdownEffect: {fileID: 285502447}
-  useCustomSlowdown: 1
-  customSlowdownFactor: 5
 --- !u!65 &661455094
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -56594,6 +56804,22 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -6317579404062381887, guid: eff52ae2b0cf1554aa73b45e5284bb30, type: 3}
+--- !u!4 &743114526 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+  m_PrefabInstance: {fileID: 617566715}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &743114527 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 183090289812108120, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
+  m_PrefabInstance: {fileID: 617566715}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17b6781e77408684ba07436b6e618c8a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &743407493
 GameObject:
   m_ObjectHideFlags: 0
@@ -84396,6 +84622,75 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
   m_PrefabInstance: {fileID: 962962186}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &964115248
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 964115249}
+  - component: {fileID: 964115251}
+  - component: {fileID: 964115250}
+  m_Layer: 0
+  m_Name: Mario3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &964115249
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 964115248}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.000000004399221, y: -0.2927551, z: 0.0000000105965805, w: 0.9561875}
+  m_LocalPosition: {x: -83.9, y: 220.8, z: -274.8}
+  m_LocalScale: {x: 50, y: 50, z: 10}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1532979206}
+  m_LocalEulerAnglesHint: {x: 0, y: -34.046, z: 0}
+--- !u!114 &964115250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 964115248}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ef9331273877a4a93e6e2eec2525fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  checkpointName: Mario3
+  isActivated: 0
+  description: 
+--- !u!65 &964115251
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 964115248}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!64 &964251761
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -90070,14 +90365,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!64 &1016708321
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -109598,13 +109894,13 @@ Transform:
   m_GameObject: {fileID: 1223130384}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -32.27411, y: -55.741913, z: -60.905884}
+  m_LocalPosition: {x: 368.65973, y: -20.752594, z: -32.1369}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1749766944}
   - {fileID: 229892230}
-  m_Father: {fileID: 318172616}
+  m_Father: {fileID: 640796237}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1225011703
 PrefabInstance:
@@ -136949,14 +137245,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!1001 &1374443305
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -145141,6 +145438,9 @@ Transform:
   - {fileID: 1217747821}
   - {fileID: 227832618}
   - {fileID: 1368327447}
+  - {fileID: 256511977}
+  - {fileID: 519423848}
+  - {fileID: 964115249}
   m_Father: {fileID: 640796237}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1534279283
@@ -146136,7 +146436,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4c274d59e63aa2d4eb64caa078bf88c4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 743114526}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4c274d59e63aa2d4eb64caa078bf88c4, type: 3}
       insertIndex: -1
@@ -146199,14 +146502,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
-  overlayColor: {r: 1, g: 0, b: 0, a: 1}
-  overlayIntensity: 2
-  hdrMultiplier: 3
-  applyColorTint: 1
-  slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
+  useCustomSlowdown: 1
   customSlowdownFactor: 3
+  overlayColor: {r: 0.23113209, g: 0.5512824, b: 1, a: 1}
+  overlayIntensity: 0.5
+  hdrMultiplier: 1
+  applyColorTint: 1
+  slowdownEffect: {fileID: 743114527}
 --- !u!65 &1572196357
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -146729,7 +147033,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 153.9
+      value: 159.9
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.y
@@ -146737,7 +147041,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -198.49994
+      value: -188.60004
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.w
@@ -146953,11 +147257,11 @@ Transform:
   m_GameObject: {fileID: 1608415449}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -14.942703, y: -56.655914, z: -257.4021}
+  m_LocalPosition: {x: 385.99115, y: -21.666595, z: -228.63312}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 318172616}
+  m_Father: {fileID: 640796237}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1609424883
 GameObject:
@@ -147877,14 +148181,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!64 &1636779932
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -148729,7 +149034,7 @@ Transform:
   m_GameObject: {fileID: 1716117162}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -58.942696, y: -68.95593, z: -90.62335}
+  m_LocalPosition: {x: 341.99115, y: -33.966614, z: -61.85437}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -148738,7 +149043,7 @@ Transform:
   - {fileID: 1656847835}
   - {fileID: 227580093}
   - {fileID: 914758912}
-  m_Father: {fileID: 318172616}
+  m_Father: {fileID: 640796237}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!64 &1716827895
 MeshCollider:
@@ -177344,14 +177649,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!64 &1902849444
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -183056,7 +183362,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1944524602}
   m_Layer: 0
-  m_Name: Piccoli
+  m_Name: Minis
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -183071,7 +183377,7 @@ Transform:
   m_GameObject: {fileID: 1944524601}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -68.475945, y: -53.99521, z: -90.62335}
+  m_LocalPosition: {x: 332.4579, y: -19.00589, z: -61.85437}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -183082,7 +183388,7 @@ Transform:
   - {fileID: 933806976}
   - {fileID: 711579166}
   - {fileID: 3424349684405274075}
-  m_Father: {fileID: 318172616}
+  m_Father: {fileID: 640796237}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1948461081
 PrefabInstance:
@@ -189372,7 +189678,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 153.9
+      value: 159.9
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.y
@@ -189380,7 +189686,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -148.5
+      value: -138.6
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalRotation.w
@@ -195311,6 +195617,10 @@ PrefabInstance:
       propertyPath: OnLastLineFinished.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
       objectReference: {fileID: 7381276831983275402}
+    - target: {fileID: 4648023620009953573, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5243522428433470683, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueUI
       value: 
@@ -197346,6 +197656,14 @@ PrefabInstance:
       objectReference: {fileID: 1575659356}
     - target: {fileID: 7058410846582284209, guid: 46d976200cdfddd4c94b89edeefcd861, type: 3}
       propertyPath: 'oggettiDaDisattivare.Array.data[1]'
+      value: 
+      objectReference: {fileID: 1925509996}
+    - target: {fileID: 7058410846582284209, guid: 46d976200cdfddd4c94b89edeefcd861, type: 3}
+      propertyPath: oggettiDaAttivareAlPuntoFisso.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7058410846582284209, guid: 46d976200cdfddd4c94b89edeefcd861, type: 3}
+      propertyPath: 'oggettiDaAttivareAlPuntoFisso.Array.data[0]'
       value: 
       objectReference: {fileID: 1925509996}
     - target: {fileID: 8240172519094607129, guid: 46d976200cdfddd4c94b89edeefcd861, type: 3}
@@ -199395,7 +199713,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8038366183242076600, guid: f0ae4009c5035b24db1734d746fe1cf0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8038366183242076605, guid: f0ae4009c5035b24db1734d746fe1cf0, type: 3}
       propertyPath: InitialModule.startColor.maxColor.b
@@ -199449,6 +199767,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9025822716351926964, guid: f0ae4009c5035b24db1734d746fe1cf0, type: 3}
+      propertyPath: particleSystem
+      value: 
+      objectReference: {fileID: 543755448}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
