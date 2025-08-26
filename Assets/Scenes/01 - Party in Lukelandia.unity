@@ -32017,6 +32017,142 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 6860414710118613391, guid: a37a0205e0f913544986df5bf6973066, type: 3}
   m_PrefabInstance: {fileID: 447726517}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &448185406
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 448185407}
+  - component: {fileID: 448185409}
+  - component: {fileID: 448185408}
+  m_Layer: 0
+  m_Name: D19
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &448185407
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 448185406}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.8242754, z: -0, w: -0.5661891}
+  m_LocalPosition: {x: -51.7, y: -1.8, z: 38.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 366461998}
+  m_LocalEulerAnglesHint: {x: 0, y: 248.97, z: 0}
+--- !u!114 &448185408
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 448185406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 501645578}
+  dialogueText: {fileID: 501645579}
+  dialogueLines:
+  - text: "Teleporting dream magic: saving boys since five minutes ago!\r\n\u2026\r\nWhat\u2026?
+      No no no\u2026 what happened? Who is that guy?!"
+    audioClip: {fileID: 8300000, guid: 41793084567ecbd479950c5545cf2d67, type: 3}
+  - text: "Luke\u2026 I can\u2019t understand\u2026"
+    audioClip: {fileID: 8300000, guid: 6504c0bb320ff4347af82a719dda14ca, type: 3}
+  - text: "He\u2019s running away! I don\u2019t care what it is, I\u2019m not letting
+      it get away."
+    audioClip: {fileID: 8300000, guid: 45d177298954a84468e504b6d73a759f, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: 
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 5827714865091427282}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 5827714865091427282}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &448185409
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 448185406}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 30, y: 30, z: 30}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!64 &448625694
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -90783,7 +90919,8 @@ MonoBehaviour:
   enableObjectActivation: 1
   objectToEnable: {fileID: 633107605}
   objectToDisable: {fileID: 0}
-  objectsToEnable: []
+  objectsToEnable:
+  - {fileID: 448185406}
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
@@ -90794,7 +90931,19 @@ MonoBehaviour:
   playerController: {fileID: 5827714865091427282}
   OnDialogueStarted:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1402458648}
+        m_TargetAssemblyTypeName: TeleportBase, Assembly-CSharp
+        m_MethodName: EnableObject
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
   OnDialogueEnded:
     m_PersistentCalls:
       m_Calls: []
@@ -137559,6 +137708,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7322510366621077878, guid: a37a0205e0f913544986df5bf6973066, type: 3}
   m_PrefabInstance: {fileID: 447726517}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1402458648 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5865285521937261617, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+  m_PrefabInstance: {fileID: 6453586659814915859}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0a4ab75cd07b454f94480b74569178f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1404176301
 GameObject:
   m_ObjectHideFlags: 0
@@ -195497,6 +195657,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7594718117421647608, guid: 244280a25354eac43a85b161d001e468, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1038448314}
+    - targetCorrespondingSourceObject: {fileID: 7594718117421647608, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 448185407}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 244280a25354eac43a85b161d001e468, type: 3}
 --- !u!33 &4545273190485568124
@@ -197334,9 +197497,41 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2989798732469912131, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2989798732469912131, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2989798732469912131, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2989798732469912131, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 2989798732469912131, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 3.14
+      objectReference: {fileID: 0}
+    - target: {fileID: 2989798732469912131, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5865285521937261617, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
       propertyPath: showDebugLogs
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5865285521937261617, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: OnObjectEnabled.m_PersistentCalls.m_Calls.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5865285521937261617, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: OnObjectEnabled.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8306092277221202451, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
       propertyPath: m_Name
@@ -197344,7 +197539,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8306092277221202451, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8835294557308899607, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
+      propertyPath: m_Size.y
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 8835294557308899607, guid: eb9fb1c1abda6fb4eb905f448c95e15d, type: 3}
       propertyPath: m_Size.z

@@ -28,7 +28,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1814283828436706297}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.000000011807102, y: 0.45637614, z: 0.000000027052703, w: 0.889787}
+  m_LocalRotation: {x: 0, y: 0.4563759, z: 0, w: 0.8897871}
   m_LocalPosition: {x: 162.9, y: 116.65, z: -132.13}
   m_LocalScale: {x: 20, y: 20, z: 20}
   m_ConstrainProportionsScale: 0
@@ -50,7 +50,7 @@ MonoBehaviour:
   useTriggerCollider: 0
   onlyTriggerOnce: 0
   earthquakeDuration: 7
-  disablePlayerMovement: 1
+  disablePlayerMovement: 0
   audioSource: {fileID: 5624590217909800484}
   mainAudio: {fileID: 8300000, guid: 89e5f1ff212aeba499618537a1cb90e6, type: 3}
   audioVolume: 0.8
@@ -84,7 +84,7 @@ MonoBehaviour:
   - {fileID: 2100000, guid: e43740b0e7f6f3b408fbdba0db88ce75, type: 2}
   - {fileID: 2100000, guid: b7e570185aed80142bfbd413b64d9f70, type: 2}
   dissolvePropertyName: _Dissolve
-  dissolveDuration: 3
+  dissolveDuration: 5
   dissolveCurve:
     serializedVersion: 2
     m_Curve:
@@ -137,6 +137,8 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   deactivationDelay: 0
   debugMode: 0
 --- !u!82 &5624590217909800484
@@ -151,7 +153,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
   Loop: 0
@@ -251,9 +253,9 @@ MonoBehaviour:
   impulseSource: {fileID: 242815733648907902}
   targetCamera: {fileID: 0}
   targetVirtualCamera: {fileID: 0}
-  autoFindCameras: 1
-  shakeIntensity: 0.6
-  shakeDuration: 3.5
+  autoFindCameras: 0
+  shakeIntensity: 3
+  shakeDuration: 5
   shakeIntensityCurve:
     serializedVersion: 2
     m_Curve:
@@ -278,12 +280,12 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  shakeFrequency: 6
+  shakeFrequency: 9
   autoStop: 1
   shakeDirection: {x: 0.7, y: 1, z: 0.3}
   randomizeDirection: 1
   directionVariance: 0.4
-  useRealtimeImpulse: 0
+  useRealtimeImpulse: 1
   fadeOutDuration: 1
   debugShake: 0
   testOnStart: 0

@@ -17,7 +17,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &859149312460608026
 Transform:
   m_ObjectHideFlags: 0
@@ -105,6 +105,11 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
   forceInitializeDissolveValues: 1
   initialDissolveValue: 1
   enableObjectActivation: 0
@@ -240,10 +245,15 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
   forceInitializeDissolveValues: 1
   initialDissolveValue: 1
-  enableObjectActivation: 0
-  objectToEnable: {fileID: 0}
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 403380823861136899}
   objectToDisable: {fileID: 0}
   objectsToEnable: []
   objectsToDisable: []
@@ -367,6 +377,11 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
   forceInitializeDissolveValues: 1
   initialDissolveValue: 1
   enableObjectActivation: 0
@@ -497,6 +512,11 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 0
   dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
   forceInitializeDissolveValues: 0
   initialDissolveValue: 1
   enableObjectActivation: 0
@@ -633,6 +653,11 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
   forceInitializeDissolveValues: 1
   initialDissolveValue: 1
   enableObjectActivation: 0
@@ -695,7 +720,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5300421244781776624}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 362.77582, y: -9.683838, z: -106.5813}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -707,8 +732,311 @@ Transform:
   - {fileID: 3713791230672101895}
   - {fileID: 792704761763021447}
   - {fileID: 6035004195753705596}
+  - {fileID: 3291219604975717511}
+  - {fileID: 1325564117840065172}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5774026673729277336
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1325564117840065172}
+  - component: {fileID: 1807025659638950324}
+  - component: {fileID: 6258320056589190259}
+  m_Layer: 0
+  m_Name: D19
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1325564117840065172
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5774026673729277336}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.8242754, z: -0, w: -0.5661891}
+  m_LocalPosition: {x: -51.7, y: -1.8, z: 38.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 248.97, z: 0}
+--- !u!65 &1807025659638950324
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5774026673729277336}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 30, y: 30, z: 30}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &6258320056589190259
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5774026673729277336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Teleporting dream magic: saving boys since five minutes ago!\r\n\u2026\r\nWhat\u2026?
+      No no no\u2026 what happened? Who is that guy?!"
+    audioClip: {fileID: 8300000, guid: 41793084567ecbd479950c5545cf2d67, type: 3}
+  - text: "Luke\u2026 I can\u2019t understand\u2026"
+    audioClip: {fileID: 8300000, guid: 6504c0bb320ff4347af82a719dda14ca, type: 3}
+  - text: "He\u2019s running away! I don\u2019t care what it is, I\u2019m not letting
+      it get away."
+    audioClip: {fileID: 8300000, guid: 45d177298954a84468e504b6d73a759f, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: 
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &5817521589565730226
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3291219604975717511}
+  - component: {fileID: 557641401577887774}
+  - component: {fileID: 4533144519476887682}
+  m_Layer: 0
+  m_Name: D18
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &3291219604975717511
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5817521589565730226}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.8242754, z: -0, w: -0.5661891}
+  m_LocalPosition: {x: -195.2, y: 142.9, z: -37.8}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 248.97, z: 0}
+--- !u!65 &557641401577887774
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5817521589565730226}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 30, y: 40, z: 100}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &4533144519476887682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5817521589565730226}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Uh\u2026 Lady? What\u2019s going on here?!"
+    audioClip: {fileID: 8300000, guid: e76fc74d32b99de46a554404cabd8e63, type: 3}
+  - text: "This is\u2026 unexpected\u2026 I sensed no shift, no disruption\u2026\r\nBe
+      careful Luke, let\u2019s go back in town."
+    audioClip: {fileID: 8300000, guid: 2dbcf95d003e1df4ca5f047690377d4e, type: 3}
+  - text: "But\u2026 how? I can\u2019t go anywhere!"
+    audioClip: {fileID: 8300000, guid: 2fc9c6523d2c3ca4b8edc3fecbd59d35, type: 3}
+  - text: "Don\u2019t worry, I have another trick for you: see that purple spot?\r\nIf
+      you focus on it, you can teleport!"
+    audioClip: {fileID: 8300000, guid: 284eab97c0199e446bff3a65b53e9d1e, type: 3}
+  - text: "Wow and you just\u2026 kept it for yourself until now?"
+    audioClip: {fileID: 8300000, guid: 98c3c6e6af0ffd34dbb55641fd9f659b, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 1
+  lockMovementDuringDialogue: 1
+  movementLockDelay: 0
+  lockCameraRotation: 1
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable:
+  - {fileID: 5774026673729277336}
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: TeleportBase, Assembly-CSharp
+        m_MethodName: EnableObject
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: AbilityBase, Assembly-CSharp
+        m_MethodName: SetLevelAllowed
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &8791715544879469874
 GameObject:
   m_ObjectHideFlags: 0
@@ -806,6 +1134,11 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
   forceInitializeDissolveValues: 1
   initialDissolveValue: 1
   enableObjectActivation: 1
@@ -943,6 +1276,11 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
   forceInitializeDissolveValues: 1
   initialDissolveValue: 1
   enableObjectActivation: 0
