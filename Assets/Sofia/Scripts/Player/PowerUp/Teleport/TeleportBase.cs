@@ -10,6 +10,13 @@ public class TeleportBase : MonoBehaviour
     public UnityEvent OnObjectEnabled;
     public UnityEvent OnObjectDisabled;
     
+    [Header("Particle System Hover")]
+    [SerializeField] private new ParticleSystem particleSystem;
+    [SerializeField] private Color hoverColor = Color.white; // FFFFFF
+    
+    private Color originalStartColor;
+    private bool isHovering = false;
+    
     private void Start()
     {
         // Verifica che l'oggetto abbia un collider per il raycast
@@ -23,9 +30,68 @@ public class TeleportBase : MonoBehaviour
             Debug.Log($"TeleportBase '{gameObject.name}' - Collider: {col.GetType().Name}, Enabled: {col.enabled}, IsTrigger: {col.isTrigger}");
         }
         
+        // Trova il particle system se non è assegnato
+        if (particleSystem == null)
+        {
+            particleSystem = GetComponent<ParticleSystem>();
+        }
+        
+        // Salva il colore originale del particle system
+        if (particleSystem != null)
+        {
+            var main = particleSystem.main;
+            originalStartColor = main.startColor.color;
+            
+            if (showDebugLogs)
+            {
+                Debug.Log($"TeleportBase '{gameObject.name}' - Particle System trovato. Colore originale: {originalStartColor}");
+            }
+        }
+        else if (showDebugLogs)
+        {
+            Debug.LogWarning($"TeleportBase '{gameObject.name}' - Nessun Particle System trovato!");
+        }
+        
         if (showDebugLogs)
         {
             Debug.Log($"TeleportBase '{gameObject.name}' inizializzata. Layer: {LayerMask.LayerToName(gameObject.layer)} (Layer {gameObject.layer})");
+        }
+    }
+    
+    private void OnMouseEnter()
+    {
+        if (!isHovering && particleSystem != null)
+        {
+            isHovering = true;
+            SetParticleStartColor(hoverColor);
+            
+            if (showDebugLogs)
+            {
+                Debug.Log($"Mouse hover iniziato su '{gameObject.name}' - Colore cambiato a bianco");
+            }
+        }
+    }
+    
+    private void OnMouseExit()
+    {
+        if (isHovering && particleSystem != null)
+        {
+            isHovering = false;
+            SetParticleStartColor(originalStartColor);
+            
+            if (showDebugLogs)
+            {
+                Debug.Log($"Mouse hover terminato su '{gameObject.name}' - Colore ripristinato");
+            }
+        }
+    }
+    
+    private void SetParticleStartColor(Color color)
+    {
+        if (particleSystem != null)
+        {
+            var main = particleSystem.main;
+            main.startColor = color;
         }
     }
     
@@ -102,5 +168,28 @@ public class TeleportBase : MonoBehaviour
         {
             Debug.Log($"Player si è teletrasportato su: {gameObject.name}");
         }
+    }
+    
+    /// <summary>
+    /// Imposta manualmente il riferimento al particle system
+    /// </summary>
+    /// <param name="ps">Il particle system da utilizzare</param>
+    public void SetParticleSystem(ParticleSystem ps)
+    {
+        particleSystem = ps;
+        if (particleSystem != null)
+        {
+            var main = particleSystem.main;
+            originalStartColor = main.startColor.color;
+        }
+    }
+    
+    /// <summary>
+    /// Imposta il colore hover personalizzato
+    /// </summary>
+    /// <param name="color">Il colore da usare durante l'hover</param>
+    public void SetHoverColor(Color color)
+    {
+        hoverColor = color;
     }
 }
