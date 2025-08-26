@@ -34,6 +34,9 @@ public class TeleportAbility : AbilityBase
 
     private Vector3 teleportPosition;
     private bool validTeleportTarget = false;
+    
+    // Tracciamento hover per TeleportBase
+    private TeleportBase currentMouseHoveredBase = null;
 
     protected override void Awake()
     {
@@ -92,6 +95,12 @@ public class TeleportAbility : AbilityBase
     {
         base.Update();
 
+        // Controllo costante per TeleportBase sotto il mirino (centro schermo)
+        CheckCrosshairHover();
+        
+        // Controllo hover del mouse invisibile sulle TeleportBase
+        CheckMouseHoverOnTeleportBases();
+
         // Controllo per teletrasporto diretto su TeleportBase
         if (Input.GetKeyDown(directTeleportKey))
         {
@@ -134,12 +143,111 @@ public class TeleportAbility : AbilityBase
     }
 
     /// <summary>
+    /// Controlla hover del mouse invisibile sulle TeleportBase per feedback visivo
+    /// </summary>
+    private void CheckMouseHoverOnTeleportBases()
+    {
+        Camera cameraToUse = playerCamera != null ? playerCamera : Camera.main;
+        
+        if (cameraToUse == null)
+        {
+            return;
+        }
+
+        // Raycast dalla posizione del mouse (anche se invisibile)
+        Ray mouseRay = cameraToUse.ScreenPointToRay(Input.mousePosition);
+        TeleportBase newHoveredBase = null;
+
+        // Controlla se il mouse (invisibile) colpisce una TeleportBase
+        if (Physics.Raycast(mouseRay, out RaycastHit hit, 100f))
+        {
+            TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
+            if (teleportBase != null)
+            {
+                newHoveredBase = teleportBase;
+            }
+        }
+
+        // Gestisci il cambio di hover del mouse
+        if (newHoveredBase != currentMouseHoveredBase)
+        {
+            // Esci dal precedente hover
+            if (currentMouseHoveredBase != null)
+            {
+                currentMouseHoveredBase.OnCursorExit();
+            }
+
+            // Entra nel nuovo hover
+            currentMouseHoveredBase = newHoveredBase;
+            if (newHoveredBase != null)
+            {
+                newHoveredBase.OnCursorEnter();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Controlla se c'è una TeleportBase sotto il mirino (centro schermo)
+    /// </summary>
+    private void CheckCrosshairHover()
+    {
+        Camera cameraToUse = playerCamera != null ? playerCamera : Camera.main;
+        
+        if (cameraToUse == null)
+        {
+            return;
+        }
+
+        // Raycast dal centro dello schermo
+        Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        Ray ray = cameraToUse.ScreenPointToRay(screenCenter);
+        
+        TeleportBase previousHoveredBase = TeleportBase.currentHoveredBase;
+        TeleportBase newHoveredBase = null;
+
+        // Controlla se colpisce una TeleportBase
+        if (Physics.Raycast(ray, out RaycastHit hit, 100f))
+        {
+            TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
+            if (teleportBase != null)
+            {
+                newHoveredBase = teleportBase;
+            }
+        }
+
+        // Gestisci il cambio di hover del crosshair
+        if (newHoveredBase != previousHoveredBase)
+        {
+            // Esci dal precedente hover
+            if (previousHoveredBase != null)
+            {
+                previousHoveredBase.OnCrosshairExit();
+            }
+
+            // Entra nel nuovo hover
+            TeleportBase.currentHoveredBase = newHoveredBase;
+            if (newHoveredBase != null)
+            {
+                newHoveredBase.OnCrosshairEnter();
+            }
+        }
+    }
+
+    /// <summary>
     /// Tenta il teletrasporto diretto su una TeleportBase sotto hover
     /// </summary>
     private void TryDirectTeleport()
     {
-        // Controlla se c'è una TeleportBase sotto hover
-        if (TeleportBase.currentHoveredBase == null)
+        // Prima priorità: TeleportBase sotto il crosshair (centro schermo)
+        TeleportBase targetBase = TeleportBase.currentHoveredBase;
+        
+        // Se non c'è nulla sotto il crosshair, usa quella sotto il mouse
+        if (targetBase == null)
+        {
+            targetBase = currentMouseHoveredBase;
+        }
+        
+        if (targetBase == null)
         {
             Debug.Log("Nessuna TeleportBase sotto hover per il teletrasporto diretto.");
             
@@ -151,7 +259,7 @@ public class TeleportAbility : AbilityBase
             return;
         }
 
-        Debug.Log($"Tentativo teletrasporto diretto su: {TeleportBase.currentHoveredBase.gameObject.name}");
+        Debug.Log($"Tentativo teletrasporto diretto su: {targetBase.gameObject.name}");
 
         // Controlla se hai abbastanza potere
         if (!powerUpScript.HasEnoughPower(powerCost))
@@ -179,8 +287,8 @@ public class TeleportAbility : AbilityBase
         }
 
         // Esegui il teletrasporto diretto
-        Vector3 targetPosition = TeleportBase.currentHoveredBase.GetTeleportPosition();
-        StartCoroutine(DirectTeleportRoutine(targetPosition, TeleportBase.currentHoveredBase));
+        Vector3 targetPosition = targetBase.GetTeleportPosition();
+        StartCoroutine(DirectTeleportRoutine(targetPosition, targetBase));
     }
 
     /// <summary>
@@ -280,9 +388,8 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.PlayEffect();
         }
 
-        // Sblocca il cursor per il teletrasporto
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        // IMPORTANTE: Il cursore rimane nascosto ma libero di muoversi
+        // Non cambiamo le impostazioni del cursore qui!
 
         // Attiva l'effetto particellare pointer
         if (teleportPointer != null)
@@ -317,9 +424,7 @@ public class TeleportAbility : AbilityBase
         
         SetVisible(true);
 
-        // Ripristina il cursor come era prima
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        // Non tocchiamo le impostazioni del cursore - rimane come impostato dal CursorController
 
         if (teleportEffectController != null)
         {
@@ -370,11 +475,11 @@ public class TeleportAbility : AbilityBase
 
         Vector2 mousePosition;
         
-        // Usa la posizione del mouse anche se nascosto
+        // Usa la posizione del mouse (anche se invisibile!)
         if (Mouse.current != null)
         {
             mousePosition = Mouse.current.position.ReadValue();
-            Debug.Log($"Mouse position: {mousePosition}");
+            Debug.Log($"Mouse position (invisibile): {mousePosition}");
         }
         else
         {
@@ -389,12 +494,12 @@ public class TeleportAbility : AbilityBase
         Debug.DrawRay(ray.origin, ray.direction * 900f, Color.red, 0.1f);
         Debug.Log($"Ray - Origin: {ray.origin}, Direction: {ray.direction}");
         
-        // TEST: Prima controlliamo se colpisce QUALSIASI cosa
+        // Controlliamo se colpisce qualcosa
         if (Physics.Raycast(ray, out var anyHit, 900f))
         {
             Debug.Log($"🎯 RAYCAST COLPISCE: {anyHit.collider.name} - Layer: {LayerMask.LayerToName(anyHit.collider.gameObject.layer)} ({anyHit.collider.gameObject.layer}) - Distanza: {anyHit.distance:F2}");
             
-            // Ora controlliamo se è nel layer corretto
+            // Controlliamo se è nel layer corretto
             if (((1 << anyHit.collider.gameObject.layer) & teleportableLayers) != 0)
             {
                 Debug.Log("✅ OGGETTO NEL LAYER CORRETTO!");

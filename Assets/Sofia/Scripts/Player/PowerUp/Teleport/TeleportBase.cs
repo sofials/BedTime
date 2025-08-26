@@ -12,12 +12,12 @@ public class TeleportBase : MonoBehaviour
     
     [Header("Particle System Hover")]
     [SerializeField] private new ParticleSystem particleSystem;
-    [SerializeField] private Color hoverColor = Color.white; // FFFFFF
+    [SerializeField] private Color hoverColor = Color.white;
     
     private Color originalStartColor;
     private bool isHovering = false;
     
-    // Riferimento statico alla base attualmente sotto hover
+    // Riferimento statico alla base attualmente sotto il cursore invisibile
     public static TeleportBase currentHoveredBase = null;
     
     private void Start()
@@ -28,18 +28,17 @@ public class TeleportBase : MonoBehaviour
         {
             Debug.LogWarning($"TeleportBase '{gameObject.name}' non ha un Collider! Aggiungi un Collider per il funzionamento del teletrasporto.");
         }
-        else
+        else if (showDebugLogs)
         {
-            Debug.Log($"TeleportBase '{gameObject.name}' - Collider: {col.GetType().Name}, Enabled: {col.enabled}, IsTrigger: {col.isTrigger}");
+            Debug.Log($"TeleportBase '{gameObject.name}' - Collider: {col.GetType().Name}, Enabled: {col.enabled}");
         }
         
-        // Trova il particle system se non è assegnato
+        // Setup particle system
         if (particleSystem == null)
         {
             particleSystem = GetComponent<ParticleSystem>();
         }
         
-        // Salva il colore originale del particle system
         if (particleSystem != null)
         {
             var main = particleSystem.main;
@@ -54,40 +53,86 @@ public class TeleportBase : MonoBehaviour
         {
             Debug.LogWarning($"TeleportBase '{gameObject.name}' - Nessun Particle System trovato!");
         }
+    }
+
+    void Update()
+    {
+        // Controlla se il cursore invisibile è sopra questa base
+        CheckInvisibleCursorHover();
+    }
+
+    /// <summary>
+    /// Controlla se il cursore invisibile sta facendo hover su questa base
+    /// </summary>
+    private void CheckInvisibleCursorHover()
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null) return;
+
+        // Raycast dalla posizione del mouse invisibile
+        Ray mouseRay = mainCamera.ScreenPointToRay(Input.mousePosition);
         
-        if (showDebugLogs)
+        // Controlla se il raycast colpisce questo oggetto
+        Collider myCollider = GetComponent<Collider>();
+        if (myCollider != null && myCollider.Raycast(mouseRay, out RaycastHit hit, Mathf.Infinity))
         {
-            Debug.Log($"TeleportBase '{gameObject.name}' inizializzata. Layer: {LayerMask.LayerToName(gameObject.layer)} (Layer {gameObject.layer})");
+            // Il cursore invisibile è sopra questa base
+            if (!isHovering)
+            {
+                OnCursorEnter();
+            }
+        }
+        else
+        {
+            // Il cursore invisibile non è sopra questa base
+            if (isHovering && currentHoveredBase == this)
+            {
+                OnCursorExit();
+            }
         }
     }
-    
-    private void OnMouseEnter()
+
+    /// <summary>
+    /// Chiamato quando il cursore invisibile entra su questa base
+    /// </summary>
+    private void OnCursorEnter()
     {
-        if (!isHovering && particleSystem != null)
+        if (!isHovering)
         {
             isHovering = true;
-            currentHoveredBase = this; // Imposta questa base come quella sotto hover
-            SetParticleStartColor(hoverColor);
+            currentHoveredBase = this;
+            
+            if (particleSystem != null)
+            {
+                SetParticleStartColor(hoverColor);
+            }
             
             if (showDebugLogs)
             {
-                Debug.Log($"Mouse hover iniziato su '{gameObject.name}' - Colore cambiato a bianco");
+                Debug.Log($"Cursore invisibile HOVER su '{gameObject.name}' - Colore cambiato");
             }
         }
     }
     
-    private void OnMouseExit()
+    /// <summary>
+    /// Chiamato quando il cursore invisibile esce da questa base
+    /// </summary>
+    private void OnCursorExit()
     {
-        if (isHovering && particleSystem != null)
+        if (isHovering)
         {
             isHovering = false;
             if (currentHoveredBase == this)
-                currentHoveredBase = null; // Rimuovi il riferimento se è questa base
-            SetParticleStartColor(originalStartColor);
+                currentHoveredBase = null;
+            
+            if (particleSystem != null)
+            {
+                SetParticleStartColor(originalStartColor);
+            }
             
             if (showDebugLogs)
             {
-                Debug.Log($"Mouse hover terminato su '{gameObject.name}' - Colore ripristinato");
+                Debug.Log($"Cursore invisibile USCITO da '{gameObject.name}' - Colore ripristinato");
             }
         }
     }
@@ -106,8 +151,6 @@ public class TeleportBase : MonoBehaviour
     /// </summary>
     public Vector3 GetTeleportPosition()
     {
-        // Puoi personalizzare questo metodo per ogni base se necessario
-        // Per esempio, potresti avere un Transform specifico come punto di spawn
         return transform.position;
     }
     
@@ -135,6 +178,10 @@ public class TeleportBase : MonoBehaviour
     {
         if (gameObject.activeInHierarchy)
         {
+            // Rimuovi riferimento se stiamo disattivando questa base
+            if (currentHoveredBase == this)
+                currentHoveredBase = null;
+                
             OnObjectDisabled?.Invoke();
             gameObject.SetActive(false);
             
@@ -159,7 +206,6 @@ public class TeleportBase : MonoBehaviour
     /// <summary>
     /// Imposta lo stato dell'oggetto
     /// </summary>
-    /// <param name="active">True per attivare, False per disattivare</param>
     public void SetObjectActive(bool active)
     {
         if (active)
@@ -189,7 +235,6 @@ public class TeleportBase : MonoBehaviour
     /// <summary>
     /// Imposta manualmente il riferimento al particle system
     /// </summary>
-    /// <param name="ps">Il particle system da utilizzare</param>
     public void SetParticleSystem(ParticleSystem ps)
     {
         particleSystem = ps;
@@ -203,7 +248,6 @@ public class TeleportBase : MonoBehaviour
     /// <summary>
     /// Imposta il colore hover personalizzato
     /// </summary>
-    /// <param name="color">Il colore da usare durante l'hover</param>
     public void SetHoverColor(Color color)
     {
         hoverColor = color;
