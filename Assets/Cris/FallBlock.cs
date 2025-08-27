@@ -32,7 +32,7 @@ public class FallBlock : MonoBehaviour
         originalPosition = transform.position;
         meshRenderer = GetComponent<MeshRenderer>();
         material = meshRenderer.material;
-        originalColor = material.color;
+        originalColor = material.GetColor("_BaseColor"); // Fixed: Use _BaseColor instead of .color
 
         rb = GetComponent<Rigidbody>();
         if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
@@ -104,7 +104,7 @@ public class FallBlock : MonoBehaviour
             material.EnableKeyword("_EMISSION");
             material.SetColor("_EmissionColor", warning ? warningColor * 0.5f : Color.black);
         }
-        material.color = warning ? warningColor : originalColor;
+        material.SetColor("_BaseColor", warning ? warningColor : originalColor); // Fixed: Use SetColor with _BaseColor
     }
 
     private void Respawn()

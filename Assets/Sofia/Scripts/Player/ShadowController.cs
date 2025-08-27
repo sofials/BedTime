@@ -205,25 +205,48 @@ public class ShadowController : MonoBehaviour
         }
     }
     
-    bool IsJumping()
+    // OPTION 1: Remove the unused variable (Simplest fix)
+// Just delete this line since you're not using it:
+// private bool wasGrounded = true; // DELETE THIS LINE
+
+// OPTION 2: Use the variable for improved jump detection (Better approach)
+// Replace your IsJumping() method with this enhanced version:
+
+bool IsJumping()
+{
+    if (!onlyShowWhenJumping) return true; // Se il modo salto è disabilitato, sempre "saltando"
+    
+    // Metodo 1: Usa ThirdPersonController (preferito)
+    if (playerController != null)
     {
-        if (!onlyShowWhenJumping) return true; // Se il modo salto è disabilitato, sempre "saltando"
+        bool isGrounded = playerController.IsGrounded();
         
-        // Metodo 1: Usa ThirdPersonController (preferito)
-        if (playerController != null)
+        // Enhanced jump detection: consider landing transitions
+        bool justLanded = wasGrounded == false && isGrounded == true;
+        bool justJumped = wasGrounded == true && isGrounded == false;
+        
+        wasGrounded = isGrounded; // Update the state
+        
+        // You could add special handling for landing/jumping moments here
+        if (justLanded)
         {
-            // Il player è considerato "in salto" se non è a terra
-            bool isGrounded = playerController.IsGrounded();
-            return !isGrounded;
+            // Optional: Add landing effects or delayed shadow hiding
+            Debug.Log("Player just landed");
         }
         
-        // Metodo 2: Fallback - raycast veloce verso il basso per rilevare distanza da terra
-        Vector3 rayStart = raycastStartPoint.position;
-        bool isNearGround = Physics.Raycast(rayStart, Vector3.down, jumpDetectionHeight, groundLayer);
-        
-        // Se non rileva il terreno entro l'altezza specificata, considera che sta saltando
-        return !isNearGround;
+        return !isGrounded;
     }
+    
+    // Metodo 2: Fallback - raycast veloce verso il basso per rilevare distanza da terra
+    Vector3 rayStart = raycastStartPoint.position;
+    bool isNearGround = Physics.Raycast(rayStart, Vector3.down, jumpDetectionHeight, groundLayer);
+    
+    // Update wasGrounded for consistency
+    wasGrounded = isNearGround;
+    
+    // Se non rileva il terreno entro l'altezza specificata, considera che sta saltando
+    return !isNearGround;
+}
     
     void HandleNotJumpingState()
     {

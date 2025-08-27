@@ -52,8 +52,6 @@ private float lastLedgeGrabTime = 0f; // Ultimo tempo di rilascio dal ledge
 [Header("Ledge Grab Position")]
 [SerializeField] private float hangHeightOffset = -0.4f; // ← REGOLA QUI L'ALTEZZA! Negativo = più in basso
 [SerializeField] private float hangDistanceFromWall = 0.15f; // Distanza dal muro
-[SerializeField] private bool useSmoothedHanging = true; // Anti-flickering
-    [SerializeField] private float hangingSmoothSpeed = 25f; // Velocità di stabilizzazione
 [SerializeField] private float hangStabilizationForce = 15f; // Forza per mantenere posizione
 [SerializeField] private float hangPositionTolerance = 0.1f; // Tolleranza per considerare "in posizione"
 
@@ -178,9 +176,7 @@ private Vector3 hangForward;
 private float hangStabilityTimer = 0f; // Timer per stabilizzazione
 private const float HANG_STABILITY_TIME = 0.1f; // Tempo minimo prima di validare hang
     private bool isHangPositionStable = false;
-    private float? wallLostTimer = null;
 private bool isClimbing = false;
-[SerializeField] private float wallLostTolerance = 0.2f; // Tolleranza per muro temporaneamente perso
 
 
 

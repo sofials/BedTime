@@ -30,11 +30,11 @@ public class TeleportAbility : AbilityBase
     [SerializeField] private float playerSkipDistance = 3f;
     
     [Header("Detection Settings")]
-    [SerializeField] private float maxDetectionAngle = 45f; // Angolo massimo dal centro (gradi)
-    [SerializeField] private float screenDetectionRadius = 200f; // Raggio in pixel dal centro schermo
-    [SerializeField] private int raycastSamples = 9; // Numero di raggi da lanciare (3x3 grid)
-    [SerializeField] private bool useMultipleRaycasts = true; // Usa raggi multipli
-    [SerializeField] private bool useScreenAreaDetection = true; // Usa rilevamento area schermo
+    [SerializeField] private float maxDetectionAngle = 45f;
+    [SerializeField] private float screenDetectionRadius = 200f;
+    [SerializeField] private int raycastSamples = 9;
+    [SerializeField] private bool useMultipleRaycasts = true;
+    [SerializeField] private bool useScreenAreaDetection = true;
     
     private AudioSource teleportConfirmAudioSource;
     private AudioSource teleportFailureAudioSource;
@@ -141,11 +141,19 @@ public class TeleportAbility : AbilityBase
         if (TeleportBase.currentHoveredBase == null)
         {
             Debug.Log("FAILURE - Nessuna TeleportBase inquadrata dalla camera");
-            PlayTeleportFailureSound();
+            // REMOVED: PlayTeleportFailureSound(); - Non riprodurre suono se l'abilità non è stata ancora attivata
             return;
         }
 
+        // Prova ad attivare l'abilità attraverso il metodo base
+        bool wasActivated = CanActivate();
         base.TryActivate();
+        
+        // Solo se l'attivazione fallisce DOPO essere stata tentata, riproduci il suono di fallimento
+        if (wasActivated && !IsActive)
+        {
+            PlayTeleportFailureSound();
+        }
     }
 
     public new string GetDisableReason()
@@ -170,13 +178,11 @@ public class TeleportAbility : AbilityBase
 
         TeleportBase newHoveredBase = null;
         
-        // METODO 1: Raycast multipli in griglia dal centro schermo
         if (useMultipleRaycasts && newHoveredBase == null)
         {
             newHoveredBase = CheckMultipleScreenRaycasts(cameraToUse);
         }
         
-        // METODO 2: Raycast dalla camera con skip del player (metodo originale)
         if (newHoveredBase == null)
         {
             Vector3 rayOrigin = cameraToUse.transform.position + cameraToUse.transform.forward * playerSkipDistance;
@@ -196,13 +202,12 @@ public class TeleportAbility : AbilityBase
             }
         }
         
-        // METODO 3: OverlapSphere con angolo di rilevamento ampliato
         if (newHoveredBase == null)
         {
             Vector3 searchCenter = cameraToUse.transform.position + cameraToUse.transform.forward * (playerSkipDistance + 5f);
-            Collider[] nearbyColliders = Physics.OverlapSphere(searchCenter, 12f, teleportLayerMask); // Aumentato raggio
+            Collider[] nearbyColliders = Physics.OverlapSphere(searchCenter, 12f, teleportLayerMask);
             
-            float closestScore = float.MaxValue; // Combina distanza e angolo
+            float closestScore = float.MaxValue;
             TeleportBase bestBase = null;
             
             foreach (var col in nearbyColliders)
@@ -213,10 +218,9 @@ public class TeleportAbility : AbilityBase
                     Vector3 directionToBase = (teleportBase.transform.position - cameraToUse.transform.position).normalized;
                     float angle = Vector3.Angle(cameraToUse.transform.forward, directionToBase);
                     
-                    if (angle < maxDetectionAngle) // Usa il parametro configurabile
+                    if (angle < maxDetectionAngle)
                     {
                         float distance = Vector3.Distance(cameraToUse.transform.position, teleportBase.transform.position);
-                        // Score che favorisce angoli piccoli e distanze corte
                         float score = (angle / maxDetectionAngle) * 0.7f + (distance / maxTeleportRange) * 0.3f;
                         
                         if (score < closestScore)
@@ -235,13 +239,11 @@ public class TeleportAbility : AbilityBase
             }
         }
         
-        // METODO 4: Rilevamento area schermo con proiezione
         if (useScreenAreaDetection && newHoveredBase == null)
         {
             newHoveredBase = CheckScreenAreaDetection(cameraToUse);
         }
 
-        // Gestisci cambio target
         if (newHoveredBase != TeleportBase.currentHoveredBase)
         {
             if (TeleportBase.currentHoveredBase != null)
@@ -262,7 +264,6 @@ public class TeleportAbility : AbilityBase
         TeleportBase bestBase = null;
         float closestDistance = float.MaxValue;
         
-        // Crea una griglia 3x3 di punti intorno al centro
         int gridSize = Mathf.RoundToInt(Mathf.Sqrt(raycastSamples));
         float step = screenDetectionRadius / gridSize;
         
@@ -272,7 +273,6 @@ public class TeleportAbility : AbilityBase
             {
                 Vector2 screenPoint = screenCenter + new Vector2(x * step, y * step);
                 
-                // Assicurati che il punto sia dentro i limiti dello schermo
                 if (screenPoint.x < 0 || screenPoint.x > Screen.width || 
                     screenPoint.y < 0 || screenPoint.y > Screen.height)
                     continue;
@@ -303,58 +303,50 @@ public class TeleportAbility : AbilityBase
     }
     
     private TeleportBase CheckScreenAreaDetection(Camera camera)
-{
-    // Trova tutti i TeleportBase nella scena
-    TeleportBase[] allBases = FindObjectsByType<TeleportBase>(FindObjectsSortMode.None);
-    TeleportBase bestBase = null;
-    float bestScore = float.MaxValue;
-
-    Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-
-    foreach (var teleportBase in allBases)
     {
-        // Controlla se la base è visibile dalla camera
-        Vector3 screenPos = camera.WorldToScreenPoint(teleportBase.transform.position);
+        TeleportBase[] allBases = FindObjectsByType<TeleportBase>(FindObjectsSortMode.None);
+        TeleportBase bestBase = null;
+        float bestScore = float.MaxValue;
 
-        // Se è dietro la camera, salta
-        if (screenPos.z <= 0) continue;
+        Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
-        // Calcola la distanza dal centro schermo in pixel
-        Vector2 screenPos2D = new Vector2(screenPos.x, screenPos.y);
-        float screenDistance = Vector2.Distance(screenCenter, screenPos2D);
-
-        // Se è troppo lontano dal centro, salta
-        if (screenDistance > screenDetectionRadius) continue;
-
-        // Controlla se c'è line of sight
-        Vector3 directionToBase = (teleportBase.transform.position - camera.transform.position).normalized;
-        Ray losRay = new Ray(camera.transform.position + camera.transform.forward * playerSkipDistance, directionToBase);
-
-        if (Physics.Raycast(losRay, out RaycastHit hit, maxTeleportRange))
+        foreach (var teleportBase in allBases)
         {
-            if (hit.collider.GetComponent<TeleportBase>() == teleportBase)
-            {
-                // Score basato su distanza schermo e distanza 3D
-                float worldDistance = Vector3.Distance(camera.transform.position, teleportBase.transform.position);
-                float score = (screenDistance / screenDetectionRadius) * 0.6f + (worldDistance / maxTeleportRange) * 0.4f;
+            Vector3 screenPos = camera.WorldToScreenPoint(teleportBase.transform.position);
 
-                if (score < bestScore)
+            if (screenPos.z <= 0) continue;
+
+            Vector2 screenPos2D = new Vector2(screenPos.x, screenPos.y);
+            float screenDistance = Vector2.Distance(screenCenter, screenPos2D);
+
+            if (screenDistance > screenDetectionRadius) continue;
+
+            Vector3 directionToBase = (teleportBase.transform.position - camera.transform.position).normalized;
+            Ray losRay = new Ray(camera.transform.position + camera.transform.forward * playerSkipDistance, directionToBase);
+
+            if (Physics.Raycast(losRay, out RaycastHit hit, maxTeleportRange))
+            {
+                if (hit.collider.GetComponent<TeleportBase>() == teleportBase)
                 {
-                    bestScore = score;
-                    bestBase = teleportBase;
+                    float worldDistance = Vector3.Distance(camera.transform.position, teleportBase.transform.position);
+                    float score = (screenDistance / screenDetectionRadius) * 0.6f + (worldDistance / maxTeleportRange) * 0.4f;
+
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestBase = teleportBase;
+                    }
                 }
             }
         }
+
+        if (bestBase != null)
+        {
+            Debug.Log($"METODO SCREEN-AREA SUCCESS: Found '{bestBase.name}' with score {bestScore:F2}");
+        }
+
+        return bestBase;
     }
-
-    if (bestBase != null)
-    {
-        Debug.Log($"METODO SCREEN-AREA SUCCESS: Found '{bestBase.name}' with score {bestScore:F2}");
-    }
-
-    return bestBase;
-}
-
 
     private IEnumerator ExecuteTeleportRoutine(Vector3 targetPosition, TeleportBase targetBase)
     {

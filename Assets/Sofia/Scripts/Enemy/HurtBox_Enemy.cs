@@ -32,7 +32,8 @@ public class HurtBox_Enemy : MonoBehaviour
                 var allComponents = GetComponentsInParent<MonoBehaviour>();
                 foreach (var comp in allComponents)
                 {
-                    var method = comp.GetType().GetMethod("TakeDamage");
+                    // Fix: Specify the exact method signature - TakeDamage that takes a float parameter
+                    var method = comp.GetType().GetMethod("TakeDamage", new System.Type[] { typeof(float) });
                     if (method != null)
                     {
                         method.Invoke(comp, new object[] { 25f });

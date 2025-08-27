@@ -86,7 +86,6 @@ public class DialogueSystem : MonoBehaviour
     [Range(0f, 2f)]
     [SerializeField] private float dissolveAudioFadeTime = 0.5f;
 [Header("🎮 Player Movement Control")]
-[SerializeField] private bool lockPlayerMovement = false;
 [Tooltip("Se true, blocca completamente i controlli del player durante questo dialogo")]
 [SerializeField] private bool lockMovementDuringDialogue = false;
 [Tooltip("Ritardo prima di bloccare il movimento (utile per transizioni fluide)")]
