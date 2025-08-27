@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 24415404114636775}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 3.02, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -54,7 +54,7 @@ AudioSource:
   Priority: 128
   DopplerLevel: 0
   MinDistance: 2
-  MaxDistance: 150
+  MaxDistance: 30
   Pan2D: 0
   rolloffMode: 1
   BypassEffects: 0
@@ -516,6 +516,14 @@ MonoBehaviour:
       m_Calls: []
   enableDetailedLogs: 1
   presentSize: 1
+  isSweetPlazaPresent: 0
+  sweetPlazaObjectToEnable: {fileID: 0}
+  sweetPlazaMessage: Dolce sorpresa della Sweet Plaza sbloccata!
+  isPlaygroundArenaPresent: 0
+  playgroundArenaObjectToEnable: {fileID: 0}
+  playgroundArenaMessage: Playground Arena sbloccato!
+  completionObjectToEnable: {fileID: 0}
+  completionMessage: "\U0001F389 COLLEZIONE COMPLETA! Tutti i regali speciali raccolti!"
 --- !u!1 &7479074189862243235
 GameObject:
   m_ObjectHideFlags: 0

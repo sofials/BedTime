@@ -58,12 +58,18 @@ public class RaftPlatform : MonoBehaviour
     void Start()
     {
         SampleSpline();
-        lastPosition = transform.position;
-
+        
         // Calcola la distanza tra knot 0 e 1
         startDistance = 0f;
         endDistance = GetDistanceAtT(1f / (splineContainer.Spline.Count - 1));
-        currentDistance = startDistance;
+        
+        // ✅ SOLUZIONE: Forza sempre la zattera all'inizio della spline
+        currentDistance = startDistance; // Sempre 0
+        
+        // ✅ POSIZIONA FISICAMENTE la zattera all'inizio della spline
+        Vector3 startPosition = GetPositionAtDistance(startDistance);
+        transform.position = startPosition;
+        lastPosition = startPosition;
 
         isWaitingAtEnd = true;
         
@@ -71,7 +77,13 @@ public class RaftPlatform : MonoBehaviour
         SetupCheckpointIntegration();
         
         // Salva la posizione iniziale come ultima posizione conosciuta del player
-        lastKnownPlayerPosition = GetPositionAtDistance(startDistance);
+        lastKnownPlayerPosition = startPosition;
+        
+        if (debugRespawnSystem)
+        {
+            Debug.Log($"[RaftPlatform] Zattera posizionata automaticamente all'inizio della spline: {startPosition}");
+            Debug.Log($"[RaftPlatform] currentDistance={currentDistance}, startDistance={startDistance}, endDistance={endDistance}");
+        }
     }
 
     void Update()
@@ -418,6 +430,30 @@ public class RaftPlatform : MonoBehaviour
         float tolerance = 0.1f;
         return Mathf.Abs(currentDistance - startDistance) < tolerance || 
                Mathf.Abs(currentDistance - endDistance) < tolerance;
+    }
+
+    // ✅ NUOVO: Metodo pubblico per riposizionare manualmente all'inizio
+    [ContextMenu("Reset to Start Position")]
+    public void ResetToStartPosition()
+    {
+        if (sampledPoints.Count == 0)
+        {
+            SampleSpline();
+        }
+        
+        currentDistance = startDistance;
+        Vector3 startPosition = GetPositionAtDistance(startDistance);
+        transform.position = startPosition;
+        lastPosition = startPosition;
+        
+        isMoving = false;
+        isWaitingAtEnd = true;
+        isReturningToTerminal = false;
+        
+        if (debugRespawnSystem)
+        {
+            Debug.Log($"[RaftPlatform] Zattera riposizionata manualmente all'inizio: {startPosition}");
+        }
     }
 
     void SampleSpline()

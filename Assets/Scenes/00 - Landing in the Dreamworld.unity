@@ -2447,135 +2447,11 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1071155313}
   m_SourcePrefab: {fileID: 100100000, guid: 1b1b21ea7657f87438d04471c5d7a3c0, type: 3}
---- !u!1 &204885416
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 204885418}
-  - component: {fileID: 204885417}
-  m_Layer: 6
-  m_Name: Hit
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!82 &204885417
+--- !u!82 &204885417 stripped
 AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 6192309564096183422, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+  m_PrefabInstance: {fileID: 1477881139}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 204885416}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 4ac5d8493c7128c4dbde05b7dd78b842, type: 3}
-  m_Resource: {fileID: 8300000, guid: 4ac5d8493c7128c4dbde05b7dd78b842, type: 3}
-  m_PlayOnAwake: 0
-  m_Volume: 0.813
-  m_Pitch: 1
-  Loop: 0
-  Mute: 0
-  Spatialize: 0
-  SpatializePostEffects: 0
-  Priority: 128
-  DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
-  Pan2D: 0
-  rolloffMode: 0
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 0
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
---- !u!4 &204885418
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 204885416}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1477881140}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &210848463 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 8569f32c8b9f2b741b4bb52fb2d8b825, type: 3}
@@ -4503,14 +4379,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 0, g: 0.5737934, b: 1, a: 1}
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!64 &417665481
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -5714,14 +5591,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 0, g: 0.5737934, b: 1, a: 1}
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!64 &528473337
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -8561,9 +8439,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9b22e7fb03eca44986e413edfa9298e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  useTriggerCollider: 1
+  onlyTriggerOnce: 1
   earthquakeDuration: 3
   disablePlayerMovement: 1
-  onlyTriggerOnce: 1
   audioSource: {fileID: 725893508}
   mainAudio: {fileID: 8300000, guid: 89e5f1ff212aeba499618537a1cb90e6, type: 3}
   audioVolume: 0.8
@@ -8572,10 +8451,8 @@ MonoBehaviour:
   enableCameraShake: 1
   shakeDelay: 0
   shakeStopDelay: 1
-  firstObject: {fileID: 1977334250}
-  secondObject: {fileID: 1446439487}
-  firstMaterial: {fileID: 2100000, guid: 233c3eb280bca6a46aeff771ad4206a6, type: 2}
-  secondMaterial: {fileID: 2100000, guid: 3a30bece7f7b8ee4dbb9b172a01b5b44, type: 2}
+  objectsToDissolve: []
+  materialsToDissolve: []
   dissolvePropertyName: _Dissolve
   dissolveDuration: 3
   dissolveCurve:
@@ -8603,8 +8480,10 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   debugDissolve: 0
-  objectToActivate: {fileID: 2134550626}
+  objectsToActivate: []
   activationDelay: 0
+  objectsToDeactivate: []
+  deactivationDelay: 0
   debugMode: 0
 --- !u!65 &725893510
 BoxCollider:
@@ -9413,14 +9292,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 0, g: 0.5737934, b: 1, a: 1}
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!64 &810250067
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -15696,25 +15576,9 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 3116263618554104455}
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: debugEdgeGrab
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: edgeGrabRange
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: attackEffectUI
       value: 
       objectReference: {fileID: 5546425119688453300}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: debugLedgeGrab
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: edgeGrabHeight
-      value: 6
-      objectReference: {fileID: 0}
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: hitAudioSource
       value: 
@@ -15723,10 +15587,6 @@ PrefabInstance:
       propertyPath: cameraTransform
       value: 
       objectReference: {fileID: 4889601977339824062}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: edgeGrabEnabled
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: climbHeightBoost
       value: 6
@@ -15752,16 +15612,8 @@ PrefabInstance:
       value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: useCustomDirection
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: useSmoothedHanging
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: checkFrontDirection
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: footstepVolumeSprint
@@ -15774,14 +15626,6 @@ PrefabInstance:
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: hitSounds.Array.size
       value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: raycastStartOffset.y
-      value: 7
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: raycastStartOffset.z
-      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: ledgeLayerMask.m_Bits
@@ -15799,39 +15643,11 @@ PrefabInstance:
       propertyPath: 'hitSounds.Array.data[0]'
       value: 
       objectReference: {fileID: 8300000, guid: 4ac5d8493c7128c4dbde05b7dd78b842, type: 3}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: useMultipleRaycastPoints
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: additionalRaycastOffsets.Array.data[0].y
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: additionalRaycastOffsets.Array.data[1].y
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: additionalRaycastOffsets.Array.data[2].y
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      propertyPath: additionalRaycastOffsets.Array.data[3].y
-      value: 2
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 109849861056120627, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 204885418}
+    m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
---- !u!4 &1477881140 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 109849861056120627, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
-  m_PrefabInstance: {fileID: 1477881139}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &1482553943 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5971399396177671162, guid: 5e236f18cbdd9c741a4bad5c2161b67c, type: 3}

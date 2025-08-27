@@ -5,14 +5,10 @@ using System.Collections;
 
 public class TeleportAbility : AbilityBase
 {
-    [Header("Teletrasporto")]
-    public LayerMask teleportableLayers;
+    [Header("Teletrasporto Diretto")]
+    public KeyCode directTeleportKey = KeyCode.E;
     public SkinnedMeshRenderer[] meshesToHide;
-    public GameObject teleportPointer; // Effetto particellare che indica dove punta il mouse
-    public Camera playerCamera; // Camera da assegnare dall'inspector
     
-    private ParticleSystem[] pointerParticleSystems; // Cache dei particle systems
-
     [Header("Controller")]
     public GameObject controllerGameObject;
 
@@ -20,36 +16,47 @@ public class TeleportAbility : AbilityBase
     public CFXR_EffectController teleportEffectController;
 
     [Header("Audio")]
-    public AudioClip teleportConfirmSound;  // Audio specifico per conferma teletrasporto
+    public AudioClip teleportConfirmSound;
+    public AudioClip teleportFailureSound;
+    
+    [Header("Camera Settings")]
+    [SerializeField] private Camera targetCamera;
+    
+    [Header("Layer Settings")]
+    [SerializeField] private LayerMask teleportLayerMask = -1;
+    
+    [Header("Raycast Settings")]
+    [SerializeField] private float maxTeleportRange = 100f;
+    [SerializeField] private float playerSkipDistance = 3f;
+    
+    [Header("Detection Settings")]
+    [SerializeField] private float maxDetectionAngle = 45f; // Angolo massimo dal centro (gradi)
+    [SerializeField] private float screenDetectionRadius = 200f; // Raggio in pixel dal centro schermo
+    [SerializeField] private int raycastSamples = 9; // Numero di raggi da lanciare (3x3 grid)
+    [SerializeField] private bool useMultipleRaycasts = true; // Usa raggi multipli
+    [SerializeField] private bool useScreenAreaDetection = true; // Usa rilevamento area schermo
+    
     private AudioSource teleportConfirmAudioSource;
-
-    [Header("Direct Teleport")]
-    public KeyCode directTeleportKey = KeyCode.E; // Tasto per teletrasporto diretto
+    private AudioSource teleportFailureAudioSource;
+    private bool isTeleporting = false;
 
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
-
-    private PlayerControls controls;
-    private bool confirmPressed;
-
-    private Vector3 teleportPosition;
-    private bool validTeleportTarget = false;
-    
-    // Tracciamento hover per TeleportBase
-    private TeleportBase currentMouseHoveredBase = null;
 
     protected override void Awake()
     {
         base.Awake();
 
-        controls = new PlayerControls();
-        controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
-        controls.Enable();
-
-        effectIconIndex = 2;
-
         teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
         teleportConfirmAudioSource.playOnAwake = false;
+        
+        teleportFailureAudioSource = gameObject.AddComponent<AudioSource>();
+        teleportFailureAudioSource.playOnAwake = false;
+        
+        if (teleportLayerMask == -1)
+        {
+            teleportLayerMask = LayerMask.GetMask("Teleport");
+        }
     }
 
     private void Start()
@@ -66,545 +73,424 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.StopEffect();
             teleportEffectController.gameObject.SetActive(false);
         }
-
-        // Setup del pointer e cache dei particle systems
-        if (teleportPointer != null)
-        {
-            Debug.Log($"TeleportPointer trovato: {teleportPointer.name}");
-            
-            // Cache tutti i particle systems nel pointer
-            pointerParticleSystems = teleportPointer.GetComponentsInChildren<ParticleSystem>();
-            Debug.Log($"Particle Systems trovati nel pointer: {pointerParticleSystems.Length}");
-            
-            // Assicurati che il pointer sia inizialmente disattivo
-            teleportPointer.SetActive(false);
-            
-            // Ferma tutti i particle systems
-            foreach (var ps in pointerParticleSystems)
-            {
-                ps.Stop();
-            }
-        }
-        else
-        {
-            Debug.LogError("TeleportPointer non assegnato nell'inspector!");
-        }
     }
 
     protected override void Update()
     {
         base.Update();
+        CheckScreenCenterForTeleportBases();
 
-        // Controllo costante per TeleportBase sotto il mirino (centro schermo)
-        CheckCrosshairHover();
-        
-        // Controllo hover del mouse invisibile sulle TeleportBase
-        CheckMouseHoverOnTeleportBases();
-
-        // Controllo per teletrasporto diretto su TeleportBase
         if (Input.GetKeyDown(directTeleportKey))
         {
-            TryDirectTeleport();
-        }
-
-        if (!IsActive) 
-        {
-            return;
-        }
-
-        UpdateTeleportTarget();
-
-        if (confirmPressed)
-        {
-            confirmPressed = false;
-
-            if (!validTeleportTarget)
-            {
-                Debug.Log("Target di teletrasporto non valido.");
-                return;
-            }
-
-            if (!powerUpScript.HasEnoughPower(powerCost))
-            {
-                Debug.Log("Non hai abbastanza potere per il teletrasporto.");
-                return;
-            }
-
-            powerUpScript.SpendPower(powerCost);
-
-            // Esegui audio conferma
-            if (teleportConfirmSound != null)
-            {
-                teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
-            }
-
-            StartCoroutine(ConfirmTeleportRoutine());
+            TryActivate();
         }
     }
 
-    /// <summary>
-    /// Controlla hover del mouse invisibile sulle TeleportBase per feedback visivo
-    /// </summary>
-    private void CheckMouseHoverOnTeleportBases()
+    public override bool CanActivate()
     {
-        Camera cameraToUse = playerCamera != null ? playerCamera : Camera.main;
+        bool baseCanActivate = base.CanActivate();
+        bool notTeleporting = !isTeleporting;
+        bool hasValidTarget = TeleportBase.currentHoveredBase != null;
         
-        if (cameraToUse == null)
+        return baseCanActivate && notTeleporting && hasValidTarget;
+    }
+
+    public override void Activate()
+    {
+        if (TeleportBase.currentHoveredBase == null)
         {
+            Debug.LogWarning("Activate() chiamato senza una TeleportBase valida!");
             return;
         }
 
-        // Raycast dalla posizione del mouse (anche se invisibile)
-        Ray mouseRay = cameraToUse.ScreenPointToRay(Input.mousePosition);
-        TeleportBase newHoveredBase = null;
+        Debug.Log($"ATTIVAZIONE - Teletrasporto su: {TeleportBase.currentHoveredBase.gameObject.name}");
 
-        // Controlla se il mouse (invisibile) colpisce una TeleportBase
-        if (Physics.Raycast(mouseRay, out RaycastHit hit, 100f))
+        powerUpScript.SpendPower(powerCost);
+        PlayTeleportConfirmSound();
+        SetPlayerVisible(false);
+
+        Vector3 targetPosition = TeleportBase.currentHoveredBase.GetTeleportPosition();
+        StartCoroutine(ExecuteTeleportRoutine(targetPosition, TeleportBase.currentHoveredBase));
+    }
+
+    public override void Deactivate()
+    {
+        if (isTeleporting)
         {
-            TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
-            if (teleportBase != null)
+            StopAllCoroutines();
+            isTeleporting = false;
+            IsActive = false;
+            
+            SetPlayerVisible(true);
+            UnlockPlayerMovement();
+            
+            if (teleportEffectController != null)
             {
-                newHoveredBase = teleportBase;
+                teleportEffectController.StopEffect();
+                teleportEffectController.gameObject.SetActive(false);
             }
+            
+            Debug.Log("Teletrasporto forzatamente interrotto");
+        }
+    }
+
+    public override void TryActivate()
+    {
+        Debug.Log("Tentativo teletrasporto diretto...");
+
+        if (TeleportBase.currentHoveredBase == null)
+        {
+            Debug.Log("FAILURE - Nessuna TeleportBase inquadrata dalla camera");
+            PlayTeleportFailureSound();
+            return;
         }
 
-        // Gestisci il cambio di hover del mouse
-        if (newHoveredBase != currentMouseHoveredBase)
+        base.TryActivate();
+    }
+
+    public new string GetDisableReason()
+    {
+        string baseReason = base.GetDisableReason();
+        if (baseReason != "motivo sconosciuto") return baseReason;
+        
+        if (isTeleporting) return "teletrasporto in corso";
+        if (TeleportBase.currentHoveredBase == null) return "nessun bersaglio inquadrato";
+        
+        return "motivo sconosciuto";
+    }
+
+    private void CheckScreenCenterForTeleportBases()
+    {
+        Camera cameraToUse = targetCamera != null ? targetCamera : Camera.main;
+        if (cameraToUse == null) 
         {
-            // Esci dal precedente hover
-            if (currentMouseHoveredBase != null)
+            Debug.LogError("Nessuna camera disponibile!");
+            return;
+        }
+
+        TeleportBase newHoveredBase = null;
+        
+        // METODO 1: Raycast multipli in griglia dal centro schermo
+        if (useMultipleRaycasts && newHoveredBase == null)
+        {
+            newHoveredBase = CheckMultipleScreenRaycasts(cameraToUse);
+        }
+        
+        // METODO 2: Raycast dalla camera con skip del player (metodo originale)
+        if (newHoveredBase == null)
+        {
+            Vector3 rayOrigin = cameraToUse.transform.position + cameraToUse.transform.forward * playerSkipDistance;
+            Vector3 rayDirection = cameraToUse.transform.forward;
+            Ray cameraRay = new Ray(rayOrigin, rayDirection);
+            
+            Debug.DrawRay(rayOrigin, rayDirection * maxTeleportRange, Color.red, 0.1f);
+
+            if (Physics.Raycast(cameraRay, out RaycastHit hit, maxTeleportRange, teleportLayerMask))
             {
-                currentMouseHoveredBase.OnCursorExit();
+                TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
+                if (teleportBase != null)
+                {
+                    newHoveredBase = teleportBase;
+                    Debug.Log($"METODO CAMERA SUCCESS: Raycast found '{teleportBase.name}' at {hit.distance:F1}m");
+                }
+            }
+        }
+        
+        // METODO 3: OverlapSphere con angolo di rilevamento ampliato
+        if (newHoveredBase == null)
+        {
+            Vector3 searchCenter = cameraToUse.transform.position + cameraToUse.transform.forward * (playerSkipDistance + 5f);
+            Collider[] nearbyColliders = Physics.OverlapSphere(searchCenter, 12f, teleportLayerMask); // Aumentato raggio
+            
+            float closestScore = float.MaxValue; // Combina distanza e angolo
+            TeleportBase bestBase = null;
+            
+            foreach (var col in nearbyColliders)
+            {
+                TeleportBase teleportBase = col.GetComponent<TeleportBase>();
+                if (teleportBase != null)
+                {
+                    Vector3 directionToBase = (teleportBase.transform.position - cameraToUse.transform.position).normalized;
+                    float angle = Vector3.Angle(cameraToUse.transform.forward, directionToBase);
+                    
+                    if (angle < maxDetectionAngle) // Usa il parametro configurabile
+                    {
+                        float distance = Vector3.Distance(cameraToUse.transform.position, teleportBase.transform.position);
+                        // Score che favorisce angoli piccoli e distanze corte
+                        float score = (angle / maxDetectionAngle) * 0.7f + (distance / maxTeleportRange) * 0.3f;
+                        
+                        if (score < closestScore)
+                        {
+                            closestScore = score;
+                            bestBase = teleportBase;
+                        }
+                    }
+                }
+            }
+            
+            if (bestBase != null)
+            {
+                newHoveredBase = bestBase;
+                Debug.Log($"METODO OVERLAP SUCCESS: Found '{bestBase.name}' with score {closestScore:F2}");
+            }
+        }
+        
+        // METODO 4: Rilevamento area schermo con proiezione
+        if (useScreenAreaDetection && newHoveredBase == null)
+        {
+            newHoveredBase = CheckScreenAreaDetection(cameraToUse);
+        }
+
+        // Gestisci cambio target
+        if (newHoveredBase != TeleportBase.currentHoveredBase)
+        {
+            if (TeleportBase.currentHoveredBase != null)
+            {
+                TeleportBase.currentHoveredBase.OnCursorExit();
             }
 
-            // Entra nel nuovo hover
-            currentMouseHoveredBase = newHoveredBase;
             if (newHoveredBase != null)
             {
                 newHoveredBase.OnCursorEnter();
             }
         }
     }
-
-    /// <summary>
-    /// Controlla se c'è una TeleportBase sotto il mirino (centro schermo)
-    /// </summary>
-    private void CheckCrosshairHover()
+    
+    private TeleportBase CheckMultipleScreenRaycasts(Camera camera)
     {
-        Camera cameraToUse = playerCamera != null ? playerCamera : Camera.main;
-        
-        if (cameraToUse == null)
-        {
-            return;
-        }
-
-        // Raycast dal centro dello schermo
         Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        Ray ray = cameraToUse.ScreenPointToRay(screenCenter);
+        TeleportBase bestBase = null;
+        float closestDistance = float.MaxValue;
         
-        TeleportBase previousHoveredBase = TeleportBase.currentHoveredBase;
-        TeleportBase newHoveredBase = null;
-
-        // Controlla se colpisce una TeleportBase
-        if (Physics.Raycast(ray, out RaycastHit hit, 100f))
+        // Crea una griglia 3x3 di punti intorno al centro
+        int gridSize = Mathf.RoundToInt(Mathf.Sqrt(raycastSamples));
+        float step = screenDetectionRadius / gridSize;
+        
+        for (int x = -gridSize/2; x <= gridSize/2; x++)
         {
-            TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
-            if (teleportBase != null)
+            for (int y = -gridSize/2; y <= gridSize/2; y++)
             {
-                newHoveredBase = teleportBase;
+                Vector2 screenPoint = screenCenter + new Vector2(x * step, y * step);
+                
+                // Assicurati che il punto sia dentro i limiti dello schermo
+                if (screenPoint.x < 0 || screenPoint.x > Screen.width || 
+                    screenPoint.y < 0 || screenPoint.y > Screen.height)
+                    continue;
+                
+                Ray ray = camera.ScreenPointToRay(screenPoint);
+                ray.origin = ray.origin + ray.direction * playerSkipDistance;
+                
+                Debug.DrawRay(ray.origin, ray.direction * maxTeleportRange * 0.5f, Color.cyan, 0.1f);
+                
+                if (Physics.Raycast(ray, out RaycastHit hit, maxTeleportRange, teleportLayerMask))
+                {
+                    TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
+                    if (teleportBase != null && hit.distance < closestDistance)
+                    {
+                        closestDistance = hit.distance;
+                        bestBase = teleportBase;
+                    }
+                }
             }
         }
-
-        // Gestisci il cambio di hover del crosshair
-        if (newHoveredBase != previousHoveredBase)
+        
+        if (bestBase != null)
         {
-            // Esci dal precedente hover
-            if (previousHoveredBase != null)
-            {
-                previousHoveredBase.OnCrosshairExit();
-            }
+            Debug.Log($"METODO MULTI-RAYCAST SUCCESS: Found '{bestBase.name}' at {closestDistance:F1}m");
+        }
+        
+        return bestBase;
+    }
+    
+    private TeleportBase CheckScreenAreaDetection(Camera camera)
+{
+    // Trova tutti i TeleportBase nella scena
+    TeleportBase[] allBases = FindObjectsByType<TeleportBase>(FindObjectsSortMode.None);
+    TeleportBase bestBase = null;
+    float bestScore = float.MaxValue;
 
-            // Entra nel nuovo hover
-            TeleportBase.currentHoveredBase = newHoveredBase;
-            if (newHoveredBase != null)
+    Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+
+    foreach (var teleportBase in allBases)
+    {
+        // Controlla se la base è visibile dalla camera
+        Vector3 screenPos = camera.WorldToScreenPoint(teleportBase.transform.position);
+
+        // Se è dietro la camera, salta
+        if (screenPos.z <= 0) continue;
+
+        // Calcola la distanza dal centro schermo in pixel
+        Vector2 screenPos2D = new Vector2(screenPos.x, screenPos.y);
+        float screenDistance = Vector2.Distance(screenCenter, screenPos2D);
+
+        // Se è troppo lontano dal centro, salta
+        if (screenDistance > screenDetectionRadius) continue;
+
+        // Controlla se c'è line of sight
+        Vector3 directionToBase = (teleportBase.transform.position - camera.transform.position).normalized;
+        Ray losRay = new Ray(camera.transform.position + camera.transform.forward * playerSkipDistance, directionToBase);
+
+        if (Physics.Raycast(losRay, out RaycastHit hit, maxTeleportRange))
+        {
+            if (hit.collider.GetComponent<TeleportBase>() == teleportBase)
             {
-                newHoveredBase.OnCrosshairEnter();
+                // Score basato su distanza schermo e distanza 3D
+                float worldDistance = Vector3.Distance(camera.transform.position, teleportBase.transform.position);
+                float score = (screenDistance / screenDetectionRadius) * 0.6f + (worldDistance / maxTeleportRange) * 0.4f;
+
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestBase = teleportBase;
+                }
             }
         }
     }
 
-    /// <summary>
-    /// Tenta il teletrasporto diretto su una TeleportBase sotto hover
-    /// </summary>
-    private void TryDirectTeleport()
+    if (bestBase != null)
     {
-        // Prima priorità: TeleportBase sotto il crosshair (centro schermo)
-        TeleportBase targetBase = TeleportBase.currentHoveredBase;
-        
-        // Se non c'è nulla sotto il crosshair, usa quella sotto il mouse
-        if (targetBase == null)
-        {
-            targetBase = currentMouseHoveredBase;
-        }
-        
-        if (targetBase == null)
-        {
-            Debug.Log("Nessuna TeleportBase sotto hover per il teletrasporto diretto.");
-            
-            // AUDIO FALLIMENTO - non stiamo facendo hover su una base
-            if (failureSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(failureSound);
-            }
-            return;
-        }
-
-        Debug.Log($"Tentativo teletrasporto diretto su: {targetBase.gameObject.name}");
-
-        // Controlla se hai abbastanza potere
-        if (!powerUpScript.HasEnoughPower(powerCost))
-        {
-            Debug.Log("Non hai abbastanza potere per il teletrasporto diretto.");
-            
-            // AUDIO FALLIMENTO - non hai abbastanza potere
-            if (failureSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(failureSound);
-            }
-            return;
-        }
-
-        // Nascondi immediatamente le mesh quando premiamo E
-        SetVisible(false);
-
-        // Spendi il potere
-        powerUpScript.SpendPower(powerCost);
-
-        // Esegui audio conferma
-        if (teleportConfirmSound != null)
-        {
-            teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
-        }
-
-        // Esegui il teletrasporto diretto
-        Vector3 targetPosition = targetBase.GetTeleportPosition();
-        StartCoroutine(DirectTeleportRoutine(targetPosition, targetBase));
+        Debug.Log($"METODO SCREEN-AREA SUCCESS: Found '{bestBase.name}' with score {bestScore:F2}");
     }
 
-    /// <summary>
-    /// Routine per il teletrasporto diretto
-    /// </summary>
-    private IEnumerator DirectTeleportRoutine(Vector3 targetPosition, TeleportBase targetBase)
+    return bestBase;
+}
+
+
+    private IEnumerator ExecuteTeleportRoutine(Vector3 targetPosition, TeleportBase targetBase)
     {
-        // Disattiva il movimento del player
-        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
-        if (controller != null) controller.IsMovementLocked = true;
+        isTeleporting = true;
+        Debug.Log("Inizio routine teletrasporto...");
 
-        // Nascondi il player
-        SetVisible(false);
+        LockPlayerMovement();
 
-        // Attiva effetti di teletrasporto
         if (teleportEffectController != null)
         {
             teleportEffectController.gameObject.SetActive(true);
             teleportEffectController.PlayEffect();
+            Debug.Log("Effetti teletrasporto attivati");
         }
 
-        // Aspetta un momento per l'effetto
         yield return new WaitForSeconds(0.2f);
 
-        // Esegui il teletrasporto
-        if (controllerGameObject && controllerGameObject.TryGetComponent(out CharacterController cc))
-        {
-            Vector3 target = targetPosition;
-            target.y += cc.height * 0.5f; // Alza leggermente per evitare che spawni nel terreno
+        PerformPhysicalTeleport(targetPosition);
 
-            cc.enabled = false;
-            controllerGameObject.transform.position = target;
-            cc.enabled = true;
+        SetPlayerVisible(true);
+        Debug.Log("Player mostrato");
 
-            Debug.Log($"Player teletrasportato a: {target}");
-        }
-        else
-        {
-            Debug.LogWarning("CharacterController non trovato per il teletrasporto diretto.");
-        }
-
-        // Mostra il player
-        SetVisible(true);
-
-        // Aspetta un momento
         yield return new WaitForSeconds(0.3f);
 
-        // Ferma gli effetti
         if (teleportEffectController != null)
         {
             teleportEffectController.StopEffect();
             teleportEffectController.gameObject.SetActive(false);
+            Debug.Log("Effetti teletrasporto fermati");
         }
 
-        // Riattiva il movimento
-        if (controller != null) controller.IsMovementLocked = false;
-
-        // Chiama l'evento sulla TeleportBase
+        UnlockPlayerMovement();
         targetBase.OnPlayerTeleported();
-    }
-
-    public override void TryActivate()
-    {
-        Debug.Log($"TryActivate chiamato - IsActive: {IsActive}");
-        
-        if (IsActive)
-        {
-            Debug.Log("Disattivando teletrasporto...");
-            Deactivate();
-        }
-        else if (CanActivate())
-        {
-            Debug.Log("Attivando teletrasporto...");
-            base.TryActivate();  // Questo attiva il suono corretto
-        }
-        else
-        {
-            Debug.Log("Impossibile attivare il teletrasporto - CanActivate() = false");
-
-            // AUDIO FALLIMENTO
-            if (failureSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(failureSound);
-            }
-        }
-    }
-
-    public override void Activate()
-    {
-        Debug.Log("🚀 Activate() chiamato - Attivando teletrasporto!");
-        
-        SetVisible(false);
-
-        if (teleportEffectController != null)
-        {
-            teleportEffectController.gameObject.SetActive(true);
-            teleportEffectController.PlayEffect();
-        }
-
-        // IMPORTANTE: Il cursore rimane nascosto ma libero di muoversi
-        // Non cambiamo le impostazioni del cursore qui!
-
-        // Attiva l'effetto particellare pointer
-        if (teleportPointer != null)
-        {
-            Debug.Log("🎆 Attivando teleportPointer...");
-            teleportPointer.SetActive(true);
-            
-            // Avvia esplicitamente tutti i particle systems
-            foreach (var ps in pointerParticleSystems)
-            {
-                ps.Play();
-                Debug.Log($"Avviato particle system: {ps.name}");
-            }
-        }
-        else
-        {
-            Debug.LogError("❌ teleportPointer è NULL!");
-        }
-
-        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
-        if (controller != null) controller.IsMovementLocked = true;
-        
-        // IMPORTANTE: Impostare IsActive = true ESPLICITAMENTE
-        IsActive = true;
-        
-        Debug.Log($"✅ IsActive impostato a: {IsActive}");
-    }
-
-    public override void Deactivate()
-    {
-        Debug.Log("🛑 Deactivate() chiamato");
-        
-        SetVisible(true);
-
-        // Non tocchiamo le impostazioni del cursore - rimane come impostato dal CursorController
-
-        if (teleportEffectController != null)
-        {
-            teleportEffectController.StopEffect();
-            teleportEffectController.gameObject.SetActive(false);
-        }
-
-        // Disattiva l'effetto particellare pointer
-        if (teleportPointer != null)
-        {
-            Debug.Log("🛑 Disattivando teleportPointer...");
-            
-            // Ferma esplicitamente tutti i particle systems
-            foreach (var ps in pointerParticleSystems)
-            {
-                ps.Stop();
-            }
-            
-            teleportPointer.SetActive(false);
-        }
-
-        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
-        if (controller != null) controller.IsMovementLocked = false;
 
         IsActive = false;
-        validTeleportTarget = false;
-        
-        Debug.Log($"✅ IsActive impostato a: {IsActive}");
+        isTeleporting = false;
+
+        Debug.Log("Teletrasporto completato!");
     }
 
-    private void UpdateTeleportTarget()
+    private void PerformPhysicalTeleport(Vector3 targetPosition)
     {
-        Debug.Log("🔍 UpdateTeleportTarget() ESEGUITO!");
-        
-        // Controllo sicurezza per camera
-        Camera cameraToUse = playerCamera != null ? playerCamera : Camera.main;
-        
-        if (cameraToUse == null)
-        {
-            Debug.LogError("Nessuna camera disponibile! Assegna playerCamera nell'inspector o aggiungi tag MainCamera alla camera.");
-            validTeleportTarget = false;
-            if (teleportPointer != null)
-            {
-                teleportPointer.SetActive(false);
-            }
-            return;
-        }
-
-        Vector2 mousePosition;
-        
-        // Usa la posizione del mouse (anche se invisibile!)
-        if (Mouse.current != null)
-        {
-            mousePosition = Mouse.current.position.ReadValue();
-            Debug.Log($"Mouse position (invisibile): {mousePosition}");
-        }
-        else
-        {
-            // Fallback al centro schermo se mouse non disponibile
-            mousePosition = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-            Debug.Log("Mouse.current è null, uso centro schermo");
-        }
-
-        Ray ray = cameraToUse.ScreenPointToRay(mousePosition);
-        
-        // Debug del raycast - mostra dove sta puntando
-        Debug.DrawRay(ray.origin, ray.direction * 900f, Color.red, 0.1f);
-        Debug.Log($"Ray - Origin: {ray.origin}, Direction: {ray.direction}");
-        
-        // Controlliamo se colpisce qualcosa
-        if (Physics.Raycast(ray, out var anyHit, 900f))
-        {
-            Debug.Log($"🎯 RAYCAST COLPISCE: {anyHit.collider.name} - Layer: {LayerMask.LayerToName(anyHit.collider.gameObject.layer)} ({anyHit.collider.gameObject.layer}) - Distanza: {anyHit.distance:F2}");
-            
-            // Controlliamo se è nel layer corretto
-            if (((1 << anyHit.collider.gameObject.layer) & teleportableLayers) != 0)
-            {
-                Debug.Log("✅ OGGETTO NEL LAYER CORRETTO!");
-                teleportPosition = anyHit.point;
-                validTeleportTarget = true;
-
-                // Posiziona l'effetto particellare pointer
-                if (teleportPointer != null)
-                {
-                    teleportPointer.SetActive(true);
-                    teleportPointer.transform.position = anyHit.point;
-                    
-                    // Avvia particle systems se non già attivi
-                    foreach (var ps in pointerParticleSystems)
-                    {
-                        if (!ps.isPlaying)
-                        {
-                            ps.Play();
-                        }
-                    }
-                    
-                    Debug.Log($"📍 Pointer posizionato a: {anyHit.point}");
-                    Debug.Log($"📍 Pointer attivo: {teleportPointer.activeInHierarchy}");
-                }
-            }
-            else
-            {
-                Debug.Log($"❌ OGGETTO NON NEL LAYER CORRETTO. Layer mask value: {teleportableLayers.value}");
-                validTeleportTarget = false;
-                
-                // Ferma le particelle ma mantieni attivo per debug
-                if (teleportPointer != null)
-                {
-                    foreach (var ps in pointerParticleSystems)
-                    {
-                        ps.Stop();
-                    }
-                }
-            }
-        }
-        else
-        {
-            Debug.Log("❌ RAYCAST NON COLPISCE NIENTE");
-            validTeleportTarget = false;
-            
-            if (teleportPointer != null)
-            {
-                foreach (var ps in pointerParticleSystems)
-                {
-                    ps.Stop();
-                }
-            }
-        }
-    }
-
-    private IEnumerator ConfirmTeleportRoutine()
-    {
-        if (!validTeleportTarget)
-        {
-            Debug.Log("Punto di teletrasporto non valido.");
-            Deactivate();
-            yield break;
-        }
-
         if (controllerGameObject && controllerGameObject.TryGetComponent(out CharacterController cc))
         {
-            Vector3 target = teleportPosition;
-            target.y += cc.height * 0.5f;
+            Vector3 finalTarget = targetPosition;
+            finalTarget.y += cc.height * 0.5f;
 
             cc.enabled = false;
-            controllerGameObject.transform.position = target;
+            controllerGameObject.transform.position = finalTarget;
             cc.enabled = true;
+
+            Debug.Log($"Player teletrasportato a: {finalTarget}");
         }
         else
         {
-            Debug.LogWarning("CharacterController non trovato.");
+            Debug.LogWarning("CharacterController non trovato!");
         }
-
-        if (teleportEffectController != null)
-        {
-            teleportEffectController.gameObject.SetActive(true);
-            teleportEffectController.PlayEffect();
-        }
-
-        yield return new WaitForSeconds(0.5f);
-
-        SetVisible(true);
-
-        yield return new WaitForSeconds(0.3f);
-
-        if (teleportEffectController != null)
-        {
-            teleportEffectController.StopEffect();
-            teleportEffectController.gameObject.SetActive(false);
-        }
-
-        Deactivate();
     }
 
-    private void SetVisible(bool visible)
+    private void LockPlayerMovement()
     {
-        foreach (var smr in meshesToHide)
+        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
+        if (controller != null) 
         {
-            if (smr != null)
-                smr.enabled = visible;
+            controller.IsMovementLocked = true;
+            Debug.Log("Movimento player bloccato");
         }
+    }
+
+    private void UnlockPlayerMovement()
+    {
+        var controller = controllerGameObject.GetComponent<ThirdPersonController>();
+        if (controller != null) 
+        {
+            controller.IsMovementLocked = false;
+            Debug.Log("Movimento player sbloccato");
+        }
+    }
+
+    private void SetPlayerVisible(bool visible)
+    {
+        foreach (var mesh in meshesToHide)
+        {
+            if (mesh != null)
+            {
+                mesh.enabled = visible;
+            }
+        }
+    }
+
+    private void PlayTeleportConfirmSound()
+    {
+        if (teleportConfirmSound != null && teleportConfirmAudioSource != null)
+        {
+            teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
+            Debug.Log("Audio conferma teletrasporto riprodotto");
+        }
+    }
+
+    private void PlayTeleportFailureSound()
+    {
+        if (teleportFailureSound != null && teleportFailureAudioSource != null)
+        {
+            teleportFailureAudioSource.PlayOneShot(teleportFailureSound);
+            Debug.Log("Audio fallimento teletrasporto riprodotto");
+        }
+    }
+
+    public bool ForceTeleportToPosition(Vector3 targetPosition)
+    {
+        if (!IsEnabled || isTeleporting)
+        {
+            Debug.Log($"Impossibile forzare il teletrasporto: {GetDisableReason()}");
+            return false;
+        }
+
+        Debug.Log($"Teletrasporto forzato alla posizione: {targetPosition}");
+        
+        IsActive = true;
+        PlayTeleportConfirmSound();
+        SetPlayerVisible(false);
+        
+        GameObject tempBase = new GameObject("TempTeleportBase");
+        tempBase.transform.position = targetPosition;
+        TeleportBase tempTeleportBase = tempBase.AddComponent<TeleportBase>();
+        
+        StartCoroutine(ExecuteTeleportRoutine(targetPosition, tempTeleportBase));
+        StartCoroutine(DestroyTempBase(tempBase));
+        
+        return true;
+    }
+
+    private IEnumerator DestroyTempBase(GameObject tempBase)
+    {
+        yield return null;
+        if (tempBase != null)
+            DestroyImmediate(tempBase);
     }
 }

@@ -14,6 +14,11 @@ public class Npc_village : MonoBehaviour
 
     [Header("Animator")]
     [SerializeField] private Animator animator;
+    [Header("Sostituzione con FBX")]
+[SerializeField] private GameObject fbxSostituto;
+[SerializeField] private bool mantieniRotazioneNPC = true;
+[SerializeField] private Vector3 offsetPosizioneFBX = Vector3.zero;
+[SerializeField] private Vector3 rotazioneAggiuntiva = Vector3.zero;
 
     [Header("Spline per posizionamento")]
     [SerializeField] private SplineContainer splineContainer;
@@ -66,6 +71,8 @@ public class Npc_village : MonoBehaviour
     private static SplineContainer sharedSpline;
     public static event Action OnFirstSlowdownUsed;
     private static bool slowdownAlreadyUsed = false;
+    private bool isSostituito = false;
+
 
     void Start()
     {
@@ -115,6 +122,176 @@ public class Npc_village : MonoBehaviour
             transform.rotation = Quaternion.LookRotation(direction);
         }
     }
+  /// <summary>
+/// Nasconde definitivamente l'NPC e lo sostituisce con l'FBX specificato nella posizione corrente dell'NPC
+/// </summary>
+public void SostituisciConFBX()
+{
+    if (isSostituito)
+    {
+        if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Già sostituito con FBX, ignoro chiamata.");
+        return;
+    }
+
+    if (fbxSostituto == null)
+    {
+        if (debugMode) Debug.LogError($"NPC {gameObject.name}: Nessun FBX sostituto assegnato!");
+        return;
+    }
+
+    // Calcola posizione e rotazione per l'FBX
+    Vector3 posizioneFBX = transform.position + offsetPosizioneFBX;
+    Quaternion rotazioneFBX;
+
+    if (mantieniRotazioneNPC)
+    {
+        rotazioneFBX = transform.rotation * Quaternion.Euler(rotazioneAggiuntiva);
+    }
+    else
+    {
+        rotazioneFBX = Quaternion.Euler(rotazioneAggiuntiva);
+    }
+
+    // Istanzia l'FBX nella posizione corrente dell'NPC
+    GameObject fbxIstanziato = Instantiate(fbxSostituto, posizioneFBX, rotazioneFBX);
+    fbxIstanziato.name = $"{fbxSostituto.name}_Sostituto_{gameObject.name}";
+
+    // Ferma tutti i comportamenti in corso
+    if (comportamentoRoutine != null)
+    {
+        StopCoroutine(comportamentoRoutine);
+        comportamentoRoutine = null;
+    }
+
+    // Ferma l'agente di navigazione
+    if (agent != null)
+    {
+        agent.ResetPath();
+        agent.isStopped = true;
+        agent.velocity = Vector3.zero;
+    }
+
+    // Rimuovi l'NPC dalla lista degli NPC fermati se presente
+    if (stoppedNPCs.Contains(this))
+    {
+        stoppedNPCs.Remove(this);
+    }
+
+    // Disiscriviti dagli eventi
+    DialogueSystem.OnAnyLastLineFinished -= OnDialogueLastLineFinished;
+
+    isSostituito = true;
+
+    if (debugMode) 
+    {
+        Debug.Log($"NPC {gameObject.name}: Sostituito definitivamente con FBX '{fbxIstanziato.name}' alla posizione {posizioneFBX}");
+    }
+
+    // Distruggi l'NPC
+    Destroy(gameObject);
+}
+/// <summary>
+/// Sostituisce definitivamente l'NPC con un FBX diverso da quello configurato nell'inspector
+/// </summary>
+/// <param name="fbxPersonalizzato">L'FBX da utilizzare per la sostituzione</param>
+public void SostituisciConFBXPersonalizzato(GameObject fbxPersonalizzato)
+{
+    if (fbxPersonalizzato == null)
+    {
+        if (debugMode) Debug.LogError($"NPC {gameObject.name}: FBX personalizzato è null!");
+        return;
+    }
+
+    if (isSostituito)
+    {
+        if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Già sostituito con FBX, ignoro chiamata.");
+        return;
+    }
+
+    // Calcola posizione e rotazione per l'FBX
+    Vector3 posizioneFBX = transform.position + offsetPosizioneFBX;
+    Quaternion rotazioneFBX;
+
+    if (mantieniRotazioneNPC)
+    {
+        rotazioneFBX = transform.rotation * Quaternion.Euler(rotazioneAggiuntiva);
+    }
+    else
+    {
+        rotazioneFBX = Quaternion.Euler(rotazioneAggiuntiva);
+    }
+
+    // Istanzia l'FBX personalizzato
+    GameObject fbxIstanziato = Instantiate(fbxPersonalizzato, posizioneFBX, rotazioneFBX);
+    fbxIstanziato.name = $"{fbxPersonalizzato.name}_Sostituto_{gameObject.name}";
+
+    // Cleanup dell'NPC
+    if (comportamentoRoutine != null)
+    {
+        StopCoroutine(comportamentoRoutine);
+        comportamentoRoutine = null;
+    }
+
+    if (agent != null)
+    {
+        agent.ResetPath();
+        agent.isStopped = true;
+        agent.velocity = Vector3.zero;
+    }
+
+    if (stoppedNPCs.Contains(this))
+    {
+        stoppedNPCs.Remove(this);
+    }
+
+    DialogueSystem.OnAnyLastLineFinished -= OnDialogueLastLineFinished;
+
+    isSostituito = true;
+
+    if (debugMode) 
+    {
+        Debug.Log($"NPC {gameObject.name}: Sostituito definitivamente con FBX personalizzato '{fbxPersonalizzato.name}' alla posizione {posizioneFBX}");
+    }
+
+    // Distruggi l'NPC
+    Destroy(gameObject);
+}
+/// <summary>
+/// Verifica se l'NPC è già stato sostituito (utile per controlli esterni prima della distruzione)
+/// </summary>
+/// <returns>True se l'NPC è stato sostituito</returns>
+public bool ESostituito()
+{
+    return isSostituito;
+}
+
+// Metodi di test per il menu contestuale
+[ContextMenu("Test - Sostituisci con FBX")]
+public void TestSostituisciConFBX()
+{
+    SostituisciConFBX();
+}
+
+[ContextMenu("Test - Verifica Configurazione FBX")]
+public void TestVerificaConfigurazioneFBX()
+{
+    if (fbxSostituto != null)
+    {
+        Debug.Log($"NPC {gameObject.name}: FBX Configurato: '{fbxSostituto.name}'\n" +
+                 $"- Mantieni Rotazione: {mantieniRotazioneNPC}\n" +
+                 $"- Offset Posizione: {offsetPosizioneFBX}\n" +
+                 $"- Rotazione Aggiuntiva: {rotazioneAggiuntiva}\n" +
+                 $"- Già Sostituito: {isSostituito}");
+    }
+    else
+    {
+        Debug.LogWarning($"NPC {gameObject.name}: Nessun FBX sostituto configurato!");
+    }
+}
+
+// Proprietà di debug
+public bool IsSostituito => isSostituito;
+public GameObject FBXSostituto => fbxSostituto;
 
     public void StopNPC()
     {

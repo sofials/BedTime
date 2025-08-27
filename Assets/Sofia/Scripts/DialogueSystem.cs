@@ -132,7 +132,6 @@ private Coroutine movementLockCoroutine = null;
     
     [Header("Input Settings")]
     public KeyCode nextLineKey = KeyCode.Space; // Tasto per passare alla battuta successiva
-    public KeyCode cancelDialogueKey = KeyCode.Escape; // Tasto per chiudere manualmente il dialogo
     
     [Header("Player Control")]
     public ThirdPersonController playerController; // Reference al ThirdPersonController
@@ -424,11 +423,6 @@ public bool IsDissolveAudioPlaying() => dissolveAudioPlaying;
                 NextLine();
             }
             
-            // Permette di chiudere manualmente il dialogo con Escape
-            if (Input.GetKeyDown(cancelDialogueKey))
-            {
-                EndDialogue();
-            }
         }
     }
     void OnApplicationPause(bool pauseStatus)
@@ -535,8 +529,6 @@ void ResetDissolveToInitialState()
     // Notifica inizio dialogo
     OnDialogueStarted?.Invoke();
     OnAnyDialogueStarted?.Invoke(this);
-    
-    Debug.Log("[DialogueSystem] Dialogo iniziato. Usa " + nextLineKey + " per continuare, " + cancelDialogueKey + " per chiudere.");
 }
 
     void DisplayLine()

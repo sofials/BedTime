@@ -17,7 +17,7 @@ public class TeleportBase : MonoBehaviour
     private Color originalStartColor;
     private bool isHovering = false;
     
-    // Riferimento statico alla base attualmente sotto il cursore invisibile
+    // Riferimento statico alla base attualmente inquadrata dalla camera
     public static TeleportBase currentHoveredBase = null;
     
     private void Start()
@@ -55,47 +55,10 @@ public class TeleportBase : MonoBehaviour
         }
     }
 
-    void Update()
-    {
-        // Controlla se il cursore invisibile è sopra questa base
-        CheckInvisibleCursorHover();
-    }
-
     /// <summary>
-    /// Controlla se il cursore invisibile sta facendo hover su questa base
+    /// Chiamato quando la camera inquadra questa base (dal sistema TeleportAbility)
     /// </summary>
-    private void CheckInvisibleCursorHover()
-    {
-        Camera mainCamera = Camera.main;
-        if (mainCamera == null) return;
-
-        // Raycast dalla posizione del mouse invisibile
-        Ray mouseRay = mainCamera.ScreenPointToRay(Input.mousePosition);
-        
-        // Controlla se il raycast colpisce questo oggetto
-        Collider myCollider = GetComponent<Collider>();
-        if (myCollider != null && myCollider.Raycast(mouseRay, out RaycastHit hit, Mathf.Infinity))
-        {
-            // Il cursore invisibile è sopra questa base
-            if (!isHovering)
-            {
-                OnCursorEnter();
-            }
-        }
-        else
-        {
-            // Il cursore invisibile non è sopra questa base
-            if (isHovering && currentHoveredBase == this)
-            {
-                OnCursorExit();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Chiamato quando il cursore invisibile entra su questa base
-    /// </summary>
-    private void OnCursorEnter()
+    public void OnCursorEnter()
     {
         if (!isHovering)
         {
@@ -109,15 +72,15 @@ public class TeleportBase : MonoBehaviour
             
             if (showDebugLogs)
             {
-                Debug.Log($"Cursore invisibile HOVER su '{gameObject.name}' - Colore cambiato");
+                Debug.Log($"Camera INQUADRA '{gameObject.name}' - Colore particelle cambiato a hover");
             }
         }
     }
     
     /// <summary>
-    /// Chiamato quando il cursore invisibile esce da questa base
+    /// Chiamato quando la camera smette di inquadrare questa base (dal sistema TeleportAbility)
     /// </summary>
-    private void OnCursorExit()
+    public void OnCursorExit()
     {
         if (isHovering)
         {
@@ -132,7 +95,7 @@ public class TeleportBase : MonoBehaviour
             
             if (showDebugLogs)
             {
-                Debug.Log($"Cursore invisibile USCITO da '{gameObject.name}' - Colore ripristinato");
+                Debug.Log($"Camera NON INQUADRA PIU' '{gameObject.name}' - Colore particelle ripristinato");
             }
         }
     }
@@ -223,7 +186,9 @@ public class TeleportBase : MonoBehaviour
         set { SetObjectActive(value); }
     }
     
-    // Metodo chiamato quando il player si teletrasporta su questa base
+    /// <summary>
+    /// Metodo chiamato quando il player si teletrasporta su questa base
+    /// </summary>
     public virtual void OnPlayerTeleported()
     {
         if (showDebugLogs)

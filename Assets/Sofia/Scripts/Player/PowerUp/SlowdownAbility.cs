@@ -68,78 +68,87 @@ public class SlowdownAbility : AbilityBase
     /// <summary>
     /// Verifica se ci sono oggetti validi nel raggio d'azione PRIMA di consumare energia
     /// </summary>
-    private bool HasValidTargetsInRange()
+    
+/// <summary>
+/// Verifica se ci sono oggetti validi nel raggio d'azione PRIMA di consumare energia
+/// </summary>
+private bool HasValidTargetsInRange()
+{
+    Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
+    
+    foreach (Collider col in colliders)
     {
-        Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
-        
-        foreach (Collider col in colliders)
+        // MovingPlatform - verifica se NON è già rallentata E se può essere rallentata
+        if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
         {
-            // MovingPlatform - verifica se NON è già rallentata
-            if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
+            // ✅ FIX: Controlla canBeSlowed prima di tutto
+            if (!mp.canBeSlowed)
             {
-                // Controlla se questa piattaforma NON è già nella nostra lista
-                bool alreadyAffected = false;
-                foreach (var data in affectedPlatforms)
-                {
-                    if (data.platform == mp)
-                    {
-                        alreadyAffected = true;
-                        break;
-                    }
-                }
-                if (!alreadyAffected) return true;
+                continue; // Salta questa piattaforma se non può essere rallentata
             }
             
-            // RotatingPlatform - verifica se NON è già rallentata
-            if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
+            // Controlla se questa piattaforma NON è già nella nostra lista
+            bool alreadyAffected = false;
+            foreach (var data in affectedPlatforms)
             {
-                // Controlla se questo rotatore NON è già nella nostra lista
-                bool alreadyAffected = false;
-                foreach (var data in affectedRotators)
+                if (data.platform == mp)
                 {
-                    if (data.rotator == ro)
-                    {
-                        alreadyAffected = true;
-                        break;
-                    }
-                }
-                if (!alreadyAffected) return true;
-            }
-            
-            // TurtleShell - verifica se NON è già rallentata
-            if (col.CompareTag("TurtleShellHurtbox"))
-            {
-                TurtleShell ts = col.GetComponentInParent<TurtleShell>();
-                if (ts != null && !ts.isSlow)
-                {
-                    return true;
+                    alreadyAffected = true;
+                    break;
                 }
             }
-            
-            // NPC - verifica se NON è già fermato
-            if (col.CompareTag("Chibi"))
+            if (!alreadyAffected) return true;
+        }
+        
+        // RotatingPlatform - verifica se NON è già rallentata
+        if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
+        {
+            // Controlla se questo rotatore NON è già nella nostra lista
+            bool alreadyAffected = false;
+            foreach (var data in affectedRotators)
             {
-                Npc_village npc = col.GetComponent<Npc_village>();
-                if (npc != null && !npc.IsStopped)
+                if (data.rotator == ro)
                 {
-                    return true;
+                    alreadyAffected = true;
+                    break;
                 }
             }
-            
-            // Golem - verifica se NON è già rallentato
-            if (col.CompareTag("GolemHurtbox"))
+            if (!alreadyAffected) return true;
+        }
+        
+        // TurtleShell - verifica se NON è già rallentata
+        if (col.CompareTag("TurtleShellHurtbox"))
+        {
+            TurtleShell ts = col.GetComponentInParent<TurtleShell>();
+            if (ts != null && !ts.isSlow)
             {
-                Golem golem = col.GetComponentInParent<Golem>();
-                if (golem != null && !golem.isSlow)
-                {
-                    return true;
-                }
+                return true;
             }
         }
         
-        return false;
+        // NPC - verifica se NON è già fermato
+        if (col.CompareTag("Chibi"))
+        {
+            Npc_village npc = col.GetComponent<Npc_village>();
+            if (npc != null && !npc.IsStopped)
+            {
+                return true;
+            }
+        }
+        
+        // Golem - verifica se NON è già rallentato
+        if (col.CompareTag("GolemHurtbox"))
+        {
+            Golem golem = col.GetComponentInParent<Golem>();
+            if (golem != null && !golem.isSlow)
+            {
+                return true;
+            }
+        }
     }
-
+    
+    return false;
+}
     public override void TryActivate()
     {
         // ✅ STEP 1: Verifica energia disponibile
@@ -221,15 +230,22 @@ public class SlowdownAbility : AbilityBase
         {
             if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
             {
+                // ✅ FIX: Controlla canBeSlowed prima di processare
+    if (!mp.canBeSlowed)
+    {
+        Debug.Log($"→ MovingPlatform {col.name} ha canBeSlowed = false, skip.");
+        continue; // Salta questa piattaforma
+    }
+    
                 // ✅ Controlla se questa piattaforma è già rallentata
                 bool alreadyAffected = false;
                 foreach (var data in affectedPlatforms)
                 {
                     if (data.platform == mp)
                     {
-                        alreadyAffected = true;
-                        Debug.Log($"→ MovingPlatform {col.name} già rallentata, skip.");
-                        break;
+                         alreadyAffected = true;
+            Debug.Log($"→ MovingPlatform {col.name} già rallentata, skip.");
+            break;
                     }
                 }
                 

@@ -170,7 +170,8 @@ private static readonly int ClimbHash = Animator.StringToHash("Climb");
     private bool isHoldingJump;
     private bool hanging = false;
 
-private bool canMoveAfterHang = true;
+    private bool canMoveAfterHang = true;
+private float lastJumpTime = 0f;
 private Vector3 hangPosition;
 private Vector3 hangForward;
     private Vector3 lastValidHangPosition; // Backup dell'ultima posizione valida
@@ -762,84 +763,107 @@ public void PlayHitSound()
         
         // 6. Update stati finali
         UpdateGroundedState();
+        CheckAndFixStuckJumpAnimation();
+    
         HandleFalling();
         CheckForLedgeRelease(); 
         HandleAirControl();
         HandleSprintFX();
     }
-private void CheckForLedgeRelease()
+    private void CheckAndFixStuckJumpAnimation()
 {
-    if (!hanging || !isHangPositionStable) return;
+    bool isJumpAnimActive = _animator.GetBool(JumpHash) || _animator.GetBool(DoubleJumpHash);
+    bool isGroundedNow = controller.isGrounded;
+    bool hasLowVerticalVelocity = Mathf.Abs(velocity.y) < 1f;
     
-    // ✅ ARRAMPICATA CON MOVIMENTO VERTICALE
-    if (moveInput.y > 0.3f) // Soglia per arrampicata
+    // If jump animation is active but we're clearly grounded and not moving vertically
+    if (isJumpAnimActive && isGroundedNow && hasLowVerticalVelocity)
     {
-        if (debugLedgeGrab)
-            Debug.Log("[LedgeGrab] 🧗 Iniziando arrampicata con movimento verticale");
-        
-        // ✅ AVVIA STATO ARRAMPICATA PRIMA DI TERMINARE HANGING
-        isClimbing = true;
-        
-        // ✅ AVVIA IL MOVIMENTO DI SALITA
-        if (climbHeightCoroutine != null)
-            StopCoroutine(climbHeightCoroutine);
-        climbHeightCoroutine = StartCoroutine(ExecuteClimbMovement());
-        
-        // ✅ TRIGGER ANIMAZIONE
-        _animator.SetTrigger(ClimbHash);
-        
-        // ✅ TERMINA HANGING
-        hanging = false;
-        isHangPositionStable = false;
-        hangStabilityTimer = 0f;
-        _animator.SetBool(HangingHash, false);
-        
-        // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
-        lastLedgeGrabTime = Time.time;
-        
-        // ✅ RESET VELOCITÀ (ma non fermare il movimento di climbing)
-        velocity = Vector3.zero;
-        playerVelocity = Vector3.zero;
-        attackVelocity = Vector3.zero;
-        externalPush = Vector3.zero;
-        
-        // ✅ DELAY PER EVITARE RIATTACCO
-        StartCoroutine(EnableMovementAfterClimb());
-        
-        if (debugLedgeGrab)
-        {
-            Debug.Log($"[LedgeGrab] ✅ Arrampicata iniziata - salita di {climbHeightBoost}m in corso!");
-        }
-        
-        return;
+        // Force landing state
+        Debug.Log("[ThirdPersonController] 🔧 Fixing stuck jump animation");
+        OnLanding();
     }
     
-    // ✅ RILASCIA con input verso il basso/indietro
-    else if (moveInput.y < -0.3f) // Soglia per rilascio manuale
+    // Additional safety check for very long jump animations
+    if (isJumpAnimActive && Time.time - lastJumpTime > 3f)
     {
-        if (debugLedgeGrab)
-            Debug.Log("[LedgeGrab] 🎮 Rilasciato manualmente con input indietro");
-        
-        ReleaseLedgeGrab();
-        StartCoroutine(EnableMovementAfterHangJump());
-    }
-    
-    // ✅ RILASCIA con movimento laterale forte (scendere di lato)
-    else if (Mathf.Abs(moveInput.x) > 0.8f && moveInput.y < 0.1f)
-    {
-        if (debugLedgeGrab)
-            Debug.Log("[LedgeGrab] 🎮 Rilasciato con movimento laterale forte");
-        
-        ReleaseLedgeGrab();
-        StartCoroutine(EnableMovementAfterHangJump());
-    }
-    
-    // ✅ DEBUG: Mostra controlli disponibili
-    else if (debugLedgeGrab && Time.frameCount % 180 == 0) // Ogni 3 secondi
-    {
-        Debug.Log("[LedgeGrab] 🎮 CONTROLLI: ↑ per arrampicare, ↓ per rilasciare, Spazio per saltare, ← → forte per scendere di lato");
+        Debug.Log("[ThirdPersonController] 🔧 Force resetting jump animation after timeout");
+        OnLanding();
     }
 }
+private void CheckForLedgeRelease()
+    {
+        if (!hanging || !isHangPositionStable) return;
+
+        // ✅ ARRAMPICATA CON MOVIMENTO VERTICALE
+        if (moveInput.y > 0.3f) // Soglia per arrampicata
+        {
+            if (debugLedgeGrab)
+                Debug.Log("[LedgeGrab] 🧗 Iniziando arrampicata con movimento verticale");
+
+            // ✅ AVVIA STATO ARRAMPICATA PRIMA DI TERMINARE HANGING
+            isClimbing = true;
+
+            // ✅ AVVIA IL MOVIMENTO DI SALITA
+            if (climbHeightCoroutine != null)
+                StopCoroutine(climbHeightCoroutine);
+            climbHeightCoroutine = StartCoroutine(ExecuteClimbMovement());
+
+            // ✅ TRIGGER ANIMAZIONE
+            _animator.SetTrigger(ClimbHash);
+
+            // ✅ TERMINA HANGING
+            hanging = false;
+            isHangPositionStable = false;
+            hangStabilityTimer = 0f;
+            _animator.SetBool(HangingHash, false);
+
+            // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
+            lastLedgeGrabTime = Time.time;
+
+            // ✅ RESET VELOCITÀ (ma non fermare il movimento di climbing)
+            velocity = Vector3.zero;
+            playerVelocity = Vector3.zero;
+            attackVelocity = Vector3.zero;
+            externalPush = Vector3.zero;
+
+            // ✅ DELAY PER EVITARE RIATTACCO
+            StartCoroutine(EnableMovementAfterClimb());
+
+            if (debugLedgeGrab)
+            {
+                Debug.Log($"[LedgeGrab] ✅ Arrampicata iniziata - salita di {climbHeightBoost}m in corso!");
+            }
+
+            return;
+        }
+
+        // ✅ RILASCIA con input verso il basso/indietro
+        else if (moveInput.y < -0.3f) // Soglia per rilascio manuale
+        {
+            if (debugLedgeGrab)
+                Debug.Log("[LedgeGrab] 🎮 Rilasciato manualmente con input indietro");
+
+            ReleaseLedgeGrab();
+            StartCoroutine(EnableMovementAfterHangJump());
+        }
+
+        // ✅ RILASCIA con movimento laterale forte (scendere di lato)
+        else if (Mathf.Abs(moveInput.x) > 0.8f && moveInput.y < 0.1f)
+        {
+            if (debugLedgeGrab)
+                Debug.Log("[LedgeGrab] 🎮 Rilasciato con movimento laterale forte");
+
+            ReleaseLedgeGrab();
+            StartCoroutine(EnableMovementAfterHangJump());
+        }
+
+        // ✅ DEBUG: Mostra controlli disponibili
+        else if (debugLedgeGrab && Time.frameCount % 180 == 0) // Ogni 3 secondi
+        {
+            Debug.Log("[LedgeGrab] 🎮 CONTROLLI: ↑ per arrampicare, ↓ per rilasciare, Spazio per saltare, ← → forte per scendere di lato");
+        }
+    }
 public void OnClimbAnimationEnd()
 {
     isClimbing = false;
@@ -1241,39 +1265,46 @@ private bool IsLedgeStillValid()
     // [Il resto dei metodi rimane identico al codice originale...]
     // ✅ NUOVO SISTEMA DI RILEVAMENTO PIATTAFORME INTELLIGENTE
     private void DetectAndUpdatePlatform()
+{
+    if (!controller.isGrounded)
     {
-        if (!controller.isGrounded)
+        // ✅ NUOVO: Sgancia automaticamente quando saltiamo
+        if (currentPlatform != null && velocity.y > 2f) // Se stiamo saltando verso l'alto
         {
-            // Se non siamo a terra, mantieni la piattaforma attuale se è valida
-            if (currentPlatform != null && !IsPlatformValid())
-            {
-                DetachFromCurrentPlatform();
-            }
-            
-            UpdatePlatformMovement();
-            return;
+            if (debugPlatformMovement)
+                Debug.Log($"[Platform] Sganciato da {currentPlatform.name} durante salto (velocità: {velocity.y:F2})");
+            DetachFromCurrentPlatform();
         }
-
-        // Trova la piattaforma più vicina sotto di noi
-        Transform detectedPlatform = FindPlatformBelow();
-        
-        if (detectedPlatform != currentPlatform)
+        // Se non siamo a terra ma non stiamo saltando, mantieni la piattaforma solo se è valida
+        else if (currentPlatform != null && !IsPlatformValid())
         {
-            if (currentPlatform != null)
-            {
-                if (debugPlatformMovement)
-                    Debug.Log($"[Platform] Cambiando da {currentPlatform.name} a {(detectedPlatform ? detectedPlatform.name : "nessuna")}");
-                DetachFromCurrentPlatform();
-            }
-            
-            if (detectedPlatform != null)
-            {
-                AttachToPlatform(detectedPlatform);
-            }
+            DetachFromCurrentPlatform();
         }
         
         UpdatePlatformMovement();
+        return;
     }
+
+    // Trova la piattaforma più vicina sotto di noi
+    Transform detectedPlatform = FindPlatformBelow();
+    
+    if (detectedPlatform != currentPlatform)
+    {
+        if (currentPlatform != null)
+        {
+            if (debugPlatformMovement)
+                Debug.Log($"[Platform] Cambiando da {currentPlatform.name} a {(detectedPlatform ? detectedPlatform.name : "nessuna")}");
+            DetachFromCurrentPlatform();
+        }
+        
+        if (detectedPlatform != null)
+        {
+            AttachToPlatform(detectedPlatform);
+        }
+    }
+    
+    UpdatePlatformMovement();
+}
 
     // ✅ TROVA LA PIATTAFORMA SOTTO IL PLAYER
     private Transform FindPlatformBelow()
@@ -1358,14 +1389,24 @@ private bool IsLedgeStillValid()
 
     // ✅ VERIFICA SE LA PIATTAFORMA È ANCORA VALIDA
     private bool IsPlatformValid()
-    {
-        if (currentPlatform == null) return false;
-        
-        float distance = Vector3.Distance(transform.position, currentPlatform.position);
-        Bounds platformBounds = currentPlatform.GetComponent<Collider>().bounds;
-        
-        return distance <= platformBounds.size.magnitude * 1.5f;
-    }
+{
+    if (currentPlatform == null) return false;
+    
+    // Durante il salto, sii più permissivo sulla distanza
+    float maxDistance = velocity.y > 0 ? 10f : 5f;
+    
+    float distance = Vector3.Distance(transform.position, currentPlatform.position);
+    Bounds platformBounds = currentPlatform.GetComponent<Collider>().bounds;
+    
+    float allowedDistance = Mathf.Max(platformBounds.size.magnitude * 1.5f, maxDistance);
+    
+    bool isValid = distance <= allowedDistance;
+    
+    if (debugPlatformMovement && !isValid)
+        Debug.Log($"[Platform] Piattaforma NON valida: distanza {distance:F2} > max {allowedDistance:F2}");
+    
+    return isValid;
+}
 
     // ✅ SGANCIA IL PLAYER DALLA PIATTAFORMA
     private void DetachFromCurrentPlatform()
@@ -1413,12 +1454,10 @@ private void ApplyAllMovement()
     // ✅ SE SIAMO HANGING, USA SOLO LA STABILIZZAZIONE
     if (hanging)
     {
-        // Non chiamare controller.Move qui, è gestito in StabilizeHangPosition
         return;
     }
     if (isClimbing)
     {
-        // Durante climbing, non muovere il CharacterController
         return;
     }
     
@@ -1426,11 +1465,21 @@ private void ApplyAllMovement()
     
     Vector3 totalMovement = Vector3.zero;
     
-    // 1. Movimento piattaforma (se presente e valida)
-    if (currentPlatform != null && !isOnObstaclePlatform)
+    // ✅ NUOVO: Non applicare movimento piattaforma se stiamo saltando
+    bool isJumping = velocity.y > 1f; // Soglia per considerare un salto attivo
+    
+    // 1. Movimento piattaforma (solo se non stiamo saltando e se presente e valida)
+    if (currentPlatform != null && !isOnObstaclePlatform && !isJumping)
     {
         Vector3 platformMovement = ApplyPlatformMovement();
         totalMovement += platformMovement;
+        
+        if (debugPlatformMovement && platformMovement.magnitude > 0.001f)
+            Debug.Log($"[Platform] Applicando movimento piattaforma: {platformMovement} (Jump: {isJumping})");
+    }
+    else if (isJumping && debugPlatformMovement)
+    {
+        Debug.Log($"[Platform] Movimento piattaforma IGNORATO durante salto (velocità Y: {velocity.y:F2})");
     }
     
     // 2. Movimento player (orizzontale + verticale)
@@ -1444,6 +1493,45 @@ private void ApplyAllMovement()
     // 3. Applica tutto il movimento in una sola chiamata
     controller.Move(totalMovement);
 }
+
+
+private void ExecuteJump(bool isFirstJump)
+{
+    if (velocity.y < 0) velocity.y = 0f;
+    velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+    
+    // ✅ Track when jump started
+    lastJumpTime = Time.time;
+
+    // ✅ NUOVO: Sgancia dalla piattaforma quando saltiamo
+    if (currentPlatform != null)
+    {
+        if (debugPlatformMovement)
+            Debug.Log($"[Platform] Sganciato da {currentPlatform.name} durante ExecuteJump");
+        DetachFromCurrentPlatform();
+    }
+
+    if (isFirstJump)
+    {
+        _animator.SetBool(JumpHash, true);
+        _animator.SetBool(DoubleJumpHash, false);
+        jumpCount = 1;
+        
+        PlayJumpSound();
+    }
+    else
+    {
+        _animator.SetBool(JumpHash, false);
+        _animator.SetBool(DoubleJumpHash, true);
+        jumpCount++;
+    }
+
+    coyoteTimeCounter = 0;
+    fallingTimer = 0f;
+    
+    StopFootstepAudio();
+}
+
 private Vector3 ApplyPlatformMovement()
 {
     Vector3 totalPlatformMovement = Vector3.zero;
@@ -1618,16 +1706,16 @@ private Vector3 ApplyPlatformMovement()
     // ✅ Se siamo hanging, non aggiornare lo stato grounded
     if (hanging)
     {
-        // Mantieni lo stato precedente dell'animazione
         return;
     }
     
     bool grounded = controller.isGrounded;
 
+    // Enhanced ground detection
     if (!grounded)
     {
         tempVector3.Set(transform.position.x, transform.position.y + 0.05f, transform.position.z);
-        int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.1f);
+        int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 0.15f); // Increased range
 
         if (hitCount > 0)
         {
@@ -1637,9 +1725,23 @@ private Vector3 ApplyPlatformMovement()
 
     _animator.SetBool(IsGroundedHash, grounded);
 
+    // ✅ IMPROVED: More reliable landing detection
     if (grounded && !wasGroundedLastFrame)
     {
-        OnLanding();
+        // Additional check: only call OnLanding if we were actually falling/jumping
+        if (velocity.y <= 0.5f || _animator.GetBool(JumpHash) || _animator.GetBool(DoubleJumpHash))
+        {
+            OnLanding();
+        }
+    }
+    // ✅ NEW: Check if animations should be reset while grounded
+    else if (grounded && (_animator.GetBool(JumpHash) || _animator.GetBool(DoubleJumpHash)))
+    {
+        // If we're grounded but jump animations are still active, and we're not jumping upward
+        if (velocity.y < 1f)
+        {
+            OnLanding();
+        }
     }
 
     wasGroundedLastFrame = grounded;
@@ -1665,14 +1767,21 @@ private Vector3 ApplyPlatformMovement()
     velocity.y = -2f;
 }
     private void OnLanding()
-    {
-        jumpCount = 0;
-        fallingTimer = 0f;
+{
+    jumpCount = 0;
+    fallingTimer = 0f;
+    lastJumpTime = 0f; // Reset jump timer
 
-        _animator.SetBool(JumpHash, false);
-        _animator.SetBool(DoubleJumpHash, false);
-        _animator.SetBool(IsFallingHash, false);
-    }
+    // ✅ Force all jump-related animations to false
+    _animator.SetBool(JumpHash, false);
+    _animator.SetBool(DoubleJumpHash, false);
+    _animator.SetBool(IsFallingHash, false);
+    
+    // ✅ Additional safety - set vertical velocity animation
+    _animator.SetFloat(VerticalVelocityHash, 0f);
+    
+    Debug.Log("[ThirdPersonController] 🛬 Landing completed - all jump animations reset");
+}
 
     private void UpdateJumpTimers()
     {
@@ -1880,35 +1989,6 @@ private void HandleJump()
     UpdateJumpAnimations();
 }
 
-   private void ExecuteJump(bool isFirstJump)
-{
-    if (velocity.y < 0) velocity.y = 0f;
-    velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-
-    if (isFirstJump)
-    {
-        _animator.SetBool(JumpHash, true);
-        _animator.SetBool(DoubleJumpHash, false);
-        jumpCount = 1;
-        
-        // ✅ RIPRODUCI SUONO SOLO PER IL PRIMO SALTO
-        PlayJumpSound();
-    }
-    else
-    {
-        _animator.SetBool(JumpHash, false);
-        _animator.SetBool(DoubleJumpHash, true);
-        jumpCount++;
-        
-        // NON riprodurre suono per i doppi salti (come richiesto)
-    }
-
-    coyoteTimeCounter = 0;
-    fallingTimer = 0f;
-    
-    StopFootstepAudio();
-}
-
     private bool IsGroundedAccurate()
     {
         if (controller.isGrounded) return true;
@@ -1958,7 +2038,26 @@ private void HandleJump()
             sprintFXActive = false;
         }
     }
-
+// ✅ AGGIUNGI NUOVO METODO PER GESTIRE MEGLIO LE PIATTAFORME IN MOVIMENTO
+/// <summary>
+/// Verifica se dovremmo sganciare dalla piattaforma basandoci sulla velocità
+/// </summary>
+private bool ShouldDetachFromPlatform()
+{
+    if (currentPlatform == null) return false;
+    
+    // Sgancia se stiamo saltando verso l'alto con velocità significativa
+    if (velocity.y > 2f) return true;
+    
+    // Sgancia se siamo troppo lontani dalla piattaforma
+    if (!IsPlatformValid()) return true;
+    
+    // Sgancia se è una piattaforma ostacolo che vuole detachare
+    if (isOnObstaclePlatform && currentRotatingObject != null && 
+        currentRotatingObject.GetDetachPlayerOnHit()) return true;
+    
+    return false;
+}
     private float fallingCheckTimer = 0f;
     private const float FALLING_CHECK_INTERVAL = 0.1f;
 
