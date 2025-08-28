@@ -12,14 +12,27 @@ public class RaftSettings
     [Range(0.1f, 5f)] public float accelerationTime = 2f;
     [Range(0.1f, 5f)] public float decelerationTime = 1.5f;
     
-    [Header("Anti-Accidental Activation")]
-    [Range(0f, 2f)] public float accidentalPreventionTime = 0.3f; // Short delay to prevent accidents
-    public bool requirePlayerVelocityCheck = true; // Check if player is moving intentionally
-    [Range(0.1f, 5f)] public float minimumPlayerSpeed = 0.5f; // Min speed to consider intentional
+    [Header("Terminal Control")]
+    [Range(1f, 10f)] public float minimumExitTime = 2f;
+    [Range(0f, 5f)] public float terminalGracePeriod = 1f;
+    
+    [Header("Activation Timing")]
+    [Range(0f, 2f)] public float quickStartTime = 0.0f;
+    [Range(0f, 10f)] public float terminalWaitTime = 3f;
+    
+    [Header("False Start Detection")]
+    [Range(1f, 8f)] public float falseStartDetectionTime = 2f;
+    [Range(5f, 30f)] public float falseStartReturnRadius = 15f;
+    public bool enableAccidentalDetection = true;
+    [Range(1f, 10f)] public float accidentalActivationCheckTime = 3f;
+    
+    [Header("Player Movement Checks")]
+    public bool requirePlayerVelocityCheck = true;
+    [Range(0.1f, 5f)] public float minimumPlayerSpeed = 0.5f;
     public bool requirePlayerGrounded = false;
     
     [Header("Jump vs Respawn Detection")]
-    [Range(1f, 10f)] public float respawnDetectionTime = 5f; // Time to consider player respawned
+    [Range(1f, 10f)] public float respawnDetectionTime = 5f;
     
     [Header("Respawn")]
     [Range(10f, 200f)] public float returnToTerminalRadius = 50f;
@@ -30,7 +43,8 @@ public class RaftSettings
     [Range(0.1f, 2f)] public float playerCacheDuration = 1f;
     
     [Header("Legacy - Deprecated")]
-    [Range(0.1f, 10f)] public float minimumTriggerTime = 0f; // Deprecated - use accidentalPreventionTime
+    [Range(0.1f, 10f)] public float minimumTriggerTime = 0f;
+    [Range(0f, 2f)] public float accidentalPreventionTime = 0.1f;
 }
 
 public enum RaftState 
@@ -56,7 +70,6 @@ public class RaftPlatform : MonoBehaviour
     public SplineContainer splineContainer;
     [SerializeField] private RaftSettings settings = new();
     
-    // Backward compatibility - delegano alle settings
     public float speed 
     { 
         get => settings.speed; 
@@ -81,6 +94,10 @@ public class RaftPlatform : MonoBehaviour
     private float currentDistance = 0f;
     private float totalLength = 0f;
     private int direction = 1;
+    
+    // FIX: Better terminal state tracking
+    private bool justArrivedAtTerminal = false;
+    private float terminalArrivalTime = 0f;
 
     // Position tracking
     private Vector3 lastPosition;
@@ -97,7 +114,6 @@ public class RaftPlatform : MonoBehaviour
     private RaftState _currentState = RaftState.WaitingAtTerminal;
     public RaftState CurrentState => _currentState;
     
-    // Legacy state flags for compatibility
     private bool isMoving => _currentState == RaftState.Moving;
     private bool isWaitingAtEnd => _currentState == RaftState.WaitingAtTerminal;
     private bool isReturningToTerminal => _currentState == RaftState.ReturningToTerminal;
@@ -110,25 +126,22 @@ public class RaftPlatform : MonoBehaviour
     private float startDistance = 0f;
     private float endDistance = 0f;
 
-    // Activation system - MODIFIED
+    // FIX: Better activation system tracking
     [Header("Activation Settings")]
-    [SerializeField] private float minimumTriggerTime = 0f; // Deprecated - use settings.accidentalPreventionTime
+    [SerializeField] private float minimumTriggerTime = 0f;
     [SerializeField] private bool debugActivationSystem = true;
-    
-    private float playerOnTriggerTime = 0f;
-    private bool playerReadyToTravel = false;
-    private bool isCountingActivationTime = false;
-    private bool wasMovingWithPlayer = false;
-    private float playerEnterTime = 0f; // NEW: Track when player entered
+    private float playerEnterTime = 0f;
+    private bool playerCanActivateRaft = false; // NEW: Explicit activation permission
 
     // Respawn system
     [Header("Respawn Settings")]
-    [SerializeField] private float returnToTerminalRadius = 50f; // Backward compatibility
+    [SerializeField] private float returnToTerminalRadius = 50f;
     [SerializeField] private bool debugRespawnSystem = true;
     [SerializeField] private RespawnMode respawnMode = RespawnMode.NearestToPlayer;
     
     private Vector3 lastKnownPlayerPosition;
     private bool playerWasOnBoard = false;
+    private float lastMovementStartTime = 0f;
 
     // Checkpoint integration
     [Header("Checkpoint Integration")]
@@ -138,13 +151,14 @@ public class RaftPlatform : MonoBehaviour
     private Vector3 lastKnownCheckpointPosition;
     private bool hasCheckpointPosition = false;
 
-    // Jump detection - MODIFIED
+    // FIX: Better exit tracking
     [Header("Jump Detection")]
-    [SerializeField] private float jumpIgnoreTime = 5f; // INCREASED - now used for respawn detection
+    [SerializeField] private float jumpIgnoreTime = 5f;
     private float playerExitTime = -1f;
     private bool playerJustExited = false;
     private int lastDirectionWithPlayer = 1;
-    private bool wasMovingBeforeExit = false; // RENAMED from wasMovingBeforeJump
+    private bool wasMovingBeforeExit = false;
+    private bool wasAtTerminalBeforeExit = false; // NEW: Track if we were at terminal before exit
 
     // Performance optimization
     private const float VALIDATION_INTERVAL = 1f;
@@ -160,7 +174,6 @@ public class RaftPlatform : MonoBehaviour
 
     void Start()
     {
-        // Sync settings for backward compatibility
         SyncSettingsFromSerializedFields();
         
         if (!ValidateConfiguration())
@@ -175,6 +188,7 @@ public class RaftPlatform : MonoBehaviour
         SetupCheckpointIntegration();
         
         _currentState = RaftState.WaitingAtTerminal;
+        justArrivedAtTerminal = false; // Start clean
         
         if (debugRespawnSystem)
         {
@@ -184,7 +198,6 @@ public class RaftPlatform : MonoBehaviour
 
     void Update()
     {
-        // Periodic validation
         if (Time.time - _lastValidationTime > VALIDATION_INTERVAL)
         {
             _lastValidationTime = Time.time;
@@ -193,31 +206,30 @@ public class RaftPlatform : MonoBehaviour
         }
 
         HandleStateMachine();
-        CheckForPlayerRespawn();
-        HandleRespawnDetection(); // RENAMED from HandleJumpDetection
+        CheckForPlayerRespawn(); // FIX: This needs to be more aggressive
+        HandleRespawnDetection();
+        CheckForAccidentalActivation();
         CollectTelemetryData();
     }
 
     #region Configuration & Validation
-
+    
     private void SyncSettingsFromSerializedFields()
     {
-        // Sync dei campi serializzati con le settings per backward compatibility
         if (minimumTriggerTime > 0) 
         {
-            settings.accidentalPreventionTime = minimumTriggerTime; // Map old setting to new
+            settings.quickStartTime = minimumTriggerTime;
         }
         if (returnToTerminalRadius > 0) settings.returnToTerminalRadius = returnToTerminalRadius;
-        if (jumpIgnoreTime > 0) settings.respawnDetectionTime = jumpIgnoreTime; // Map old setting to new
+        if (jumpIgnoreTime > 0) settings.respawnDetectionTime = jumpIgnoreTime;
         
-        // E viceversa - aggiorna i campi serializzati
-        minimumTriggerTime = settings.accidentalPreventionTime;
+        minimumTriggerTime = settings.quickStartTime;
         returnToTerminalRadius = settings.returnToTerminalRadius;
         jumpIgnoreTime = settings.respawnDetectionTime;
         
         if (debugActivationSystem)
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Settings sincronizzate - accidentalPreventionTime: {settings.accidentalPreventionTime}s, respawnDetectionTime: {settings.respawnDetectionTime}s");
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Settings sincronizzate - quickStartTime: {settings.quickStartTime}s, falseStartDetectionTime: {settings.falseStartDetectionTime}s");
         }
     }
 
@@ -247,7 +259,6 @@ public class RaftPlatform : MonoBehaviour
     {
         if (!_isValidConfiguration) return false;
         
-        // Verifica che il spline container non sia stato distrutto
         if (splineContainer == null || splineContainer.Spline == null)
         {
             Debug.LogError($"[RaftPlatform] {gameObject.name}: SplineContainer perso durante runtime!");
@@ -272,7 +283,7 @@ public class RaftPlatform : MonoBehaviour
 
     #endregion
 
-    #region State Machine - MODIFIED
+    #region State Machine - FIXED
 
     private void HandleStateMachine()
     {
@@ -295,35 +306,37 @@ public class RaftPlatform : MonoBehaviour
                 break;
                 
             case RaftState.Disabled:
-                // Do nothing
                 break;
         }
     }
 
-    private void HandleWaitingAtTerminal()
+private void HandleWaitingAtTerminal()
+{
+    deltaMovement = Vector3.zero;
+    _targetSpeedRatio = 0f;
+    
+    // FIX: Solo se il player è ANCORA sulla piattaforma e ha il permesso
+    if (playerController != null && playerCanActivateRaft && !playerJustExited)
     {
-        deltaMovement = Vector3.zero;
-        _targetSpeedRatio = 0f;
-        
-        // MODIFIED: Anti-accidental activation system
-        if (playerController != null && !playerJustExited)
+        if (ShouldStartMovement())
         {
-            if (ShouldStartMovement())
-            {
-                StartMovement();
-            }
-        }
-        else
-        {
-            // Reset timer when player leaves
-            playerEnterTime = 0f;
+            StartMovement();
         }
     }
-
+    
+    // FIX: Se player è uscito al terminal, NON partire automaticamente
+    if (playerJustExited && IsAtTerminal())
+    {
+        // Player uscito normalmente al terminal - resta fermo
+        if (debugActivationSystem)
+        {
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito al terminal - resto fermo");
+        }
+        return;
+    }
+}
     private void HandleCountingActivation()
     {
-        // This state is largely deprecated but kept for compatibility
-        // Redirect to the new anti-accidental system
         if (playerController != null && !playerJustExited)
         {
             if (ShouldStartMovement())
@@ -340,7 +353,22 @@ public class RaftPlatform : MonoBehaviour
     private void HandleMoving()
     {
         UpdateMovementSmooth();
-        
+
+        // FIX: Check for false start IMMEDIATELY
+        if (Time.time - lastMovementStartTime < settings.falseStartDetectionTime)
+        {
+            if (playerController == null)
+            {
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA rilevata! Player sceso dopo {Time.time - lastMovementStartTime:F1}s");
+                }
+
+                HandleFalseStart();
+                return;
+            }
+        }
+
         if (playerController != null)
         {
             lastDirectionWithPlayer = direction;
@@ -358,11 +386,46 @@ public class RaftPlatform : MonoBehaviour
         }
     }
 
+    private void HandleFalseStart()
+    {
+        Vector3 playerPosition;
+        bool foundPlayer = GetPlayerRespawnPosition(out playerPosition);
+        
+        if (foundPlayer)
+        {
+            float distanceToPlayer = Vector3.Distance(transform.position, playerPosition);
+            
+            if (distanceToPlayer <= settings.falseStartReturnRadius)
+            {
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player vicino ({distanceToPlayer:F1}m), torno da lui");
+                }
+                StartReturningBasedOnMode(playerPosition);
+            }
+            else
+            {
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player lontano ({distanceToPlayer:F1}m), torno al terminal più vicino");
+                }
+                StartReturningToTerminalNearZattera();
+            }
+        }
+        else
+        {
+            StartReturningToTerminalNearZattera();
+        }
+        
+        playerJustExited = true;
+        playerExitTime = Time.time;
+        playerCanActivateRaft = false; // FIX: Prevent immediate reactivation
+    }
+
     private void HandleReturningToTerminal()
     {
         UpdateMovementSmooth();
         
-        // Check terminal reached
         if (direction == 1 && currentDistance >= endDistance)
         {
             ReachTerminal(endDistance);
@@ -392,17 +455,6 @@ public class RaftPlatform : MonoBehaviour
         
         switch (to)
         {
-            case RaftState.CountingActivation:
-                isCountingActivationTime = true;
-                playerOnTriggerTime = 0f;
-                playerReadyToTravel = false;
-                
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Iniziato countdown attivazione - {settings.accidentalPreventionTime}s richiesti");
-                }
-                break;
-                
             case RaftState.WaitingAtTerminal:
                 ResetActivationTimer();
                 _targetSpeedRatio = 0f;
@@ -419,7 +471,6 @@ public class RaftPlatform : MonoBehaviour
                 break;
         }
         
-        // Audio feedback
         if (from == RaftState.Moving)
         {
             OnRaftStop.Invoke();
@@ -428,42 +479,57 @@ public class RaftPlatform : MonoBehaviour
 
     #endregion
 
-    #region Anti-Accidental Logic - NEW
+    #region Anti-Accidental Logic - FIXED
 
     private bool ShouldStartMovement()
     {
-        if (playerController == null || playerJustExited)
+        if (playerController == null || playerJustExited || !playerCanActivateRaft)
             return false;
         
-        // Basic time check - brief delay to prevent accidents
         float timeOnPlatform = Time.time - playerEnterTime;
-        if (timeOnPlatform < settings.accidentalPreventionTime)
+        float requiredWaitTime;
+        
+        // FIX: Better terminal wait logic
+        if (justArrivedAtTerminal)
+        {
+            requiredWaitTime = settings.terminalWaitTime;
+            
+            if (timeOnPlatform >= requiredWaitTime)
+            {
+                justArrivedAtTerminal = false;
+            }
+        }
+        else
+        {
+            requiredWaitTime = settings.quickStartTime;
+        }
+        
+        if (timeOnPlatform < requiredWaitTime)
         {
             if (debugActivationSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Aspetto conferma ({timeOnPlatform:F2}/{settings.accidentalPreventionTime:F2}s)");
+                string waitType = justArrivedAtTerminal ? "terminal" : "quick start";
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Aspetto {waitType} ({timeOnPlatform:F2}/{requiredWaitTime:F2}s)");
             }
             return false;
         }
         
-        // Optional: Check player velocity/movement intention
+        // Player movement checks
         if (settings.requirePlayerVelocityCheck)
         {
             Vector3 playerVelocity = playerController.velocity;
             float horizontalSpeed = new Vector3(playerVelocity.x, 0, playerVelocity.z).magnitude;
             
-            // If player is moving too slowly, might be accidental
             if (horizontalSpeed < settings.minimumPlayerSpeed)
             {
                 if (debugActivationSystem)
                 {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player troppo lento ({horizontalSpeed:F2} < {settings.minimumPlayerSpeed}), attendo movimento intenzionale");
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player troppo lento, attendo movimento intenzionale");
                 }
                 return false;
             }
         }
         
-        // Optional: Check if grounded (prevents mid-air activation)
         if (settings.requirePlayerGrounded && !IsPlayerGrounded())
         {
             if (debugActivationSystem)
@@ -482,7 +548,6 @@ public class RaftPlatform : MonoBehaviour
 
     private void UpdateMovementSmooth()
     {
-        // Smooth acceleration/deceleration
         float accelerationRate = _targetSpeedRatio > _currentSpeedRatio ? 
             1f / settings.accelerationTime : 1f / settings.decelerationTime;
         
@@ -500,54 +565,82 @@ public class RaftPlatform : MonoBehaviour
         lastPosition = newPosition;
     }
 
-    private void ReachTerminal(float terminalDistance)
+private void ReachTerminal(float terminalDistance)
+{
+    currentDistance = terminalDistance;
+    _completedTrips++;
+
+    // FIX: Migliore gestione arrivo al terminal
+    justArrivedAtTerminal = true;
+    terminalArrivalTime = Time.time;
+    
+    // FIX: Se arriviamo al terminal, fermiamo sempre
+    ChangeState(RaftState.WaitingAtTerminal);
+    
+    // FIX: Se player è ancora a bordo al terminal, deve scendere o aspettare per ripartire
+    if (playerController != null)
     {
-        currentDistance = terminalDistance;
-        _completedTrips++;
+        // Player ancora a bordo al terminal
+        playerCanActivateRaft = false; // Deve aspettare il tempo di grazia del terminal
         
-        if (_currentState == RaftState.ReturningToTerminal)
+        if (debugActivationSystem)
         {
-            ChangeState(RaftState.WaitingAtTerminal);
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal con player a bordo - attesa obbligatoria");
         }
-        else
+    }
+    else
+    {
+        // Arrivato al terminal senza player
+        ResetActivationTimer();
+    }
+
+    wasMovingBeforeExit = false;
+}
+
+    private void CheckForAccidentalActivation()
+    {
+        if (!settings.enableAccidentalDetection) return;
+        
+        if (_currentState != RaftState.Moving) return;
+        
+        if (Time.time - lastMovementStartTime > settings.accidentalActivationCheckTime)
         {
-            // FIXED: Reset activation system completely at terminal
-            // The player needs to "re-activate" the platform even if they're still on board
-            ResetActivationTimer();
-            wasMovingWithPlayer = false; // Reset this so it doesn't auto-return
-            
-            if (playerController != null)
+            if (playerController == null)
             {
-                // Player is still on board but we reset the activation
-                // They need to wait the full activation time again
-                playerEnterTime = Time.time;
-                
                 if (debugActivationSystem)
                 {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal con player a bordo - deve riattivare la piattaforma ({settings.accidentalPreventionTime}s)");
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Attivazione accidentale rilevata - player non più a bordo, ritorno al terminal");
+                }
+                
+                Vector3 playerPos;
+                if (GetPlayerRespawnPosition(out playerPos))
+                {
+                    StartReturningBasedOnMode(playerPos);
+                }
+                else
+                {
+                    StartReturningToTerminalNearZattera();
                 }
             }
-            
-            ChangeState(RaftState.WaitingAtTerminal);
+            else
+            {
+                settings.enableAccidentalDetection = false;
+            }
         }
-        
-        wasMovingBeforeExit = false;
     }
 
     private void StartMovement()
     {
-        // Determina direzione
         DetermineMovementDirection();
         
-        wasMovingWithPlayer = true;
+        lastMovementStartTime = Time.time;
         ChangeState(RaftState.Moving);
         
-        // Record activation time for telemetry
         if (playerEnterTime > 0)
         {
             float activationTime = Time.time - playerEnterTime;
             _activationTimes.Add(activationTime);
-            if (_activationTimes.Count > 50) // Keep last 50 samples
+            if (_activationTimes.Count > 50)
                 _activationTimes.RemoveAt(0);
         }
         
@@ -558,15 +651,14 @@ public class RaftPlatform : MonoBehaviour
     {
         if (Mathf.Approximately(currentDistance, startDistance))
         {
-            direction = 1; // Verso end
+            direction = 1;
         }
         else if (Mathf.Approximately(currentDistance, endDistance))
         {
-            direction = -1; // Torna indietro
+            direction = -1;
         }
         else
         {
-            // Usa direzione precedente se disponibile
             direction = lastDirectionWithPlayer;
         }
     }
@@ -590,11 +682,7 @@ public class RaftPlatform : MonoBehaviour
     private bool IsPlayerGrounded()
     {
         if (playerController == null) return false;
-        
-        // Se il controllo grounded è disabilitato, considera sempre grounded
         if (!settings.requirePlayerGrounded) return true;
-        
-        // Simple ground check - can be improved with raycast
         return playerController.isGrounded;
     }
 
@@ -606,23 +694,19 @@ public class RaftPlatform : MonoBehaviour
         return playerController.transform.position + playerController.velocity * Time.fixedDeltaTime * 2f;
     }
 
-    private void HandleRespawnDetection() // RENAMED from HandleJumpDetection
+    private void HandleRespawnDetection()
     {
-        // IMPROVED: Only consider respawn after longer absence AND make sure we don't accidentally reset during normal jumps
         if (playerJustExited && (Time.time - playerExitTime) >= settings.respawnDetectionTime)
         {
-            // Additional check: only reset if the player is really far or if we haven't seen them for a while
             Transform currentPlayerTransform = GetCachedPlayerTransform();
             bool playerReallyGone = false;
             
             if (currentPlayerTransform == null)
             {
-                // Player object doesn't exist - definitely respawned
                 playerReallyGone = true;
             }
             else
             {
-                // Check if player is very far from the platform
                 float distanceToPlayer = Vector3.Distance(transform.position, currentPlayerTransform.position);
                 if (distanceToPlayer > settings.returnToTerminalRadius)
                 {
@@ -639,25 +723,18 @@ public class RaftPlatform : MonoBehaviour
                 
                 ResetPlayerState();
             }
-            else
-            {
-                if (debugRespawnSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player assente da tempo ma vicino - probabilmente ancora vivo, continuo ad aspettare");
-                }
-            }
         }
     }
 
     private void ResetPlayerState()
     {
         playerController = null;
-        wasMovingWithPlayer = false;
         playerJustExited = false;
         wasMovingBeforeExit = false;
+        wasAtTerminalBeforeExit = false;
+        playerCanActivateRaft = false; // FIX: Reset activation permission
         ResetActivationTimer();
         
-        // MODIFIED: Stop movement only when we're sure player respawned
         if (_currentState == RaftState.Moving || _currentState == RaftState.CountingActivation)
         {
             if (debugRespawnSystem)
@@ -670,42 +747,59 @@ public class RaftPlatform : MonoBehaviour
 
     #endregion
 
-    #region Activation Timer System - MODIFIED
+    #region Activation Timer System - FIXED
 
     private void ResetActivationTimer()
     {
-        isCountingActivationTime = false;
-        playerOnTriggerTime = 0f;
-        playerReadyToTravel = false;
-        playerEnterTime = 0f; // NEW
+        playerEnterTime = 0f;
+        playerCanActivateRaft = false; // FIX: Always reset activation permission
         
-        if (debugActivationSystem && playerOnTriggerTime > 0)
+        if (debugActivationSystem)
         {
             Debug.Log($"[RaftPlatform] {gameObject.name}: Timer attivazione resettato");
         }
     }
 
-    // Public API for compatibility - MODIFIED
     public float GetActivationProgress()
     {
         if (playerEnterTime == 0f) return 0f;
+        
         float timeOnPlatform = Time.time - playerEnterTime;
-        return Mathf.Clamp01(timeOnPlatform / settings.accidentalPreventionTime);
+        float requiredTime = justArrivedAtTerminal ? settings.terminalWaitTime : settings.quickStartTime;
+        
+        return Mathf.Clamp01(timeOnPlatform / requiredTime);
     }
 
-    public bool IsCountingActivation => playerEnterTime > 0f && (Time.time - playerEnterTime) < settings.accidentalPreventionTime;
-    public float RemainingActivationTime => playerEnterTime > 0f ? Mathf.Max(0f, settings.accidentalPreventionTime - (Time.time - playerEnterTime)) : 0f;
+    public bool IsCountingActivation 
+    {
+        get
+        {
+            if (playerEnterTime == 0f) return false;
+            float timeOnPlatform = Time.time - playerEnterTime;
+            float requiredTime = justArrivedAtTerminal ? settings.terminalWaitTime : settings.quickStartTime;
+            return timeOnPlatform < requiredTime;
+        }
+    }
+
+    public float RemainingActivationTime 
+    {
+        get
+        {
+            if (playerEnterTime == 0f) return 0f;
+            float timeOnPlatform = Time.time - playerEnterTime;
+            float requiredTime = justArrivedAtTerminal ? settings.terminalWaitTime : settings.quickStartTime;
+            return Mathf.Max(0f, requiredTime - timeOnPlatform);
+        }
+    }
 
     #endregion
 
-    #region Respawn System - ENHANCED
+    #region Respawn System - FIXED
 
     private void CheckForPlayerRespawn()
     {
-        // MODIFIED: Only check for respawn after extended absence
-        if (playerController == null && playerJustExited && 
-            (Time.time - playerExitTime) >= settings.respawnDetectionTime && 
-            !(_currentState == RaftState.ReturningToTerminal) && playerWasOnBoard)
+        // FIX: Be more aggressive about detecting respawns and returning to terminals
+        if (playerController == null && playerWasOnBoard)
         {
             Vector3 playerRespawnPosition;
             bool foundPlayerPosition = GetPlayerRespawnPosition(out playerRespawnPosition);
@@ -714,20 +808,19 @@ public class RaftPlatform : MonoBehaviour
             {
                 float distanceToPlayer = Vector3.Distance(transform.position, playerRespawnPosition);
                 
-                if (debugRespawnSystem)
+                // FIX: Check more frequently and with lower threshold
+                if (distanceToPlayer > settings.returnToTerminalRadius * 0.5f) // Lower threshold
                 {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Rilevato respawn - Distanza: {distanceToPlayer:F1}m");
-                }
-
-                if (distanceToPlayer > settings.returnToTerminalRadius)
-                {
-                    if (debugRespawnSystem)
+                    if (_currentState != RaftState.ReturningToTerminal)
                     {
-                        Debug.Log($"[RaftPlatform] {gameObject.name}: Player respawnato lontano, attivo ritorno automatico");
+                        if (debugRespawnSystem)
+                        {
+                            Debug.Log($"[RaftPlatform] {gameObject.name}: Player lontano ({distanceToPlayer:F1}m), avvio ritorno automatico");
+                        }
+                        
+                        StartReturningBasedOnMode(playerRespawnPosition);
+                        playerWasOnBoard = false;
                     }
-                    
-                    StartReturningBasedOnMode(playerRespawnPosition);
-                    playerWasOnBoard = false;
                 }
             }
         }
@@ -782,7 +875,6 @@ public class RaftPlatform : MonoBehaviour
         direction = (distancePlayerToStart < distancePlayerToEnd) ? -1 : 1;
         
         ChangeState(RaftState.ReturningToTerminal);
-        wasMovingWithPlayer = false;
         
         if (debugRespawnSystem)
         {
@@ -799,7 +891,6 @@ public class RaftPlatform : MonoBehaviour
         direction = (distanceToStart < distanceToEnd) ? -1 : 1;
         
         ChangeState(RaftState.ReturningToTerminal);
-        wasMovingWithPlayer = false;
         
         if (debugRespawnSystem)
         {
@@ -812,7 +903,6 @@ public class RaftPlatform : MonoBehaviour
     {
         direction = targetDirection;
         ChangeState(RaftState.ReturningToTerminal);
-        wasMovingWithPlayer = false;
         
         if (debugRespawnSystem)
         {
@@ -885,13 +975,12 @@ public class RaftPlatform : MonoBehaviour
 
     private void CollectTelemetryData()
     {
-        // Collect speed samples for analytics
         if (_currentState == RaftState.Moving)
         {
             float currentSpeed = settings.speed * speedMultiplier * _currentSpeedRatio;
             _speedSamples.Add(currentSpeed);
             
-            if (_speedSamples.Count > 300) // ~5 seconds at 60fps
+            if (_speedSamples.Count > 300)
                 _speedSamples.RemoveAt(0);
         }
     }
@@ -1128,114 +1217,171 @@ public class RaftPlatform : MonoBehaviour
 
     #endregion
 
-    #region Trigger Events - MODIFIED
-
-    private void OnTriggerEnter(Collider other)
+    #region Trigger Events - FIXED
+private void OnTriggerEnter(Collider other)
+{
+    if (!other.CompareTag("Player")) return;
+    
+    CharacterController controller;
+    if (!_controllerCache.TryGetValue(other, out controller))
     {
-        if (!other.CompareTag("Player")) return;
+        controller = other.GetComponent<CharacterController>();
+        _controllerCache[other] = controller;
+    }
+    
+    // FIX: Handle re-entry dopo uscita al terminal
+    if (playerJustExited)
+    {
+        float timeAway = Time.time - playerExitTime;
         
-        // Ottimizzazione: usa cache per CharacterController
-        CharacterController controller;
-        if (!_controllerCache.TryGetValue(other, out controller))
+        if (debugActivationSystem)
         {
-            controller = other.GetComponent<CharacterController>();
-            _controllerCache[other] = controller;
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Player tornato dopo {timeAway:F2}s, era al terminal: {wasAtTerminalBeforeExit}");
         }
         
-        // IMPROVED: Handle re-entry after temporary exit
-        if (playerJustExited)
+        playerJustExited = false;
+        playerController = controller;
+        
+        // FIX: Gestione speciale per rientro dopo uscita al terminal
+        if (wasAtTerminalBeforeExit)
         {
-            float timeAway = Time.time - playerExitTime;
+            // Player aveva lasciato la piattaforma al terminal e ora torna
+            playerEnterTime = Time.time;
             
-            if (debugActivationSystem)
+            if (timeAway < settings.terminalGracePeriod)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player tornato dopo {timeAway:F2}s - Era in movimento: {wasMovingBeforeExit}");
-            }
-            
-            playerJustExited = false;
-            playerController = controller;
-            
-            // FIXED: Only continue movement if we were moving before AND it was a short exit (jump)
-            if (wasMovingBeforeExit && _currentState != RaftState.Moving && timeAway < settings.respawnDetectionTime)
-            {
-                direction = lastDirectionWithPlayer;
-                ChangeState(RaftState.Moving);
+                // Rientro rapido - applica attesa terminal
+                justArrivedAtTerminal = true; // Forza attesa terminal
+                playerCanActivateRaft = false; // Deve aspettare
                 
                 if (debugActivationSystem)
                 {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Continuo movimento nella direzione {direction} (ritorno da salto)");
-                }
-            }
-            else if (timeAway >= settings.respawnDetectionTime)
-            {
-                // This was likely a respawn, reset everything and start fresh
-                ResetActivationTimer();
-                playerEnterTime = Time.time;
-                
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Probabile respawn - reset completo");
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Rientro rapido da terminal - attesa terminal obbligatoria ({settings.terminalWaitTime}s)");
                 }
             }
             else
             {
-                // Short exit but we weren't moving - restart the anti-accidental timer
-                playerEnterTime = Time.time;
+                // Rientro dopo più tempo - tratta come nuovo boarding
+                justArrivedAtTerminal = false;
+                playerCanActivateRaft = true;
                 
                 if (debugActivationSystem)
                 {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Breve uscita ma non eravamo in movimento - riavvio timer");
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Rientro tardivo da terminal - attivazione rapida consentita");
                 }
             }
-            
-            return;
+        }
+        else
+        {
+            // Logica esistente per rientri lontano dal terminal
+            if (wasMovingBeforeExit && _currentState != RaftState.Moving && timeAway < 2f && !IsAtTerminal())
+            {
+                // Resume movement if was moving and returns quickly (not at terminal)
+                direction = lastDirectionWithPlayer;
+                ChangeState(RaftState.Moving);
+                playerCanActivateRaft = true;
+                
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Continuo movimento (ritorno da salto)");
+                }
+            }
+            else if (timeAway >= settings.respawnDetectionTime)
+            {
+                // Likely respawn - reset everything
+                ResetActivationTimer();
+                playerEnterTime = Time.time;
+                playerCanActivateRaft = true;
+                justArrivedAtTerminal = false;
+                
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Probabile respawn - attivazione rapida consentita");
+                }
+            }
+            else
+            {
+                // Normal return
+                playerEnterTime = Time.time;
+                playerCanActivateRaft = true;
+                justArrivedAtTerminal = false;
+                
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Ritorno normale");
+                }
+            }
         }
         
-        // New entry - Start anti-accidental timer
-        playerController = controller;
-        playerWasOnBoard = true;
-        playerJustExited = false;
-        wasMovingBeforeExit = false;
-        _boardEvents++;
-        
-        playerEnterTime = Time.time; // NEW: Track entry time for anti-accidental system
+        return;
+    }
+    
+    // FIX: Prima salita - comportamento normale
+    playerController = controller;
+    playerWasOnBoard = true;
+    playerJustExited = false;
+    wasMovingBeforeExit = false;
+    wasAtTerminalBeforeExit = false;
+    _boardEvents++;
+    
+    playerEnterTime = Time.time;
+    
+    // FIX: Se saliamo per la prima volta al terminal, permetti attivazione immediata
+    // Se saliamo durante il movimento o lontano dal terminal, permetti attivazione immediata
+    playerCanActivateRaft = true;
+    justArrivedAtTerminal = false; // Prima salita non richiede attesa terminal
+    
+    lastKnownPlayerPosition = other.transform.position;
+    OnPlayerBoard.Invoke();
+    
+    if (debugActivationSystem)
+    {
+        Debug.Log($"[RaftPlatform] {gameObject.name}: Prima salita del player - attivazione immediata consentita");
+    }
+}
+   private void OnTriggerExit(Collider other)
+{
+    if (!other.CompareTag("Player")) return;
+    
+    CharacterController controller;
+    if (_controllerCache.TryGetValue(other, out controller) && playerController == controller)
+    {
         lastKnownPlayerPosition = other.transform.position;
         
-        OnPlayerBoard.Invoke();
+        playerExitTime = Time.time;
+        playerJustExited = true;
+        wasMovingBeforeExit = _currentState == RaftState.Moving;
+        wasAtTerminalBeforeExit = IsAtTerminal(); // FIX: Track if we were at terminal
+        _exitEvents++;
         
-        if (debugActivationSystem)
+        // FIX: Logica specifica per uscita al terminal
+        if (IsAtTerminal())
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Player entrato - Timer anti-accidentale avviato ({settings.accidentalPreventionTime}s)");
-        }
-    }
-
-    private void OnTriggerExit(Collider other)
-    {
-        if (!other.CompareTag("Player")) return;
-        
-        CharacterController controller;
-        if (_controllerCache.TryGetValue(other, out controller) && playerController == controller)
-        {
-            lastKnownPlayerPosition = other.transform.position;
-            
-            playerExitTime = Time.time;
-            playerJustExited = true;
-            wasMovingBeforeExit = _currentState == RaftState.Moving;
-            _exitEvents++;
-            
-            // MODIFIED: Don't immediately reset activation timer - let the system decide if it's a jump or respawn
-            OnPlayerExit.Invoke();
+            // Player è uscito al terminal - comportamento normale
+            playerController = null; // Disconnetti il player immediatamente
+            playerCanActivateRaft = false;
+            playerWasOnBoard = false; // FIX: Reset questo flag per evitare falsi respawn
+            ResetActivationTimer();
             
             if (debugActivationSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito - Era in movimento: {wasMovingBeforeExit}. Attendo {settings.respawnDetectionTime}s per determinare se è salto o respawn");
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito normalmente al terminal - piattaforma resta ferma");
             }
-            
-            // CRITICAL: Don't stop movement here - let the respawn detection system handle it
-            // Movement continues during jumps, only stops on confirmed respawn
         }
+        else
+        {
+            // Player è uscito mentre eravamo in movimento o lontano dal terminal
+            playerCanActivateRaft = false; // Disable activation until re-entry is processed
+            
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito lontano dal terminal - Era in movimento: {wasMovingBeforeExit}");
+            }
+        }
+        
+        OnPlayerExit.Invoke();
     }
-
+}
     #endregion
 
     #region Cleanup
@@ -1247,9 +1393,9 @@ public class RaftPlatform : MonoBehaviour
             checkpointManager.OnPlayerCheckpointChanged.RemoveListener(OnPlayerCheckpointUpdated);
         }
         
-        // Clear static cache when object is destroyed
         _controllerCache.Clear();
     }
+
     #endregion
 
     #region Editor Utilities
@@ -1257,7 +1403,6 @@ public class RaftPlatform : MonoBehaviour
     #if UNITY_EDITOR
     private void OnValidate()
     {
-        // Automatic parameter validation in editor
         if (settings != null)
         {
             settings.speed = Mathf.Max(0.1f, settings.speed);
@@ -1266,15 +1411,13 @@ public class RaftPlatform : MonoBehaviour
             settings.returnToTerminalRadius = Mathf.Max(1f, settings.returnToTerminalRadius);
             settings.sampleResolution = Mathf.Max(10, settings.sampleResolution);
             
-            // Sync with legacy fields
             speed = settings.speed;
-            minimumTriggerTime = settings.accidentalPreventionTime;
+            minimumTriggerTime = settings.quickStartTime;
             returnToTerminalRadius = settings.returnToTerminalRadius;
             jumpIgnoreTime = settings.respawnDetectionTime;
             sampleResolution = settings.sampleResolution;
         }
         
-        // Validate spline in editor
         if (splineContainer?.Spline != null && splineContainer.Spline.Count < 2)
         {
             Debug.LogWarning($"[RaftPlatform] {gameObject.name}: La spline deve avere almeno 2 punti di controllo!");
@@ -1316,86 +1459,28 @@ public class RaftPlatform : MonoBehaviour
             UnityEditor.Handles.Label(transform.position + Vector3.up * 8, $"MOVING (Speed: {(_currentSpeedRatio * 100):F0}%)");
         }
         
-        // Checkpoint visualization
-        if (hasCheckpointPosition)
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(lastKnownCheckpointPosition, 1.5f);
-            UnityEditor.Handles.Label(lastKnownCheckpointPosition + Vector3.up * 4, "CHECKPOINT");
-            
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(lastKnownCheckpointPosition, startPos);
-            Gizmos.DrawLine(lastKnownCheckpointPosition, endPos);
-        }
-        
-        // Player position (if no checkpoint)
-        Transform playerTransform = GetCachedPlayerTransform();
-        if (playerTransform != null && !hasCheckpointPosition)
-        {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawWireSphere(playerTransform.position, 1f);
-            UnityEditor.Handles.Label(playerTransform.position + Vector3.up * 4, "PLAYER");
-            
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(playerTransform.position, startPos);
-            Gizmos.DrawLine(playerTransform.position, endPos);
-        }
-
-        // Anti-accidental activation timer visualization
-        if (playerEnterTime > 0f && (Time.time - playerEnterTime) < settings.accidentalPreventionTime)
-        {
-            float progress = (Time.time - playerEnterTime) / settings.accidentalPreventionTime;
-            float remaining = settings.accidentalPreventionTime - (Time.time - playerEnterTime);
-            string timerText = $"Anti-Accidental: {remaining:F1}s ({progress:P0})";
-            
-            // Colored progress bar
-            Gizmos.color = Color.Lerp(Color.red, Color.green, progress);
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 6, timerText);
-            
-            // Visual progress bar
-            Vector3 barStart = transform.position + Vector3.up * 5 + Vector3.left * 2;
-            Vector3 barEnd = barStart + Vector3.right * 4;
-            Vector3 barProgress = Vector3.Lerp(barStart, barEnd, progress);
-            
-            Gizmos.color = Color.white;
-            Gizmos.DrawLine(barStart, barEnd);
-            Gizmos.color = Color.green;
-            Gizmos.DrawLine(barStart, barProgress);
-        }
-
-        // Respawn detection timer visualization
-        if (playerJustExited)
-        {
-            float timeAway = Time.time - playerExitTime;
-            float timeRemaining = settings.respawnDetectionTime - timeAway;
-            string status = timeAway >= settings.respawnDetectionTime ? "RESPAWNED" : "JUMPING";
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 7, $"{status}: {timeRemaining:F1}s");
-        }
-        
-        // State indicator
+        // State indicator with activation permission
         Gizmos.color = GetStateColor(_currentState);
         string stateText = $"State: {_currentState}";
         if (_currentState == RaftState.Moving || _currentState == RaftState.ReturningToTerminal)
         {
             stateText += $" (Dir: {(direction == 1 ? "→" : "←")})";
         }
+        stateText += $"\nCan Activate: {playerCanActivateRaft}";
+        stateText += $"\nJust Arrived: {justArrivedAtTerminal}";
+        
         UnityEditor.Handles.Label(transform.position + Vector3.up * 9, stateText);
         
-        // Additional info for debugging
-        if (playerController != null && settings.requirePlayerVelocityCheck)
-        {
-            float horizontalSpeed = new Vector3(playerController.velocity.x, 0, playerController.velocity.z).magnitude;
-            string speedInfo = $"Player Speed: {horizontalSpeed:F1} (Min: {settings.minimumPlayerSpeed:F1})";
-            Color speedColor = horizontalSpeed >= settings.minimumPlayerSpeed ? Color.green : Color.red;
-            Gizmos.color = speedColor;
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 11, speedInfo);
-        }
-        
-        // Telemetry info
-        if (_completedTrips > 0 || _boardEvents > 0)
-        {
-            string telemetryText = $"Trips: {_completedTrips} | Boards: {_boardEvents} | Exits: {_exitEvents}";
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 12, telemetryText);
+        // Activation timer visualization
+        if (playerEnterTime > 0f && IsCountingActivation)
+        {   
+            float requiredTime = justArrivedAtTerminal ? settings.terminalWaitTime : settings.quickStartTime;
+            float progress = (Time.time - playerEnterTime) / requiredTime;
+            float remaining = requiredTime - (Time.time - playerEnterTime);
+            string timerText = $"Timer: {remaining:F1}s ({progress:P0})";
+            
+            Gizmos.color = Color.Lerp(Color.red, Color.green, progress);
+            UnityEditor.Handles.Label(transform.position + Vector3.up * 12, timerText);
         }
     }
 
@@ -1403,11 +1488,11 @@ public class RaftPlatform : MonoBehaviour
     {
         switch (state)
         {
-            case RaftState.WaitingAtTerminal: return Color.white;
+            case RaftState.WaitingAtTerminal: return playerCanActivateRaft ? Color.white : Color.gray;
             case RaftState.CountingActivation: return Color.yellow;
             case RaftState.Moving: return Color.green;
             case RaftState.ReturningToTerminal: return Color.red;
-            case RaftState.Disabled: return Color.gray;
+            case RaftState.Disabled: return Color.black;
             default: return Color.magenta;
         }
     }

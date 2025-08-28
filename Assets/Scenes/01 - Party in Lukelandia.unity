@@ -132484,8 +132484,8 @@ Transform:
   m_GameObject: {fileID: 1862741163}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 434.45, y: 143.7, z: -156}
-  m_LocalScale: {x: 10, y: 50, z: 100}
+  m_LocalPosition: {x: 423.9, y: 143.7, z: -156}
+  m_LocalScale: {x: 10, y: 100, z: 120}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1532979206}
@@ -154732,7 +154732,7 @@ GameObject:
   - component: {fileID: 3169073441733518010}
   - component: {fileID: 3169073441733518012}
   - component: {fileID: 3169073441733518013}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: pancake_top
   m_TagString: RaftPlatform
   m_Icon: {fileID: 0}
@@ -154756,7 +154756,14 @@ MonoBehaviour:
     speed: 15
     accelerationTime: 2
     decelerationTime: 1.5
-    accidentalPreventionTime: 0.3
+    minimumExitTime: 2
+    terminalGracePeriod: 1
+    quickStartTime: 0.1
+    terminalWaitTime: 2
+    falseStartDetectionTime: 4
+    falseStartReturnRadius: 15
+    enableAccidentalDetection: 1
+    accidentalActivationCheckTime: 3
     requirePlayerVelocityCheck: 1
     minimumPlayerSpeed: 0.5
     requirePlayerGrounded: 0
@@ -154766,6 +154773,7 @@ MonoBehaviour:
     enablePredictiveMovement: 1
     playerCacheDuration: 1
     minimumTriggerTime: 0.62
+    accidentalPreventionTime: 2
   accelerationCurve:
     serializedVersion: 2
     m_Curve:
@@ -154802,7 +154810,7 @@ MonoBehaviour:
   OnPlayerExit:
     m_PersistentCalls:
       m_Calls: []
-  minimumTriggerTime: 0.3
+  minimumTriggerTime: 0.1
   debugActivationSystem: 1
   returnToTerminalRadius: 50
   debugRespawnSystem: 0
@@ -154851,8 +154859,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.04, y: 0.045896307, z: 0.015}
-  m_Center: {x: -0.0007154007, y: 0.00019653798, z: 0.0012191057}
+  m_Size: {x: 0.047692034, y: 0.045896307, z: 0.019381337}
+  m_Center: {x: -0.00071534107, y: 0.00019653798, z: 0.01219121}
 --- !u!4 &3243041977937721934
 Transform:
   m_ObjectHideFlags: 0
