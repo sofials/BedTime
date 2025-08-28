@@ -23,7 +23,7 @@ RenderSettings:
   m_AmbientSkyColor: {r: 0.301, g: 0.602, b: 0.5857297, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
-  m_AmbientIntensity: 1.2
+  m_AmbientIntensity: 1
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.80721253, g: 0.83875686, b: 0.93207544, a: 1}
   m_SkyboxMaterial: {fileID: 2100000, guid: cc421da483ed06c49933077a621bff25, type: 2}
@@ -171,7 +171,7 @@ Light:
   serializedVersion: 11
   m_Type: 1
   m_Color: {r: 0.7171771, g: 0.6245283, b: 1, a: 1}
-  m_Intensity: 0.9
+  m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -2249,14 +2249,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 0.5
 --- !u!4 &204976175 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5433550237561388055, guid: 494a88580c248664c8fc965952f0dcf1, type: 3}
@@ -3583,14 +3584,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 0.5
 --- !u!4 &295433049 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5433550237561388055, guid: 494a88580c248664c8fc965952f0dcf1, type: 3}
@@ -4519,14 +4521,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 3
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 3
 --- !u!64 &336378965
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -13683,14 +13686,15 @@ MonoBehaviour:
   forwardAxis: {x: 0, y: 0, z: 1}
   upAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 5
+  canBeSlowed: 1
   customSlowdownDuration: 15
+  useCustomSlowdown: 0
+  customSlowdownFactor: 0.5
   overlayColor: {r: 1, g: 0, b: 0, a: 1}
   overlayIntensity: 2
   hdrMultiplier: 3
   applyColorTint: 1
   slowdownEffect: {fileID: 0}
-  useCustomSlowdown: 0
-  customSlowdownFactor: 0.5
 --- !u!65 &1030315570
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -27498,18 +27502,6 @@ PrefabInstance:
     - target: {fileID: 5138475616627339513, guid: fc0b5f7e18c48ea4ebb52f720dadbb82, type: 3}
       propertyPath: m_Name
       value: Min_02_C
-      objectReference: {fileID: 0}
-    - target: {fileID: 5539105396448316809, guid: fc0b5f7e18c48ea4ebb52f720dadbb82, type: 3}
-      propertyPath: m_LODs.Array.data[0].screenRelativeHeight
-      value: 0.26033643
-      objectReference: {fileID: 0}
-    - target: {fileID: 5539105396448316809, guid: fc0b5f7e18c48ea4ebb52f720dadbb82, type: 3}
-      propertyPath: m_LODs.Array.data[1].screenRelativeHeight
-      value: 0.17417164
-      objectReference: {fileID: 0}
-    - target: {fileID: 5539105396448316809, guid: fc0b5f7e18c48ea4ebb52f720dadbb82, type: 3}
-      propertyPath: m_LODs.Array.data[2].screenRelativeHeight
-      value: 0.081366435
       objectReference: {fileID: 0}
     - target: {fileID: 6113215636419170633, guid: fc0b5f7e18c48ea4ebb52f720dadbb82, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
