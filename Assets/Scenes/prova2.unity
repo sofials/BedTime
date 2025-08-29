@@ -370,7 +370,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
-  field of view: 50
+  field of view: 60.8
   orthographic: 0
   orthographic size: 5
   m_Depth: 0
@@ -396,8 +396,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 150112117}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.17191947, y: -0.000000025963006, z: 0.0000000045310076, w: 0.98511106}
-  m_LocalPosition: {x: -14.6, y: 37.6, z: 19.96}
+  m_LocalRotation: {x: 0.15423334, y: 0.0000000038739443, z: -6.0472716e-10, w: 0.9880345}
+  m_LocalPosition: {x: -14.6, y: 35.6, z: 19.96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -821,15 +821,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: 1, z: 0}
   rotationSpeed: 360
-  patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
+  overlayColor: {r: 1, g: 0, b: 0, a: 1}
+  overlayIntensity: 2
+  hdrMultiplier: 3
+  applyColorTint: 1
   slowdownEffect: {fileID: 169099757}
   usePinwheelMode: 0
   visualToRotate: {fileID: 0}
   rotateAroundObject: 0
   targetObject: {fileID: 0}
   maintainOrientation: 1
+  usePendulumMode: 0
+  pendulumAnchor: {fileID: 0}
+  pendulumMaxAngle: 45
+  pendulumSpeed: 2
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
+  platformType: 0
+  detachPlayerOnHit: 0
+  canDamagePlayer: 1
+  damageAmount: 10
+  triggerHitWhenNoDamage: 0
+  customSlowdownDuration: 15
 --- !u!54 &317856029
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1885,17 +1898,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5521277632010768499, guid: f78aaaec3b393e24ca74cd6de8194347, type: 3}
   m_PrefabInstance: {fileID: 921955233}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &654230430 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8348542137897283351, guid: 742a6c4bce57e79449be94938a1c95ea, type: 3}
-  m_PrefabInstance: {fileID: 4192627492967537684}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 17cc2f1bfb199ee41911974be21b1660, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &736546970
 GameObject:
   m_ObjectHideFlags: 0
@@ -2381,7 +2383,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c45d06707b24fe0489893b9eae6d6a62, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  golem: {fileID: 1153061551}
 --- !u!65 &1117852356
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2508,6 +2509,8 @@ MonoBehaviour:
   animator: {fileID: 1153061555}
   walkSpeed: 40
   destinationWaypoint: {fileID: 97751545}
+  arrivalDistance: 2
+  rotationSpeed: 120
 --- !u!54 &1153061552
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -3466,10 +3469,19 @@ MonoBehaviour:
   speed: 15
   pingPong: 1
   sampleResolution: 100
-  patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
-  slowdownEffect: {fileID: 762642351}
+  enableRotation: 1
+  forwardAxis: {x: 0, y: 0, z: 1}
+  upAxis: {x: 0, y: 1, z: 0}
+  rotationSpeed: 5
+  canBeSlowed: 1
+  customSlowdownDuration: 15
   useCustomSlowdown: 0
   customSlowdownFactor: 0.5
+  overlayColor: {r: 1, g: 0, b: 0, a: 1}
+  overlayIntensity: 2
+  hdrMultiplier: 3
+  applyColorTint: 1
+  slowdownEffect: {fileID: 762642351}
 --- !u!54 &1298321028
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -4193,7 +4205,7 @@ PrefabInstance:
     - target: {fileID: 408870678811938927, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
-      objectReference: {fileID: 8322224309160019831}
+      objectReference: {fileID: 0}
     - target: {fileID: 1493279534681966601, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -4261,7 +4273,7 @@ PrefabInstance:
     - target: {fileID: 8531983554210713303, guid: 204ba2ed72191f74b9a8ed78752e44bc, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
-      objectReference: {fileID: 8322224309160019831}
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5117,7 +5129,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 37.6
+      value: 35.6
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.z
@@ -5125,19 +5137,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.98511106
+      value: 0.9880345
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.17191942
+      value: 0.1542333
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.000000025963002
+      value: 0.0000000038739434
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0.0000000045310067
+      value: -6.0472743e-10
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -5796,7 +5808,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1001 &964047188648916624
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5892,6 +5904,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   checkpointName: 
   isActivated: 0
+  description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!114 &1275030417835076706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5906,6 +5921,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   checkpointName: 
   isActivated: 0
+  description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!137 &1494816251364102876
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
@@ -6352,17 +6370,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 3, y: 5, z: 2}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &3975499795748073955 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3765572554063838985, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
-  m_PrefabInstance: {fileID: 5661701382961290599}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c7e264929f6f07649892e2b24ba2071d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &4001566071119643340
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6777,15 +6784,15 @@ PrefabInstance:
     - target: {fileID: 328773549392567367, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: SlowdownAbility
       value: 
-      objectReference: {fileID: 3975499795748073955}
+      objectReference: {fileID: 0}
     - target: {fileID: 328773549392567367, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: TeleportAbility
       value: 
-      objectReference: {fileID: 7279576639560115523}
+      objectReference: {fileID: 0}
     - target: {fileID: 328773549392567367, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: PlatformSpawnerForwardAbility
       value: 
-      objectReference: {fileID: 5816166183444723655}
+      objectReference: {fileID: 0}
     - target: {fileID: 4530120001442678975, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_Name
       value: Luke
@@ -6907,6 +6914,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   checkpointName: 
   isActivated: 0
+  description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!4 &5521277631305685911 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2948708543149577589, guid: 373cad5fbd039bb4fb456f3011d3459a, type: 3}
@@ -6923,7 +6933,7 @@ PrefabInstance:
     - target: {fileID: 2849351032352536646, guid: a030ad79375e5f24180162cb7073d481, type: 3}
       propertyPath: activeSlowdownAbility
       value: 
-      objectReference: {fileID: 3975499795748073955}
+      objectReference: {fileID: 0}
     - target: {fileID: 2849351032352536646, guid: a030ad79375e5f24180162cb7073d481, type: 3}
       propertyPath: 'waypoints.Array.data[0]'
       value: 
@@ -7125,7 +7135,7 @@ PrefabInstance:
     - target: {fileID: 3765572554063838985, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: 'verdeNPCsToSlow.Array.data[0]'
       value: 
-      objectReference: {fileID: 654230430}
+      objectReference: {fileID: 0}
     - target: {fileID: 3765572554063838985, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
       propertyPath: 'villageNPCsToSlow.Array.data[0]'
       value: 
@@ -7227,17 +7237,6 @@ Transform:
   - {fileID: 6252903168037173971}
   m_Father: {fileID: 8807452865358727931}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5816166183444723655 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 6043544951998937389, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
-  m_PrefabInstance: {fileID: 5661701382961290599}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c23e2f4912206c54eb774fa822f9035b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &5820091462444546100
 GameObject:
   m_ObjectHideFlags: 0
@@ -7288,7 +7287,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e34e1f44ea3a47443a0a94f7619caa63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  player: {fileID: 0}
+  player: {fileID: 9018332395690469957}
   agent: {fileID: 804735406}
   viewRadius: 300
   viewAngle: 360
@@ -7311,7 +7310,8 @@ MonoBehaviour:
   isSlow: 0
   slowFactor: 0.5
   animationSlowFactor: 0.3
-  activeSlowdownAbility: {fileID: 3975499795748073955}
+  activeSlowdownAbility: {fileID: 0}
+  customSlowdownDuration: 15
   Renderer: {fileID: 1494816251364102876}
   patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 631022708}
@@ -7633,17 +7633,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &7279576639560115523 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7381276831643249577, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
-  m_PrefabInstance: {fileID: 5661701382961290599}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: edcf5f97634296e4bbf7078e4b159da4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &7344559854931448326
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7819,60 +7808,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e42c7f66d4877f44b5ed6210f030206, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  triggerTag: Player
-  pixelMaterials:
-  - material: {fileID: 0}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: 8f7894dbe9f532d4897103480281e296, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: dae78b5284bbc9f439f65f0eba93cf61, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: 6892d053faa56a14bade5ec3ac7ffc4a, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: 7d7558a8e180d9a4faf0e46c7bfeeb0f, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: b6444a7fc0581014c8364fd70bff3679, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: c28d927e38f949e428bc6405ba5a1b25, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: fa600d2d338811d47a86563e54f5a555, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: 3fb4eb414c420754b83528d3103dc508, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  - material: {fileID: 2100000, guid: b481b4d0c3f5aa34dbb7365835f7898b, type: 2}
-    animationDuration: 0
-    delayBeforeStart: 0
-    windStrength: 0
-    windDirection: {x: 0, y: 0, z: 0}
-  triggerOnce: 1
-  debugMode: 0
 --- !u!1 &8181927229817452031
 GameObject:
   m_ObjectHideFlags: 0
@@ -7906,17 +7841,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &8322224309160019831 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8077112076960942493, guid: e35df0563581cf7408d589facc3b8a50, type: 3}
-  m_PrefabInstance: {fileID: 5661701382961290599}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f5cd6d2df3f8eaf42a686794b15c2578, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!65 &8424188463297827163
 BoxCollider:
   m_ObjectHideFlags: 0

@@ -229,6 +229,8 @@ MonoBehaviour:
   checkpointName: 01
   isActivated: 0
   description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!65 &38262088
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2224,6 +2226,8 @@ MonoBehaviour:
   checkpointName: 02
   isActivated: 0
   description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!65 &196041951
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3193,6 +3197,8 @@ MonoBehaviour:
   sceneToLoad: 01 - Party in Lukelandia
   playerTag: Player
   _sceneController: {fileID: 1946056264}
+  enableTriggerMode: 1
+  debugEnableTriggerMode: 0
 --- !u!1 &291357084 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1895242839247832943, guid: 1148a44ddd2cda4478fc63f827d5f98e, type: 3}
@@ -4667,7 +4673,6 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
-  lockPlayerMovement: 1
   lockMovementDuringDialogue: 1
   movementLockDelay: 0
   lockCameraRotation: 1
@@ -4684,7 +4689,6 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
-  cancelDialogueKey: 27
   playerController: {fileID: 1010996530}
   OnDialogueStarted:
     m_PersistentCalls:
@@ -7188,7 +7192,6 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
-  lockPlayerMovement: 0
   lockMovementDuringDialogue: 0
   movementLockDelay: 0
   lockCameraRotation: 0
@@ -7205,7 +7208,6 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
-  cancelDialogueKey: 27
   playerController: {fileID: 1010996530}
   OnDialogueStarted:
     m_PersistentCalls:
@@ -8451,8 +8453,11 @@ MonoBehaviour:
   enableCameraShake: 1
   shakeDelay: 0
   shakeStopDelay: 1
-  objectsToDissolve: []
-  materialsToDissolve: []
+  objectsToDissolve:
+  - {fileID: 2042200112}
+  materialsToDissolve:
+  - {fileID: 2100000, guid: 233c3eb280bca6a46aeff771ad4206a6, type: 2}
+  - {fileID: 2100000, guid: 3a30bece7f7b8ee4dbb9b172a01b5b44, type: 2}
   dissolvePropertyName: _Dissolve
   dissolveDuration: 3
   dissolveCurve:
@@ -8480,7 +8485,8 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   debugDissolve: 0
-  objectsToActivate: []
+  objectsToActivate:
+  - {fileID: 2134550626}
   activationDelay: 0
   objectsToDeactivate: []
   deactivationDelay: 0
@@ -15086,7 +15092,6 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
-  lockPlayerMovement: 0
   lockMovementDuringDialogue: 0
   movementLockDelay: 0
   lockCameraRotation: 0
@@ -15103,7 +15108,6 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
-  cancelDialogueKey: 27
   playerController: {fileID: 1010996530}
   OnDialogueStarted:
     m_PersistentCalls:
@@ -16692,7 +16696,6 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
-  lockPlayerMovement: 0
   lockMovementDuringDialogue: 0
   movementLockDelay: 0
   lockCameraRotation: 0
@@ -16709,7 +16712,6 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
-  cancelDialogueKey: 27
   playerController: {fileID: 1010996530}
   OnDialogueStarted:
     m_PersistentCalls:
@@ -17155,7 +17157,6 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
-  lockPlayerMovement: 1
   lockMovementDuringDialogue: 1
   movementLockDelay: 0
   lockCameraRotation: 0
@@ -17172,7 +17173,6 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
-  cancelDialogueKey: 27
   playerController: {fileID: 1010996530}
   OnDialogueStarted:
     m_PersistentCalls:
@@ -19029,7 +19029,6 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
-  lockPlayerMovement: 0
   lockMovementDuringDialogue: 0
   movementLockDelay: 0
   lockCameraRotation: 0
@@ -19046,7 +19045,6 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
-  cancelDialogueKey: 27
   playerController: {fileID: 1010996530}
   OnDialogueStarted:
     m_PersistentCalls:
@@ -20635,6 +20633,8 @@ MonoBehaviour:
   checkpointName: 03
   isActivated: 0
   description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!65 &1966625215
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21095,6 +21095,8 @@ MonoBehaviour:
   checkpointName: 05
   isActivated: 0
   description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!65 &2002755075
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21833,6 +21835,8 @@ MonoBehaviour:
   checkpointName: 05
   isActivated: 0
   description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!65 &2108107952
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -22125,6 +22129,8 @@ MonoBehaviour:
   checkpointName: 04
   isActivated: 0
   description: 
+  allowReactivation: 1
+  reactivationCooldown: 1
 --- !u!65 &2125234394
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -22235,7 +22241,6 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 8300000, guid: b82ff0140bc13be40bc68b988506dd87, type: 3}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.53
-  lockPlayerMovement: 0
   lockMovementDuringDialogue: 0
   movementLockDelay: 0
   lockCameraRotation: 0
@@ -22252,7 +22257,6 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
-  cancelDialogueKey: 27
   playerController: {fileID: 1010996530}
   OnDialogueStarted:
     m_PersistentCalls:
