@@ -3,6 +3,7 @@ using UnityEngine.Splines;
 using UnityEngine.Events;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections;
 
 [System.Serializable]
 public class RaftSettings
@@ -21,7 +22,7 @@ public class RaftSettings
     [Range(0f, 10f)] public float terminalWaitTime = 3f;
     
     [Header("False Start Detection")]
-    [Range(1f, 8f)] public float falseStartDetectionTime = 2f;
+    [Range(1f, 8f)] public float falseStartDetectionTime = 0.5f;
     [Range(5f, 30f)] public float falseStartReturnRadius = 15f;
     public bool enableAccidentalDetection = true;
     [Range(1f, 10f)] public float accidentalActivationCheckTime = 3f;
@@ -94,6 +95,7 @@ public class RaftPlatform : MonoBehaviour
     private float currentDistance = 0f;
     private float totalLength = 0f;
     private int direction = 1;
+    private bool playerJustReturnedToTerminal = false;
     
     // FIX: Better terminal state tracking
     private bool justArrivedAtTerminal = false;
@@ -175,7 +177,7 @@ public class RaftPlatform : MonoBehaviour
     void Start()
     {
         SyncSettingsFromSerializedFields();
-        
+
         if (!ValidateConfiguration())
         {
             Debug.LogError($"[RaftPlatform] {gameObject.name}: Configurazione non valida, componente disabilitato");
@@ -186,14 +188,20 @@ public class RaftPlatform : MonoBehaviour
         SampleSpline();
         InitializePositions();
         SetupCheckpointIntegration();
-        
+
         _currentState = RaftState.WaitingAtTerminal;
         justArrivedAtTerminal = false; // Start clean
-        
+
         if (debugRespawnSystem)
         {
             Debug.Log($"[RaftPlatform] {gameObject.name} inizializzato correttamente");
         }
+        // Registra per notifiche respawn
+ThirdPersonController playerController = FindFirstObjectByType<ThirdPersonController>();
+if (playerController != null)
+{
+    playerController.OnPlayerRespawned.AddListener((pos, rot) => OnPlayerRespawnedNotification(lastKnownPlayerPosition, pos));
+}
     }
 
     void Update()
@@ -354,17 +362,32 @@ private void HandleWaitingAtTerminal()
     {
         UpdateMovementSmooth();
 
-        // FIX: Check for false start IMMEDIATELY
-        if (Time.time - lastMovementStartTime < settings.falseStartDetectionTime)
+        // FIX: Check immediato per uscita player durante movimento
+        if (playerController == null && !playerJustReturnedToTerminal)
         {
-            if (playerController == null)
+            float timeSinceStart = Time.time - lastMovementStartTime;
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player assente durante movimento (tempo: {timeSinceStart:F2}s)");
+            }
+
+            // Se il player è uscito poco dopo l'inizio, è una falsa partenza
+            if (timeSinceStart < settings.falseStartDetectionTime)
+            { if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA rilevata!");
+                }
+                HandleFalseStart();
+                return;
+            }
+            // Se il player è uscito dopo un po', torna comunque al terminal più vicino al player
+            else if (timeSinceStart < settings.accidentalActivationCheckTime)
             {
                 if (debugActivationSystem)
                 {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA rilevata! Player sceso dopo {Time.time - lastMovementStartTime:F1}s");
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito durante movimento dopo {timeSinceStart:F2}s, torno al terminal");
                 }
-
-                HandleFalseStart();
+                HandleEarlyExit();
                 return;
             }
         }
@@ -384,43 +407,111 @@ private void HandleWaitingAtTerminal()
         {
             ReachTerminal(startDistance);
         }
+         if (playerController != null)
+    {
+        lastDirectionWithPlayer = direction;
+        wasMovingBeforeExit = true;
     }
 
-    private void HandleFalseStart()
+    // Check terminal reached
+    if (direction == 1 && currentDistance >= endDistance)
     {
-        Vector3 playerPosition;
-        bool foundPlayer = GetPlayerRespawnPosition(out playerPosition);
+        ReachTerminal(endDistance);
+    }
+    else if (direction == -1 && currentDistance <= startDistance)
+    {
+        ReachTerminal(startDistance);
+    }
+    }
+private void HandleEarlyExit()
+{
+    Vector3 playerPosition;
+    bool foundPlayer = GetPlayerRespawnPosition(out playerPosition);
+    
+    if (foundPlayer)
+    {
+        // Sempre vai al terminal più vicino al PLAYER per uscite precoci
+        Vector3 startPos = GetPositionAtDistance(startDistance);
+        Vector3 endPos = GetPositionAtDistance(endDistance);
         
-        if (foundPlayer)
+        float distancePlayerToStart = Vector3.Distance(playerPosition, startPos);
+        float distancePlayerToEnd = Vector3.Distance(playerPosition, endPos);
+        
+        direction = (distancePlayerToStart < distancePlayerToEnd) ? -1 : 1;
+        
+        // FIX: Settiamo playerJustExited dopo aver deciso
+        playerJustExited = true;
+        playerExitTime = Time.time;
+        playerCanActivateRaft = false;
+        
+        ChangeState(RaftState.ReturningToTerminal);
+        
+        if (debugActivationSystem)
         {
-            float distanceToPlayer = Vector3.Distance(transform.position, playerPosition);
-            
-            if (distanceToPlayer <= settings.falseStartReturnRadius)
-            {
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player vicino ({distanceToPlayer:F1}m), torno da lui");
-                }
-                StartReturningBasedOnMode(playerPosition);
-            }
-            else
-            {
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player lontano ({distanceToPlayer:F1}m), torno al terminal più vicino");
-                }
-                StartReturningToTerminalNearZattera();
-            }
+            string targetTerminal = (direction == -1) ? "START" : "END";
+            Debug.Log($"[RaftPlatform] {gameObject.name}: USCITA PRECOCE - vado al terminal {targetTerminal} (distanze: start={distancePlayerToStart:F1}m, end={distancePlayerToEnd:F1}m)");
         }
-        else
+    }
+    else
+    {
+        // Fallback: va al terminal più vicino alla zattera
+        playerJustExited = true;
+        playerExitTime = Time.time;
+        playerCanActivateRaft = false;
+        
+        StartReturningToTerminalNearZattera();
+        
+        if (debugActivationSystem)
         {
-            StartReturningToTerminalNearZattera();
+            Debug.Log($"[RaftPlatform] {gameObject.name}: USCITA PRECOCE - player non trovato, vado al terminal più vicino alla zattera");
+        }
+    }
+}
+
+private void HandleFalseStart()
+{
+    Vector3 playerPosition;
+    bool foundPlayer = GetPlayerRespawnPosition(out playerPosition);
+    
+    if (foundPlayer)
+    {
+        // Per false start, sempre vai al terminal più vicino al PLAYER
+        Vector3 startPos = GetPositionAtDistance(startDistance);
+        Vector3 endPos = GetPositionAtDistance(endDistance);
+        
+        float distancePlayerToStart = Vector3.Distance(playerPosition, startPos);
+        float distancePlayerToEnd = Vector3.Distance(playerPosition, endPos);
+        
+        direction = (distancePlayerToStart < distancePlayerToEnd) ? -1 : 1;
+        
+        // FIX: Ora settiamo playerJustExited dopo aver deciso la direzione
+        playerJustExited = true;
+        playerExitTime = Time.time;
+        playerCanActivateRaft = false;
+        
+        ChangeState(RaftState.ReturningToTerminal);
+        
+        if (debugActivationSystem)
+        {
+            string targetTerminal = (direction == -1) ? "START" : "END";
+            Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA - vado al terminal {targetTerminal} (distanze: start={distancePlayerToStart:F1}m, end={distancePlayerToEnd:F1}m)");
+        }
+    }
+    else
+    {
+        // Fallback: se il player non è trovato, vai al terminal più vicino alla zattera
+        if (debugActivationSystem)
+        {
+            Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA - player non trovato, vado al terminal più vicino alla zattera");
         }
         
         playerJustExited = true;
         playerExitTime = Time.time;
-        playerCanActivateRaft = false; // FIX: Prevent immediate reactivation
+        playerCanActivateRaft = false;
+        
+        StartReturningToTerminalNearZattera();
     }
+}
 
     private void HandleReturningToTerminal()
     {
@@ -597,38 +688,45 @@ private void ReachTerminal(float terminalDistance)
     wasMovingBeforeExit = false;
 }
 
-    private void CheckForAccidentalActivation()
+  private void CheckForAccidentalActivation()
+{
+    if (!settings.enableAccidentalDetection) return;
+    
+    if (_currentState != RaftState.Moving) return;
+    
+    // FIX: Questa logica è ora gestita direttamente in HandleMoving()
+    // Manteniamo solo per casi tardivi (dopo accidentalActivationCheckTime)
+    float timeSinceStart = Time.time - lastMovementStartTime;
+    
+    if (timeSinceStart > settings.accidentalActivationCheckTime && timeSinceStart < 10f) // Max 10s di controllo
     {
-        if (!settings.enableAccidentalDetection) return;
-        
-        if (_currentState != RaftState.Moving) return;
-        
-        if (Time.time - lastMovementStartTime > settings.accidentalActivationCheckTime)
+        if (playerController == null)
         {
-            if (playerController == null)
+            if (debugActivationSystem)
             {
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Attivazione accidentale rilevata - player non più a bordo, ritorno al terminal");
-                }
-                
-                Vector3 playerPos;
-                if (GetPlayerRespawnPosition(out playerPos))
-                {
-                    StartReturningBasedOnMode(playerPos);
-                }
-                else
-                {
-                    StartReturningToTerminalNearZattera();
-                }
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Controllo attivazione accidentale tardiva - torno al terminal");
+            }
+            
+            Vector3 playerPos;
+            if (GetPlayerRespawnPosition(out playerPos))
+            {
+                StartReturningBasedOnMode(playerPos);
             }
             else
             {
-                settings.enableAccidentalDetection = false;
+                StartReturningToTerminalNearZattera();
             }
+            
+            // Disabilita ulteriori controlli per questo viaggio
+            settings.enableAccidentalDetection = false;
         }
     }
-
+    else if (timeSinceStart > 10f)
+    {
+        // Dopo 10 secondi di movimento normale, disabilita il controllo
+        settings.enableAccidentalDetection = false;
+    }
+}
     private void StartMovement()
     {
         DetermineMovementDirection();
@@ -797,35 +895,88 @@ private void ReachTerminal(float terminalDistance)
     #region Respawn System - FIXED
 
     private void CheckForPlayerRespawn()
+{
+    // Controllo più aggressivo per respawn/teleport
+    if (playerController == null && playerWasOnBoard)
     {
-        // FIX: Be more aggressive about detecting respawns and returning to terminals
-        if (playerController == null && playerWasOnBoard)
+        Transform currentPlayerTransform = GetCachedPlayerTransform();
+        
+        if (currentPlayerTransform != null)
         {
-            Vector3 playerRespawnPosition;
-            bool foundPlayerPosition = GetPlayerRespawnPosition(out playerRespawnPosition);
+            float distanceToPlayer = Vector3.Distance(transform.position, currentPlayerTransform.position);
+            float distanceFromLastKnown = Vector3.Distance(currentPlayerTransform.position, lastKnownPlayerPosition);
             
-            if (foundPlayerPosition)
+            // Se il player è molto lontano OPPURE si è spostato di colpo dalla sua ultima posizione
+            bool playerTeleported = distanceFromLastKnown > 20f; // Teleport/respawn detection
+            bool playerVeryFar = distanceToPlayer > settings.returnToTerminalRadius * 0.5f;
+            
+            if (playerTeleported || playerVeryFar)
             {
-                float distanceToPlayer = Vector3.Distance(transform.position, playerRespawnPosition);
-                
-                // FIX: Check more frequently and with lower threshold
-                if (distanceToPlayer > settings.returnToTerminalRadius * 0.5f) // Lower threshold
+                if (_currentState != RaftState.ReturningToTerminal)
                 {
-                    if (_currentState != RaftState.ReturningToTerminal)
+                    if (debugRespawnSystem)
                     {
-                        if (debugRespawnSystem)
-                        {
-                            Debug.Log($"[RaftPlatform] {gameObject.name}: Player lontano ({distanceToPlayer:F1}m), avvio ritorno automatico");
-                        }
-                        
-                        StartReturningBasedOnMode(playerRespawnPosition);
-                        playerWasOnBoard = false;
+                        string reason = playerTeleported ? "teleport/respawn rilevato" : "player molto lontano";
+                        Debug.Log($"[RaftPlatform] {gameObject.name}: {reason} ({distanceToPlayer:F1}m), avvio ritorno automatico");
                     }
+                    
+                    StartReturningBasedOnMode(currentPlayerTransform.position);
+                    playerWasOnBoard = false;
                 }
+                
+                // Aggiorna ultima posizione conosciuta
+                lastKnownPlayerPosition = currentPlayerTransform.position;
+            }
+        }
+        else
+        {
+            // Player transform non trovato - probabile morte/respawn
+            if (_currentState != RaftState.ReturningToTerminal && playerWasOnBoard)
+            {
+                if (debugRespawnSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player scomparso, avvio ritorno automatico");
+                }
+                
+                StartReturningToTerminalNearZattera();
+                playerWasOnBoard = false;
             }
         }
     }
-
+}
+public void OnPlayerRespawnedNotification(Vector3 oldPosition, Vector3 newPosition)
+{
+    if (debugRespawnSystem)
+    {
+        Debug.Log($"[RaftPlatform] {gameObject.name}: Notifica respawn ricevuta - {oldPosition} → {newPosition}");
+    }
+    
+    // Aggiorna posizione checkpoint
+    lastKnownPlayerPosition = newPosition;
+    lastKnownCheckpointPosition = newPosition;
+    hasCheckpointPosition = true;
+    
+    // Reset stato player
+    playerController = null;
+    playerWasOnBoard = false;
+    playerJustExited = false;
+    playerCanActivateRaft = false;
+    ResetActivationTimer();
+    
+    // Calcola se dovremmo tornare
+    float distanceToNewPosition = Vector3.Distance(transform.position, newPosition);
+    
+    if (distanceToNewPosition > settings.returnToTerminalRadius && 
+        (_currentState == RaftState.Moving || _currentState == RaftState.CountingActivation))
+    {
+        if (debugRespawnSystem)
+        {
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Respawn lontano ({distanceToNewPosition:F1}m), torno al terminal");
+        }
+        
+        StartReturningBasedOnMode(newPosition);
+    }
+}
     private bool GetPlayerRespawnPosition(out Vector3 position)
     {
         if (useCheckpointSystem && hasCheckpointPosition)
@@ -846,23 +997,31 @@ private void ReachTerminal(float terminalDistance)
     }
 
     private void StartReturningBasedOnMode(Vector3 referencePosition)
+{
+    // Per false start, ignora respawnMode e vai sempre vicino al player
+    if (Time.time - lastMovementStartTime < settings.falseStartDetectionTime)
     {
-        switch (respawnMode)
-        {
-            case RespawnMode.NearestToPlayer:
-                StartReturningToTerminalNearPlayer(referencePosition);
-                break;
-            case RespawnMode.NearestToRaft:
-                StartReturningToTerminalNearZattera();
-                break;
-            case RespawnMode.AlwaysStart:
-                StartReturningToSpecificTerminal(-1);
-                break;
-            case RespawnMode.AlwaysEnd:
-                StartReturningToSpecificTerminal(1);
-                break;
-        }
+        StartReturningToTerminalNearPlayer(referencePosition);
+        return;
     }
+    
+    // Comportamento normale per altri casi
+    switch (respawnMode)
+    {
+        case RespawnMode.NearestToPlayer:
+            StartReturningToTerminalNearPlayer(referencePosition);
+            break;
+        case RespawnMode.NearestToRaft:
+            StartReturningToTerminalNearZattera();
+            break;
+        case RespawnMode.AlwaysStart:
+            StartReturningToSpecificTerminal(-1);
+            break;
+        case RespawnMode.AlwaysEnd:
+            StartReturningToSpecificTerminal(1);
+            break;
+    }
+}
 
     private void StartReturningToTerminalNearPlayer(Vector3 playerPosition)
     {
@@ -1111,15 +1270,58 @@ private void ReachTerminal(float terminalDistance)
 
     public void UpdatePlayerCheckpointPosition(Vector3 checkpointPosition)
     {
+        Vector3 oldPosition = lastKnownPlayerPosition;
         lastKnownCheckpointPosition = checkpointPosition;
+        lastKnownPlayerPosition = checkpointPosition;
         hasCheckpointPosition = true;
-        
+
         if (debugRespawnSystem)
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Posizione checkpoint aggiornata manualmente");
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Posizione player aggiornata: {oldPosition} → {checkpointPosition}");
+        }
+
+        // Se la zattera è in movimento e il player è molto lontano, considera ritorno
+        float distanceToPlayer = Vector3.Distance(transform.position, checkpointPosition);
+        if (distanceToPlayer > settings.returnToTerminalRadius && _currentState == RaftState.Moving)
+        {
+            if (debugRespawnSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player aggiornato lontano durante movimento, valuto ritorno");
+            }
+
+            // Aspetta un frame per non interrompere movimento valido
+            StartCoroutine(DelayedReturnCheck(checkpointPosition));
         }
     }
-
+private IEnumerator DelayedReturnCheck(Vector3 playerPosition)
+{
+    yield return new WaitForSeconds(0.5f);
+    
+    // Verifica se il player è ancora lontano e se non è salito nel frattempo
+    if (playerController == null && 
+        _currentState == RaftState.Moving && 
+        !playerJustExited) // Assicurati che non sia semplicemente uscito normalmente
+    {
+        float currentDistance = Vector3.Distance(transform.position, playerPosition);
+        if (currentDistance > settings.returnToTerminalRadius)
+        {
+            if (debugRespawnSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Confermato player lontano ({currentDistance:F1}m), avvio ritorno");
+            }
+            
+            StartReturningBasedOnMode(playerPosition);
+        }
+        else if (debugRespawnSystem)
+        {
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Player ora abbastanza vicino ({currentDistance:F1}m), continuo movimento normale");
+        }
+    }
+    else if (debugRespawnSystem && playerController != null)
+    {
+        Debug.Log($"[RaftPlatform] {gameObject.name}: Player è tornato sulla zattera, annullo controllo ritorno");
+    }
+}
     public void DisableCheckpointSystem()
     {
         useCheckpointSystem = false;
@@ -1349,39 +1551,52 @@ private void OnTriggerEnter(Collider other)
         lastKnownPlayerPosition = other.transform.position;
         
         playerExitTime = Time.time;
-        playerJustExited = true;
-        wasMovingBeforeExit = _currentState == RaftState.Moving;
-        wasAtTerminalBeforeExit = IsAtTerminal(); // FIX: Track if we were at terminal
         _exitEvents++;
         
-        // FIX: Logica specifica per uscita al terminal
-        if (IsAtTerminal())
+        // FIX: Se siamo in movimento, NON settare subito playerJustExited
+        // Lascia che HandleMoving() gestisca la logica
+        if (_currentState == RaftState.Moving)
+        {
+            // Disconnetti il player ma NON settare playerJustExited ancora
+            playerController = null;
+            playerCanActivateRaft = false;
+            
+            // Salva i dati per la logica di ritorno
+            wasMovingBeforeExit = true;
+            wasAtTerminalBeforeExit = IsAtTerminal();
+            
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito durante movimento - HandleMoving() gestirà il ritorno");
+            }
+        }
+        else if (IsAtTerminal())
         {
             // Player è uscito al terminal - comportamento normale
-            playerController = null; // Disconnetti il player immediatamente
+            playerController = null;
+            playerJustExited = true; // Solo al terminal settiamo questo flag
             playerCanActivateRaft = false;
-            playerWasOnBoard = false; // FIX: Reset questo flag per evitare falsi respawn
+            playerWasOnBoard = false;
+            wasAtTerminalBeforeExit = true;
             ResetActivationTimer();
             
             if (debugActivationSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito normalmente al terminal - piattaforma resta ferma");
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito normalmente al terminal");
             }
         }
         else
         {
-            // Player è uscito mentre eravamo in movimento o lontano dal terminal
-            playerCanActivateRaft = false; // Disable activation until re-entry is processed
-            
-            if (debugActivationSystem)
-            {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito lontano dal terminal - Era in movimento: {wasMovingBeforeExit}");
-            }
+            // Altri casi
+            playerController = null;
+            playerJustExited = true;
+            playerCanActivateRaft = false;
         }
         
         OnPlayerExit.Invoke();
     }
 }
+
     #endregion
 
     #region Cleanup
@@ -1392,8 +1607,14 @@ private void OnTriggerEnter(Collider other)
         {
             checkpointManager.OnPlayerCheckpointChanged.RemoveListener(OnPlayerCheckpointUpdated);
         }
-        
+
         _controllerCache.Clear();
+        // Deregistra dalle notifiche respawn
+ThirdPersonController playerController = FindFirstObjectByType<ThirdPersonController>();
+if (playerController != null)
+{
+    playerController.OnPlayerRespawned.RemoveAllListeners();
+}
     }
 
     #endregion
