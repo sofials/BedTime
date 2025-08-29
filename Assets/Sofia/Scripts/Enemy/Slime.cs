@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 public class Slime : MonoBehaviour
 {
@@ -47,7 +49,7 @@ public class Slime : MonoBehaviour
     public AudioSource chaseAudioSource;
     public AudioClip chaseAudioClip;
     public GameObject enemyChildObjectToActivate;
-    
+
     [Header("Second Audio After Chase")]
     public AudioSource secondAudioSource;
     public AudioClip secondAudioClip;
@@ -57,11 +59,24 @@ public class Slime : MonoBehaviour
     public AudioClip deathAudioClip;
 
     [Header("Warning System")]
-    public float warningResetTime = 15f; // Tempo prima che il warning possa essere riattivato
+    [Tooltip("Time before warning can be triggered again (should be ~20s)")]
+    public float warningResetTime = 20f;
+    public float visionPersistenceTime = 3f;
+    private float playerLastSeenTime = 0f;
 
-    [Header("Debug")]
-    public bool enableDebugLogs = true;
-    public bool showDistanceInConsole = true;
+    [Header("Waypoint Management")]
+    [Tooltip("Maximum enemies allowed near a waypoint")]
+    public int maxEnemiesPerWaypoint = 2;
+    [Tooltip("Distance to check for other enemies around waypoint")]
+    public float waypointOccupancyRadius = 3f;
+    [Tooltip("LayerMask for other enemies")]
+    public LayerMask enemyMask = -1;
+
+    [Header("🔍 WARNING DEBUG")]
+    [Tooltip("Enable detailed warning system debugging")]
+    public bool enableWarningDebug = false;
+    [Tooltip("Show debug logs for vision changes")]
+    public bool debugVisionChanges = false;
 
     // Internal state
     private int currentWaypoint = 0;
@@ -73,20 +88,29 @@ public class Slime : MonoBehaviour
     private bool caughtPlayer = false;
     private bool isAttacking = false;
     private bool isDead = false;
-    
-    // FIXED: Sistema warning corretto con timeout
-    private bool isPlayingWarningSequence = false;
-    private bool hasTriggeredWarningThisChase = false;
-    private float lastPlayerLostTime = 0f; // Quando il player è uscito dal view radius
-    private bool playerWasVisible = false; // Per tracciare quando il player esce
+
+    // 🎵 WARNING SYSTEM: Traccia lifetime del warning
+    private bool hasEverSeenPlayer = false;
+    private bool hasPlayedWarningEver = false;
+
+    // Warning session variables
+    private bool hasTriggeredWarningThisDetection = false;
+    private float lastWarningTime = -999f;
+    private float playerFirstSeenTime = 0f;
+    private bool isCurrentlyInWarningCooldown = false;
     private Coroutine currentWarningCoroutine = null;
-    
+
     private Animator animator;
 
-    // Debug variables
-    private float lastPlayerDistance = -1f;
-    private float debugUpdateTimer = 0f;
-    private const float DEBUG_UPDATE_INTERVAL = 0.1f;
+    // 🔍 DEBUG: Traccia chiamate al warning system
+    private int warningCallCount = 0;
+    private float lastWarningAttemptTime = 0f;
+    private string lastWarningBlockReason = "";
+
+    private void Awake()
+    {
+        ForceResetAllWarningVariables();
+    }
 
     private void Start()
     {
@@ -102,12 +126,15 @@ public class Slime : MonoBehaviour
         currentHealth = maxHealth;
 
         if (waypoints != null && waypoints.Length > 0)
+        {
+            int bestWaypoint = FindBestAvailableWaypoint();
+            currentWaypoint = bestWaypoint;
             agent.SetDestination(waypoints[currentWaypoint].position);
+        }
 
         if (deathEffectController != null)
             deathEffectController.StopEffect();
 
-        // Trova automaticamente l'oggetto figlio del nemico se non assegnato
         if (enemyChildObjectToActivate == null)
         {
             Transform chaseIndicator = transform.Find("ChaseIndicator");
@@ -115,416 +142,293 @@ public class Slime : MonoBehaviour
                 enemyChildObjectToActivate = chaseIndicator.gameObject;
         }
 
-        // Assicurati che l'oggetto sia disattivato all'inizio
         if (enemyChildObjectToActivate != null)
             enemyChildObjectToActivate.SetActive(false);
 
-        // Se non è assegnato un AudioSource per la morte, usa quello del chase come fallback
         if (deathAudioSource == null && chaseAudioSource != null)
             deathAudioSource = chaseAudioSource;
-            
-        // Inizializzazione sistema warning
-        ResetWarningState();
 
-        // DEBUG: Info iniziali
-        if (enableDebugLogs)
+        // 🔍 DEBUG: Initial state log
+        if (enableWarningDebug)
         {
-            Debug.Log($"<color=yellow>[Slime Debug]</color> {name} initialized - ViewRadius: {viewRadius}, AttackRange: {attackRange}, ViewAngle: {viewAngle}, WarningReset: {warningResetTime}s");
+            WarningDebugLog($"🔧 INITIALIZED - hasPlayedWarningEver: {hasPlayedWarningEver}, hasEverSeenPlayer: {hasEverSeenPlayer}");
+        }
+    }
+
+    private void ForceResetAllWarningVariables()
+    {
+        hasTriggeredWarningThisDetection = false;
+        lastWarningTime = -999f;
+        playerFirstSeenTime = 0f;
+        isCurrentlyInWarningCooldown = false;
+
+        // Stop any running warning coroutine
+        if (currentWarningCoroutine != null)
+        {
+            StopCoroutine(currentWarningCoroutine);
+            currentWarningCoroutine = null;
+        }
+
+        // Reset state variables
+        player = null;
+        playerVisible = false;
+        isPatrolling = true;
+        caughtPlayer = false;
+        isAttacking = false;
+
+        if (enableWarningDebug)
+        {
+            WarningDebugLog("🔄 RESET - Warning variables reset (keeping lifetime flags)");
         }
     }
 
     private void Update()
     {
-        UpdatePlayerVisibility();
-        UpdateDebugInfo();
-
         if (isDead)
         {
             StopAgentSafely();
             return;
         }
 
+        if (player != null)
+        {
+            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+            if (distanceToPlayer > viewRadius * 2f)
+            {
+                if (enableWarningDebug)
+                {
+                    WarningDebugLog($"🔄 FORCE RESET: Player too far {distanceToPlayer:F2}m > {viewRadius * 2f}m");
+                }
+                player = null;
+                playerVisible = false;
+                ResetToPatrol();
+                return;
+            }
+        }
+
+        UpdatePlayerVisibility();
+
+        // Check cooldown
+        if (isCurrentlyInWarningCooldown && Time.time - lastWarningTime >= warningResetTime)
+        {
+            isCurrentlyInWarningCooldown = false;
+            if (enableWarningDebug)
+            {
+                WarningDebugLog("⏰ COOLDOWN ENDED - Ready for next warning");
+            }
+        }
+
         if (isDizzy) return;
 
-        // FIXED: Logica chase con sistema warning corretto
+        // Main behavior logic
         if (playerVisible && !caughtPlayer)
         {
+            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
             if (isPatrolling)
             {
                 isPatrolling = false;
-                DebugLog($"<color=orange>SWITCHING TO CHASE MODE</color> - Distance: {GetPlayerDistance():F2}");
-                
-                // FIXED: Check se può triggare warning basato su timeout
-                if (CanTriggerWarning() && !isPlayingWarningSequence)
+                playerFirstSeenTime = Time.time;
+
+                // 🎵 WARNING: Controllo per first-time warning
+                if (CanTriggerWarningFirstTime(distanceToPlayer))
                 {
-                    StartWarningSequence();
+                    TriggerWarningSequence();
+                }
+                else if (!hasEverSeenPlayer)
+                {
+                    hasEverSeenPlayer = true;
+                    if (enableWarningDebug)
+                    {
+                        WarningDebugLog($"👁️ FIRST SIGHT - No audio trigger (reason: {lastWarningBlockReason})");
+                    }
                 }
             }
             ChasePlayer();
         }
         else
         {
-            if (!isPatrolling)
+            if (!isPatrolling && !IsPlayerRecentlyLost())
             {
-                DebugLog($"<color=green>SWITCHING TO PATROL MODE</color> - Player lost at distance: {GetPlayerDistance():F2}");
                 ResetToPatrol();
             }
-
-            Patrol();
-        }
-    }
-
-    private void UpdateDebugInfo()
-    {
-        if (!enableDebugLogs || !showDistanceInConsole) return;
-
-        debugUpdateTimer += Time.deltaTime;
-        
-        if (debugUpdateTimer >= DEBUG_UPDATE_INTERVAL)
-        {
-            debugUpdateTimer = 0f;
-            
-            float currentDistance = GetPlayerDistance();
-            if (currentDistance != lastPlayerDistance && currentDistance >= 0)
+            else if (!isPatrolling && IsPlayerRecentlyLost())
             {
-                lastPlayerDistance = currentDistance;
-                
-                string status = "";
-                if (isDead) status = "DEAD";
-                else if (isDizzy) status = "DIZZY";
-                else if (isAttacking) status = "ATTACKING";
-                else if (!isPatrolling) status = "CHASING";
-                else status = "PATROLLING";
-                
-                string visibilityStatus = playerVisible ? "VISIBLE" : "NOT VISIBLE";
-                string warningStatus = hasTriggeredWarningThisChase ? "TRIGGERED" : "NOT TRIGGERED";
-                string playingStatus = isPlayingWarningSequence ? "PLAYING" : "STOPPED";
-                
-                // FIXED: Mostra anche il tempo rimanente per il reset warning
-                float timeSinceLost = lastPlayerLostTime > 0 ? Time.time - lastPlayerLostTime : 0f;
-                string resetStatus = CanTriggerWarning() ? "READY" : $"COOLDOWN ({warningResetTime - timeSinceLost:F1}s)";
-                
-                Debug.Log($"<color=cyan>[Slime Debug]</color> {name} | Distance: {currentDistance:F2} | Status: {status} | Player: {visibilityStatus} | Warning: {warningStatus} | Audio: {playingStatus} | Reset: {resetStatus}");
+                ChaseLastKnownPosition();
+            }
+            else
+            {
+                Patrol();
             }
         }
     }
 
-    private float GetPlayerDistance()
+    // 🎵 WARNING: Controllo specifico per il PRIMO warning con debug dettagliato
+    private bool CanTriggerWarningFirstTime(float playerDistance = -1f)
     {
-        if (player == null) return -1f;
-        return Vector3.Distance(transform.position, player.position);
-    }
+        warningCallCount++;
+        lastWarningAttemptTime = Time.time;
 
-    private void DebugLog(string message)
-    {
-        if (enableDebugLogs)
+        if (enableWarningDebug)
         {
-            Debug.Log($"<color=yellow>[Slime Debug]</color> {name}: {message}");
-        }
-    }
-
-    // FIXED: Controlla se può triggerare warning basato su timeout
-    private bool CanTriggerWarning()
-    {
-        // Se non ha mai triggerato warning, può farlo
-        if (!hasTriggeredWarningThisChase) return true;
-        
-        // Se il player non è mai uscito dal view radius, non può retriggare
-        if (lastPlayerLostTime <= 0f) return false;
-        
-        // Controlla se è passato abbastanza tempo dal momento in cui il player è uscito
-        float timeSinceLost = Time.time - lastPlayerLostTime;
-        bool canTrigger = timeSinceLost >= warningResetTime;
-        
-        if (canTrigger)
-        {
-            DebugLog($"<color=green>WARNING CAN BE TRIGGERED AGAIN!</color> Time since lost: {timeSinceLost:F1}s (required: {warningResetTime}s)");
-        }
-        
-        return canTrigger;
-    }
-
-    private void StartWarningSequence()
-    {
-        if (isPlayingWarningSequence) return;
-        
-        hasTriggeredWarningThisChase = true;
-        isPlayingWarningSequence = true;
-        lastPlayerLostTime = 0f; // Reset timer perché ora il player è visibile
-
-        float warningDistance = GetPlayerDistance();
-        DebugLog($"<color=orange>WARNING SEQUENCE STARTED!</color> Distance: {warningDistance:F2}, ViewRadius: {viewRadius}");
-
-        // Attiva l'oggetto figlio del nemico
-        if (enemyChildObjectToActivate != null)
-        {
-            enemyChildObjectToActivate.SetActive(true);
-            DebugLog("Chase indicator activated");
+            WarningDebugLog($"🔍 WARNING CHECK #{warningCallCount} - Starting validation...");
         }
 
-        // Riproduci l'audio warning
-        if (chaseAudioSource != null && chaseAudioClip != null)
+        // Check 1: Enemy alive
+        if (isDead)
         {
-            chaseAudioSource.PlayOneShot(chaseAudioClip);
-            DebugLog($"Playing chase audio clip (length: {chaseAudioClip.length:F2}s)");
-            currentWarningCoroutine = StartCoroutine(WarningSequenceCoroutine());
-        }
-        else
-        {
-            DebugLog("No chase audio found, using default timing");
-            currentWarningCoroutine = StartCoroutine(WarningSequenceCoroutine());
-        }
-    }
-
-    private IEnumerator WarningSequenceCoroutine()
-    {
-        // Aspetta che finisca l'audio warning
-        if (chaseAudioClip != null)
-        {
-            DebugLog($"Waiting for chase audio to finish ({chaseAudioClip.length:F2}s)...");
-            yield return new WaitForSeconds(chaseAudioClip.length);
-        }
-        else
-        {
-            DebugLog("Waiting for default warning duration (2s)...");
-            yield return new WaitForSeconds(2f);
+            lastWarningBlockReason = "Enemy is dead";
+            if (enableWarningDebug) WarningDebugLog($"❌ BLOCKED: {lastWarningBlockReason}");
+            return false;
         }
 
-        // Riproduci il secondo audio
-        PlaySecondAudio();
-
-        // Disattiva l'oggetto figlio del nemico
-        if (enemyChildObjectToActivate != null)
+        // Check 2: Never played warning before (MAIN CHECK)
+        if (hasPlayedWarningEver)
         {
-            enemyChildObjectToActivate.SetActive(false);
-            DebugLog("Chase indicator deactivated");
+            lastWarningBlockReason = "Warning already played in lifetime";
+            if (enableWarningDebug) WarningDebugLog($"❌ BLOCKED: {lastWarningBlockReason}");
+            return false;
         }
 
-        // Reset flag
-        isPlayingWarningSequence = false;
-        currentWarningCoroutine = null;
-        
-        DebugLog($"<color=green>WARNING SEQUENCE COMPLETED!</color> Distance: {GetPlayerDistance():F2}");
-    }
-
-    private void PlaySecondAudio()
-    {
-        if (secondAudioSource != null && secondAudioClip != null)
+        // Check 3: Player visibility
+        if (!playerVisible || player == null)
         {
-            secondAudioSource.PlayOneShot(secondAudioClip);
-            DebugLog($"Playing second audio clip (length: {secondAudioClip.length:F2}s)");
-        }
-        else if (secondAudioClip != null && chaseAudioSource != null)
-        {
-            chaseAudioSource.PlayOneShot(secondAudioClip);
-            DebugLog($"Playing second audio on chase source (length: {secondAudioClip.length:F2}s)");
-        }
-        else
-        {
-            DebugLog("No second audio clip to play");
-        }
-    }
-
-    private void StopAgentSafely()
-    {
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-        {
-            agent.isStopped = true;
-            agent.ResetPath();
-        }
-    }
-
-    private void InterruptAttack()
-    {
-        if (isAttacking)
-        {
-            isAttacking = false;
-            DebugLog("Attack interrupted");
-            if (animator != null)
-                animator.SetBool("isAttacking", false);
-        }
-    }
-
-    public void StartDizzy()
-    {
-        if (isDizzy) return;
-
-        isDizzy = true;
-        DebugLog($"<color=purple>DIZZY STARTED</color> - Duration: {dizzyDuration}s");
-        InterruptAttack();
-
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-            agent.isStopped = true;
-
-        if (stunParticles != null)
-            stunParticles.Play();
-
-        StartCoroutine(DizzyTimer());
-    }
-
-    private IEnumerator DizzyTimer()
-    {
-        if (stunParticles != null)
-        {
-            yield return new WaitForSeconds(dizzyDuration - stunEffectEndOffset);
-            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            yield return new WaitForSeconds(stunEffectEndOffset);
-        }
-        else
-        {
-            yield return new WaitForSeconds(dizzyDuration);
+            lastWarningBlockReason = "Player not visible";
+            if (enableWarningDebug) WarningDebugLog($"❌ BLOCKED: {lastWarningBlockReason}");
+            return false;
         }
 
-        EndDizzy();
-    }
-
-    public void EndDizzy()
-    {
-        isDizzy = false;
-        DebugLog("<color=purple>DIZZY ENDED</color>");
-
-        if (stunParticles != null)
-            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-            agent.isStopped = false;
-
-        if (player != null)
+        // Check 4: Distance validation
+        if (playerDistance < 0f)
         {
-            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-            DebugLog($"After dizzy - Distance to player: {distanceToPlayer:F2}");
+            playerDistance = Vector3.Distance(transform.position, player.position);
+        }
+        if (playerDistance > viewRadius)
+        {
+            lastWarningBlockReason = $"Distance {playerDistance:F2}m > viewRadius {viewRadius}m";
+            if (enableWarningDebug) WarningDebugLog($"❌ BLOCKED: {lastWarningBlockReason}");
+            return false;
+        }
 
-            if (distanceToPlayer <= attackRange)
+        // Check 5: Audio components
+        if (chaseAudioSource == null || chaseAudioClip == null)
+        {
+            lastWarningBlockReason = "Missing audio components";
+            if (enableWarningDebug)
             {
-                isAttacking = true;
-                DebugLog("Starting attack after dizzy");
-                if (animator != null)
-                    animator.SetBool("isAttacking", true);
-                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-                    agent.isStopped = true;
-                return;
+                WarningDebugLog($"❌ BLOCKED: {lastWarningBlockReason} (source: {chaseAudioSource != null}, clip: {chaseAudioClip != null})");
             }
-
-            if (distanceToPlayer <= viewRadius)
-            {
-                isPatrolling = false;
-                DebugLog("Continuing chase after dizzy");
-                return;
-            }
+            return false;
         }
 
-        ResetToPatrol();
+        // ✅ All checks passed
+        if (enableWarningDebug)
+        {
+            WarningDebugLog($"✅ VALIDATION PASSED - Distance: {playerDistance:F2}m, All components ready");
+        }
+
+        lastWarningBlockReason = "All checks passed";
+        return true;
     }
 
-    // FIXED: Gestione visibilità player con tracking quando esce
     private void UpdatePlayerVisibility()
     {
         if (isDead)
         {
             playerVisible = false;
             player = null;
+            playerLastSeenTime = 0f;
             return;
         }
 
-        bool wasPlayerVisible = playerVisible;
+        bool previouslyVisible = playerVisible;
         playerVisible = false;
         Transform detectedPlayer = null;
 
         Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
+
         foreach (var hit in hits)
         {
-            Vector3 dir = (hit.transform.position - transform.position).normalized;
-            float angle = Vector3.Angle(transform.forward, dir);
-            float distance = Vector3.Distance(transform.position, hit.transform.position);
+            Vector3 dirToPlayer = (hit.transform.position - transform.position);
+            float distance = dirToPlayer.magnitude;
 
             if (distance > viewRadius)
             {
-                if (enableDebugLogs && wasPlayerVisible)
-                {
-                    DebugLog($"Player BEYOND view radius - Distance: {distance:F2}, ViewRadius: {viewRadius}");
-                }
                 continue;
             }
 
-            if (angle < viewAngle / 2)
+            Vector3 dirNormalized = dirToPlayer.normalized;
+            float angle = Vector3.Angle(transform.forward, dirNormalized);
+
+            if (angle <= viewAngle / 2)
             {
-                if (!Physics.Raycast(transform.position, dir, distance, obstacleMask))
+                if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirNormalized, distance, obstacleMask))
                 {
                     playerVisible = true;
                     detectedPlayer = hit.transform;
-                    
-                    if (!wasPlayerVisible)
+
+                    // 🎵 First sight tracking
+                    if (!hasEverSeenPlayer)
                     {
-                        DebugLog($"<color=lime>PLAYER DETECTED!</color> Distance: {distance:F2}, Angle: {angle:F1}°, ViewRadius: {viewRadius}");
+                        hasEverSeenPlayer = true;
+                        if (enableWarningDebug)
+                        {
+                            WarningDebugLog($"👁️ FIRST SIGHT EVER - Player detected at {distance:F2}m");
+                        }
+                    }
+
+                    // 🔍 Debug vision changes
+                    if (debugVisionChanges && !previouslyVisible)
+                    {
+                        WarningDebugLog($"👁️ VISION ACQUIRED - Player at {distance:F2}m, angle: {angle:F1}°");
                     }
                     break;
                 }
-                else
-                {
-                    if (enableDebugLogs && wasPlayerVisible)
-                    {
-                        DebugLog($"Player blocked by obstacle - Distance: {distance:F2}, Angle: {angle:F1}°");
-                    }
-                }
-            }
-            else
-            {
-                if (enableDebugLogs && distance <= viewRadius)
-                {
-                    DebugLog($"Player outside view angle - Distance: {distance:F2}, Angle: {angle:F1}°, MaxAngle: {viewAngle/2:F1}°");
-                }
             }
         }
 
-        // FIXED: Gestione corretta del timing quando player esce
-        if (playerVisible)
+        // Update player reference
+        if (playerVisible && detectedPlayer != null)
         {
             player = detectedPlayer;
-            playerWasVisible = true;
-            // Se il player è tornato visibile, resetta il timer di uscita
-            if (lastPlayerLostTime > 0f)
-            {
-                DebugLog($"Player returned to view, reset lost timer. Was lost for: {Time.time - lastPlayerLostTime:F2}s");
-                lastPlayerLostTime = 0f;
-            }
-        }
-        else
-        {
-            // FIXED: Marca il momento in cui il player esce SOLO la prima volta
-            if (wasPlayerVisible && playerWasVisible)
-            {
-                float lastDistance = player != null ? Vector3.Distance(transform.position, player.position) : -1f;
-                lastPlayerLostTime = Time.time;
-                playerWasVisible = false;
-                DebugLog($"<color=red>PLAYER LOST!</color> Last distance: {lastDistance:F2}, starting timer for warning reset ({warningResetTime}s)");
-            }
-            
-            // Mantieni player reference per un breve periodo per evitare flickering
-            if (player != null && Vector3.Distance(transform.position, player.position) > viewRadius + 2f)
-            {
-                DebugLog("Player reference cleared due to distance");
-                player = null;
-            }
+            playerLastSeenTime = Time.time;
         }
 
-        // Debug visualization
-        if (playerVisible && player != null)
-            Debug.DrawLine(transform.position, player.position, Color.red);
+        // Handle vision loss
+        if (!playerVisible && player != null)
+        {
+            float timeSinceLastSeen = Time.time - playerLastSeenTime;
+            if (timeSinceLastSeen >= visionPersistenceTime)
+            {
+                if (debugVisionChanges)
+                {
+                    WarningDebugLog($"👁️ VISION LOST - Player lost for {timeSinceLastSeen:F1}s");
+                }
+                player = null;
+                playerFirstSeenTime = 0f;
+            }
+        }
     }
 
     private void ChasePlayer()
     {
-        if (isDead) return;
-        if (player == null) return;
+        if (isDead || player == null) return;
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
+        if (distanceToPlayer > viewRadius * 1.2f)
+        {
+            player = null;
+            ResetToPatrol();
+            return;
+        }
+
+        // Attack logic
         if (distanceToPlayer <= attackRange)
         {
             if (!isAttacking)
             {
                 isAttacking = true;
-                DebugLog($"<color=red>STARTING ATTACK!</color> Distance: {distanceToPlayer:F2}");
                 if (animator != null)
                     animator.SetBool("isAttacking", true);
             }
@@ -538,30 +442,182 @@ public class Slime : MonoBehaviour
             InterruptAttack();
         }
 
+        // Navigation
         if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
             agent.isStopped = false;
             agent.speed = runSpeed;
-            agent.SetDestination(player.position);
+
+            if (!agent.hasPath || Vector3.Distance(agent.destination, player.position) > 2f)
+            {
+                agent.SetDestination(player.position);
+            }
         }
 
+        // Handle reaching destination
         if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
         {
-            if (waitTimer <= 0f && distanceToPlayer >= 6f)
+            if (!playerVisible)
             {
-                DebugLog($"Chase timeout - Distance: {distanceToPlayer:F2}, switching to patrol");
-                ResetToPatrol();
+                if (waitTimer <= 0f)
+                {
+                    ResetToPatrol();
+                }
+                else
+                {
+                    if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                        agent.isStopped = true;
+                    waitTimer -= Time.deltaTime;
+                }
             }
             else
             {
-                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-                    agent.isStopped = true;
-                waitTimer -= Time.deltaTime;
+                waitTimer = waitTimeAtPoint;
             }
         }
         else
         {
             waitTimer = waitTimeAtPoint;
+        }
+    }
+
+    // 🎵 WARNING: Trigger del warning con debug completo
+    private void TriggerWarningSequence()
+    {
+        // Final safety checks
+        if (isDead)
+        {
+            if (enableWarningDebug) WarningDebugLog("🚨 TRIGGER ABORTED: Enemy is dead");
+            return;
+        }
+
+        if (player == null)
+        {
+            if (enableWarningDebug) WarningDebugLog("🚨 TRIGGER ABORTED: No player reference");
+            return;
+        }
+
+        float finalDistance = Vector3.Distance(transform.position, player.position);
+        if (finalDistance > viewRadius)
+        {
+            if (enableWarningDebug)
+            {
+                WarningDebugLog($"🚨 TRIGGER ABORTED: Final distance check failed {finalDistance:F2}m > {viewRadius}m");
+            }
+
+            playerVisible = false;
+            player = null;
+            ResetToPatrol();
+            return;
+        }
+
+        // 🎵 MAIN ACTION: Mark warning as played forever
+        hasPlayedWarningEver = true;
+        hasEverSeenPlayer = true;
+
+        // 🔍 CRITICAL DEBUG: Log the actual trigger
+        WarningDebugLog($"🔊 WARNING TRIGGERED! 🔊 Distance: {finalDistance:F2}m, Time: {Time.time:F2}s");
+
+        hasTriggeredWarningThisDetection = true;
+        lastWarningTime = Time.time;
+        isCurrentlyInWarningCooldown = true;
+
+        // Visual indicator
+        if (enemyChildObjectToActivate != null)
+            enemyChildObjectToActivate.SetActive(true);
+
+        // 🔍 DEBUG: Audio playback
+        if (chaseAudioSource != null && chaseAudioClip != null)
+        {
+            chaseAudioSource.Stop();
+            chaseAudioSource.PlayOneShot(chaseAudioClip);
+
+            if (enableWarningDebug)
+            {
+                WarningDebugLog($"🎧 AUDIO PLAYED - Clip: '{chaseAudioClip.name}', Length: {chaseAudioClip.length:F2}s");
+            }
+
+            // Start coroutine sequence
+            if (currentWarningCoroutine != null)
+                StopCoroutine(currentWarningCoroutine);
+
+            currentWarningCoroutine = StartCoroutine(WarningSequenceCoroutine());
+        }
+        else
+        {
+            if (enableWarningDebug)
+            {
+                WarningDebugLog("🚨 AUDIO FAILED - Missing components!");
+            }
+        }
+    }
+
+    private IEnumerator WarningSequenceCoroutine()
+    {
+        float waitTime = chaseAudioClip != null ? chaseAudioClip.length : 2f;
+
+        if (enableWarningDebug)
+        {
+            WarningDebugLog($"⏳ WARNING SEQUENCE - Waiting {waitTime:F2}s for audio to complete...");
+        }
+
+        yield return new WaitForSeconds(waitTime);
+
+        if (playerVisible || IsPlayerRecentlyLost())
+        {
+            PlaySecondAudio();
+        }
+
+        if (enemyChildObjectToActivate != null)
+            enemyChildObjectToActivate.SetActive(false);
+
+        if (enableWarningDebug)
+        {
+            WarningDebugLog("✅ WARNING SEQUENCE COMPLETE");
+        }
+
+        currentWarningCoroutine = null;
+    }
+
+    private void PlaySecondAudio()
+    {
+        if (secondAudioSource != null && secondAudioClip != null)
+        {
+            secondAudioSource.Stop();
+            secondAudioSource.PlayOneShot(secondAudioClip);
+
+            if (enableWarningDebug)
+            {
+                WarningDebugLog($"🎧 SECOND AUDIO PLAYED - '{secondAudioClip.name}'");
+            }
+        }
+        else if (secondAudioClip != null && chaseAudioSource != null)
+        {
+            chaseAudioSource.Stop();
+            chaseAudioSource.PlayOneShot(secondAudioClip);
+
+            if (enableWarningDebug)
+            {
+                WarningDebugLog($"🎧 SECOND AUDIO PLAYED (via chase source) - '{secondAudioClip.name}'");
+            }
+        }
+    }
+
+    private bool IsPlayerRecentlyLost()
+    {
+        if (player == null) return false;
+
+        float timeSinceLastSeen = Time.time - playerLastSeenTime;
+        return !playerVisible && timeSinceLastSeen < visionPersistenceTime;
+    }
+
+    private void ChaseLastKnownPosition()
+    {
+        if (player != null && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = false;
+            agent.speed = runSpeed;
+            agent.SetDestination(player.position);
         }
     }
 
@@ -596,18 +652,70 @@ public class Slime : MonoBehaviour
     private void GoToNextWaypoint()
     {
         if (waypoints == null || waypoints.Length == 0) return;
-        currentWaypoint = (currentWaypoint + 1) % waypoints.Length;
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+
+        int nextWaypoint = FindBestAvailableWaypoint();
+
+        if (nextWaypoint != currentWaypoint)
         {
-            agent.SetDestination(waypoints[currentWaypoint].position);
-            DebugLog($"Moving to waypoint {currentWaypoint}");
+            currentWaypoint = nextWaypoint;
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                agent.SetDestination(waypoints[currentWaypoint].position);
+            }
         }
+        else
+        {
+            currentWaypoint = (currentWaypoint + 1) % waypoints.Length;
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                agent.SetDestination(waypoints[currentWaypoint].position);
+            }
+        }
+    }
+
+    private int FindBestAvailableWaypoint()
+    {
+        if (waypoints == null || waypoints.Length == 0) return 0;
+
+        var waypointScores = new List<(int index, float score)>();
+
+        for (int i = 0; i < waypoints.Length; i++)
+        {
+            if (waypoints[i] == null) continue;
+
+            float distance = Vector3.Distance(transform.position, waypoints[i].position);
+            int enemyCount = CountEnemiesNearWaypoint(waypoints[i].position);
+
+            float occupationPenalty = enemyCount >= maxEnemiesPerWaypoint ? 1000f : enemyCount * 10f;
+            float score = distance + occupationPenalty;
+
+            waypointScores.Add((i, score));
+        }
+
+        waypointScores.Sort((a, b) => a.score.CompareTo(b.score));
+        int bestWaypoint = waypointScores.Count > 0 ? waypointScores[0].index : 0;
+        return bestWaypoint;
+    }
+
+    private int CountEnemiesNearWaypoint(Vector3 waypointPosition)
+    {
+        Collider[] enemiesNear = Physics.OverlapSphere(waypointPosition, waypointOccupancyRadius, enemyMask);
+
+        int count = 0;
+        foreach (var enemy in enemiesNear)
+        {
+            if (enemy.transform != this.transform)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private void ResetToPatrol()
     {
         isPatrolling = true;
-        DebugLog("<color=green>RESET TO PATROL</color>");
 
         if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             agent.isStopped = false;
@@ -620,63 +728,132 @@ public class Slime : MonoBehaviour
         if (animator != null)
             animator.SetBool("isAttacking", false);
 
-        // Cleanup warning sequence se in corso
         CleanupWarningSequence();
 
-        FindClosestWaypoint();
+        int bestWaypoint = FindBestAvailableWaypoint();
+        currentWaypoint = bestWaypoint;
 
         if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
             agent.speed = walkSpeed;
+            agent.SetDestination(waypoints[currentWaypoint].position);
+        }
     }
 
     private void CleanupWarningSequence()
     {
+        // Stop visual indicator
         if (enemyChildObjectToActivate != null && enemyChildObjectToActivate.activeSelf)
         {
             enemyChildObjectToActivate.SetActive(false);
-            DebugLog("Chase indicator deactivated during cleanup");
         }
-        
+
+        // Stop coroutine
         if (currentWarningCoroutine != null)
         {
             StopCoroutine(currentWarningCoroutine);
             currentWarningCoroutine = null;
-            DebugLog("Warning coroutine stopped during cleanup");
         }
-        
-        isPlayingWarningSequence = false;
+
+        // Stop all audio
+        if (chaseAudioSource != null && chaseAudioSource.isPlaying)
+        {
+            chaseAudioSource.Stop();
+        }
+        if (secondAudioSource != null && secondAudioSource.isPlaying)
+        {
+            secondAudioSource.Stop();
+        }
     }
 
-    private void FindClosestWaypoint()
+    private void StopAgentSafely()
     {
-        if (waypoints == null || waypoints.Length == 0) return;
-
-        float minDist = Mathf.Infinity;
-        int closest = 0;
-
-        for (int i = 0; i < waypoints.Length; i++)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
-            float dist = Vector3.Distance(transform.position, waypoints[i].position);
-            if (dist < minDist)
+            agent.isStopped = true;
+            agent.ResetPath();
+        }
+    }
+
+    private void InterruptAttack()
+    {
+        if (isAttacking)
+        {
+            isAttacking = false;
+            if (animator != null)
+                animator.SetBool("isAttacking", false);
+        }
+    }
+
+    public void StartDizzy()
+    {
+        if (isDizzy) return;
+
+        isDizzy = true;
+        InterruptAttack();
+
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.isStopped = true;
+
+        if (stunParticles != null)
+            stunParticles.Play();
+
+        StartCoroutine(DizzyTimer());
+    }
+
+    private IEnumerator DizzyTimer()
+    {
+        if (stunParticles != null)
+        {
+            yield return new WaitForSeconds(dizzyDuration - stunEffectEndOffset);
+            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            yield return new WaitForSeconds(stunEffectEndOffset);
+        }
+        else
+        {
+            yield return new WaitForSeconds(dizzyDuration);
+        }
+
+        EndDizzy();
+    }
+
+    public void EndDizzy()
+    {
+        isDizzy = false;
+
+        if (stunParticles != null)
+            stunParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            agent.isStopped = false;
+
+        if (player != null)
+        {
+            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+            if (distanceToPlayer <= attackRange)
             {
-                minDist = dist;
-                closest = i;
+                isAttacking = true;
+                if (animator != null)
+                    animator.SetBool("isAttacking", true);
+                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                    agent.isStopped = true;
+                return;
+            }
+
+            if (distanceToPlayer <= viewRadius)
+            {
+                isPatrolling = false;
+                return;
             }
         }
 
-        currentWaypoint = closest;
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-        {
-            agent.SetDestination(waypoints[currentWaypoint].position);
-            DebugLog($"Found closest waypoint: {closest} at distance {Vector3.Distance(transform.position, waypoints[closest].position):F2}");
-        }
+        ResetToPatrol();
     }
 
     public void EnemyAttackHitbox()
     {
         if (isDead) return;
-
-        DebugLog("<color=red>ATTACK HITBOX TRIGGERED!</color>");
 
         Collider[] hits = Physics.OverlapBox(
             transform.position + transform.forward * (attackRange * 0.5f),
@@ -684,8 +861,6 @@ public class Slime : MonoBehaviour
             transform.rotation,
             LayerMask.GetMask("PlayerHurtbox")
         );
-
-        DebugLog($"Attack hitbox detected {hits.Length} colliders");
 
         foreach (var hit in hits)
         {
@@ -696,7 +871,6 @@ public class Slime : MonoBehaviour
                 {
                     Vector3 pushDir = (hurtbox.transform.position - transform.position).normalized;
                     hurtbox.OnHit(pushDir, pushForce, damage);
-                    DebugLog($"<color=red>HIT PLAYER!</color> Damage: {damage}, Push: {pushForce}");
                 }
             }
         }
@@ -707,40 +881,13 @@ public class Slime : MonoBehaviour
         if (isDead) return;
 
         currentHealth -= amount;
-        DebugLog($"<color=yellow>TOOK DAMAGE!</color> Amount: {amount}, Health: {currentHealth}/{maxHealth}");
         InterruptAttack();
-
         animator?.SetTrigger("GetHit");
 
         if (currentHealth <= 0f)
         {
             currentHealth = 0f;
-            isDead = true;
-            DebugLog("<color=red>SLIME DIED!</color>");
-
-            playerVisible = false;
-            player = null;
-            isPatrolling = false;
-            caughtPlayer = false;
-            isAttacking = false;
-
-            // Cleanup completo alla morte
-            CleanupWarningSequence();
-            ResetWarningState();
-
-            animator?.SetTrigger("Die");
-
-            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-            {
-                agent.isStopped = true;
-                agent.ResetPath();
-                agent.enabled = false;
-            }
-            else if (agent != null)
-            {
-                agent.enabled = false;
-            }
-
+            Die();
             return;
         }
 
@@ -748,40 +895,9 @@ public class Slime : MonoBehaviour
         StartDizzy();
     }
 
-    // FIXED: Reset warning con opzione forzata
-    public void ResetWarningAudio(bool forceReset = false)
-    {
-        DebugLog("Manual warning reset requested" + (forceReset ? " (FORCED)" : ""));
-        if (forceReset)
-        {
-            // Force reset ignora il timeout
-            ResetWarningState();
-            lastPlayerLostTime = 0f;
-            playerWasVisible = false;
-        }
-        else
-        {
-            // Reset normale segue le regole del timeout
-            if (CanTriggerWarning())
-            {
-                ResetWarningState();
-            }
-        }
-        CleanupWarningSequence();
-    }
-    
-    private void ResetWarningState()
-    {
-        hasTriggeredWarningThisChase = false;
-        isPlayingWarningSequence = false;
-        DebugLog("Warning state reset");
-    }
-
-    // Metodo chiamato tramite Animation Event alla fine animazione morte
     public void DestroyAfterDeath()
     {
         if (!isDead) return;
-        DebugLog("Starting death sequence...");
         StartCoroutine(DestroyAfterDeathSequence());
     }
 
@@ -789,28 +905,21 @@ public class Slime : MonoBehaviour
     {
         yield return new WaitForSeconds(2f);
 
-        // Riproduci il suono di morte
         if (deathAudioSource != null && deathAudioClip != null)
         {
             deathAudioSource.PlayOneShot(deathAudioClip);
-            DebugLog("Playing death audio");
         }
 
-        // Avvia l'effetto visivo di morte
         if (deathEffectController != null)
         {
             deathEffectController.PlayEffect();
-            DebugLog("Playing death effect");
         }
 
-        // Nasconde il renderer del modello
         if (Renderer != null)
         {
             Renderer.enabled = false;
-            DebugLog("Model renderer disabled");
         }
 
-        // Aspetta che l'effetto particle finisca
         if (deathEffectController != null)
         {
             ParticleSystem ps = deathEffectController.GetComponent<ParticleSystem>();
@@ -824,16 +933,45 @@ public class Slime : MonoBehaviour
             yield return new WaitForSeconds(1.5f);
         }
 
-        // Spawna la gemma
         GemManager.Instance?.SpawnLifeGem(transform.position);
-        DebugLog("Life gem spawned");
-
-        // Distrugge il GameObject
-        DebugLog("Destroying slime GameObject");
         Destroy(gameObject);
     }
 
-    // Metodo per riprodurre l'audio custom tramite Animation Event
+    private void Die()
+    {
+        if (isDead) return;
+
+        isDead = true;
+
+        // Reset completo dello stato
+        playerVisible = false;
+        player = null;
+        isPatrolling = false;
+        caughtPlayer = false;
+        isAttacking = false;
+        isDizzy = false;
+
+        // Cleanup warning system
+        CleanupWarningSequence();
+        ForceResetAllWarningVariables();
+
+        // Stop agent
+        StopAgentSafely();
+
+        // Disable agent
+        if (agent != null)
+        {
+            agent.enabled = false;
+        }
+
+        // Trigger death animation
+        animator?.SetTrigger("Die");
+
+        if (enableWarningDebug)
+        {
+            WarningDebugLog("💀 ENEMY DIED - All systems stopped");
+        }
+    }
     public void PlayCustomAudio()
     {
         if (isDead) return;
@@ -841,71 +979,188 @@ public class Slime : MonoBehaviour
         if (customAudioSource != null && customAudioClip != null)
         {
             customAudioSource.PlayOneShot(customAudioClip);
-            DebugLog("Playing custom audio");
-        }
-        else
-        {
-            DebugLog("CustomAudioSource or CustomAudioClip not assigned!");
         }
     }
 
-    private void OnDrawGizmosSelected()
+    // 🔍 UTILITY: Centralized warning debug logging
+    private void WarningDebugLog(string message)
     {
-        // VIEW RADIUS
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, viewRadius);
-
-        // ATTACK RANGE
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, attackRange);
-
-        // VIEW ANGLE
-        Vector3 leftBoundary = Quaternion.Euler(0, -viewAngle / 2, 0) * transform.forward;
-        Vector3 rightBoundary = Quaternion.Euler(0, viewAngle / 2, 0) * transform.forward;
-
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(transform.position, transform.position + leftBoundary * viewRadius);
-        Gizmos.DrawLine(transform.position, transform.position + rightBoundary * viewRadius);
-
-        // Show distance to player if visible
-        if (Application.isPlaying && playerVisible && player != null)
+        if (enableWarningDebug)
         {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawLine(transform.position, player.position);
-            
-            // Draw distance text in Scene view
-            #if UNITY_EDITOR
-            UnityEditor.Handles.Label(
-                Vector3.Lerp(transform.position, player.position, 0.5f), 
-                $"Distance: {Vector3.Distance(transform.position, player.position):F2}"
-            );
-            #endif
+            Debug.Log($"🎵 <color=yellow>[{name}]</color> {message} <color=gray>(T:{Time.time:F2})</color>");
+        }
+    }
+
+    // 🔍 DEBUG METHODS: Simplified and focused on warning system
+    [ContextMenu("🔍 Debug Warning State")]
+    public void DebugWarningState()
+    {
+        float playerDist = player != null ? Vector3.Distance(transform.position, player.position) : -1f;
+
+        string statusIcon = isDead ? "💀" : (hasPlayedWarningEver ? "🔇" : "🔊");
+
+        Debug.Log($"🎵 <color=white>[WARNING STATE DEBUG]</color> {name} {statusIcon}\n" +
+                 $"🎯 LIFETIME STATUS:\n" +
+                 $"  ├─ hasPlayedWarningEver: {hasPlayedWarningEver}\n" +
+                 $"  ├─ hasEverSeenPlayer: {hasEverSeenPlayer}\n" +
+                 $"  └─ Can play warning: {(!hasPlayedWarningEver && !isDead ? "✅ YES" : "❌ NO")}\n" +
+                 $"👁️ CURRENT DETECTION:\n" +
+                 $"  ├─ playerVisible: {playerVisible}\n" +
+                 $"  ├─ Player distance: {(playerDist >= 0 ? $"{playerDist:F2}m" : "N/A")}\n" +
+                 $"  ├─ Within view radius ({viewRadius}m): {(playerDist >= 0 && playerDist <= viewRadius ? "✅" : "❌")}\n" +
+                 $"  └─ isDead: {isDead}\n" +
+                 $"🎧 AUDIO COMPONENTS:\n" +
+                 $"  ├─ chaseAudioSource: {(chaseAudioSource != null ? "✅" : "❌")}\n" +
+                 $"  ├─ chaseAudioClip: {(chaseAudioClip != null ? $"✅ '{chaseAudioClip.name}'" : "❌")}\n" +
+                 $"  └─ Last block reason: {lastWarningBlockReason}\n" +
+                 $"📊 STATISTICS:\n" +
+                 $"  ├─ Warning calls: {warningCallCount}\n" +
+                 $"  ├─ Last attempt: {(lastWarningAttemptTime > 0 ? $"{Time.time - lastWarningAttemptTime:F2}s ago" : "Never")}\n" +
+                 $"  └─ Cooldown active: {isCurrentlyInWarningCooldown}");
+    }
+
+    [ContextMenu("🔊 Test Warning (Force)")]
+    public void TestWarningForce()
+    {
+        if (isDead)
+        {
+            Debug.LogWarning("🎵 Cannot test warning: Enemy is dead");
+            return;
         }
 
-        // Show warning reset timer in Scene view
-        #if UNITY_EDITOR
-        if (Application.isPlaying && hasTriggeredWarningThisChase && lastPlayerLostTime > 0f)
+        Debug.Log($"🎵 <color=magenta>[FORCE TEST]</color> Attempting to trigger warning...");
+
+        // Setup test conditions
+        if (player == null)
         {
-            float timeSinceLost = Time.time - lastPlayerLostTime;
-            float timeRemaining = warningResetTime - timeSinceLost;
-            
-            if (timeRemaining > 0f)
+            GameObject playerObj = GameObject.FindWithTag("Player");
+            if (playerObj != null)
             {
-                UnityEditor.Handles.Label(
-                    transform.position + Vector3.up * 3f,
-                    $"Warning Reset: {timeRemaining:F1}s",
-                    new GUIStyle() { normal = new GUIStyleState() { textColor = Color.yellow } }
-                );
+                player = playerObj.transform;
+                playerVisible = true;
+                Debug.Log($"🎵 Found player for test: {player.name}");
             }
             else
             {
-                UnityEditor.Handles.Label(
-                    transform.position + Vector3.up * 3f,
-                    "Warning Ready!",
-                    new GUIStyle() { normal = new GUIStyleState() { textColor = Color.green } }
-                );
+                Debug.LogError("🎵 No player found for test!");
+                return;
             }
         }
-        #endif
+
+        // Show current state before test
+        DebugWarningState();
+
+        // Attempt trigger
+        if (CanTriggerWarningFirstTime())
+        {
+            TriggerWarningSequence();
+        }
+        else
+        {
+            Debug.LogWarning($"🎵 <color=red>[FORCE TEST FAILED]</color> Reason: {lastWarningBlockReason}");
+        }
+    }
+
+    [ContextMenu("🔄 Reset Warning System")]
+    public void ResetWarningSystemForDebug()
+    {
+        Debug.Log($"🔄 <color=red>[MANUAL RESET]</color> {name} - Resetting warning system for testing...");
+
+        // Reset lifetime flags for testing
+        hasEverSeenPlayer = false;
+        hasPlayedWarningEver = false;
+
+        // Reset counters
+        warningCallCount = 0;
+        lastWarningAttemptTime = 0f;
+        lastWarningBlockReason = "";
+
+        // Reset other variables
+        ForceResetAllWarningVariables();
+
+        Debug.Log($"🔄 Warning system completely reset. hasPlayedWarningEver: {hasPlayedWarningEver}");
+    }
+
+    [ContextMenu("📊 Show Debug Statistics")]
+    public void ShowDebugStatistics()
+    {
+        Debug.Log($"📊 <color=cyan>[DEBUG STATS]</color> {name}:\n" +
+                 $"⏱️ TIMING:\n" +
+                 $"  ├─ Current time: {Time.time:F2}s\n" +
+                 $"  ├─ Last warning: {(lastWarningTime > -999 ? $"{lastWarningTime:F2}s ({Time.time - lastWarningTime:F2}s ago)" : "Never")}\n" +
+                 $"  ├─ Last attempt: {(lastWarningAttemptTime > 0 ? $"{lastWarningAttemptTime:F2}s ({Time.time - lastWarningAttemptTime:F2}s ago)" : "Never")}\n" +
+                 $"  └─ Player first seen: {(playerFirstSeenTime > 0 ? $"{playerFirstSeenTime:F2}s ({Time.time - playerFirstSeenTime:F2}s ago)" : "Never")}\n" +
+                 $"📈 COUNTERS:\n" +
+                 $"  ├─ Total warning checks: {warningCallCount}\n" +
+                 $"  ├─ Currently in cooldown: {isCurrentlyInWarningCooldown}\n" +
+                 $"  └─ Cooldown time remaining: {(isCurrentlyInWarningCooldown ? Mathf.Max(0, warningResetTime - (Time.time - lastWarningTime)) : 0):F1}s\n" +
+                 $"🎮 GAME STATE:\n" +
+                 $"  ├─ IsPatrolling: {isPatrolling}\n" +
+                 $"  ├─ IsAttacking: {isAttacking}\n" +
+                 $"  ├─ IsDizzy: {isDizzy}\n" +
+                 $"  └─ IsDead: {isDead}");
+    }
+
+    // 🔍 GIZMOS: Simplified visual debug
+    private void OnDrawGizmosSelected()
+    {
+        // View radius
+        if (viewRadius > 0)
+        {
+            Gizmos.color = playerVisible ? Color.red : Color.yellow;
+            Gizmos.DrawWireSphere(transform.position, viewRadius);
+
+            // View angle
+            Vector3 leftBoundary = Quaternion.AngleAxis(-viewAngle / 2, Vector3.up) * transform.forward * viewRadius;
+            Vector3 rightBoundary = Quaternion.AngleAxis(viewAngle / 2, Vector3.up) * transform.forward * viewRadius;
+
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(transform.position, transform.position + leftBoundary);
+            Gizmos.DrawLine(transform.position, transform.position + rightBoundary);
+        }
+
+        // Attack range
+        if (attackRange > 0)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position, attackRange);
+        }
+
+        // Warning system status indicator
+        if (hasPlayedWarningEver)
+        {
+            // Purple cube = warning already played
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireCube(transform.position + Vector3.up * 2f, Vector3.one * 0.5f);
+        }
+        else if (isDead)
+        {
+            // Red X = dead
+            Gizmos.color = Color.red;
+            Vector3 pos = transform.position + Vector3.up * 2f;
+            Gizmos.DrawLine(pos + Vector3.left * 0.3f, pos + Vector3.right * 0.3f);
+            Gizmos.DrawLine(pos + Vector3.forward * 0.3f, pos + Vector3.back * 0.3f);
+        }
+        else
+        {
+            // Green sphere = ready for warning
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(transform.position + Vector3.up * 2f, 0.3f);
+        }
+
+        // Current waypoint
+        if (waypoints != null && waypoints.Length > 0 && currentWaypoint < waypoints.Length && waypoints[currentWaypoint] != null)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawLine(transform.position, waypoints[currentWaypoint].position);
+            Gizmos.DrawWireSphere(waypoints[currentWaypoint].position, 0.5f);
+        }
+
+        // Player line of sight
+        if (player != null)
+        {
+            Gizmos.color = playerVisible ? Color.green : Color.red;
+            Gizmos.DrawLine(transform.position + Vector3.up * 0.5f, player.position + Vector3.up * 0.5f);
+        }
     }
 }
