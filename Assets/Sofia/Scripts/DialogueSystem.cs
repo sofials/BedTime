@@ -123,7 +123,14 @@ private bool dissolveAudioPlaying = false;
     [SerializeField] private float activationDelay = 0f;
     private bool wasMovementLocked = false;
 private bool movementLockApplied = false;
-private Coroutine movementLockCoroutine = null;
+    private Coroutine movementLockCoroutine = null;
+[Header("🌟 CollectiblesManager Integration")]
+[Tooltip("Se true, questo DialogueSystem può essere attivato dal CollectiblesManager")]
+[SerializeField] private bool canBeTriggeredByCollectiblesManager = false;
+[Tooltip("Se true, registra automaticamente questo dialogo come FirstMemoryDialogue nel CollectiblesManager della scena")]
+[SerializeField] private bool autoRegisterAsFirstMemoryDialogue = false;
+[Tooltip("CollectiblesManager specifico a cui registrarsi (se null, cerca automaticamente)")]
+[SerializeField] private CollectiblesManager targetCollectiblesManager;
     
     [Header("Audio Settings")]
     public AudioSource audioSource; // AudioSource per riprodurre i suoni del dialogo
@@ -157,6 +164,8 @@ private Coroutine movementLockCoroutine = null;
     private int currentLineIndex = 0;
     private bool isDialogueActive = false;
     private bool isPlayingAudio = false;
+    private bool wasTriggeredByCollectiblesManager = false;
+private CollectiblesManager connectedCollectiblesManager = null;
     private bool hasBeenTriggered = false; // Per evitare ripetizioni
     private bool isOnLastLine = false; // Flag per tracciare se siamo sull'ultima battuta
     private bool objectsAlreadyActivated = false; // Per evitare attivazioni multiple
@@ -165,6 +174,11 @@ private Coroutine movementLockCoroutine = null;
     private Coroutine audioCoroutine;
     private Coroutine autoFinishCoroutine;
     private List<Coroutine> dissolveCoroutines = new List<Coroutine>(); // 🆕 Lista delle coroutine di dissolve attive
+    public bool CanBeTriggeredByCollectiblesManager() => canBeTriggeredByCollectiblesManager;
+public bool IsAutoRegisterAsFirstMemoryDialogue() => autoRegisterAsFirstMemoryDialogue;
+public CollectiblesManager GetTargetCollectiblesManager() => targetCollectiblesManager;
+public CollectiblesManager GetConnectedCollectiblesManager() => connectedCollectiblesManager;
+public bool WasTriggeredByCollectiblesManager() => wasTriggeredByCollectiblesManager;
     
     void Start()
     {
@@ -185,6 +199,7 @@ private Coroutine movementLockCoroutine = null;
         ValidateDissolveSetup(); // 🆕
         ValidateDissolveAudioSetup();
         ValidateMovementControlSetup();
+        ValidateCollectiblesManagerIntegration();
         
         // 🆕 INIZIALIZZA I VALORI DISSOLVE ALL'AVVIO
         if (enableDissolveEffect && forceInitializeDissolveValues)
@@ -193,13 +208,173 @@ private Coroutine movementLockCoroutine = null;
         }
     }
     /// <summary>
-/// 🆕 Abilita/disabilita l'audio dissolve
+/// 🌟 Valida e configura l'integrazione con CollectiblesManager
 /// </summary>
-public void SetDissolveAudioEnabled(bool enabled)
+void ValidateCollectiblesManagerIntegration()
 {
-    enableDissolveAudio = enabled;
-    Debug.Log($"[DialogueSystem] Audio Dissolve {(enabled ? "abilitato" : "disabilitato")}");
+    if (!canBeTriggeredByCollectiblesManager && !autoRegisterAsFirstMemoryDialogue)
+    {
+        Debug.Log("[DialogueSystem] Integrazione CollectiblesManager disabilitata");
+        return;
+    }
+    
+    // Trova il CollectiblesManager nella scena
+    if (targetCollectiblesManager == null)
+    {
+        targetCollectiblesManager = CollectiblesManager.Instance;
+        if (targetCollectiblesManager == null)
+        {
+            targetCollectiblesManager = FindFirstObjectByType<CollectiblesManager>();
+        }
+    }
+    
+    if (targetCollectiblesManager == null)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ CollectiblesManager integration abilitata ma nessun CollectiblesManager trovato nella scena!");
+        return;
+    }
+    
+    connectedCollectiblesManager = targetCollectiblesManager;
+    Debug.Log($"[DialogueSystem] ✅ ConnectiblesManager trovato: {targetCollectiblesManager.name}");
+    
+    // Auto-registrazione come FirstMemoryDialogue se abilitata
+    if (autoRegisterAsFirstMemoryDialogue)
+    {
+        RegisterAsFirstMemoryDialogue();
+    }
 }
+// <summary>
+/// 🌟 Registra questo DialogueSystem come FirstMemoryDialogue nel CollectiblesManager
+/// </summary>
+void RegisterAsFirstMemoryDialogue()
+{
+    if (connectedCollectiblesManager == null)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Impossibile registrarsi - nessun CollectiblesManager connesso!");
+        return;
+    }
+    
+    try
+    {
+        // Abilita il sistema FirstMemoryDialogue
+        connectedCollectiblesManager.SetFirstMemoryDialogueEnabled(true);
+        
+        // Imposta questo DialogueSystem come il dialogo da attivare
+        connectedCollectiblesManager.SetFirstMemoryDialogueSystem(this);
+        
+        Debug.Log($"[DialogueSystem] ✅ Registrato come FirstMemoryDialogue in '{connectedCollectiblesManager.name}'");
+        
+        // Opzionale: configura messaggio personalizzato
+        if (!string.IsNullOrEmpty(name))
+        {
+            connectedCollectiblesManager.SetFirstMemoryDialogueMessage($"Attivando dialogo '{name}' per la prima memory...");
+        }
+    }
+    catch (System.Exception e)
+    {
+        Debug.LogError($"[DialogueSystem] ❌ Errore nella registrazione FirstMemoryDialogue: {e.Message}");
+    }
+}
+    /// <summary>
+    /// 🌟 Metodo chiamato dal CollectiblesManager per attivare il dialogo
+    /// </summary>
+    public void TriggerDialogueFromCollectiblesManager(string memoryName = "")
+    {
+        if (!canBeTriggeredByCollectiblesManager)
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Tentativo di attivazione da CollectiblesManager ma funzionalità disabilitata!");
+            return;
+        }
+
+        Debug.Log($"[DialogueSystem] 🌟 Dialogo attivato dal CollectiblesManager per memory: '{memoryName}'");
+
+        wasTriggeredByCollectiblesManager = true;
+
+        // Avvia il dialogo usando il metodo esistente
+        TriggerDialogue();
+    }
+
+    /// <summary>
+    /// 🌟 Override del metodo TriggerDialogue per supportare sia attivazione manuale che da CollectiblesManager
+    /// </summary>
+    public void TriggerDialogue()
+    {
+        // Se non è stato attivato dal CollectiblesManager, marca come attivazione manuale
+        if (!wasTriggeredByCollectiblesManager)
+        {
+            Debug.Log("[DialogueSystem] 🎯 Dialogo attivato manualmente");
+        }
+
+        // Chiama il metodo StartDialogue esistente
+        StartDialogue();
+
+    }
+// MODIFICA QUESTO METODO ESISTENTE (sostituisci il metodo ResetTrigger esistente)
+/// <summary>
+/// Metodo per resettare il trigger - VERSIONE AGGIORNATA
+/// </summary>
+public void ResetTrigger()
+{
+    hasBeenTriggered = false;
+    wasTriggeredByCollectiblesManager = false; // 🌟 NUOVO: Reset flag CollectiblesManager
+    ResetObjectActivation();
+    ResetSubDialogue();
+    ResetDissolve();
+    
+    Debug.Log("[DialogueSystem] 🔄 Trigger e stato CollectiblesManager resettati");
+}
+/// <summary>
+/// 🌟 Abilita/disabilita la possibilità di essere attivato dal CollectiblesManager
+/// </summary>
+public void SetCanBeTriggeredByCollectiblesManager(bool canBe)
+{
+    canBeTriggeredByCollectiblesManager = canBe;
+    Debug.Log($"[DialogueSystem] CollectiblesManager trigger: {(canBe ? "abilitato" : "disabilitato")}");
+}
+/// <summary>
+/// 🌟 Abilita/disabilita l'auto-registrazione come FirstMemoryDialogue
+/// </summary>
+public void SetAutoRegisterAsFirstMemoryDialogue(bool autoRegister)
+{
+    autoRegisterAsFirstMemoryDialogue = autoRegister;
+    Debug.Log($"[DialogueSystem] Auto-registrazione FirstMemoryDialogue: {(autoRegister ? "abilitata" : "disabilitata")}");
+    
+    if (autoRegister && connectedCollectiblesManager != null)
+    {
+        RegisterAsFirstMemoryDialogue();
+    }
+}
+/// <summary>
+/// 🌟 Imposta il CollectiblesManager target
+/// </summary>
+public void SetTargetCollectiblesManager(CollectiblesManager manager)
+{
+    targetCollectiblesManager = manager;
+    connectedCollectiblesManager = manager;
+    Debug.Log($"[DialogueSystem] Target CollectiblesManager impostato: {(manager != null ? manager.name : "NULL")}");
+}
+/// <summary>
+/// 🌟 Forza la registrazione come FirstMemoryDialogue
+/// </summary>
+public void ForceRegisterAsFirstMemoryDialogue()
+{
+    if (connectedCollectiblesManager != null)
+    {
+        RegisterAsFirstMemoryDialogue();
+    }
+    else
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Impossibile forzare registrazione - nessun CollectiblesManager connesso!");
+    }
+}
+    /// <summary>
+    /// 🆕 Abilita/disabilita l'audio dissolve
+    /// </summary>
+    public void SetDissolveAudioEnabled(bool enabled)
+    {
+        enableDissolveAudio = enabled;
+        Debug.Log($"[DialogueSystem] Audio Dissolve {(enabled ? "abilitato" : "disabilitato")}");
+    }
 
 /// <summary>
 /// 🆕 Imposta l'AudioClip per il dissolve
@@ -1858,23 +2033,6 @@ public void ForceUnlockPlayerMovement()
     public string GetActivationMessage() => activationMessage;
     public float GetActivationDelay() => activationDelay;
     public bool AreObjectsActivated() => objectsAlreadyActivated;
-    
-
-    
-    // Metodo pubblico per iniziare il dialogo da altri script
-    public void TriggerDialogue()
-    {
-        StartDialogue();
-    }
-    
-    // Metodo per resettare il trigger (utile per testing o per dialoghi ripetibili)
-    public void ResetTrigger()
-    {
-        hasBeenTriggered = false;
-        ResetObjectActivation(); // Reset anche gli oggetti se il dialogo è ripetibile
-        ResetSubDialogue(); // 🆕 Reset sottodialogo
-        ResetDissolve(); // 🆕 Reset dissolve
-    }
     
     // Metodo pubblico per controllare se il dialogo è attivo
     public bool IsDialogueActive()

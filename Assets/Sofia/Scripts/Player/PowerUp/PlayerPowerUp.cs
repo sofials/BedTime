@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using System.Collections.Generic;
 
 public class PlayerPowerUp : MonoBehaviour
 {
@@ -10,10 +9,16 @@ public class PlayerPowerUp : MonoBehaviour
     public float maxPower = 200f;
     public float currentPower = 200f;
 
+    // 🆕 NUOVO: Toggle semplice per iniziare con zero power
+    [Header("Level Start Settings")]
+    [SerializeField] private bool startWithZeroPower = false;
+    [Tooltip("Se attivato, il player inizierà il livello con 0 potere invece del massimo")]
+
     public float CurrentPower => currentPower;
     public float MaxPower => maxPower;
+    
     [Header("Debug")]
-public float debugPowerAmount = 10f;
+    public float debugPowerAmount = 10f;
 
     [Header("UI")]
     public GameObject powerUI;
@@ -64,13 +69,25 @@ public float debugPowerAmount = 10f;
             }
         }
 
-        currentPower = maxPower;
-        Debug.Log("[PlayerPowerUp] Start: Imposto max power e aggiorno UI");
-        Debug.Log($"[PlayerPowerUp] Valori iniziali - Current: {currentPower}, Max: {maxPower}");
+        // 🆕 NUOVO: Logica semplice per il potere iniziale
+        if (startWithZeroPower)
+        {
+            currentPower = 0f;
+            Debug.Log($"[PlayerPowerUp] 🔋 Iniziando con ZERO potere (Toggle attivo)");
+        }
+        else
+        {
+            currentPower = maxPower;
+            Debug.Log($"[PlayerPowerUp] 🔋 Iniziando con potere MASSIMO ({currentPower})");
+        }
+        
+        Debug.Log($"[PlayerPowerUp] Start: Potere iniziale impostato a {currentPower}/{maxPower}");
         
         // Aspetta un frame prima di aggiornare l'UI per assicurarsi che tutto sia inizializzato
         StartCoroutine(DelayedUIUpdate());
     }
+
+
 
     // 🔧 FIX: DelayedUIUpdate corretto - Non modifica più maxHealth!
     private System.Collections.IEnumerator DelayedUIUpdate()
@@ -79,10 +96,6 @@ public float debugPowerAmount = 10f;
         
         if (playerUI != null)
         {
-            // ❌ VECCHIO CODICE CHE CAUSAVA IL PROBLEMA:
-            // playerUI.SetMaxValues(100f, maxPower); // Questo impostava maxHealth a 100!
-            
-            // ✅ NUOVO CODICE SICURO:
             Debug.Log($"[PlayerPowerUp] 🔧 Aggiornamento UI sicuro - NON modifico maxHealth");
             
             // Opzione 1: Usa il valore corretto di maxHealth dal playerController
@@ -199,6 +212,35 @@ public float debugPowerAmount = 10f;
         }
     }
 
+    // 🆕 NUOVO METODO PUBBLICO: Per controllo runtime del toggle
+    
+    /// <summary>
+    /// Attiva/disattiva l'inizio con zero power
+    /// </summary>
+    public void SetStartWithZeroPower(bool enable)
+    {
+        startWithZeroPower = enable;
+        Debug.Log($"[PlayerPowerUp] 🔄 Start With Zero Power impostato a: {enable}");
+    }
+    
+    /// <summary>
+    /// Ottieni lo stato attuale del toggle
+    /// </summary>
+    public bool GetStartWithZeroPower()
+    {
+        return startWithZeroPower;
+    }
+    
+    /// <summary>
+    /// Resetta il power a zero immediatamente (utile per testing)
+    /// </summary>
+    public void ResetPowerToZero()
+    {
+        currentPower = 0f;
+        UpdateUI();
+        Debug.Log("[PlayerPowerUp] 🔄 Power resettato a zero");
+    }
+
     // Test methods
     [ContextMenu("Test Add Power")]
     public void TestAddPower()
@@ -236,13 +278,14 @@ public float debugPowerAmount = 10f;
         }
     }
 
-    // 🆕 NUOVO: Metodi di debug migliorati
+    // 🆕 METODI DI DEBUG SEMPLIFICATI
     [ContextMenu("🔍 Debug - Show Power Status")]
     public void DebugShowPowerStatus()
     {
         Debug.Log($"=== POWER STATUS ===");
         Debug.Log($"Current Power: {currentPower}");
         Debug.Log($"Max Power: {maxPower}");
+        Debug.Log($"Start With Zero Power: {startWithZeroPower}");
         Debug.Log($"PowerUI attivo: {powerUI != null && powerUI.activeInHierarchy}");
         Debug.Log($"PlayerUI presente: {playerUI != null}");
         
@@ -303,6 +346,33 @@ public float debugPowerAmount = 10f;
         }
     }
 
+    // 🆕 METODI DI TESTING SEMPLIFICATI
+    [ContextMenu("🔋 Test - Toggle Zero Power Start")]
+    public void DebugToggleZeroPowerStart()
+    {
+        startWithZeroPower = !startWithZeroPower;
+        Debug.Log($"[PlayerPowerUp] 🔄 Toggle Zero Power Start: {startWithZeroPower}");
+    }
+
+    [ContextMenu("⚡ Test - Simulate Level Restart")]
+    public void DebugSimulateLevelRestart()
+    {
+        Debug.Log("[PlayerPowerUp] 🔄 Simulando restart livello...");
+        
+        if (startWithZeroPower)
+        {
+            currentPower = 0f;
+            Debug.Log($"[PlayerPowerUp] 🔋 Power dopo restart: ZERO");
+        }
+        else
+        {
+            currentPower = maxPower;
+            Debug.Log($"[PlayerPowerUp] 🔋 Power dopo restart: MASSIMO ({currentPower})");
+        }
+        
+        UpdateUI();
+    }
+
     // Debug key - rimuovi in produzione se non serve
     void Update()
     {
@@ -311,9 +381,15 @@ public float debugPowerAmount = 10f;
             DebugShowPowerStatus();
         }
         if (Input.GetKeyDown(KeyCode.M))
-    {
-        Debug.Log($"[PlayerPowerUp] 🔋 Tasto M premuto - Aggiungendo {debugPowerAmount} power");
-        AddPower(debugPowerAmount);
-    }
+        {
+            Debug.Log($"[PlayerPowerUp] 🔋 Tasto M premuto - Aggiungendo {debugPowerAmount} power");
+            AddPower(debugPowerAmount);
+        }
+        // 🆕 NUOVO: Tasto per testare zero power
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            DebugToggleZeroPowerStart();
+            DebugSimulateLevelRestart();
+        }
     }
 }

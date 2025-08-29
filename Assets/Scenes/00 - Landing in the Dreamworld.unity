@@ -1440,6 +1440,119 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 3941898101947402816, guid: 2a13b79db919e7944bd723977ecd7918, type: 3}
   m_PrefabInstance: {fileID: 387872683}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &123405002
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 123405003}
+  - component: {fileID: 123405004}
+  m_Layer: 0
+  m_Name: D8
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &123405003
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 123405002}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.000000012857328, y: -0.7062669, z: -0.00000001925497, w: 0.70794576}
+  m_LocalPosition: {x: 1100.4, y: 1337.8, z: 65.6}
+  m_LocalScale: {x: 60, y: 50, z: 150}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 132893941}
+  m_LocalEulerAnglesHint: {x: 0, y: -89.864, z: 0}
+--- !u!114 &123405004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 123405002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 751801831}
+  dialogueText: {fileID: 751801833}
+  dialogueLines:
+  - text: "Wait\u2026 I know this piece!\r                                            
+      \nIt\u2019s from the puzzle we started at home! A thousand pieces, but we never
+      finished it.\r\nMaybe here\u2026 I can find more...\r"
+    audioClip: {fileID: 8300000, guid: a6244432ef501c048ac410667a118aab, type: 3}
+  - text: Then perhaps the dream is giving you a second chance.
+    audioClip: {fileID: 8300000, guid: eec7622b69b719142a19462a4e22528b, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: 
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 0
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 1
+  autoRegisterAsFirstMemoryDialogue: 1
+  targetCollectiblesManager: {fileID: 561913328}
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  playerController: {fileID: 1010996530}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &131711205
 GameObject:
   m_ObjectHideFlags: 0
@@ -1567,6 +1680,7 @@ Transform:
   - {fileID: 1637912240}
   - {fileID: 640090559}
   - {fileID: 1439633081}
+  - {fileID: 123405003}
   m_Father: {fileID: 1292342657}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &142362400 stripped
@@ -4775,6 +4889,9 @@ MonoBehaviour:
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
@@ -6358,6 +6475,17 @@ MonoBehaviour:
       m_Data: []
   m_Knots:
     m_KnotsLink: []
+--- !u!114 &561913328 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3094165188421987631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+  m_PrefabInstance: {fileID: 2524558262284659773}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1451dad4ca4a7f14a8ad1f43ec565d95, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &567996730 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1789753873882982776, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
@@ -7165,6 +7293,9 @@ MonoBehaviour:
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
@@ -15068,6 +15199,9 @@ MonoBehaviour:
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
@@ -15466,6 +15600,10 @@ PrefabInstance:
       propertyPath: TeleportAbility
       value: 
       objectReference: {fileID: 151693300}
+    - target: {fileID: 328773549392567367, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: startWithZeroPower
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 328773549392567367, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: PlatformSpawnerForwardAbility
       value: 
@@ -16677,6 +16815,9 @@ MonoBehaviour:
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
@@ -17125,7 +17266,7 @@ MonoBehaviour:
   dissolveAudioClip: {fileID: 0}
   stopAudioOnDissolveComplete: 1
   dissolveAudioFadeTime: 0.5
-  lockMovementDuringDialogue: 1
+  lockMovementDuringDialogue: 0
   movementLockDelay: 0
   lockCameraRotation: 0
   targetPlayerController: {fileID: 0}
@@ -17138,6 +17279,9 @@ MonoBehaviour:
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
@@ -19010,6 +19154,9 @@ MonoBehaviour:
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
@@ -22259,6 +22406,9 @@ MonoBehaviour:
   objectsToDisable: []
   activationMessage: 
   activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
   audioSource: {fileID: 0}
   audioFadeOutTime: 0.2
   nextLineKey: 13
@@ -24310,7 +24460,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: splineSettings.Array.size
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: splineSettings.Array.data[0].gemCount
@@ -24325,8 +24475,12 @@ PrefabInstance:
       value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[1].spawnOnStart
+      propertyPath: splineSettings.Array.data[0].spawnOnStart
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: splineSettings.Array.data[1].spawnOnStart
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: splineSettings.Array.data[2].spawnOnStart
@@ -24359,6 +24513,18 @@ PrefabInstance:
     - target: {fileID: 2977199943724601911, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: m_Name
       value: SceneManager00
+      objectReference: {fileID: 0}
+    - target: {fileID: 3094165188421987631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: enableFirstMemoryDialogue
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3094165188421987631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: firstMemoryDialogueSystem
+      value: 
+      objectReference: {fileID: 123405004}
+    - target: {fileID: 3094165188421987631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: firstMemoryDialogueMessage
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 4910115921502916631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -25299,6 +25465,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 89725379}
     m_Modifications:
+    - target: {fileID: 722853470732498325, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1451274705605189219, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
       propertyPath: m_Name
       value: Pinwheel_def
@@ -25357,6 +25527,22 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3214903696484407238, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
       propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4378721742062024479, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
+      propertyPath: m_Convex
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4378721742062024479, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4378721742062024479, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
+      propertyPath: m_ProvidesContacts
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5966541438377635719, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
+      propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
