@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.Events;
 using System.Collections.Generic;
 using System.Linq;
+using System;
+using System.Collections;
 
 /// <summary>
 /// Manager universale per la gestione dei collectibles in qualsiasi scena
@@ -18,6 +20,17 @@ public class CollectiblesManager : MonoBehaviour
     [SerializeField] private bool autoSaveOnCollection = true;
     [SerializeField] private bool enableDebugLogs = true;
     [SerializeField] private bool autoCountOnStart = true;
+    [Header("🆕 First Memory Dialogue System")]
+[Tooltip("Se true, attiva automaticamente un dialogo alla prima memory raccolta")]
+[SerializeField] private bool enableFirstMemoryDialogue = false;
+[Tooltip("DialogueSystem da attivare alla prima memory raccolta")]
+[SerializeField] private DialogueSystem firstMemoryDialogueSystem;
+[Tooltip("Messaggio da loggare quando viene attivato il dialogo per la prima memory")]
+[SerializeField] private string firstMemoryDialogueMessage = "Prima memory raccolta! Attivando dialogo...";
+[Tooltip("Ritardo prima di attivare il dialogo (in secondi)")]
+[SerializeField] private float firstMemoryDialogueDelay = 0.5f;
+[Tooltip("Se true, blocca la raccolta di altre memories fino a quando il dialogo non è finito")]
+[SerializeField] private bool blockMemoryCollectionDuringDialogue = true;
     
     [Header("Present Events")]
     public UnityEvent<int, int> OnPresentCountChanged; // collected, total
@@ -28,6 +41,10 @@ public class CollectiblesManager : MonoBehaviour
     public UnityEvent<int, int> OnMemoryCountChanged; // collected, total
     public UnityEvent<string> OnMemoryCollected; // memory name
     public UnityEvent OnAllMemoriesCollected;
+    // Nuovo evento per il dialogo della prima memory
+[Header("🆕 First Memory Events")]
+public UnityEvent OnFirstMemoryDialogueTriggered; // Quando viene attivato il dialogo per la prima memory
+public UnityEvent OnFirstMemoryDialogueCompleted; // Quando finisce il dialogo per la prima memory
     
     [Header("Combined Events")]
     public UnityEvent<int, int> OnAllCollectiblesCountChanged; // total collected, total available
@@ -55,6 +72,12 @@ public class CollectiblesManager : MonoBehaviour
     // Riferimenti UI
     private PlayerCollectiblesUI collectiblesUI = null;
     private PlayerUI playerUI = null;
+    // Variabili private per il tracking
+private bool firstMemoryDialogueTriggered = false;
+    private bool isFirstMemoryDialogueActive = false;
+public static event Action<CollectiblesManager> OnAnyFirstMemoryDialogueTriggered;
+public static event Action<CollectiblesManager> OnAnyFirstMemoryDialogueCompleted;
+
     
     [System.Serializable]
     public class CollectibleData
@@ -91,26 +114,48 @@ public class CollectiblesManager : MonoBehaviour
         
         DebugLog($"[CollectiblesManager] Inizializzato per scena: '{sceneName}'");
     }
-    
+
     private void Start()
     {
-         // Carica i dati salvati
+        // Carica i dati salvati
         LoadCollectiblesData();
         // Conta automaticamente i collectibles se abilitato
-        if (autoCountOnStart && (totalPresents == 0 && totalMemories==0))
+        if (autoCountOnStart && (totalPresents == 0 && totalMemories == 0))
         {
             CountAllCollectibles();
         }
-        
-       
-        
+
+
+
         // Connetti ai sistemi UI
         ConnectToUISystems();
-        
+
         // Aggiorna l'UI iniziale
         UpdateAllUI();
+        ValidateFirstMemoryDialogueSetup();
+    }
+    // 🆕 NUOVO METODO DI VALIDAZIONE
+/// <summary>
+/// 🆕 Valida il setup del dialogo prima memory
+/// </summary>
+void ValidateFirstMemoryDialogueSetup()
+{
+    if (!enableFirstMemoryDialogue)
+    {
+        DebugLog("[CollectiblesManager] First Memory Dialogue disabilitato");
+        return;
     }
     
+    if (firstMemoryDialogueSystem == null)
+    {
+        DebugLog("[CollectiblesManager] ⚠️ First Memory Dialogue abilitato ma nessun DialogueSystem assegnato!");
+    }
+    else
+    {
+        DebugLog($"[CollectiblesManager] ✅ First Memory Dialogue setup: '{firstMemoryDialogueSystem.name}'");
+        DebugLog($"[CollectiblesManager] 📋 Impostazioni: Delay={firstMemoryDialogueDelay}s, BlockCollection={blockMemoryCollectionDuringDialogue}");
+    }
+}
     // ========== CONTEGGIO COLLECTIBLES ==========
     
     /// <summary>
@@ -177,7 +222,7 @@ public class CollectiblesManager : MonoBehaviour
     private void CountCollectiblesByClass()
     {
         // Fallback: conta usando la classe Collectibles
-        Collectibles[] allCollectibles = Object.FindObjectsByType<Collectibles>(FindObjectsSortMode.None);
+        Collectibles[] allCollectibles = UnityEngine.Object.FindObjectsByType<Collectibles>(FindObjectsSortMode.None);
         
         totalPresents = 0;
         totalMemories = 0;
@@ -269,7 +314,7 @@ public void AutoDiscoverUISystems()
     DebugLog("[CollectiblesManager] Ricerca automatica sistemi UI...");
     
     // Cerca PlayerCollectiblesUI
-    PlayerCollectiblesUI[] allCollectiblesUI = Object.FindObjectsByType<PlayerCollectiblesUI>(FindObjectsSortMode.None);
+    PlayerCollectiblesUI[] allCollectiblesUI = UnityEngine.Object.FindObjectsByType<PlayerCollectiblesUI>(FindObjectsSortMode.None);
     if (allCollectiblesUI.Length > 0)
     {
         collectiblesUI = allCollectiblesUI[0];
@@ -281,67 +326,297 @@ public void AutoDiscoverUISystems()
     }
     
     // Cerca PlayerUI
-    PlayerUI[] allPlayerUI = Object.FindObjectsByType<PlayerUI>(FindObjectsSortMode.None);
+    PlayerUI[] allPlayerUI = UnityEngine.Object.FindObjectsByType<PlayerUI>(FindObjectsSortMode.None);
     if (allPlayerUI.Length > 0)
     {
         playerUI = allPlayerUI[0];
         DebugLog($"[CollectiblesManager] ✅ PlayerUI trovato: {playerUI.name}");
     }
 }
-    
+
     /// <summary>
     /// Notifica che una memory è stata raccolta
     /// </summary>
-   public void NotifyMemoryCollected(string memoryName = "")
-{
-    if (string.IsNullOrEmpty(memoryName))
+    public void NotifyMemoryCollected(string memoryName = "")
     {
-        memoryName = $"Memory_{collectedMemories + 1}";
+        if (string.IsNullOrEmpty(memoryName))
+        {
+            memoryName = $"Memory_{collectedMemories + 1}";
+        }
+
+        // Evita duplicati
+        if (collectedMemoryNames.Contains(memoryName))
+        {
+            DebugLog($"[CollectiblesManager] Memory '{memoryName}' già raccolta, ignorata");
+            return;
+        }
+
+        // 🆕 CONTROLLO BLOCCO DURANTE DIALOGO PRIMA MEMORY
+        if (blockMemoryCollectionDuringDialogue && isFirstMemoryDialogueActive)
+        {
+            DebugLog($"[CollectiblesManager] ⏸️ Raccolta memory '{memoryName}' bloccata - dialogo prima memory attivo");
+            return;
+        }
+
+        // 🆕 CONTROLLO PRIMA MEMORY
+        bool isFirstMemory = (collectedMemories == 0 && enableFirstMemoryDialogue && !firstMemoryDialogueTriggered);
+
+        // Aggiungi alla lista
+        collectedMemoryNames.Add(memoryName);
+        collectedMemories++;
+
+        // Marca come raccolta nei dati se presente
+        if (allMemories.ContainsKey(memoryName))
+        {
+            allMemories[memoryName].isCollected = true;
+        }
+
+        DebugLog($"[CollectiblesManager] ✅ Memory '{memoryName}' raccolta! Progresso: {collectedMemories}/{totalMemories}" +
+                 (isFirstMemory ? " 🌟 PRIMA MEMORY!" : ""));
+
+        // Salva automaticamente se abilitato
+        if (autoSaveOnCollection)
+        {
+            SaveCollectiblesData();
+        }
+
+        // Aggiorna UI PRIMA degli eventi
+        UpdateCollectiblesUI();
+
+        // Notifica eventi standard
+        OnMemoryCollected?.Invoke(memoryName);
+        OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
+
+        // 🆕 ATTIVA DIALOGO PRIMA MEMORY SE È IL CASO
+        if (isFirstMemory)
+        {
+            if (firstMemoryDialogueDelay > 0f)
+            {
+                StartCoroutine(TriggerFirstMemoryDialogueWithDelay(memoryName));
+            }
+            else
+            {
+                TriggerFirstMemoryDialogue(memoryName);
+            }
+        }
+
+        // Controlla completamento
+        if (collectedMemories >= totalMemories && totalMemories > 0)
+        {
+            DebugLog("[CollectiblesManager] 🎉 Tutte le memories completate!");
+            OnAllMemoriesCollected?.Invoke();
+            CheckAllCollectiblesCompletion();
+        }
+
+        // Aggiorna UI DOPO gli eventi per sicurezza
+        UpdateAllUI();
     }
-    
-    // Evita duplicati
-    if (collectedMemoryNames.Contains(memoryName))
+// 🆕 NUOVI METODI PER IL SISTEMA FIRST MEMORY DIALOGUE
+
+/// <summary>
+/// 🆕 Attiva il dialogo per la prima memory con ritardo
+/// </summary>
+IEnumerator TriggerFirstMemoryDialogueWithDelay(string memoryName)
+{
+    DebugLog($"[CollectiblesManager] ⏳ Ritardo dialogo prima memory: {firstMemoryDialogueDelay}s...");
+    yield return new WaitForSeconds(firstMemoryDialogueDelay);
+    TriggerFirstMemoryDialogue(memoryName);
+}
+
+/// <summary>
+/// 🆕 Attiva il dialogo per la prima memory
+/// </summary>
+void TriggerFirstMemoryDialogue(string memoryName)
+{
+    if (firstMemoryDialogueTriggered)
     {
-        DebugLog($"[CollectiblesManager] Memory '{memoryName}' già raccolta, ignorata");
+        DebugLog("[CollectiblesManager] Dialogo prima memory già triggerato, skip.");
         return;
     }
-    
-    // Aggiungi alla lista
-    collectedMemoryNames.Add(memoryName);
-    collectedMemories++;
-    
-    // Marca come raccolta nei dati se presente
-    if (allMemories.ContainsKey(memoryName))
+
+    if (firstMemoryDialogueSystem == null)
     {
-        allMemories[memoryName].isCollected = true;
+        DebugLog("[CollectiblesManager] ⚠️ First Memory Dialogue abilitato ma nessun DialogueSystem assegnato!");
+        return;
+    }
+
+    DebugLog($"[CollectiblesManager] 🌟 ATTIVAZIONE DIALOGO PRIMA MEMORY per '{memoryName}'!");
+    
+    firstMemoryDialogueTriggered = true;
+    isFirstMemoryDialogueActive = true;
+    
+    // Log messaggio personalizzato
+    if (!string.IsNullOrEmpty(firstMemoryDialogueMessage))
+    {
+        DebugLog($"[CollectiblesManager] 📢 {firstMemoryDialogueMessage}");
     }
     
-    DebugLog($"[CollectiblesManager] ✅ Memory '{memoryName}' raccolta! Progresso: {collectedMemories}/{totalMemories}");
+    // Registra listener per la fine del dialogo
+    RegisterFirstMemoryDialogueListeners();
     
-    // Salva automaticamente se abilitato
-    if (autoSaveOnCollection)
+    try
     {
-        SaveCollectiblesData();
+        // Attiva il dialogo tramite il metodo TriggerDialogue (senza trigger)
+        firstMemoryDialogueSystem.TriggerDialogueFromCollectiblesManager(memoryName);
+        DebugLog($"[CollectiblesManager] ✅ Dialogo prima memory '{firstMemoryDialogueSystem.name}' attivato con successo!");
+    }
+    catch (System.Exception e)
+    {
+        DebugLog($"[CollectiblesManager] ❌ Errore nell'attivare dialogo prima memory: {e.Message}");
+        isFirstMemoryDialogueActive = false; // Reset stato in caso di errore
     }
     
-    // 🔥 NUOVO: Aggiorna UI PRIMA degli eventi
-    UpdateCollectiblesUI();
-    
-    // Notifica eventi
-    OnMemoryCollected?.Invoke(memoryName);
-    OnMemoryCountChanged?.Invoke(collectedMemories, totalMemories);
-    
-    // Controlla completamento
-    if (collectedMemories >= totalMemories && totalMemories > 0)
-    {
-        DebugLog("[CollectiblesManager] 🎉 Tutte le memories completate!");
-        OnAllMemoriesCollected?.Invoke();
-        CheckAllCollectiblesCompletion();
-    }
-    
-    // 🔥 NUOVO: Aggiorna UI DOPO gli eventi per sicurezza
-    UpdateAllUI();
+    // Invoca eventi
+    OnFirstMemoryDialogueTriggered?.Invoke();
+    OnAnyFirstMemoryDialogueTriggered?.Invoke(this);
 }
+
+/// <summary>
+/// 🆕 Registra i listener per il dialogo della prima memory
+/// </summary>
+void RegisterFirstMemoryDialogueListeners()
+{
+    if (firstMemoryDialogueSystem != null)
+    {
+        // Ascolta quando il dialogo finisce
+        firstMemoryDialogueSystem.OnDialogueEnded.AddListener(OnFirstMemoryDialogueEnded);
+        
+        // Ascolta anche l'evento statico per maggiore sicurezza
+        DialogueSystem.OnAnyDialogueEnded += OnAnyDialogueEndedHandler;
+        
+        DebugLog("[CollectiblesManager] 👂 Listener dialogo prima memory registrati");
+    }
+}
+
+/// <summary>
+/// 🆕 Rimuove i listener per il dialogo della prima memory
+/// </summary>
+void UnregisterFirstMemoryDialogueListeners()
+{
+    if (firstMemoryDialogueSystem != null)
+    {
+        firstMemoryDialogueSystem.OnDialogueEnded.RemoveListener(OnFirstMemoryDialogueEnded);
+        DialogueSystem.OnAnyDialogueEnded -= OnAnyDialogueEndedHandler;
+        
+        DebugLog("[CollectiblesManager] 🔇 Listener dialogo prima memory rimossi");
+    }
+}
+
+/// <summary>
+/// 🆕 Chiamato quando finisce il dialogo della prima memory
+/// </summary>
+void OnFirstMemoryDialogueEnded()
+{
+    DebugLog("[CollectiblesManager] 🏁 Dialogo prima memory terminato!");
+    
+    isFirstMemoryDialogueActive = false;
+    
+    // Rimuovi listener per evitare chiamate multiple
+    UnregisterFirstMemoryDialogueListeners();
+    
+    // Invoca eventi di completamento
+    OnFirstMemoryDialogueCompleted?.Invoke();
+    OnAnyFirstMemoryDialogueCompleted?.Invoke(this);
+    
+    DebugLog("[CollectiblesManager] ✅ Raccolta memories sbloccata");
+}
+
+/// <summary>
+/// 🆕 Handler per l'evento statico di fine dialogo
+/// </summary>
+void OnAnyDialogueEndedHandler(DialogueSystem dialogueSystem)
+{
+    // Controlla se è il nostro dialogo della prima memory
+    if (dialogueSystem == firstMemoryDialogueSystem && isFirstMemoryDialogueActive)
+    {
+        OnFirstMemoryDialogueEnded();
+    }
+}
+
+// 🆕 METODI PUBBLICI PER IL CONTROLLO DEL SISTEMA
+
+/// <summary>
+/// 🆕 Abilita/disabilita il sistema dialogo prima memory
+/// </summary>
+public void SetFirstMemoryDialogueEnabled(bool enabled)
+{
+    enableFirstMemoryDialogue = enabled;
+    DebugLog($"[CollectiblesManager] First Memory Dialogue {(enabled ? "abilitato" : "disabilitato")}");
+}
+
+/// <summary>
+/// 🆕 Imposta il DialogueSystem per la prima memory
+/// </summary>
+public void SetFirstMemoryDialogueSystem(DialogueSystem dialogueSystem)
+{
+    firstMemoryDialogueSystem = dialogueSystem;
+    DebugLog($"[CollectiblesManager] First Memory DialogueSystem impostato: {(dialogueSystem != null ? dialogueSystem.name : "NULL")}");
+}
+
+/// <summary>
+/// 🆕 Imposta il ritardo del dialogo prima memory
+/// </summary>
+public void SetFirstMemoryDialogueDelay(float delay)
+{
+    firstMemoryDialogueDelay = delay;
+    DebugLog($"[CollectiblesManager] Ritardo dialogo prima memory impostato: {delay}s");
+}
+
+/// <summary>
+/// 🆕 Imposta il messaggio del dialogo prima memory
+/// </summary>
+public void SetFirstMemoryDialogueMessage(string message)
+{
+    firstMemoryDialogueMessage = message;
+    DebugLog($"[CollectiblesManager] Messaggio dialogo prima memory impostato: {message}");
+}
+
+/// <summary>
+/// 🆕 Abilita/disabilita il blocco raccolta durante dialogo
+/// </summary>
+public void SetBlockMemoryCollectionDuringDialogue(bool block)
+{
+    blockMemoryCollectionDuringDialogue = block;
+    DebugLog($"[CollectiblesManager] Blocco raccolta durante dialogo: {(block ? "abilitato" : "disabilitato")}");
+}
+
+/// <summary>
+/// 🆕 Forza l'attivazione del dialogo prima memory (per test)
+/// </summary>
+public void ForceFirstMemoryDialogue()
+{
+    if (enableFirstMemoryDialogue && firstMemoryDialogueSystem != null)
+    {
+        firstMemoryDialogueTriggered = false; // Reset flag
+        TriggerFirstMemoryDialogue("TestMemory_Forced");
+    }
+    else
+    {
+        DebugLog("[CollectiblesManager] ⚠️ Impossibile forzare dialogo prima memory - sistema disabilitato o DialogueSystem mancante");
+    }
+}
+
+/// <summary>
+/// 🆕 Reset del sistema dialogo prima memory
+/// </summary>
+public void ResetFirstMemoryDialogue()
+{
+    firstMemoryDialogueTriggered = false;
+    isFirstMemoryDialogueActive = false;
+    UnregisterFirstMemoryDialogueListeners();
+    DebugLog("[CollectiblesManager] 🔄 Sistema dialogo prima memory resettato");
+}
+
+// 🆕 GETTERS PER IL SISTEMA FIRST MEMORY DIALOGUE
+
+public bool IsFirstMemoryDialogueEnabled() => enableFirstMemoryDialogue;
+public DialogueSystem GetFirstMemoryDialogueSystem() => firstMemoryDialogueSystem;
+public float GetFirstMemoryDialogueDelay() => firstMemoryDialogueDelay;
+public string GetFirstMemoryDialogueMessage() => firstMemoryDialogueMessage;
+public bool GetBlockMemoryCollectionDuringDialogue() => blockMemoryCollectionDuringDialogue;
+public bool WasFirstMemoryDialogueTriggered() => firstMemoryDialogueTriggered;
+public bool IsFirstMemoryDialogueActive() => isFirstMemoryDialogueActive;
+
     
     /// <summary>
     /// Metodo generico per raccogliere collectibles
@@ -497,9 +772,9 @@ private System.Collections.IEnumerator ConnectToUISystemsCoroutine()
     
     // 🔥 NUOVO: Connetti PRIMA al PlayerCollectiblesUI usando il metodo dedicato
     collectiblesUI = PlayerCollectiblesUI.Instance;
-    if (collectiblesUI == null)
-    {
-        collectiblesUI = Object.FindFirstObjectByType<PlayerCollectiblesUI>();
+        if (collectiblesUI == null)
+        {
+        collectiblesUI = UnityEngine.Object.FindFirstObjectByType<PlayerCollectiblesUI>();
     }
     
     if (collectiblesUI != null)
@@ -546,7 +821,7 @@ private System.Collections.IEnumerator ConnectToUISystemsCoroutine()
     playerUI = PlayerUI.Instance;
     if (playerUI == null)
     {
-        playerUI = Object.FindFirstObjectByType<PlayerUI>();
+       playerUI = UnityEngine.Object.FindFirstObjectByType<PlayerUI>();
     }
     
     if (playerUI != null)
@@ -1052,18 +1327,22 @@ private System.Collections.IEnumerator ConnectToUISystemsCoroutine()
     
     // ========== CLEANUP ==========
     
-    private void OnDestroy()
+   // Modifica il metodo OnDestroy esistente per includere la pulizia dei listener:
+private void OnDestroy()
+{
+    if (autoSaveOnCollection && enableLocalSaving)
     {
-        if (autoSaveOnCollection && enableLocalSaving)
-        {
-            SaveCollectiblesData();
-        }
-        
-        if (Instance == this)
-        {
-            Instance = null;
-        }
-        
-        DebugLog("[CollectiblesManager] Cleanup completato");
+        SaveCollectiblesData();
     }
+    
+    // 🆕 PULIZIA LISTENER FIRST MEMORY DIALOGUE
+    UnregisterFirstMemoryDialogueListeners();
+    
+    if (Instance == this)
+    {
+        Instance = null;
+    }
+    
+    DebugLog("[CollectiblesManager] Cleanup completato");
+}
 }
