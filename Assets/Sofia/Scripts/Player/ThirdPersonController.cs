@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using CartoonFX;
 using System.Collections;
 using Unity.Cinemachine;
+using UnityEngine.Events;
 
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
@@ -119,6 +120,13 @@ private Coroutine climbHeightCoroutine;
 
     [Header("References")]
     public Transform cameraTransform;
+    [Header("Respawn Events")]
+    public UnityEvent<Vector3, Quaternion> OnPlayerRespawned; // ✅ AGGIUNTO QUATERNION MANCANTE
+private Transform _cachedPlayerTransform;
+private float _lastPlayerCacheTime;
+private Vector3 lastKnownPlayerPosition;
+private float lastPlayerPositionUpdateTime;
+private bool debugRespawnSystem = false; // ✅ AGGIUNGI QUESTO FLAG
 
     // OTTIMIZZAZIONE: Cache per evitare GetComponent ripetuti
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
@@ -767,26 +775,27 @@ public void PlayHitSound()
         HandleSprintFX();
     }
     private void CheckAndFixStuckJumpAnimation()
-{
-    bool isJumpAnimActive = _animator.GetBool(JumpHash) || _animator.GetBool(DoubleJumpHash);
-    bool isGroundedNow = controller.isGrounded;
-    bool hasLowVerticalVelocity = Mathf.Abs(velocity.y) < 1f;
-    
-    // If jump animation is active but we're clearly grounded and not moving vertically
-    if (isJumpAnimActive && isGroundedNow && hasLowVerticalVelocity)
     {
-        // Force landing state
-        Debug.Log("[ThirdPersonController] 🔧 Fixing stuck jump animation");
-        OnLanding();
+        bool isJumpAnimActive = _animator.GetBool(JumpHash) || _animator.GetBool(DoubleJumpHash);
+        bool isGroundedNow = controller.isGrounded;
+        bool hasLowVerticalVelocity = Mathf.Abs(velocity.y) < 1f;
+
+        // If jump animation is active but we're clearly grounded and not moving vertically
+        if (isJumpAnimActive && isGroundedNow && hasLowVerticalVelocity)
+        {
+            // Force landing state
+            Debug.Log("[ThirdPersonController] 🔧 Fixing stuck jump animation");
+            OnLanding();
+        }
+
+        // Additional safety check for very long jump animations
+        if (isJumpAnimActive && Time.time - lastJumpTime > 3f)
+        {
+            Debug.Log("[ThirdPersonController] 🔧 Force resetting jump animation after timeout");
+            OnLanding();
+        }
     }
-    
-    // Additional safety check for very long jump animations
-    if (isJumpAnimActive && Time.time - lastJumpTime > 3f)
-    {
-        Debug.Log("[ThirdPersonController] 🔧 Force resetting jump animation after timeout");
-        OnLanding();
-    }
-}
+
 private void CheckForLedgeRelease()
     {
         if (!hanging || !isHangPositionStable) return;
@@ -2123,30 +2132,32 @@ private void HandleAirControl()
     tempVector3.Set(moveDir.x * airControlSpeed, 0f, moveDir.z * airControlSpeed);
     playerVelocity += tempVector3;
 }
-public void Respawn()
+    public void Respawn()
 {
     // ✅ ASSICURATI CHE IL CHARACTERCONTROLLER SIA ABILITATO
     if (!controller.enabled)
     {
         controller.enabled = true;
     }
-    
+
     controller.enabled = false;
 
     Transform spawnPoint = GetRespawnPoint();
+    Vector3 oldPosition = transform.position; // ✅ SALVA POSIZIONE PRECEDENTE
+
     transform.position = spawnPoint.position;
     transform.rotation = Quaternion.Euler(0f, 0f, 0f);
 
     velocity = Vector3.zero;
     attackVelocity = Vector3.zero;
-    
+
     // ✅ RESET LEDGE GRAB STATE
     hanging = false;
     canMoveAfterHang = true;
-    
+
     // Sgancia dalla piattaforma durante il respawn
     DetachFromCurrentPlatform();
-    
+
     if (playerCamera != null)
     {
         CinemachineCore.ResetCameraState();
@@ -2177,7 +2188,77 @@ public void Respawn()
     IsMovementLocked = false;
 
     Debug.Log($"[ThirdPersonController] Respawn completato alla posizione: {spawnPoint.position}");
+
+    // ✅ NUOVO: NOTIFICA TUTTI I SISTEMI DEL RESPAWN
+    OnPlayerRespawned?.Invoke(spawnPoint.position, spawnPoint.rotation);
+
+    // ✅ NUOVO: NOTIFICA ANCHE CHECKPOINTMANAGER SE PRESENTE
+    CheckpointManager checkpointManager = CheckpointManager.Instance;
+    if (checkpointManager != null)
+    {
+        // Forza la notifica alle zattere attraverso il CheckpointManager
+        checkpointManager.OnPlayerCheckpointChanged?.Invoke(spawnPoint.position);
+    }
+
+    // ✅ NUOVO: NOTIFICA TUTTE LE RAFT PLATFORMS DIRETTAMENTE
+    NotifyAllRaftPlatformsOfRespawn(oldPosition, spawnPoint.position);
 }
+
+
+ private void NotifyAllRaftPlatformsOfRespawn(Vector3 oldPosition, Vector3 newPosition)
+{
+    RaftPlatform[] rafts = FindObjectsByType<RaftPlatform>(FindObjectsSortMode.None);
+
+    foreach (var raft in rafts)
+    {
+        // Calcola distanza per determinare se la zattera dovrebbe reagire
+        float distanceFromOld = Vector3.Distance(raft.transform.position, oldPosition);
+        float distanceFromNew = Vector3.Distance(raft.transform.position, newPosition);
+
+        // Se la zattera era vicina al player prima del respawn, o è vicina ora
+        if (distanceFromOld <= 100f || distanceFromNew <= 100f)
+        {
+            // Chiama il metodo pubblico della zattera per notificare il respawn
+            raft.UpdatePlayerCheckpointPosition(newPosition);
+
+            // Se la zattera è lontana dal nuovo spawn point, forzala a tornare
+            if (distanceFromNew > 50f)
+            {
+                raft.ForceReturnToNearestTerminal();
+            }
+        }
+    }
+
+    if (debugRespawnSystem)
+    {
+        Debug.Log($"[ThirdPersonController] Notificate {rafts.Length} zattere del respawn: {oldPosition} → {newPosition}");
+    }
+}
+public void TeleportTo(Vector3 position, Quaternion rotation)
+{
+    Vector3 oldPosition = transform.position;
+    
+    controller.enabled = false;
+    transform.position = position;
+    transform.rotation = rotation;
+    controller.enabled = true;
+    
+    // Reset velocità
+    velocity = Vector3.zero;
+    attackVelocity = Vector3.zero;
+    
+    // Sgancia dalle piattaforme
+    DetachFromCurrentPlatform();
+    
+    // Notifica eventi
+    OnPlayerRespawned?.Invoke(position, rotation);
+    
+    // Notifica zattere
+    NotifyAllRaftPlatformsOfRespawn(oldPosition, position);
+    
+    Debug.Log($"[ThirdPersonController] Teleport: {oldPosition} → {position}");
+}
+
 
 /// <summary>
 /// Abilita/disabilita il sistema di ledge grab
