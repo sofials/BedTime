@@ -134,27 +134,35 @@ public class TeleportAbility : AbilityBase
         }
     }
 
-    public override void TryActivate()
+   public override void TryActivate()
+{
+    Debug.Log("Tentativo teletrasporto diretto...");
+
+    // Prima verifica: l'abilità deve essere abilitata
+    if (!IsEnabled)
     {
-        Debug.Log("Tentativo teletrasporto diretto...");
-
-        if (TeleportBase.currentHoveredBase == null)
-        {
-            Debug.Log("FAILURE - Nessuna TeleportBase inquadrata dalla camera");
-            // REMOVED: PlayTeleportFailureSound(); - Non riprodurre suono se l'abilità non è stata ancora attivata
-            return;
-        }
-
-        // Prova ad attivare l'abilità attraverso il metodo base
-        bool wasActivated = CanActivate();
-        base.TryActivate();
-        
-        // Solo se l'attivazione fallisce DOPO essere stata tentata, riproduci il suono di fallimento
-        if (wasActivated && !IsActive)
-        {
-            PlayTeleportFailureSound();
-        }
+        Debug.Log("FAILURE - Abilità non abilitata");
+        return;
     }
+
+    // Seconda verifica: deve esserci una TeleportBase inquadrata
+    if (TeleportBase.currentHoveredBase == null)
+    {
+        Debug.Log("FAILURE - Nessuna TeleportBase inquadrata dalla camera");
+        return;
+    }
+
+    // Terza verifica: controlla se può essere attivata (energia, cooldown, ecc.)
+    if (!CanActivate())
+    {
+        Debug.Log($"FAILURE - {GetDisableReason()}");
+        PlayTeleportFailureSound(); // Solo qui riproduci il suono di fallimento
+        return;
+    }
+
+    // Se arriviamo qui, tutto è OK - attiva l'abilità
+    base.TryActivate();
+}
 
     public new string GetDisableReason()
     {

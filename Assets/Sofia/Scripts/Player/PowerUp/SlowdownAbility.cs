@@ -151,11 +151,18 @@ private bool HasValidTargetsInRange()
 }
     public override void TryActivate()
     {
+         if (powerUpScript == null)
+    {
+        Debug.Log("[SlowdownAbility] PowerUpScript non disponibile.");
+        // ❌ NESSUN AUDIO/ANIMAZIONE quando power up non abilitato
+        return;
+    }
+
         // ✅ STEP 1: Verifica energia disponibile
         if (!powerUpScript.HasEnoughPower(powerCost))
         {
             Debug.Log("[SlowdownAbility] Energia insufficiente per attivare l'abilità.");
-            
+
             if (failureSound != null && audioSource != null)
             {
                 audioSource.PlayOneShot(failureSound);

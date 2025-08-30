@@ -87,8 +87,6 @@ public class PlayerPowerUp : MonoBehaviour
         StartCoroutine(DelayedUIUpdate());
     }
 
-
-
     // 🔧 FIX: DelayedUIUpdate corretto - Non modifica più maxHealth!
     private System.Collections.IEnumerator DelayedUIUpdate()
     {
@@ -140,24 +138,65 @@ public class PlayerPowerUp : MonoBehaviour
     private void OnEnable() => controls.Gameplay.Enable();
     private void OnDisable() => controls.Gameplay.Disable();
 
+    // 🔧 FIX PRINCIPALE: Logica corretta per SlowdownAbility
     private void HandleAbility(AbilityBase ability)
     {
         if (ability == null) return;
 
+        // 🆕 NUOVO: Gestione speciale per SlowdownAbility
         if (ability == SlowdownAbility)
         {
-            if (playerAnimator != null)
+            // 🔧 CONTROLLO FONDAMENTALE: Verifica se l'abilità è abilitata nel livello tramite AbilitiesManager
+            if (!SlowdownAbility.IsEnabled)
             {
-                playerAnimator.SetTrigger("SlowdownEffect");
-                Debug.Log("[PlayerPowerUp] Trigger animazione SlowdownEffect inviato.");
+                Debug.Log("[PlayerPowerUp] ❌ SlowdownAbility NON abilitata nel livello - Nessun suono o animazione.");
+                return;
+            }
+            
+            if (SlowdownAbility.IsActive)
+            {
+                // Se è già attiva, può essere disattivata
+                SlowdownAbility.Deactivate();
+                Debug.Log("[PlayerPowerUp] SlowdownAbility disattivata.");
+                return; // Esci senza fare altro
             }
             else
             {
-                Debug.LogWarning("[PlayerPowerUp] playerAnimator non assegnato!");
+                // Controlla se ha abbastanza power PRIMA di attivare
+                bool hasEnoughPower = HasEnoughPower(SlowdownAbility.powerCost);
+                
+                if (hasEnoughPower)
+                {
+                    // Ha abbastanza power - attiva l'abilità e riproduci effetti
+                    SlowdownAbility.TryActivate();
+                    
+                    // 🔧 DOPPIO CONTROLLO: Verifica che l'abilità sia stata effettivamente attivata
+                    if (SlowdownAbility.IsActive)
+                    {
+                        if (playerAnimator != null)
+                        {
+                            playerAnimator.SetTrigger("SlowdownEffect");
+                            Debug.Log("[PlayerPowerUp] ✅ SlowdownAbility attivata - Trigger animazione SlowdownEffect inviato.");
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[PlayerPowerUp] playerAnimator non assegnato!");
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log("[PlayerPowerUp] ⚠️ SlowdownAbility non si è attivata dopo TryActivate - Nessun suono o animazione.");
+                    }
+                }
+                else
+                {
+                    Debug.Log("[PlayerPowerUp] ❌ Power insufficiente per SlowdownAbility - Nessun suono o animazione.");
+                }
             }
         }
         else
         {
+            // Gestione standard per le altre abilità
             if (ability.IsActive)
                 ability.Deactivate();
             else
@@ -165,12 +204,20 @@ public class PlayerPowerUp : MonoBehaviour
         }
     }
 
+    // 🔧 MODIFICATO: Ora questo metodo viene chiamato solo dall'Animation Event quando l'animazione è effettivamente partita
     public void OnMagicEffectStart()
     {
-        if (SlowdownAbility != null && !SlowdownAbility.IsActive)
+        Debug.Log("[PlayerPowerUp] OnMagicEffectStart chiamato dall'Animation Event.");
+        
+        // Questo metodo ora viene chiamato solo quando l'animazione è partita,
+        // quindi l'abilità dovrebbe già essere attiva
+        if (SlowdownAbility != null && SlowdownAbility.IsActive)
         {
-            SlowdownAbility.TryActivate();
-            Debug.Log("[PlayerPowerUp] SlowdownAbility attivata tramite Animation Event.");
+            Debug.Log("[PlayerPowerUp] ✅ SlowdownAbility confermata attiva durante animazione.");
+        }
+        else
+        {
+            Debug.LogWarning("[PlayerPowerUp] ⚠️ OnMagicEffectStart chiamato ma SlowdownAbility non è attiva!");
         }
     }
 
@@ -254,6 +301,58 @@ public class PlayerPowerUp : MonoBehaviour
         SpendPower(10f);
     }
 
+    // 🆕 NUOVO METODO DI TEST: Testa SlowdownAbility senza power
+    [ContextMenu("🧪 Test - Slowdown Without Power")]
+    public void TestSlowdownWithoutPower()
+    {
+        Debug.Log("[PlayerPowerUp] 🧪 Test: Tentativo SlowdownAbility senza power...");
+        
+        // Salva il power attuale
+        float originalPower = currentPower;
+        
+        // Imposta power a zero temporaneamente
+        currentPower = 0f;
+        UpdateUI();
+        
+        // Tenta di usare SlowdownAbility
+        HandleAbility(SlowdownAbility);
+        
+        // Ripristina il power originale
+        currentPower = originalPower;
+        UpdateUI();
+        
+        Debug.Log("[PlayerPowerUp] ✅ Test completato - controlla che non ci siano stati suoni o animazioni");
+    }
+
+    // 🆕 NUOVO METODO DI TEST: Testa SlowdownAbility disabilitata nel livello
+    [ContextMenu("🧪 Test - Slowdown Disabled In Level")]
+    public void TestSlowdownDisabledInLevel()
+    {
+        Debug.Log("[PlayerPowerUp] 🧪 Test: Tentativo SlowdownAbility disabilitata nel livello...");
+        
+        if (SlowdownAbility != null)
+        {
+            Debug.Log($"[PlayerPowerUp] Stato prima del test:");
+            Debug.Log($"- IsEnabled: {SlowdownAbility.IsEnabled}");
+            Debug.Log($"- IsActive: {SlowdownAbility.IsActive}");
+            Debug.Log($"- Power disponibile: {currentPower}");
+            Debug.Log($"- Power richiesto: {SlowdownAbility.powerCost}");
+            
+            // Tenta di usare l'abilità (dovrebbe essere bloccata se disabilitata)
+            HandleAbility(SlowdownAbility);
+            
+            Debug.Log($"[PlayerPowerUp] Stato dopo il tentativo:");
+            Debug.Log($"- IsEnabled: {SlowdownAbility.IsEnabled}");
+            Debug.Log($"- IsActive: {SlowdownAbility.IsActive}");
+        }
+        else
+        {
+            Debug.LogError("[PlayerPowerUp] SlowdownAbility è null!");
+        }
+        
+        Debug.Log("[PlayerPowerUp] ✅ Test completato - se l'abilità era disabilitata, non dovrebbero esserci stati suoni o animazioni");
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         Debug.Log($"[PlayerPowerUp] OnTriggerEnter con: {other.name} tag: {other.tag}");
@@ -288,6 +387,19 @@ public class PlayerPowerUp : MonoBehaviour
         Debug.Log($"Start With Zero Power: {startWithZeroPower}");
         Debug.Log($"PowerUI attivo: {powerUI != null && powerUI.activeInHierarchy}");
         Debug.Log($"PlayerUI presente: {playerUI != null}");
+        
+        // 🆕 DEBUG per SlowdownAbility
+        if (SlowdownAbility != null)
+        {
+            Debug.Log($"SlowdownAbility presente: {SlowdownAbility.name}");
+            Debug.Log($"SlowdownAbility attiva: {SlowdownAbility.IsActive}");
+            Debug.Log($"SlowdownAbility power cost: {SlowdownAbility.powerCost}");
+            Debug.Log($"Può attivare SlowdownAbility: {HasEnoughPower(SlowdownAbility.powerCost)}");
+        }
+        else
+        {
+            Debug.LogError("SlowdownAbility è NULL!");
+        }
         
         if (playerUI != null)
         {
@@ -373,7 +485,7 @@ public class PlayerPowerUp : MonoBehaviour
         UpdateUI();
     }
 
-    // Debug key - rimuovi in produzione se non serve
+            // Debug key - rimuovi in produzione se non serve
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.P))
@@ -390,6 +502,16 @@ public class PlayerPowerUp : MonoBehaviour
         {
             DebugToggleZeroPowerStart();
             DebugSimulateLevelRestart();
+        }
+        // 🆕 NUOVO: Tasto per testare SlowdownAbility senza power
+        if (Input.GetKeyDown(KeyCode.N))
+        {
+            TestSlowdownWithoutPower();
+        }
+        // 🆕 NUOVO: Tasto per testare SlowdownAbility disabilitata nel livello
+        if (Input.GetKeyDown(KeyCode.B))
+        {
+            TestSlowdownDisabledInLevel();
         }
     }
 }
