@@ -86,7 +86,10 @@ public class DialogueSystem : MonoBehaviour
     [Range(0f, 2f)]
     [SerializeField] private float dissolveAudioFadeTime = 0.5f;
 [Header("🎮 Player Movement Control")]
-[Tooltip("Se true, blocca completamente i controlli del player durante questo dialogo")]
+    [Tooltip("Se true, blocca completamente i controlli del player durante questo dialogo")]
+[Header("Global Dialogue Control")]
+[SerializeField] private bool preventOverlappingDialogues = true;
+
 [SerializeField] private bool lockMovementDuringDialogue = false;
 [Tooltip("Ritardo prima di bloccare il movimento (utile per transizioni fluide)")]
 [Range(0f, 2f)]
@@ -122,7 +125,8 @@ private bool dissolveAudioPlaying = false;
     [Tooltip("Ritardo prima di attivare gli oggetti (in secondi)")]
     [SerializeField] private float activationDelay = 0f;
     private bool wasMovementLocked = false;
-private bool movementLockApplied = false;
+    private bool movementLockApplied = false;
+private static DialogueSystem currentActiveDialogue = null;
     private Coroutine movementLockCoroutine = null;
 [Header("🌟 CollectiblesManager Integration")]
 [Tooltip("Se true, questo DialogueSystem può essere attivato dal CollectiblesManager")]
@@ -331,17 +335,55 @@ public void SetCanBeTriggeredByCollectiblesManager(bool canBe)
     canBeTriggeredByCollectiblesManager = canBe;
     Debug.Log($"[DialogueSystem] CollectiblesManager trigger: {(canBe ? "abilitato" : "disabilitato")}");
 }
-/// <summary>
-/// 🌟 Abilita/disabilita l'auto-registrazione come FirstMemoryDialogue
-/// </summary>
-public void SetAutoRegisterAsFirstMemoryDialogue(bool autoRegister)
-{
-    autoRegisterAsFirstMemoryDialogue = autoRegister;
-    Debug.Log($"[DialogueSystem] Auto-registrazione FirstMemoryDialogue: {(autoRegister ? "abilitata" : "disabilitata")}");
-    
-    if (autoRegister && connectedCollectiblesManager != null)
+    /// <summary>
+    /// 🌟 Abilita/disabilita l'auto-registrazione come FirstMemoryDialogue
+    /// </summary>
+    public void SetAutoRegisterAsFirstMemoryDialogue(bool autoRegister)
     {
-        RegisterAsFirstMemoryDialogue();
+        autoRegisterAsFirstMemoryDialogue = autoRegister;
+        Debug.Log($"[DialogueSystem] Auto-registrazione FirstMemoryDialogue: {(autoRegister ? "abilitata" : "disabilitata")}");
+
+        if (autoRegister && connectedCollectiblesManager != null)
+        {
+            RegisterAsFirstMemoryDialogue();
+        }
+    }
+/// <summary>
+/// Controlla se ci sono altri dialoghi attivi nella scena
+/// </summary>
+public static bool IsAnyDialogueActive()
+{
+    return currentActiveDialogue != null;
+}
+
+/// <summary>
+/// Ottiene il DialogueSystem attualmente attivo
+/// </summary>
+public static DialogueSystem GetCurrentActiveDialogue()
+{
+    return currentActiveDialogue;
+}
+
+/// <summary>
+/// Controlla se questo specifico DialogueSystem può essere avviato
+/// </summary>
+public bool CanStartDialogue()
+{
+    if (!preventOverlappingDialogues)
+        return true;
+        
+    return currentActiveDialogue == null || currentActiveDialogue == this;
+}
+
+/// <summary>
+/// Forza la chiusura di tutti i dialoghi attivi (utile per situazioni speciali)
+/// </summary>
+public static void ForceCloseAllActiveDialogues()
+{
+    if (currentActiveDialogue != null)
+    {
+        Debug.Log($"[DialogueSystem] 🚫 Forzando chiusura dialogo attivo: {currentActiveDialogue.name}");
+        currentActiveDialogue.ForceEndDialogue();
     }
 }
 /// <summary>
@@ -621,24 +663,22 @@ void ResetDissolveToInitialState()
     Debug.Log("[DialogueSystem] 🔄 Materiali dissolve ripristinati allo stato iniziale");
 }
     
-    void OnTriggerEnter(Collider other)
+  void OnTriggerEnter(Collider other)
 {
-    // Controlla se l'oggetto che entra nel trigger è il player
-    // E se il dialogo non è già in corso (nuovo controllo)
     if (other.CompareTag("Player") && 
-        !isDialogueActive && // Nuovo: non avviare se già attivo
-        (!hasBeenTriggered || canRepeatDialogue))
+        !isDialogueActive && 
+        (!hasBeenTriggered || canRepeatDialogue) &&
+        CanStartDialogue()) // NUOVO CONTROLLO
     {
         StartDialogue();
     }
     
-    // Log per debug quando il trigger viene attivato ma il dialogo non parte
-    if (other.CompareTag("Player") && isDialogueActive)
+    // Log aggiornato per debug
+    if (other.CompareTag("Player") && !CanStartDialogue())
     {
-        Debug.Log("[DialogueSystem] Player entrato nella zona ma dialogo già attivo - non riavvio");
+        Debug.Log($"[DialogueSystem] Player entrato ma dialogo '{currentActiveDialogue?.name}' già attivo - bloccato");
     }
 }
-    
     void OnTriggerExit(Collider other)
     {
         // Solo se autoCloseOnExit è attivo, chiude il dialogo
@@ -656,6 +696,15 @@ void ResetDissolveToInitialState()
     
    public void StartDialogue()
 {
+     if (preventOverlappingDialogues && !CanStartDialogue())
+    {
+        Debug.LogWarning($"[DialogueSystem] ⚠️ Tentativo di avviare '{name}' ma '{currentActiveDialogue?.name}' è già attivo!");
+        return;
+    }
+     currentActiveDialogue = this;
+    
+    
+    
     Debug.Log($"[DEBUG] StartDialogue chiamato. DialogueLines.Length = {dialogueLines.Length}");
     
     if (dialogueLines.Length == 0) 
@@ -892,6 +941,12 @@ void ResetDissolveToInitialState()
     
     public void EndDialogue()
 {
+     if (currentActiveDialogue == this)
+    {
+        currentActiveDialogue = null;
+        Debug.Log("[DialogueSystem] 🔓 Dialogo rimosso dalla lista attivi");
+    }
+       Debug.Log("[DialogueSystem] Dialogo terminato.");
     Debug.Log("[DialogueSystem] 🏁 EndDialogue chiamato");
     
     isDialogueActive = false;

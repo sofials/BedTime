@@ -22,6 +22,17 @@ public class ThirdPersonController : MonoBehaviour
     public float rotationSmoothTime = 0.1f;
     private float rotationVelocity;
     private float smoothInputMagnitude;
+    [Header("Platform Smoothing")]
+[SerializeField] private float platformVerticalSmoothing = 1f; // Regolabile nell'inspector
+[SerializeField] private float platformVerticalThreshold = 1f; // Soglia minima per movimento verticale
+    [SerializeField] private bool enablePlatformVelocityDamping = true; // Toggle per il damping
+// ✅ AGGIUNGI QUESTI NUOVI PARAMETRI PER CONTROLLO FINE
+[Header("Platform Vertical Control")]
+[SerializeField] private float platformVerticalMultiplier = 0.01f; // ← NUOVO: Riduci da 0.3 a 0.15 (solo 15% del movimento)
+[SerializeField] private float platformVerticalMaxSpeed = 1f; // ← NUOVO: Velocità massima consentita
+[SerializeField] private bool useVerticalDeadZone = true; // ← NUOVO: Abilita zona morta
+    [SerializeField] private float verticalDeadZone = 2f; // ← NUOVO: Zona morta per movimenti piccoli
+[SerializeField] private bool disableVerticalFollowing = false; // NUOVO: Disabilita completamente
 
     // ✅ NUOVO SISTEMA DI GESTIONE CAMERA DINAMICA CON INTEGRAZIONE CAMERAMANAGER
     [Header("Camera Management")]
@@ -1541,60 +1552,39 @@ private Vector3 ApplyPlatformMovement()
 {
     Vector3 totalPlatformMovement = Vector3.zero;
     
-    // A) MOVIMENTO LINEARE della piattaforma
-    totalPlatformMovement += platformDeltaPosition;
+    // A) SOLO MOVIMENTO ORIZZONTALE della piattaforma
+    Vector3 horizontalMovement = platformDeltaPosition;
+    horizontalMovement.y = 0f; // FORZA a zero la componente Y
+    totalPlatformMovement += horizontalMovement;
     
-    // B) MOVIMENTO DOVUTO ALLA ROTAZIONE
+    // B) ROTAZIONE - SOLO COMPONENTE ORIZZONTALE
     if (platformDeltaRotation != Quaternion.identity)
     {
-        // Applica rotazione al player
-        transform.rotation = platformDeltaRotation * transform.rotation;
+        // Applica solo rotazione Y (yaw)
+        Vector3 eulerAngles = platformDeltaRotation.eulerAngles;
+        Quaternion yOnlyRotation = Quaternion.Euler(0f, eulerAngles.y, 0f);
+        transform.rotation = yOnlyRotation * transform.rotation;
         
-        // Calcola spostamento dovuto alla rotazione
+        // Calcola movimento dalla rotazione - SOLO orizzontale
         Vector3 relativePosition = transform.position - currentPlatform.position;
-        Vector3 rotatedRelativePosition = platformDeltaRotation * relativePosition;
+        relativePosition.y = 0f; // Ignora differenza di altezza
+        Vector3 rotatedRelativePosition = yOnlyRotation * relativePosition;
         Vector3 rotationMovement = rotatedRelativePosition - relativePosition;
         
         totalPlatformMovement += rotationMovement;
     }
     
-    // C) ✅ COMPENSAZIONE VELOCITÀ VERTICALE INTELLIGENTE
-    if (controller.isGrounded && totalPlatformMovement.y != 0f)
+    // ✅ C) ZERO MOVIMENTO VERTICALE - MAI
+    // Non applicare MAI movimento verticale dalle piattaforme
+    
+    if (debugPlatformMovement && totalPlatformMovement.magnitude > 0.001f)
     {
-        float platformVerticalSpeed = totalPlatformMovement.y / Time.deltaTime;
-        
-        // Strategia di compensazione basata sulla velocità
-        if (Mathf.Abs(platformVerticalSpeed) > 5f)
-        {
-            // Movimento verticale molto rapido (ascensori veloci)
-            velocity.y = platformVerticalSpeed;
-        }
-        else if (Mathf.Abs(platformVerticalSpeed) > 2f)
-        {
-            // Movimento verticale rapido con smoothing
-            velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 20f);
-        }
-        else if (Mathf.Abs(platformVerticalSpeed) > 0.5f)
-        {
-            // Movimento verticale moderato
-            if (platformVerticalSpeed > 0 || velocity.y > -5f)
-            {
-                float targetVelocity = Mathf.Max(platformVerticalSpeed, velocity.y);
-                velocity.y = Mathf.Lerp(velocity.y, targetVelocity, Time.deltaTime * 12f);
-            }
-        }
-        else if (Mathf.Abs(platformVerticalSpeed) > 0.1f)
-        {
-            // Movimento verticale lento (ondulazioni)
-            if (platformVerticalSpeed > 0.1f || (platformVerticalSpeed < -0.1f && velocity.y > -2f))
-            {
-                velocity.y = Mathf.Lerp(velocity.y, platformVerticalSpeed, Time.deltaTime * 6f);
-            }
-        }
+        Debug.Log($"[Platform] Movimento SOLO orizzontale: {totalPlatformMovement}");
     }
     
     return totalPlatformMovement;
 }
+
 
     private void HandleFootstepAudio()
     {
@@ -2481,6 +2471,40 @@ public string GetLedgeGrabInfo()
             DetachFromCurrentPlatform();
         }
     }
+    /// <summary>
+/// Gestisce le collisioni provenienti dai child colliders
+/// </summary>
+/// <param name="collision">Dati della collisione</param>
+/// <param name="childTransform">Transform del figlio che ha generato la collisione</param>
+public void HandleChildCollision(Collision collision, Transform childTransform)
+{
+    Debug.Log($"[ThirdPersonController] Collisione ricevuta dal child {childTransform.name}");
+    
+    // Verifica se la collisione viene da un RotatingObject
+    RotatingObject rotatingObject = childTransform.GetComponentInParent<RotatingObject>();
+    if (rotatingObject != null)
+    {
+        // Lascia che il RotatingObject gestisca la collisione
+        rotatingObject.HandleChildCollision(collision, childTransform);
+    }
+}
+/// <summary>
+/// Gestisce i trigger provenienti dai child colliders
+/// </summary>
+/// <param name="other">Collider che ha attivato il trigger</param>
+/// <param name="childTransform">Transform del figlio che ha generato il trigger</param>
+public void HandleChildTrigger(Collider other, Transform childTransform)
+{
+    Debug.Log($"[ThirdPersonController] Trigger ricevuto dal child {childTransform.name}");
+    
+    // Verifica se il trigger viene da un RotatingObject
+    RotatingObject rotatingObject = childTransform.GetComponentInParent<RotatingObject>();
+    if (rotatingObject != null)
+    {
+        // Lascia che il RotatingObject gestisca il trigger
+        rotatingObject.HandleChildTrigger(other, childTransform);
+    }
+}
 
     /// <summary>
     /// Forza l'attacco a una piattaforma specifica (per casi speciali)
