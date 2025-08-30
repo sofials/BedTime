@@ -60,9 +60,15 @@ public class RotatingObject : MonoBehaviour
     [SerializeField] private bool canDamagePlayer = true;
     [SerializeField] public float damageAmount = 10f;
     [SerializeField] public bool triggerHitWhenNoDamage = false;
+
     [Header("Slowdown Custom Duration")]
     [Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
     public float customSlowdownDuration = 15f;
+
+    [Header("🔄 NUOVA FUNZIONALITÀ: Child Colliders Mode")]
+    [SerializeField] private bool useChildColliders = false;
+    [Tooltip("Se attivo, l'oggetto padre usa i collider dei figli per le collisioni")]
+    private List<ChildColliderHandler> childColliderHandlers = new List<ChildColliderHandler>();
 
     // Overlay materials
     private MeshRenderer[] meshRenderers;
@@ -83,6 +89,7 @@ public class RotatingObject : MonoBehaviour
         currentRotationSpeed = rotationSpeed;
 
         InitializeMaterials();
+        InitializeChildColliders();
 
         if (slowdownEffect != null)
         {
@@ -106,6 +113,196 @@ public class RotatingObject : MonoBehaviour
         else
         {
             UpdateRotation();
+        }
+    }
+
+    // ✅ NUOVA FUNZIONALITÀ: Inizializzazione Child Colliders
+    private void InitializeChildColliders()
+    {
+        if (!useChildColliders) return;
+
+        // Trova tutti i collider nei figli
+        Collider[] childColliders = GetComponentsInChildren<Collider>();
+        
+        foreach (Collider childCollider in childColliders)
+        {
+            // Salta il collider dell'oggetto padre (se presente)
+            if (childCollider.transform == this.transform) continue;
+
+            // Aggiungi o ottieni il componente ChildColliderHandler
+            ChildColliderHandler handler = childCollider.GetComponent<ChildColliderHandler>();
+            if (handler == null)
+            {
+                handler = childCollider.gameObject.AddComponent<ChildColliderHandler>();
+            }
+
+            // Configura il handler per riferirsi a questo oggetto padre
+            handler.SetParentRotatingObject(this);
+            childColliderHandlers.Add(handler);
+
+            Debug.Log($"[RotatingObject] Child collider configurato: {childCollider.gameObject.name} → {gameObject.name}");
+        }
+
+        // Disabilita il collider dell'oggetto padre se presente
+        Collider parentCollider = GetComponent<Collider>();
+        if (parentCollider != null)
+        {
+            parentCollider.enabled = false;
+            Debug.Log($"[RotatingObject] Collider del padre disabilitato per usare child colliders");
+        }
+    }
+
+    // ✅ METODO PER GESTIRE LE COLLISIONI DAI FIGLI
+    public void HandleChildCollision(Collision collision, Transform childTransform)
+    {
+        Debug.Log($"[RotatingObject] Collisione rilevata dal figlio {childTransform.name} su padre {gameObject.name}");
+
+        // Verifica se è il player
+        ThirdPersonController player = collision.gameObject.GetComponent<ThirdPersonController>();
+        if (player == null) return;
+
+        // Gestisci la collisione come se fosse avvenuta sull'oggetto padre
+        HandlePlayerCollision(player, collision, childTransform);
+    }
+
+    public void HandleChildTrigger(Collider other, Transform childTransform)
+    {
+        Debug.Log($"[RotatingObject] Trigger rilevato dal figlio {childTransform.name} su padre {gameObject.name}");
+
+        // Verifica se è il player
+        ThirdPersonController player = other.GetComponent<ThirdPersonController>();
+        if (player == null) return;
+
+        // Gestisci il trigger come se fosse avvenuto sull'oggetto padre
+        HandlePlayerTrigger(player, childTransform);
+    }
+
+    // ✅ GESTIONE COLLISIONI UNIFICATE - MIGLIORATA PER THIRDPERSONCONTROLLER
+    private void HandlePlayerCollision(ThirdPersonController player, Collision collision, Transform collisionSource = null)
+    {
+        string sourceName = collisionSource != null ? collisionSource.name : gameObject.name;
+        Debug.Log($"[RotatingObject] Gestione collisione player da {sourceName}");
+
+        // Gestisci in base al tipo di piattaforma
+        switch (platformType)
+        {
+            case PlatformType.SupportPlatform:
+                HandleSupportPlatformCollision(player, collision, collisionSource);
+                break;
+            case PlatformType.ObstaclePlatform:
+                HandleObstaclePlatformCollision(player, collision, collisionSource);
+                break;
+        }
+    }
+
+    private void HandlePlayerTrigger(ThirdPersonController player, Transform triggerSource = null)
+    {
+        string sourceName = triggerSource != null ? triggerSource.name : gameObject.name;
+        Debug.Log($"[RotatingObject] Gestione trigger player da {sourceName}");
+
+        // Gestisci sempre come ostacolo per i trigger
+        if (CanCauseDamage())
+        {
+            player.TakeDamage(damageAmount);
+            player.PlayHitSound(); // ✅ NUOVO: Riproduci suono di colpo
+            Debug.Log($"[RotatingObject] Player ha subito {damageAmount} danni da trigger su {sourceName}");
+        }
+        else if (ShouldTriggerHitWithoutDamage())
+        {
+            // ThirdPersonController non ha TriggerHitEffect, usiamo l'animazione Hit
+            player.GetComponentInChildren<Animator>()?.SetTrigger("Hit");
+            player.PlayHitSound(); // ✅ NUOVO: Riproduci suono anche senza danno
+            Debug.Log($"[RotatingObject] Trigger hit senza danni su {sourceName}");
+        }
+
+        // Applica spinta usando il sistema del ThirdPersonController
+        Vector3 pushDirection = (player.transform.position - (triggerSource ?? transform).position).normalized;
+        player.ApplyExternalPush(pushDirection * 8f); // ✅ USA IL SISTEMA INTEGRATO
+    }
+
+    private void HandleSupportPlatformCollision(ThirdPersonController player, Collision collision, Transform collisionSource = null)
+    {
+        // Verifica se il player è sopra la piattaforma usando la normale di contatto
+        bool isPlayerAbove = collision.contacts.Length > 0 && collision.contacts[0].normal.y < -0.5f;
+        
+        if (isPlayerAbove)
+        {
+            // Il player può stare sulla piattaforma - usa il sistema integrato del controller
+            Transform platformToAttach = useChildColliders && collisionSource != null ? collisionSource : this.transform;
+            player.ForceAttachToPlatform(platformToAttach);
+            Debug.Log($"[RotatingObject] Player attaccato alla piattaforma {platformToAttach.name}");
+        }
+        else if (CanCauseDamage())
+        {
+            // Collisione laterale con piattaforma che può fare danno
+            player.TakeDamage(damageAmount);
+            player.PlayHitSound(); // ✅ NUOVO: Riproduci suono di colpo
+            
+            if (detachPlayerOnHit)
+            {
+                DetachPlayerFromPlatform(player);
+            }
+
+            // Applica spinta laterale
+            Vector3 pushDirection = (player.transform.position - (collisionSource ?? transform).position).normalized;
+            pushDirection.y = 0.2f; // Leggera spinta verso l'alto
+            player.ApplyExternalPush(pushDirection * 6f);
+        }
+    }
+
+    private void HandleObstaclePlatformCollision(ThirdPersonController player, Collision collision, Transform collisionSource = null)
+    {
+        // Gli ostacoli sempre respingono e danneggiano
+        if (CanCauseDamage())
+        {
+            player.TakeDamage(damageAmount);
+            player.PlayHitSound(); // ✅ NUOVO: Riproduci suono di colpo
+            Debug.Log($"[RotatingObject] Player ha subito {damageAmount} danni da {gameObject.name}");
+        }
+        else if (ShouldTriggerHitWithoutDamage())
+        {
+            // Usa l'animazione Hit del controller
+            player.GetComponentInChildren<Animator>()?.SetTrigger("Hit");
+            player.PlayHitSound(); // ✅ NUOVO: Riproduci suono anche senza danno
+        }
+
+        if (detachPlayerOnHit)
+        {
+            DetachPlayerFromPlatform(player);
+        }
+
+        // ✅ SPINTA MIGLIORATA usando il sistema del ThirdPersonController
+        Vector3 collisionPoint = collisionSource != null ? collisionSource.position : transform.position;
+        Vector3 pushDirection = (player.transform.position - collisionPoint).normalized;
+        
+        // Calcola forza basata sulla velocità di rotazione
+        float pushForce = Mathf.Lerp(8f, 15f, currentRotationSpeed / originalRotationSpeed);
+        pushDirection.y = Mathf.Clamp(pushDirection.y + 0.3f, 0.1f, 0.8f); // Spinta verso l'alto
+        
+        player.ApplyExternalPush(pushDirection * pushForce);
+        Debug.Log($"[RotatingObject] Applicata spinta {pushForce:F1} in direzione {pushDirection}");
+    }
+
+    // ✅ METODI LEGACY PER COMPATIBILITÀ CON COLLISIONI DIRETTE
+    void OnCollisionEnter(Collision collision)
+    {
+        if (useChildColliders) return; // Se usa child colliders, ignora le collisioni dirette
+
+        ThirdPersonController player = collision.gameObject.GetComponent<ThirdPersonController>();
+        if (player != null)
+        {
+            HandlePlayerCollision(player, collision);
+        }
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (useChildColliders) return; // Se usa child colliders, ignora i trigger diretti
+
+        ThirdPersonController player = other.GetComponent<ThirdPersonController>();
+        if (player != null)
+        {
+            HandlePlayerTrigger(player);
         }
     }
 
@@ -408,6 +605,36 @@ public class RotatingObject : MonoBehaviour
         pendulumSpeed = speed;
     }
 
+    // ✅ NUOVI METODI PER CHILD COLLIDERS
+    public void SetUseChildColliders(bool enabled)
+    {
+        useChildColliders = enabled;
+        
+        if (enabled)
+        {
+            InitializeChildColliders();
+        }
+        else
+        {
+            // Riabilita il collider del padre se presente
+            Collider parentCollider = GetComponent<Collider>();
+            if (parentCollider != null)
+            {
+                parentCollider.enabled = true;
+            }
+
+            // Rimuovi i handler dai figli
+            foreach (ChildColliderHandler handler in childColliderHandlers)
+            {
+                if (handler != null)
+                {
+                    DestroyImmediate(handler);
+                }
+            }
+            childColliderHandlers.Clear();
+        }
+    }
+
     private void DetachPlayerFromPlatform(ThirdPersonController player)
     {
         player.DetachFromPlatform(this.transform);
@@ -426,5 +653,39 @@ public class RotatingObject : MonoBehaviour
         {
             SetSlowdownState(multiplier < 1f, originalRotationSpeed * multiplier);
         }
+    }
+}
+
+// ✅ NUOVO COMPONENTE: ChildColliderHandler
+[System.Serializable]
+public class ChildColliderHandler : MonoBehaviour
+{
+    private RotatingObject parentRotatingObject;
+
+    public void SetParentRotatingObject(RotatingObject parent)
+    {
+        parentRotatingObject = parent;
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        if (parentRotatingObject != null)
+        {
+            parentRotatingObject.HandleChildCollision(collision, this.transform);
+        }
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (parentRotatingObject != null)
+        {
+            parentRotatingObject.HandleChildTrigger(other, this.transform);
+        }
+    }
+
+    void OnDestroy()
+    {
+        // Cleanup quando il componente viene distrutto
+        parentRotatingObject = null;
     }
 }

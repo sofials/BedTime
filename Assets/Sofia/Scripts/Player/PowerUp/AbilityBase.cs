@@ -77,10 +77,10 @@ public abstract class AbilityBase : MonoBehaviour
             string reason = GetDisableReason();
             Debug.Log($"Impossibile attivare l'abilità {gameObject.name}: {reason}");
             
-            if (failureSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(failureSound);
-            }
+             if (IsEnabled && failureSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(failureSound);
+        }
         }
     }
 
