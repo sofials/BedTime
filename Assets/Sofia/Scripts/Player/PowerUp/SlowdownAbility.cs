@@ -55,175 +55,179 @@ public class SlowdownAbility : AbilityBase
         effectAudioSource.clip = effectAudioClip;
     }
 
-    /// <summary>
-    /// Override di CanActivate per rimuovere il controllo su IsActive
-    /// Permette il riutilizzo immediato su nuovi bersagli
-    /// </summary>
+    // Override CanActivate per permettere riutilizzo immediato
     public override bool CanActivate()
     {
-        // ✅ RIMOSSO il controllo !IsActive per permettere riutilizzo immediato
-        return powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
+        return IsEnabled && powerUpScript != null && powerUpScript.HasEnoughPower(powerCost);
     }
 
-    /// <summary>
-    /// Verifica se ci sono oggetti validi nel raggio d'azione PRIMA di consumare energia
-    /// </summary>
-    
-/// <summary>
-/// Verifica se ci sono oggetti validi nel raggio d'azione PRIMA di consumare energia
-/// </summary>
-private bool HasValidTargetsInRange()
+    // Verifica se ci sono oggetti validi nel raggio d'azione
+    private bool HasValidTargetsInRange()
+    {
+        Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
+        
+        foreach (Collider col in colliders)
+        {
+            if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
+            {
+                if (!mp.canBeSlowed) continue;
+                
+                bool alreadyAffected = false;
+                foreach (var data in affectedPlatforms)
+                {
+                    if (data.platform == mp)
+                    {
+                        alreadyAffected = true;
+                        break;
+                    }
+                }
+                if (!alreadyAffected) return true;
+            }
+            
+            if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
+            {
+                bool alreadyAffected = false;
+                foreach (var data in affectedRotators)
+                {
+                    if (data.rotator == ro)
+                    {
+                        alreadyAffected = true;
+                        break;
+                    }
+                }
+                if (!alreadyAffected) return true;
+            }
+            
+            if (col.CompareTag("TurtleShellHurtbox"))
+            {
+                TurtleShell ts = col.GetComponentInParent<TurtleShell>();
+                if (ts != null && !ts.isSlow)
+                {
+                    return true;
+                }
+            }
+            
+            if (col.CompareTag("Chibi"))
+            {
+                Npc_village npc = col.GetComponent<Npc_village>();
+                if (npc != null && !npc.IsStopped)
+                {
+                    return true;
+                }
+            }
+            
+            if (col.CompareTag("GolemHurtbox"))
+            {
+                Golem golem = col.GetComponentInParent<Golem>();
+                if (golem != null && !golem.isSlow)
+                {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    // Override TryActivate per controllare i bersagli validi
+  public override void TryActivate()
 {
-    Collider[] colliders = Physics.OverlapSphere(powerUpScript.transform.position, slowdownRadius);
-    
-    foreach (Collider col in colliders)
-    {
-        // MovingPlatform - verifica se NON è già rallentata E se può essere rallentata
-        if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
+    Debug.Log("\n=== [SlowdownAbility] TryActivate() DEBUG START ===");
+    Debug.Log($"IsEnabled: {IsEnabled}");
+    Debug.Log($"GetDisableReason(): {GetDisableReason()}");
+    Debug.Log($"powerUpScript null: {powerUpScript == null}");
+    if (powerUpScript != null)
+        Debug.Log($"HasEnoughPower({powerCost}): {powerUpScript.HasEnoughPower(powerCost)}");
+    // Prima controlla se l'abilità è abilitata a livello di sistema
+        if (!IsEnabled)
         {
-            // ✅ FIX: Controlla canBeSlowed prima di tutto
-            if (!mp.canBeSlowed)
-            {
-                continue; // Salta questa piattaforma se non può essere rallentata
-            }
-            
-            // Controlla se questa piattaforma NON è già nella nostra lista
-            bool alreadyAffected = false;
-            foreach (var data in affectedPlatforms)
-            {
-                if (data.platform == mp)
-                {
-                    alreadyAffected = true;
-                    break;
-                }
-            }
-            if (!alreadyAffected) return true;
-        }
-        
-        // RotatingPlatform - verifica se NON è già rallentata
-        if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
-        {
-            // Controlla se questo rotatore NON è già nella nostra lista
-            bool alreadyAffected = false;
-            foreach (var data in affectedRotators)
-            {
-                if (data.rotator == ro)
-                {
-                    alreadyAffected = true;
-                    break;
-                }
-            }
-            if (!alreadyAffected) return true;
-        }
-        
-        // TurtleShell - verifica se NON è già rallentata
-        if (col.CompareTag("TurtleShellHurtbox"))
-        {
-            TurtleShell ts = col.GetComponentInParent<TurtleShell>();
-            if (ts != null && !ts.isSlow)
-            {
-                return true;
-            }
-        }
-        
-        // NPC - verifica se NON è già fermato
-        if (col.CompareTag("Chibi"))
-        {
-            Npc_village npc = col.GetComponent<Npc_village>();
-            if (npc != null && !npc.IsStopped)
-            {
-                return true;
-            }
-        }
-        
-        // Golem - verifica se NON è già rallentato
-        if (col.CompareTag("GolemHurtbox"))
-        {
-            Golem golem = col.GetComponentInParent<Golem>();
-            if (golem != null && !golem.isSlow)
-            {
-                return true;
-            }
-        }
-    }
-    
-    return false;
-}
-    public override void TryActivate()
-    {
-         if (powerUpScript == null)
-    {
-        Debug.Log("[SlowdownAbility] PowerUpScript non disponibile.");
-        // ❌ NESSUN AUDIO/ANIMAZIONE quando power up non abilitato
-        return;
-    }
+            string reason = GetDisableReason();
+            Debug.LogWarning($"[SlowdownAbility] Abilità disabilitata: {reason}");
 
-        // ✅ STEP 1: Verifica energia disponibile
-        if (!powerUpScript.HasEnoughPower(powerCost))
-        {
-            Debug.Log("[SlowdownAbility] Energia insufficiente per attivare l'abilità.");
+            // SE L'ABILITÀ NON È PERMESSA NEL LIVELLO, NON FARE ASSOLUTAMENTE NIENTE
+            if (reason.Contains("non permessa in questo livello"))
+            {
+                Debug.Log("[SlowdownAbility] Abilità non permessa nel livello - nessun feedback, nessuna UI");
+                   Debug.Log("=== [SlowdownAbility] TryActivate() DEBUG END (silent exit) ===\n");
+                return; // Esce silenziosamente - NO suoni, NO UI, NO coroutines
+            }
+            Debug.Log("[SlowdownAbility] Altri tipi di disabilitazione - riproduce failure sound");
 
+            // Solo per altri tipi di disabilitazione (abilità disabilitata manualmente)
             if (failureSound != null && audioSource != null)
             {
                 audioSource.PlayOneShot(failureSound);
+                Debug.Log("[SlowdownAbility] Audio di fallimento per abilità disabilitata");
             }
-            return;
-        }
 
-        // ✅ STEP 2: Verifica se ci sono oggetti validi nel raggio
-        if (!HasValidTargetsInRange())
-        {
-            Debug.LogWarning("[SlowdownAbility] Nessun oggetto valido nel raggio d'azione. Energia non consumata.");
-            
-            if (failureSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(failureSound);
-            }
-            
+            // UI pulse solo per disabilitazioni manuali, NON per restrizioni di livello
             if (PlayerUI.Instance != null)
             {
                 PlayerUI.Instance.PulseIconAt(effectIconIndex);
             }
-            
+
             return;
         }
 
-        // ✅ STEP 3: Se arriviamo qui, tutto è OK - consuma energia e attiva
-        Debug.Log($"[SlowdownAbility] Condizioni soddisfatte. Consumo {powerCost} energia.");
+    // Controlla energia
+    if (powerUpScript == null || !powerUpScript.HasEnoughPower(powerCost))
+    {
+        Debug.LogWarning("[SlowdownAbility] Energia insufficiente o PowerUp script mancante");
         
-        powerUpScript.SpendPower(powerCost);
-        
-        // ✅ NON settiamo IsActive = true per permettere riutilizzo immediato
-        Debug.Log($"[SlowdownAbility] Oggetti attualmente rallentati: {affectedPlatforms.Count + affectedRotators.Count + affectedTurtleShells.Count}");
-        
-        // Forza aggiornamento UI
-        if (PlayerUI.Instance != null)
+        // Suona failure sound per energia insufficiente
+        if (failureSound != null && audioSource != null)
         {
-            PlayerUI.Instance.UpdatePower(powerUpScript.CurrentPower);
+            audioSource.PlayOneShot(failureSound);
+            Debug.Log("[SlowdownAbility] Audio di fallimento per energia insufficiente");
         }
         
-        // Audio di attivazione riuscita
-        if (activationSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(activationSound);
-        }
-
-        // Feedback UI
         if (PlayerUI.Instance != null)
         {
             PlayerUI.Instance.PulseIconAt(effectIconIndex);
         }
-
-        // Attiva l'abilità (aggiungerà SOLO nuovi oggetti alle liste esistenti)
-        Activate();
+        
+        return;
     }
+
+    // Controlla se ci sono bersagli validi
+    if (!HasValidTargetsInRange())
+    {
+        Debug.LogWarning("[SlowdownAbility] Nessun oggetto valido nel raggio d'azione (tutti già rallentati).");
+        
+        // Suona failure sound per nessun bersaglio SENZA consumare energia
+        if (failureSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(failureSound);
+            Debug.Log("[SlowdownAbility] Audio di fallimento riprodotto per nessun bersaglio valido (energia NON consumata)");
+        }
+        
+        if (PlayerUI.Instance != null)
+        {
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
+        }
+        
+        return;
+    }
+
+    // Se arriviamo qui, l'abilità può essere attivata e ci sono bersagli validi
+    Activate();
+    
+    // Suona activation sound
+    if (activationSound != null && audioSource != null)
+    {
+        audioSource.PlayOneShot(activationSound);
+    }
+
+    if (PlayerUI.Instance != null)
+        PlayerUI.Instance.PulseIconAt(effectIconIndex);
+}
 
     public override void Activate()
     {
         Debug.Log("\n=== [SlowdownAbility] Activate() chiamato ===");
 
-        // ✅ IMPORTANTE: NON svuotiamo le liste!
-        // Questo permette di mantenere traccia degli oggetti già rallentati
+        // Consuma energia SOLO quando l'abilità viene effettivamente attivata
+        powerUpScript.SpendPower(powerCost);
 
         int newPlatformsCount = 0;
         int newRotatorsCount = 0;
@@ -237,22 +241,20 @@ private bool HasValidTargetsInRange()
         {
             if (col.CompareTag("MovingPlatform") && col.TryGetComponent(out MovingPlatform mp))
             {
-                // ✅ FIX: Controlla canBeSlowed prima di processare
-    if (!mp.canBeSlowed)
-    {
-        Debug.Log($"→ MovingPlatform {col.name} ha canBeSlowed = false, skip.");
-        continue; // Salta questa piattaforma
-    }
-    
-                // ✅ Controlla se questa piattaforma è già rallentata
+                if (!mp.canBeSlowed)
+                {
+                    Debug.Log($"→ MovingPlatform {col.name} ha canBeSlowed = false, skip.");
+                    continue;
+                }
+                
                 bool alreadyAffected = false;
                 foreach (var data in affectedPlatforms)
                 {
                     if (data.platform == mp)
                     {
                          alreadyAffected = true;
-            Debug.Log($"→ MovingPlatform {col.name} già rallentata, skip.");
-            break;
+                         Debug.Log($"→ MovingPlatform {col.name} già rallentata, skip.");
+                         break;
                     }
                 }
                 
@@ -292,7 +294,6 @@ private bool HasValidTargetsInRange()
             }
             else if (col.CompareTag("RotatingPlatform") && col.TryGetComponent(out RotatingObject ro))
             {
-                // ✅ Controlla se questo rotatore è già rallentato
                 bool alreadyAffected = false;
                 foreach (var data in affectedRotators)
                 {
@@ -345,7 +346,6 @@ private bool HasValidTargetsInRange()
                 TurtleShell ts = col.GetComponentInParent<TurtleShell>();
                 if (ts != null && !ts.isSlow)
                 {
-                    // ✅ Controlla se questa turtle shell è già nella lista
                     bool alreadyInList = false;
                     foreach (var existingTurtle in affectedTurtleShells)
                     {
@@ -387,7 +387,6 @@ private bool HasValidTargetsInRange()
                 Npc_village npc = col.GetComponent<Npc_village>();
                 if (npc != null && !npc.IsStopped)
                 {
-                    // ✅ Controlla se questo NPC è già nella lista
                     bool alreadyInList = affectedNPCs.Contains(npc);
                     
                     if (!alreadyInList)
@@ -411,12 +410,8 @@ private bool HasValidTargetsInRange()
             }
         }
 
-        // ✅ Verifica solo i NUOVI oggetti aggiunti
-        if (newPlatformsCount == 0 && newRotatorsCount == 0 && newTurtlesCount == 0 && newNPCsCount == 0)
-        {
-            Debug.LogWarning("[SlowdownAbility] ⚠️ Nessun NUOVO oggetto rallentato!");
-        }
-        else
+        // Suona l'effect audio solo se ci sono nuovi oggetti rallentati
+        if (newPlatformsCount > 0 || newRotatorsCount > 0 || newTurtlesCount > 0 || newNPCsCount > 0)
         {
             if (effectAudioSource != null && effectAudioClip != null)
             {
@@ -430,16 +425,13 @@ private bool HasValidTargetsInRange()
                       $"{affectedRotators.Count} rotatori, {affectedTurtleShells.Count} TurtleShell, {affectedNPCs.Count} NPC.");
         }
         
-        // ✅ FIX: Non settiamo mai IsActive = true per evitare blocchi dalla classe base
-        // IsActive rimane sempre false per permettere riutilizzo immediato
+        // Mantieni IsActive = false per permettere riutilizzo immediato
         IsActive = false;
         
         Debug.Log($"[SlowdownAbility] IsActive mantenuto a FALSE per permettere riutilizzo immediato");
-        Debug.Log($"[SlowdownAbility] Oggetti attualmente rallentati: {affectedPlatforms.Count} piattaforme, {affectedRotators.Count} rotatori, {affectedTurtleShells.Count} turtle");
         Debug.Log("=== [SlowdownAbility] Fine Activate() ===\n");
     }
 
-    // ✅ Coroutine individuale per le MovingPlatform
     private IEnumerator DeactivatePlatformAfterDuration(PlatformData platformData)
     {
         float blinkDuration = 3f;
@@ -472,11 +464,9 @@ private bool HasValidTargetsInRange()
             Debug.Log($"→ Platform {platformData.platform.name} disattivata dopo {platformData.customDuration}s");
         }
 
-        // Rimuovi dalla lista
         RemovePlatformFromList(platformData.platform);
     }
 
-    // ✅ Coroutine individuale per i RotatingObject
     private IEnumerator DeactivateRotatorAfterDuration(RotatorData rotatorData)
     {
         float blinkDuration = 3f;
@@ -507,7 +497,6 @@ private bool HasValidTargetsInRange()
             rotatorData.rotator.SetSlowdownState(false, 0f);
             rotatorData.rotator.SetOverlayActive(false);
             
-            // Backup se SetSlowdownState non funziona
             if (rotatorData.rotator.IsInSlowdown)
             {
                 rotatorData.rotator.RestoreOriginalSpeed();
@@ -515,11 +504,9 @@ private bool HasValidTargetsInRange()
             Debug.Log($"→ Rotator {rotatorData.rotator.name} disattivato dopo {rotatorData.customDuration}s");
         }
 
-        // Rimuovi dalla lista
         RemoveRotatorFromList(rotatorData.rotator);
     }
 
-    // ✅ Coroutine individuale per le TurtleShell
     private IEnumerator DeactivateTurtleShellAfterDuration(TurtleShellData turtleData)
     {
         float blinkDuration = 3f;
@@ -553,11 +540,9 @@ private bool HasValidTargetsInRange()
             Debug.Log($"→ TurtleShell {turtleData.turtleShell.name} disattivata dopo {turtleData.customDuration}s");
         }
 
-        // Rimuovi dalla lista
         RemoveTurtleShellFromList(turtleData.turtleShell);
     }
 
-    // ✅ Metodi helper per rimuovere oggetti dalle liste
     private void RemovePlatformFromList(MovingPlatform platform)
     {
         for (int i = affectedPlatforms.Count - 1; i >= 0; i--)
@@ -568,8 +553,6 @@ private bool HasValidTargetsInRange()
                 break;
             }
         }
-        
-        CheckIfAllObjectsDeactivated();
     }
 
     private void RemoveRotatorFromList(RotatingObject rotator)
@@ -582,8 +565,6 @@ private bool HasValidTargetsInRange()
                 break;
             }
         }
-        
-        CheckIfAllObjectsDeactivated();
     }
 
     private void RemoveTurtleShellFromList(TurtleShell turtleShell)
@@ -596,31 +577,13 @@ private bool HasValidTargetsInRange()
                 break;
             }
         }
-        
-        CheckIfAllObjectsDeactivated();
-    }
-
-    // ✅ FIX: Non modifichiamo mai IsActive per evitare blocchi
-    // Questo metodo ora serve solo per logging, non per cambiare IsActive
-    private void CheckIfAllObjectsDeactivated()
-    {
-        bool hasActiveEffects = affectedPlatforms.Count > 0 || 
-                               affectedRotators.Count > 0 || 
-                               affectedTurtleShells.Count > 0;
-        
-        if (!hasActiveEffects)
-        {
-            Debug.Log("[SlowdownAbility] Tutti gli oggetti temporanei sono stati disattivati");
-        }
-        
-        // NON modifichiamo IsActive - rimane sempre false
     }
 
     public override void Deactivate()
     {
         Debug.Log("\n=== [SlowdownAbility] Deactivate() forzato chiamato ===");
 
-        // ✅ Ferma tutte le coroutine individuali
+        // Ferma tutte le coroutine individuali
         foreach (var platformData in affectedPlatforms)
         {
             if (platformData.deactivationCoroutine != null)

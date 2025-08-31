@@ -11,6 +11,11 @@ public class UIEffectHandler : MonoBehaviour
 
     private Image iconImage;
     private Vector3 baseScale;
+    
+    // Memorizza le scale originali delle icone input
+    private Vector3 keyboardOriginalScale;
+    private Vector3 controllerOriginalScale;
+    
     private Coroutine pulseCoroutineKeyboard;
     private Coroutine pulseCoroutineController;
 
@@ -18,6 +23,12 @@ public class UIEffectHandler : MonoBehaviour
     {
         iconImage = GetComponent<Image>();
         baseScale = transform.localScale;
+        
+        // Memorizza le scale originali delle icone input
+        if (keyboardIconImage != null)
+            keyboardOriginalScale = keyboardIconImage.rectTransform.localScale;
+        if (controllerIconImage != null)
+            controllerOriginalScale = controllerIconImage.rectTransform.localScale;
     }
 
     public void SetGrayscale(bool grayscale)
@@ -47,22 +58,25 @@ public class UIEffectHandler : MonoBehaviour
         {
             if (pulseCoroutineKeyboard != null)
                 StopCoroutine(pulseCoroutineKeyboard);
-            pulseCoroutineKeyboard = StartCoroutine(PulseRoutineOnImage(keyboardIconImage));
+            pulseCoroutineKeyboard = StartCoroutine(PulseRoutineOnImage(keyboardIconImage, keyboardOriginalScale));
         }
         if (controllerIconImage != null)
         {
             if (pulseCoroutineController != null)
                 StopCoroutine(pulseCoroutineController);
-            pulseCoroutineController = StartCoroutine(PulseRoutineOnImage(controllerIconImage));
+            pulseCoroutineController = StartCoroutine(PulseRoutineOnImage(controllerIconImage, controllerOriginalScale));
         }
     }
 
-    private IEnumerator PulseRoutineOnImage(Image img)
+    private IEnumerator PulseRoutineOnImage(Image img, Vector3 originalScale)
     {
         if (img == null) yield break;
-        Vector3 originalScale = img.rectTransform.localScale;
+        
         float duration = 0.2f;
         float maxScale = 1.2f;
+
+        // Forza il reset alla scala originale prima di iniziare
+        img.rectTransform.localScale = originalScale;
 
         // Scale up
         float elapsed = 0;
@@ -84,6 +98,7 @@ public class UIEffectHandler : MonoBehaviour
             yield return null;
         }
 
+        // Assicurati che alla fine sia esattamente la scala originale
         img.rectTransform.localScale = originalScale;
     }
 }

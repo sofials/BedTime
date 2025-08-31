@@ -12,6 +12,10 @@ public class PlayerAttack : MonoBehaviour
     private bool attackInput;
     private int ignoreFrames = 0;
 
+    // NUOVO: Protezione iniziale contro input fantasma
+    private float sceneStartTime;
+    private const float INITIAL_PROTECTION_TIME = 0.5f; // Mezzo secondo di protezione
+
     public UIEffectHandler attackIconKeyboard;
     public UIEffectHandler attackIconController;
 
@@ -73,8 +77,16 @@ public class PlayerAttack : MonoBehaviour
 
     private void Start()
     {
+        // NUOVO: Registra il tempo di avvio della scena per la protezione iniziale
+        sceneStartTime = Time.time;
+        
         animator = GetComponentInChildren<Animator>();
         playerController = GetComponent<ThirdPersonController>();
+        attackInput = false;
+        isAttacking = false;
+        attackTimer = 0f;
+        hitConfirmedThisSwing = false;
+        
         
         // NUOVO: Auto-trova TeleportAbility se non assegnato
         if (teleportAbility == null)
@@ -84,7 +96,7 @@ public class PlayerAttack : MonoBehaviour
             {
                 teleportAbility = GetComponentInChildren<TeleportAbility>();
             }
-            
+
             if (teleportAbility != null)
             {
                 Debug.Log($"TeleportAbility trovato automaticamente per PlayerAttack: {teleportAbility.name}");
@@ -124,6 +136,13 @@ public class PlayerAttack : MonoBehaviour
 
     private void Update()
     {
+        // NUOVO: Protezione iniziale contro input fantasma durante il caricamento della scena
+        if (Time.time < sceneStartTime + INITIAL_PROTECTION_TIME)
+        {
+            attackInput = false; // Reset eventuali input bufferizzati
+            return;
+        }
+
         if (ignoreFrames > 0)
         {
             ignoreFrames--;
@@ -160,8 +179,13 @@ public class PlayerAttack : MonoBehaviour
             {
                 animator.SetTrigger("Attack");
 
-                if (currentEffectIcon != null)
+                // NUOVO: Controllo per evitare errore coroutine con oggetti inattivi
+                if (currentEffectIcon != null && 
+                    currentEffectIcon.gameObject.activeInHierarchy && 
+                    currentEffectIcon.enabled)
+                {
                     currentEffectIcon.PulseIcon();
+                }
 
                 isAttacking = true;
                 attackTimer = attackDuration;
@@ -405,5 +429,13 @@ public class PlayerAttack : MonoBehaviour
     {
         if (punchImpactAudioSource != null)
             punchImpactAudioSource.volume = volume;
+    }
+
+    // NUOVO: Metodo helper per controllare se un UIEffectHandler è utilizzabile
+    private bool IsUIEffectHandlerUsable(UIEffectHandler handler)
+    {
+        return handler != null && 
+               handler.gameObject.activeInHierarchy && 
+               handler.enabled;
     }
 }

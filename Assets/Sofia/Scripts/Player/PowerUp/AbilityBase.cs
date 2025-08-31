@@ -58,31 +58,45 @@ public abstract class AbilityBase : MonoBehaviour
     }
 
     public virtual void TryActivate()
+{
+    if (CanActivate())
     {
-        if (CanActivate())
+        Activate();
+        IsActive = true;
+
+        if (activationSound != null && audioSource != null)
         {
-            Activate();
-            IsActive = true;
-
-            if (activationSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(activationSound);
-            }
-
-            if (PlayerUI.Instance != null)
-                PlayerUI.Instance.PulseIconAt(effectIconIndex);
+            audioSource.PlayOneShot(activationSound);
         }
-        else
+
+        if (PlayerUI.Instance != null)
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
+    }
+    else
+    {
+        string reason = GetDisableReason();
+        Debug.Log($"Impossibile attivare l'abilità {gameObject.name}: {reason}");
+        
+        // SE L'ABILITÀ NON È PERMESSA NEL LIVELLO, NON FORNIRE FEEDBACK
+        if (reason.Contains("non permessa in questo livello"))
         {
-            string reason = GetDisableReason();
-            Debug.Log($"Impossibile attivare l'abilità {gameObject.name}: {reason}");
-            
-             if (IsEnabled && failureSound != null && audioSource != null)
+            Debug.Log($"[{gameObject.name}] Abilità non permessa nel livello - nessun feedback");
+            return; // Esce silenziosamente
+        }
+        
+        // Solo per altri tipi di fallimento (energia insufficiente, già attiva, etc.)
+        if (IsEnabled && failureSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(failureSound);
         }
+        
+        // UI feedback solo se non è un problema di permessi livello
+        if (PlayerUI.Instance != null)
+        {
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
         }
     }
+}
 
     // METODI PER IL CONTROLLO DELL'ABILITÀ
 

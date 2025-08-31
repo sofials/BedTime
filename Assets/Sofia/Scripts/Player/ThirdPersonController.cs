@@ -2554,9 +2554,6 @@ public string GetLedgeGrabInfo()
         currentHealth = Mathf.Max(0, currentHealth - amount);
         
         UpdateHealthUI();
-        
-        if (attackEffectUI != null)
-            attackEffectUI.PulseIcon();
 
         if (currentHealth <= 0 && oldHealth > 0)
         {

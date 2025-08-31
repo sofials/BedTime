@@ -100,103 +100,104 @@ public class AbilitiesManager : MonoBehaviour
         StartCoroutine(InitializeAbilitiesCoroutine());
     }
     
-    private IEnumerator InitializeAbilitiesCoroutine()
+  private IEnumerator InitializeAbilitiesCoroutine()
+{
+    yield return null; // Aspetta un frame
+    
+    // ❌ RIMOSSO: LoadAbilityConfiguration();
+    
+    if (autoFindAbilities)
     {
-        yield return null; // Aspetta un frame
-        
-        // Carica configurazione salvata
-        LoadAbilityConfiguration();
-        
-        if (autoFindAbilities)
-        {
-            FindAllAbilities();
-        }
-        
-        if (applyConfigurationOnStart)
-        {
-            ConfigureAbilities();
-        }
-        
-        // Copia gli eventi disponibili
-        availableActivations = new List<EventActivation>(eventActivations);
-        
-        DebugLog("[AbilitiesManager] Inizializzazione completata");
+        FindAllAbilities();
     }
     
+    if (applyConfigurationOnStart)
+    {
+        ConfigureAbilities();
+    }
+    
+    // Copia gli eventi disponibili
+    availableActivations = new List<EventActivation>(eventActivations);
+    
+    DebugLog("[AbilitiesManager] Inizializzazione completata (SENZA caricamento dati salvati)");
+}
+
     /// <summary>
     /// Trova automaticamente tutte le abilità nella scena
     /// </summary>
     private void FindAllAbilities()
-    {
-        AbilityBase[] foundAbilities = FindObjectsByType<AbilityBase>(FindObjectsSortMode.None);
+{
+    AbilityBase[] foundAbilities = FindObjectsByType<AbilityBase>(FindObjectsSortMode.None);
 
+    foreach (var ability in foundAbilities)
+    {
+        // Verifica se già presente nella lista
+        bool alreadyAdded = abilities.Exists(a => a.ability == ability);
         
-        foreach (var ability in foundAbilities)
+        if (!alreadyAdded)
         {
-            // Verifica se già presente nella lista
-            bool alreadyAdded = abilities.Exists(a => a.ability == ability);
-            
-            if (!alreadyAdded)
+            // Aggiungi SOLO se non c'è già una configurazione manuale
+            abilities.Add(new AbilityReference
             {
-                abilities.Add(new AbilityReference
-                {
-                    ability = ability,
-                    abilityName = ability.gameObject.name,
-                    disabledInLevel = false,
-                    canBeActivatedByEvents = true
-                });
-            }
+                ability = ability,
+                abilityName = ability.gameObject.name,
+                disabledInLevel = false, // Default: abilitata (modificabile dall'Inspector)
+                canBeActivatedByEvents = true
+            });
+            
+            DebugLog($"[AbilitiesManager] ✅ Nuova abilità aggiunta: '{ability.gameObject.name}' (modificabile dall'Inspector)");
         }
-        
-        DebugLog($"[AbilitiesManager] Trovate {foundAbilities.Length} abilità, {abilities.Count} configurate");
     }
+    
+    DebugLog($"[AbilitiesManager] Trovate {foundAbilities.Length} abilità, {abilities.Count} configurate");
+}
+
     
     /// <summary>
     /// Applica la configurazione delle abilità
     /// </summary>
-    public void ConfigureAbilities()
+public void ConfigureAbilities()
+{
+    if (abilitiesConfigured) return;
+    
+    DebugLog("[AbilitiesManager] Configurazione abilità (SOLO da Inspector)...");
+    
+    // Costruisci lookup dictionary
+    abilityLookup.Clear();
+    originalAbilityStates.Clear();
+    
+    foreach (var abilityRef in abilities)
     {
-        if (abilitiesConfigured) return;
+        if (abilityRef.ability == null) continue;
         
-        DebugLog("[AbilitiesManager] Configurazione abilità...");
-        
-        // Costruisci lookup dictionary
-        abilityLookup.Clear();
-        originalAbilityStates.Clear();
-        
-        foreach (var abilityRef in abilities)
-        {
-            if (abilityRef.ability == null) continue;
+        string key = !string.IsNullOrEmpty(abilityRef.abilityName) 
+            ? abilityRef.abilityName 
+            : abilityRef.ability.gameObject.name;
             
-            string key = !string.IsNullOrEmpty(abilityRef.abilityName) 
-                ? abilityRef.abilityName 
-                : abilityRef.ability.gameObject.name;
-                
-            abilityLookup[key] = abilityRef.ability;
-            
-            // Salva lo stato originale
-            originalAbilityStates[key] = abilityRef.ability.IsEnabled;
-            
-            // Applica configurazione livello
-            abilityRef.ability.SetLevelAllowed(!abilityRef.disabledInLevel);
-            
-            DebugLog($"[AbilitiesManager] {key}: " +
-                     $"Level={(!abilityRef.disabledInLevel ? "✅" : "❌")}, " +
-                     $"Events={abilityRef.canBeActivatedByEvents}");
-        }
+        abilityLookup[key] = abilityRef.ability;
         
-        abilitiesConfigured = true;
+        // Salva lo stato originale
+        originalAbilityStates[key] = abilityRef.ability.IsEnabled;
         
-        // Salva automaticamente se abilitato
-        if (autoSaveConfiguration)
-        {
-            SaveAbilityConfiguration();
-        }
+        // Applica configurazione livello DIRETTAMENTE dall'Inspector
+        abilityRef.ability.SetLevelAllowed(!abilityRef.disabledInLevel);
         
-        OnAbilitiesConfigured?.Invoke();
-        
-        DebugLog($"[AbilitiesManager] Configurazione completata per {abilities.Count} abilità");
+        DebugLog($"[AbilitiesManager] {key}: " +
+                 $"DisabledInLevel={abilityRef.disabledInLevel}, " +
+                 $"SetLevelAllowed({!abilityRef.disabledInLevel}), " +
+                 $"FinalEnabled={abilityRef.ability.IsEnabled}, " +
+                 $"Events={abilityRef.canBeActivatedByEvents}");
     }
+    
+    abilitiesConfigured = true;
+    
+    // ❌ RIMOSSO: Auto-save
+    
+    OnAbilitiesConfigured?.Invoke();
+    
+    DebugLog($"[AbilitiesManager] Configurazione completata per {abilities.Count} abilità (SENZA salvataggio)");
+}
+
     
     /// <summary>
     /// Attiva un'abilità tramite evento
@@ -366,6 +367,22 @@ public class AbilitiesManager : MonoBehaviour
         return true;
     }
     
+/// <summary>
+/// Abilita un'abilità dall'inspector (la rende utilizzabile nel livello)
+/// </summary>
+public void EnableAbilityFromInspector(string abilityName)
+{
+    EnableAbility(abilityName);
+}
+
+/// <summary>
+/// Disabilita un'abilità dall'inspector (la rende non utilizzabile nel livello)
+/// </summary>
+public void DisableAbilityFromInspector(string abilityName)
+{
+    DisableAbility(abilityName);
+}
+    
     /// <summary>
     /// Disabilita un'abilità specifica
     /// </summary>
@@ -376,18 +393,18 @@ public class AbilitiesManager : MonoBehaviour
             DebugLog($"[AbilitiesManager] ⚠️ Abilità '{abilityName}' non trovata per disabilitazione");
             return false;
         }
-        
+
         ability.SetLevelAllowed(false);
         DebugLog($"[AbilitiesManager] Abilità '{abilityName}' disabilitata");
         OnAbilityDisabled?.Invoke(abilityName);
-        
+
         // Aggiorna la configurazione
         AbilityReference abilityRef = abilities.Find(a => a.ability == ability);
         if (abilityRef != null)
         {
             abilityRef.disabledInLevel = true;
         }
-        
+
         return true;
     }
     
@@ -807,19 +824,5 @@ public class AbilitiesManager : MonoBehaviour
     }
     
     // ========== CLEANUP ==========
-    
-    private void OnDestroy()
-    {
-        if (autoSaveConfiguration)
-        {
-            SaveAbilityConfiguration();
-        }
-        
-        if (Instance == this)
-        {
-            Instance = null;
-        }
-        
-        DebugLog("[AbilitiesManager] Cleanup completato");
-    }
+
 }
