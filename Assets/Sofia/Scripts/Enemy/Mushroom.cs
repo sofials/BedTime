@@ -94,7 +94,6 @@ public class Mushroom : MonoBehaviour
     private bool hasPlayedWarningEver = false;
     
     // Warning session variables
-    private bool hasTriggeredWarningThisDetection = false;
     private float lastWarningTime = -999f;
     private float playerFirstSeenTime = 0f;
     private bool isCurrentlyInWarningCooldown = false;
@@ -157,7 +156,6 @@ public class Mushroom : MonoBehaviour
 
     private void ForceResetAllWarningVariables()
     {
-        hasTriggeredWarningThisDetection = false;
         lastWarningTime = -999f;
         playerFirstSeenTime = 0f;
         isCurrentlyInWarningCooldown = false;
@@ -517,8 +515,6 @@ public class Mushroom : MonoBehaviour
 
         // 🔍 CRITICAL DEBUG: Log the actual trigger
         WarningDebugLog($"🔊 WARNING TRIGGERED! 🔊 Distance: {finalDistance:F2}m, Time: {Time.time:F2}s");
-        
-        hasTriggeredWarningThisDetection = true;
         lastWarningTime = Time.time;
         isCurrentlyInWarningCooldown = true;
 
