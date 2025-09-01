@@ -22,6 +22,10 @@ public class Npc_village : MonoBehaviour
 
     [Header("Spline per posizionamento")]
     [SerializeField] private SplineContainer splineContainer;
+    [Header("Disattivazione al Rallentamento")]
+[SerializeField] private GameObject[] oggettiDaDisattivareAlRallentamento = new GameObject[2];
+[SerializeField] private bool disattivaOggettiAlRallentamento = true;
+
 
     [Header("Slowdown Effect")]
     [SerializeField] private CFXR_EffectController slowdownEffect;
@@ -122,74 +126,121 @@ public class Npc_village : MonoBehaviour
             transform.rotation = Quaternion.LookRotation(direction);
         }
     }
-  /// <summary>
-/// Nasconde definitivamente l'NPC e lo sostituisce con l'FBX specificato nella posizione corrente dell'NPC
-/// </summary>
-public void SostituisciConFBX()
+    private void DisattivaOggettiAlRallentamento()
 {
-    if (isSostituito)
+    if (!disattivaOggettiAlRallentamento || oggettiDaDisattivareAlRallentamento == null || oggettiDaDisattivareAlRallentamento.Length == 0)
     {
-        if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Già sostituito con FBX, ignoro chiamata.");
+        if (debugMode && !disattivaOggettiAlRallentamento) 
+            Debug.Log($"NPC {gameObject.name}: Disattivazione oggetti al rallentamento è disabilitata.");
         return;
     }
 
-    if (fbxSostituto == null)
+    int oggettiDisattivati = 0;
+
+    for (int i = 0; i < oggettiDaDisattivareAlRallentamento.Length; i++)
     {
-        if (debugMode) Debug.LogError($"NPC {gameObject.name}: Nessun FBX sostituto assegnato!");
-        return;
+        if (oggettiDaDisattivareAlRallentamento[i] != null)
+        {
+            if (oggettiDaDisattivareAlRallentamento[i].activeInHierarchy)
+            {
+                oggettiDaDisattivareAlRallentamento[i].SetActive(false);
+                oggettiDisattivati++;
+
+                if (debugMode)
+                {
+                    Debug.Log($"NPC {gameObject.name}: Oggetto rallentamento #{i} '{oggettiDaDisattivareAlRallentamento[i].name}' disattivato!");
+                }
+            }
+            else
+            {
+                if (debugMode)
+                {
+                    Debug.Log($"NPC {gameObject.name}: Oggetto rallentamento #{i} '{oggettiDaDisattivareAlRallentamento[i].name}' era già disattivato.");
+                }
+            }
+        }
+        else
+        {
+            if (debugMode)
+            {
+                Debug.LogWarning($"NPC {gameObject.name}: Oggetto rallentamento #{i} nell'array è NULL!");
+            }
+        }
     }
 
-    // Calcola posizione e rotazione per l'FBX
-    Vector3 posizioneFBX = transform.position + offsetPosizioneFBX;
-    Quaternion rotazioneFBX;
-
-    if (mantieniRotazioneNPC)
+    if (debugMode)
     {
-        rotazioneFBX = transform.rotation * Quaternion.Euler(rotazioneAggiuntiva);
+        Debug.Log($"NPC {gameObject.name}: Disattivazione oggetti al rallentamento completata. {oggettiDisattivati}/{oggettiDaDisattivareAlRallentamento.Length} oggetti disattivati.");
     }
-    else
-    {
-        rotazioneFBX = Quaternion.Euler(rotazioneAggiuntiva);
-    }
-
-    // Istanzia l'FBX nella posizione corrente dell'NPC
-    GameObject fbxIstanziato = Instantiate(fbxSostituto, posizioneFBX, rotazioneFBX);
-    fbxIstanziato.name = $"{fbxSostituto.name}_Sostituto_{gameObject.name}";
-
-    // Ferma tutti i comportamenti in corso
-    if (comportamentoRoutine != null)
-    {
-        StopCoroutine(comportamentoRoutine);
-        comportamentoRoutine = null;
-    }
-
-    // Ferma l'agente di navigazione
-    if (agent != null)
-    {
-        agent.ResetPath();
-        agent.isStopped = true;
-        agent.velocity = Vector3.zero;
-    }
-
-    // Rimuovi l'NPC dalla lista degli NPC fermati se presente
-    if (stoppedNPCs.Contains(this))
-    {
-        stoppedNPCs.Remove(this);
-    }
-
-    // Disiscriviti dagli eventi
-    DialogueSystem.OnAnyLastLineFinished -= OnDialogueLastLineFinished;
-
-    isSostituito = true;
-
-    if (debugMode) 
-    {
-        Debug.Log($"NPC {gameObject.name}: Sostituito definitivamente con FBX '{fbxIstanziato.name}' alla posizione {posizioneFBX}");
-    }
-
-    // Distruggi l'NPC
-    Destroy(gameObject);
 }
+  /// <summary>
+    /// Nasconde definitivamente l'NPC e lo sostituisce con l'FBX specificato nella posizione corrente dell'NPC
+    /// </summary>
+    public void SostituisciConFBX()
+    {
+        if (isSostituito)
+        {
+            if (debugMode) Debug.LogWarning($"NPC {gameObject.name}: Già sostituito con FBX, ignoro chiamata.");
+            return;
+        }
+
+        if (fbxSostituto == null)
+        {
+            if (debugMode) Debug.LogError($"NPC {gameObject.name}: Nessun FBX sostituto assegnato!");
+            return;
+        }
+
+        // Calcola posizione e rotazione per l'FBX
+        Vector3 posizioneFBX = transform.position + offsetPosizioneFBX;
+        Quaternion rotazioneFBX;
+
+        if (mantieniRotazioneNPC)
+        {
+            rotazioneFBX = transform.rotation * Quaternion.Euler(rotazioneAggiuntiva);
+        }
+        else
+        {
+            rotazioneFBX = Quaternion.Euler(rotazioneAggiuntiva);
+        }
+
+        // Istanzia l'FBX nella posizione corrente dell'NPC
+        GameObject fbxIstanziato = Instantiate(fbxSostituto, posizioneFBX, rotazioneFBX);
+        fbxIstanziato.name = $"{fbxSostituto.name}_Sostituto_{gameObject.name}";
+
+        // Ferma tutti i comportamenti in corso
+        if (comportamentoRoutine != null)
+        {
+            StopCoroutine(comportamentoRoutine);
+            comportamentoRoutine = null;
+        }
+
+        // Ferma l'agente di navigazione
+        if (agent != null)
+        {
+            agent.ResetPath();
+            agent.isStopped = true;
+            agent.velocity = Vector3.zero;
+        }
+
+        // Rimuovi l'NPC dalla lista degli NPC fermati se presente
+        if (stoppedNPCs.Contains(this))
+        {
+            stoppedNPCs.Remove(this);
+        }
+
+        // Disiscriviti dagli eventi
+        DialogueSystem.OnAnyLastLineFinished -= OnDialogueLastLineFinished;
+
+        isSostituito = true;
+
+        if (debugMode)
+        {
+            Debug.Log($"NPC {gameObject.name}: Sostituito definitivamente con FBX '{fbxIstanziato.name}' alla posizione {posizioneFBX}");
+        }
+
+        // Distruggi l'NPC
+        Destroy(gameObject);
+    }
 /// <summary>
 /// Sostituisce definitivamente l'NPC con un FBX diverso da quello configurato nell'inspector
 /// </summary>
@@ -315,31 +366,35 @@ public GameObject FBXSostituto => fbxSostituto;
     }
 
     private void StopThisNPCOnly()
+{
+    if (isStopped)
     {
-        if (isStopped)
-        {
-            if (debugMode) Debug.Log($"NPC {gameObject.name} già fermo, ignoro.");
-            return;
-        }
-
-        isStopped = true;
-
-        agent.ResetPath();
-        agent.isStopped = true;
-        agent.velocity = Vector3.zero;
-
-        SetSlowAnimationImmediate();
-
-        if (debugMode) Debug.Log($"NPC {gameObject.name}: Fermato e animazione impostata");
-
-        if (!stoppedNPCs.Contains(this))
-        {
-            stoppedNPCs.Add(this);
-            if (debugMode) Debug.Log($"NPC {gameObject.name} aggiunto alla lista. Totale NPC fermati: {stoppedNPCs.Count}");
-        }
-
-        StartCoroutine(SprintEffectThenTeleport());
+        if (debugMode) Debug.Log($"NPC {gameObject.name} già fermo, ignoro.");
+        return;
     }
+
+    isStopped = true;
+
+    agent.ResetPath();
+    agent.isStopped = true;
+    agent.velocity = Vector3.zero;
+
+    SetSlowAnimationImmediate();
+
+    // AGGIUNGI QUESTA CHIAMATA QUI:
+    DisattivaOggettiAlRallentamento();
+
+    if (debugMode) Debug.Log($"NPC {gameObject.name}: Fermato e animazione impostata");
+
+    if (!stoppedNPCs.Contains(this))
+    {
+        stoppedNPCs.Add(this);
+        if (debugMode) Debug.Log($"NPC {gameObject.name} aggiunto alla lista. Totale NPC fermati: {stoppedNPCs.Count}");
+    }
+
+    StartCoroutine(SprintEffectThenTeleport());
+}
+
 
     private void SetSlowAnimationImmediate()
     {
@@ -1257,51 +1312,54 @@ public GameObject FBXSostituto => fbxSostituto;
     }
 
     public void RestartMovement()
+{
+    if (debugMode) Debug.Log($"NPC {gameObject.name}: Riavvio movimento");
+
+    isStopped = false;
+    dialogoFinito = false;
+    staControllandoDialogo = false;
+    inAttesaRegali = false;
+    regaliIniziali = 0;
+
+    // Riattiva gli oggetti quando l'NPC viene riavviato
+    if (disattivaOggettiAllaLiberazione)
     {
-        if (debugMode) Debug.Log($"NPC {gameObject.name}: Riavvio movimento");
-
-        isStopped = false;
-        dialogoFinito = false;
-        staControllandoDialogo = false;
-        inAttesaRegali = false;
-        regaliIniziali = 0;
-
-        // Riattiva gli oggetti quando l'NPC viene riavviato
-        if (disattivaOggettiAllaLiberazione)
-        {
-            RiattivaOggetti();
-        }
-
-        // NUOVA FUNZIONALITÀ: Disattiva gli oggetti del punto fisso al restart
-        if (attivaOggettiAlPuntoFisso)
-        {
-            RiattivaOggettiPuntoFissoAlRestart();
-        }
-
-        if (comportamentoRoutine != null)
-        {
-            StopCoroutine(comportamentoRoutine);
-            comportamentoRoutine = null;
-        }
-
-        agent.isStopped = false;
-        agent.speed = 15f;
-
-        if (stoppedNPCs.Contains(this))
-        {
-            stoppedNPCs.Remove(this);
-        }
-
-        animator.SetBool("IsRunning", true);
-        animator.SetBool("Slow", false);
-        animator.SetBool("isIdle", false);
-        animator.SetBool("isWalking", false);
-
-        if (waypoints.Length > 0)
-        {
-            GoToRandomWaypoint();
-        }
+        RiattivaOggetti();
     }
+
+    // NUOVA FUNZIONALITÀ: Disattiva anche gli oggetti del punto fisso al restart
+    if (attivaOggettiAlPuntoFisso)
+    {
+        RiattivaOggettiPuntoFissoAlRestart();
+    }
+
+    // NOTA: Non riattiviamo gli oggetti del rallentamento - rimangono disattivati per sempre
+    if (debugMode) Debug.Log($"NPC {gameObject.name}: Gli oggetti disattivati al rallentamento rimangono disattivati definitivamente");
+
+    if (comportamentoRoutine != null)
+    {
+        StopCoroutine(comportamentoRoutine);
+        comportamentoRoutine = null;
+    }
+
+    agent.isStopped = false;
+    agent.speed = 15f;
+
+    if (stoppedNPCs.Contains(this))
+    {
+        stoppedNPCs.Remove(this);
+    }
+
+    animator.SetBool("IsRunning", true);
+    animator.SetBool("Slow", false);
+    animator.SetBool("isIdle", false);
+    animator.SetBool("isWalking", false);
+
+    if (waypoints.Length > 0)
+    {
+        GoToRandomWaypoint();
+    }
+}
 
     [ContextMenu("Reset Slowdown System")]
     public static void ResetSlowdownSystem()

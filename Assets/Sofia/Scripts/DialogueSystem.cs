@@ -4,6 +4,45 @@ using UnityEngine;
 using UnityEngine.Events;
 using TMPro;
 using System;
+[System.Serializable]
+public class LineEvent
+{
+    [Header("Configurazione Evento")]
+    [Tooltip("Indice della linea (0-based) su cui attivare questo evento")]
+    public int lineIndex;
+
+    [Tooltip("Nome descrittivo dell'evento (opzionale, per debug)")]
+    public string eventName = "";
+
+    [Header("Timing")]
+    [Tooltip("Quando attivare l'evento")]
+    public LineEventTiming timing = LineEventTiming.OnLineStart;
+
+    [Tooltip("Ritardo prima di attivare l'evento (secondi)")]
+    [Range(0f, 10f)]
+    public float delay = 0f;
+
+    [Header("Eventi Unity")]
+    [Tooltip("Evento Unity da invocare")]
+    public UnityEvent onLineEvent;
+
+    [Header("Debug")]
+    [Tooltip("Messaggio da loggare quando l'evento viene attivato")]
+    public string debugMessage = "";
+
+    [Tooltip("Se true, logga automaticamente l'attivazione dell'evento")]
+    public bool enableDebugLogging = true;
+}
+public enum LineEventTiming
+{
+    OnDialogueStart,
+    OnLineStart,        // Quando la linea inizia a essere mostrata
+    OnLineAudioStart,   // Quando inizia l'audio della linea (se presente)
+    OnLineAudioEnd,     // Quando finisce l'audio della linea (se presente)
+    OnLineEnd,          // Quando la linea finisce (prima di passare alla successiva)
+    OnLineSkip,
+    OnDialogueEnd         // Quando la linea viene skippata con Space
+}
 
 [System.Serializable]
 public class DialogueLine
@@ -11,6 +50,12 @@ public class DialogueLine
     [TextArea(2, 5)]
     public string text;
     public AudioClip audioClip; // Audio opzionale per questa linea
+     [Header("🆕 Eventi Linea")]
+    [Tooltip("Se true, questa linea può avere eventi specifici")]
+    public bool hasLineEvents = false;
+    
+    [Tooltip("Lista degli eventi da attivare per questa linea")]
+    public LineEvent[] lineEvents;
 }
 
 [System.Serializable]
@@ -48,9 +93,29 @@ public class DissolveObject
 
 public class DialogueSystem : MonoBehaviour
 {
+    
     [Header("UI Components")]
     public GameObject dialogueUI; // L'elemento UI che contiene il dialogo
     public TextMeshProUGUI dialogueText; // Il TextMeshPro che mostrerà il testo
+    [Header("🆕 Sistema Eventi per Linee Specifiche")]
+    [Tooltip("Se true, abilita il sistema di eventi per linee specifiche")]
+    [SerializeField] private bool enableLineEvents = false;
+      [Tooltip("Eventi globali che si basano sull'indice della linea (alternativa agli eventi nelle DialogueLine)")]
+    [SerializeField] private LineEvent[] globalLineEvents;
+     [Tooltip("Se true, gli eventi nelle singole DialogueLine hanno priorità su quelli globali")]
+    [SerializeField] private bool prioritizeDialogueLineEvents = true;
+    [Header("🆕 Pre-Dialogue Events")]
+[Tooltip("Se true, abilita eventi che si attivano prima dell'inizio del dialogo")]
+[SerializeField] private bool enablePreDialogueEvents = false;
+[Tooltip("Eventi da attivare prima che inizi il dialogo")]
+[SerializeField] private LineEvent[] preDialogueEvents;
+[Tooltip("Ritardo massimo da aspettare per eventi pre-dialogo prima di mostrare la prima linea")]
+    [Range(0f, 10f)]
+[Header("🆕 Post-Dialogue Events")]
+[SerializeField] private bool enablePostDialogueEvents = false;
+[Tooltip("Eventi da attivare dopo la fine del dialogo")]
+[SerializeField] private LineEvent[] postDialogueEvents;
+[SerializeField] private float maxPreDialogueDelay = 3f;
     
     [Header("Dialogue Settings")]
     public DialogueLine[] dialogueLines; // Array di linee con testo e audio opzionale
@@ -58,6 +123,14 @@ public class DialogueSystem : MonoBehaviour
     public bool autoCloseOnExit = false; // Se true, chiude il dialogo quando esci dalla zona
     public bool autoFinishLastLine = true; // Se true, l'ultima battuta finisce automaticamente
     public float autoFinishDelay = 2f; // Tempo di attesa per ultima battuta senza audio
+    // NUOVI GETTERS/SETTERS
+public bool IsPreDialogueEventsEnabled() => enablePreDialogueEvents;
+public bool IsPostDialogueEventsEnabled() => enablePostDialogueEvents;
+public LineEvent[] GetPreDialogueEvents() => preDialogueEvents;
+public LineEvent[] GetPostDialogueEvents() => postDialogueEvents;
+public float GetMaxPreDialogueDelay() => maxPreDialogueDelay;
+public bool IsWaitingForPreEvents() => isWaitingForPreEvents;
+public bool ArePreDialogueEventsCompleted() => preDialogueEventsCompleted;
     
     [Header("🆕 Sottodialogo System")]
     [SerializeField] private bool enableSubDialogue = false;
@@ -101,7 +174,12 @@ public class DialogueSystem : MonoBehaviour
 
 // Variabili private per gestire l'audio dissolve
 private Coroutine dissolveAudioCoroutine;
-private bool dissolveAudioPlaying = false;
+    private bool dissolveAudioPlaying = false;
+private List<Coroutine> preDialogueEventCoroutines = new List<Coroutine>();
+private List<Coroutine> postDialogueEventCoroutines = new List<Coroutine>();
+private bool preDialogueEventsCompleted = false;
+private bool isWaitingForPreEvents = false;
+
     
     [Header("🆕 Dissolve Initialization")]
     [Tooltip("Se true, forza tutti i materiali dissolve a valore 1 all'avvio (oggetti completamente visibili)")]
@@ -155,6 +233,9 @@ private static DialogueSystem currentActiveDialogue = null;
     public UnityEvent OnSubDialogueTriggered; // 🆕 Quando viene attivato un sottodialogo
     public UnityEvent OnDissolveStarted; // 🆕 Quando inizia l'effetto dissolve
     public UnityEvent OnDissolveCompleted; // 🆕 Quando finisce l'effetto dissolve
+      public UnityEvent<int> OnSpecificLineReached; // Passa l'indice della linea
+    public UnityEvent<int> OnSpecificLineFinished; // Passa l'indice della linea
+    
     
     // Eventi statici per comunicazione globale con gli NPC
     public static event Action<DialogueSystem> OnAnyDialogueStarted;
@@ -164,11 +245,16 @@ private static DialogueSystem currentActiveDialogue = null;
     public static event Action<DialogueSystem> OnAnySubDialogueTriggered; // 🆕
     public static event Action<DialogueSystem> OnAnyDissolveStarted; // 🆕
     public static event Action<DialogueSystem> OnAnyDissolveCompleted; // 🆕
+     public static event Action<DialogueSystem, int, LineEventTiming> OnAnyLineEvent;
+    public static event Action<DialogueSystem, int, string> OnAnyLineEventWithName;
     
     private int currentLineIndex = 0;
     private bool isDialogueActive = false;
     private bool isPlayingAudio = false;
     private bool wasTriggeredByCollectiblesManager = false;
+      private List<Coroutine> activeLineEventCoroutines = new List<Coroutine>();
+    private Dictionary<int, bool> lineEventsTriggered = new Dictionary<int, bool>();
+    
 private CollectiblesManager connectedCollectiblesManager = null;
     private bool hasBeenTriggered = false; // Per evitare ripetizioni
     private bool isOnLastLine = false; // Flag per tracciare se siamo sull'ultima battuta
@@ -184,7 +270,7 @@ public CollectiblesManager GetTargetCollectiblesManager() => targetCollectiblesM
 public CollectiblesManager GetConnectedCollectiblesManager() => connectedCollectiblesManager;
 public bool WasTriggeredByCollectiblesManager() => wasTriggeredByCollectiblesManager;
     
-    void Start()
+  void Start()
     {
         // Assicurati che l'UI sia nascosta all'inizio
         if (dialogueUI != null)
@@ -199,13 +285,14 @@ public bool WasTriggeredByCollectiblesManager() => wasTriggeredByCollectiblesMan
         
         // Valida il setup degli oggetti
         ValidateObjectActivationSetup();
-        ValidateSubDialogueSetup(); // 🆕
-        ValidateDissolveSetup(); // 🆕
+        ValidateSubDialogueSetup(); 
+        ValidateDissolveSetup(); 
         ValidateDissolveAudioSetup();
         ValidateMovementControlSetup();
         ValidateCollectiblesManagerIntegration();
+        ValidateLineEventsSetup(); // 🆕 NUOVO
         
-        // 🆕 INIZIALIZZA I VALORI DISSOLVE ALL'AVVIO
+        // Inizializza i valori dissolve all'avvio
         if (enableDissolveEffect && forceInitializeDissolveValues)
         {
             InitializeDissolveValues();
@@ -605,7 +692,7 @@ public bool IsDissolveAudioPlaying() => dissolveAudioPlaying;
         Debug.Log($"[DialogueSystem] 🎉 Inizializzazione dissolve completata: {totalMaterialsInitialized}/{totalMaterialsProcessed} materiali processati");
     }
     
-    void Update()
+     void Update()
     {
         // Gestione input durante il dialogo
         if (isDialogueActive)
@@ -614,6 +701,12 @@ public bool IsDissolveAudioPlaying() => dissolveAudioPlaying;
             if (Input.GetKeyDown(nextLineKey))
             {
                 Debug.Log($"[DialogueSystem] Space premuto. Ultima linea: {isOnLastLine}");
+                
+                // 🆕 NUOVO: Triggera eventi OnLineSkip se stiamo skippando
+                if (enableLineEvents)
+                {
+                    TriggerLineEvents(currentLineIndex, LineEventTiming.OnLineSkip);
+                }
                 
                 // Se siamo sull'ultima linea, notifica la fine PRIMA di NextLine()
                 if (isOnLastLine)
@@ -638,7 +731,6 @@ public bool IsDissolveAudioPlaying() => dissolveAudioPlaying;
                 // Passa alla linea successiva (che chiuderà il dialogo se era l'ultima)
                 NextLine();
             }
-            
         }
     }
     void OnApplicationPause(bool pauseStatus)
@@ -694,16 +786,14 @@ void ResetDissolveToInitialState()
         }
     }
     
-   public void StartDialogue()
+public void StartDialogue()
 {
-     if (preventOverlappingDialogues && !CanStartDialogue())
+    if (preventOverlappingDialogues && !CanStartDialogue())
     {
         Debug.LogWarning($"[DialogueSystem] ⚠️ Tentativo di avviare '{name}' ma '{currentActiveDialogue?.name}' è già attivo!");
         return;
     }
-     currentActiveDialogue = this;
-    
-    
+    currentActiveDialogue = this;
     
     Debug.Log($"[DEBUG] StartDialogue chiamato. DialogueLines.Length = {dialogueLines.Length}");
     
@@ -713,10 +803,6 @@ void ResetDissolveToInitialState()
         return;
     }
     
-    Debug.Log($"[DEBUG] Prima linea: '{dialogueLines[0].text}'");
-    Debug.Log($"[DEBUG] DialogueUI assigned: {dialogueUI != null}");
-    Debug.Log($"[DEBUG] DialogueText assigned: {dialogueText != null}");
-    
     isDialogueActive = true;
     hasBeenTriggered = true;
     currentLineIndex = 0;
@@ -724,7 +810,9 @@ void ResetDissolveToInitialState()
     objectsAlreadyActivated = false;
     subDialogueTriggered = false;
     dissolveTriggered = false;
-    movementLockApplied = false; // 🎮 RESET STATO LOCK
+    movementLockApplied = false;
+    preDialogueEventsCompleted = false;
+    isWaitingForPreEvents = false;
     
     // Attiva l'UI del dialogo
     if (dialogueUI != null)
@@ -746,14 +834,181 @@ void ResetDissolveToInitialState()
         }
     }
     
-    // Mostra la prima battuta
-    DisplayLine();
-    
     // Notifica inizio dialogo
     OnDialogueStarted?.Invoke();
     OnAnyDialogueStarted?.Invoke(this);
+    
+    // 🆕 NUOVO: Triggera eventi pre-dialogo PRIMA di mostrare la prima linea
+    if (enablePreDialogueEvents && preDialogueEvents != null && preDialogueEvents.Length > 0)
+    {
+        Debug.Log("[DialogueSystem] 🎬 Triggerando eventi pre-dialogo...");
+        isWaitingForPreEvents = true;
+        TriggerPreDialogueEvents();
+        
+        // Avvia timeout per evitare blocchi infiniti
+        StartCoroutine(PreDialogueTimeout());
+    }
+    else
+    {
+        // Nessun evento pre-dialogo, mostra immediatamente la prima linea
+        DisplayLine();
+    }
+}
+    // NUOVO METODO: Triggera eventi pre-dialogo
+    void TriggerPreDialogueEvents()
+{
+    Debug.Log($"[DialogueSystem] 🎯 Triggerando {preDialogueEvents.Length} eventi pre-dialogo");
+
+    // Execute all pre-dialogue events immediately
+    foreach (LineEvent preEvent in preDialogueEvents)
+    {
+        if (preEvent != null)
+        {
+            ExecutePreDialogueEventImmediate(preEvent);
+        }
+    }
+
+    // Wait for the specified delay before starting the actual dialogue
+    float delayTime = maxPreDialogueDelay; // Use your existing maxPreDialogueDelay field
+    Debug.Log($"[DialogueSystem] ⏳ Aspettando {delayTime}s prima di iniziare il dialogo...");
+    
+    StartCoroutine(WaitBeforeStartingDialogue(delayTime));
 }
 
+// Simple coroutine that waits and then starts the dialogue
+IEnumerator WaitBeforeStartingDialogue(float delay)
+{
+    yield return new WaitForSeconds(delay);
+    
+    Debug.Log("[DialogueSystem] ✅ Pre-dialogo delay completato - INIZIANDO DIALOGO!");
+    preDialogueEventsCompleted = true;
+    isWaitingForPreEvents = false;
+    
+    // Now show the first line
+    DisplayLine();
+}
+
+void ExecutePreDialogueEventImmediate(LineEvent preEvent)
+{
+    // Debug logging
+    if (preEvent.enableDebugLogging)
+    {
+        string eventNameStr = !string.IsNullOrEmpty(preEvent.eventName) ? $"'{preEvent.eventName}'" : "[Unnamed]";
+        Debug.Log($"[DialogueSystem] 🎯 ESEGUENDO evento pre-dialogo {eventNameStr}");
+        
+        if (!string.IsNullOrEmpty(preEvent.debugMessage))
+        {
+            Debug.Log($"[DialogueSystem] 📢 {preEvent.debugMessage}");
+        }
+    }
+    
+    // Execute the Unity event immediately
+    try
+    {
+        preEvent.onLineEvent?.Invoke();
+        
+        // Notify static events
+        OnAnyLineEvent?.Invoke(this, -1, LineEventTiming.OnDialogueStart);
+        
+        if (!string.IsNullOrEmpty(preEvent.eventName))
+        {
+            OnAnyLineEventWithName?.Invoke(this, -1, preEvent.eventName);
+        }
+        
+        Debug.Log($"[DialogueSystem] ✅ Evento pre-dialogo eseguito immediatamente!");
+    }
+    catch (System.Exception e)
+    {
+        Debug.LogError($"[DialogueSystem] ❌ Errore nell'eseguire evento pre-dialogo: {e.Message}");
+    }
+}
+    // NUOVO METODO: Timeout per eventi pre-dialogo
+    IEnumerator PreDialogueTimeout()
+    {
+        yield return new WaitForSeconds(maxPreDialogueDelay);
+
+        if (isWaitingForPreEvents && !preDialogueEventsCompleted)
+        {
+            Debug.LogWarning($"[DialogueSystem] ⚠️ Timeout eventi pre-dialogo ({maxPreDialogueDelay}s) - avvio forzato prima linea!");
+
+            // Ferma tutte le coroutine pre-dialogo in attesa
+            StopAllPreDialogueEventCoroutines();
+
+            preDialogueEventsCompleted = true;
+            isWaitingForPreEvents = false;
+
+            // Avvia comunque la prima linea
+            DisplayLine();
+        }
+    }
+    void TriggerPostDialogueEvents()
+    {
+        if (!enablePostDialogueEvents || postDialogueEvents == null || postDialogueEvents.Length == 0)
+            return;
+
+        Debug.Log($"[DialogueSystem] 🎯 Triggerando {postDialogueEvents.Length} eventi post-dialogo");
+
+        foreach (LineEvent postEvent in postDialogueEvents)
+        {
+            if (postEvent != null)
+            {
+                ExecutePostDialogueEvent(postEvent);
+            }
+        }
+    }
+    // NUOVO METODO: Esegue evento post-dialogo
+    void ExecutePostDialogueEvent(LineEvent postEvent)
+    {
+        if (postEvent.delay > 0f)
+        {
+            Coroutine eventCoroutine = StartCoroutine(ExecutePostDialogueEventWithDelay(postEvent));
+            postDialogueEventCoroutines.Add(eventCoroutine);
+        }
+        else
+        {
+            ExecutePostDialogueEventImmediate(postEvent);
+        }
+    }
+    // NUOVO METODO: Esegue evento post-dialogo con delay
+    IEnumerator ExecutePostDialogueEventWithDelay(LineEvent postEvent)
+    {
+        Debug.Log($"[DialogueSystem] ⏳ Aspettando {postEvent.delay}s per evento post-dialogo '{postEvent.eventName}'");
+        yield return new WaitForSeconds(postEvent.delay);
+
+        ExecutePostDialogueEventImmediate(postEvent);
+        postDialogueEventCoroutines.RemoveAll(c => c == null);
+    }
+// NUOVO METODO: Esegue immediatamente evento post-dialogo
+void ExecutePostDialogueEventImmediate(LineEvent postEvent)
+{
+    if (postEvent.enableDebugLogging)
+    {
+        string eventNameStr = !string.IsNullOrEmpty(postEvent.eventName) ? $"'{postEvent.eventName}'" : "[Unnamed]";
+        Debug.Log($"[DialogueSystem] 🎯 ESEGUENDO evento post-dialogo {eventNameStr}");
+        
+        if (!string.IsNullOrEmpty(postEvent.debugMessage))
+        {
+            Debug.Log($"[DialogueSystem] 📢 {postEvent.debugMessage}");
+        }
+    }
+    
+    try
+    {
+        postEvent.onLineEvent?.Invoke();
+        OnAnyLineEvent?.Invoke(this, -2, LineEventTiming.OnDialogueEnd); // -2 per eventi post-dialogo
+        
+        if (!string.IsNullOrEmpty(postEvent.eventName))
+        {
+            OnAnyLineEventWithName?.Invoke(this, -2, postEvent.eventName);
+        }
+        
+        Debug.Log($"[DialogueSystem] ✅ Evento post-dialogo eseguito con successo!");
+    }
+    catch (System.Exception e)
+    {
+        Debug.LogError($"[DialogueSystem] ❌ Errore nell'eseguire evento post-dialogo: {e.Message}");
+    }
+}
     void DisplayLine()
     {
         Debug.Log($"[DEBUG] DisplayLine chiamato. CurrentLineIndex = {currentLineIndex}");
@@ -773,6 +1028,15 @@ void ResetDissolveToInitialState()
             
             Debug.Log($"[DEBUG] Testo da mostrare: '{lineToShow}' (Ultima linea: {isOnLastLine})");
             
+            // 🆕 NUOVO: Triggera eventi OnSpecificLineReached
+            OnSpecificLineReached?.Invoke(currentLineIndex);
+            
+            // 🆕 NUOVO: Triggera eventi OnLineStart per la linea corrente
+            if (enableLineEvents)
+            {
+                TriggerLineEvents(currentLineIndex, LineEventTiming.OnLineStart);
+            }
+            
             // Mostra il testo immediatamente
             if (dialogueText != null)
             {
@@ -788,6 +1052,12 @@ void ResetDissolveToInitialState()
             if (currentLine.audioClip != null && audioSource != null)
             {
                 PlayAudioForLine(currentLine.audioClip);
+                
+                // 🆕 NUOVO: Triggera eventi OnLineAudioStart
+                if (enableLineEvents)
+                {
+                    TriggerLineEvents(currentLineIndex, LineEventTiming.OnLineAudioStart);
+                }
             }
             else
             {
@@ -828,10 +1098,16 @@ void ResetDissolveToInitialState()
     /// <summary>
     /// Gestisce la fine dell'audio - anche per l'ultima battuta se autoFinishLastLine è attivo
     /// </summary>
-    IEnumerator WaitForAudioToEnd(float audioDuration)
+ IEnumerator WaitForAudioToEnd(float audioDuration)
     {
         yield return new WaitForSeconds(audioDuration);
         isPlayingAudio = false;
+        
+        // 🆕 NUOVO: Triggera eventi OnLineAudioEnd
+        if (enableLineEvents)
+        {
+            TriggerLineEvents(currentLineIndex, LineEventTiming.OnLineAudioEnd);
+        }
         
         // Se siamo sull'ultima linea E autoFinishLastLine è attivo, chiudi automaticamente
         if (isDialogueActive && isOnLastLine && autoFinishLastLine)
@@ -923,8 +1199,15 @@ void ResetDissolveToInitialState()
         Debug.Log("[DialogueSystem] Audio skippato.");
     }
     
-    void NextLine()
+   void NextLine()
     {
+        // 🆕 NUOVO: Triggera eventi OnLineEnd per la linea corrente prima di cambiarla
+        if (enableLineEvents && isDialogueActive)
+        {
+            TriggerLineEvents(currentLineIndex, LineEventTiming.OnLineEnd);
+            OnSpecificLineFinished?.Invoke(currentLineIndex); // Triggera evento Unity
+        }
+        
         currentLineIndex++;
         
         if (currentLineIndex < dialogueLines.Length)
@@ -938,100 +1221,488 @@ void ResetDissolveToInitialState()
             EndDialogue();
         }
     }
-    
+
     public void EndDialogue()
-{
-     if (currentActiveDialogue == this)
     {
-        currentActiveDialogue = null;
-        Debug.Log("[DialogueSystem] 🔓 Dialogo rimosso dalla lista attivi");
-    }
-       Debug.Log("[DialogueSystem] Dialogo terminato.");
-    Debug.Log("[DialogueSystem] 🏁 EndDialogue chiamato");
-    
-    isDialogueActive = false;
-    currentLineIndex = 0;
-    isPlayingAudio = false;
-    isOnLastLine = false;
-    
-    // Ferma l'audio se in riproduzione
-    if (audioSource != null && audioSource.isPlaying)
-    {
-        audioSource.Stop();
-    }
-    
-    // 🎮 SBLOCCA MOVIMENTO DEL PLAYER
-    if (lockMovementDuringDialogue)
-    {
-        // Ferma la coroutine del lock se attiva
-        if (movementLockCoroutine != null)
+        if (currentActiveDialogue == this)
         {
-            StopCoroutine(movementLockCoroutine);
-            movementLockCoroutine = null;
+            currentActiveDialogue = null;
+            Debug.Log("[DialogueSystem] 🔓 Dialogo rimosso dalla lista attivi");
         }
         
-        UnlockPlayerMovement();
-    }
-    
-    // Nascondi l'UI del dialogo
-    if (dialogueUI != null)
-        dialogueUI.SetActive(false);
-    
-    // Ferma le coroutine se attive
-    if (audioCoroutine != null)
-    {
-        StopCoroutine(audioCoroutine);
-        audioCoroutine = null;
-    }
-    
-    if (autoFinishCoroutine != null)
-    {
-        StopCoroutine(autoFinishCoroutine);
-        autoFinishCoroutine = null;
-    }
-    
-    // ATTIVA OGGETTI SE ABILITATO
-    if (enableObjectActivation && !objectsAlreadyActivated)
-    {
-        if (activationDelay > 0)
+        Debug.Log("[DialogueSystem] Dialogo terminato.");
+        Debug.Log("[DialogueSystem] 🏁 EndDialogue chiamato");
+        
+        isDialogueActive = false;
+        currentLineIndex = 0;
+        isPlayingAudio = false;
+        isOnLastLine = false;
+        
+        // 🆕 NUOVO: Ferma tutte le coroutine eventi linea
+        if (enableLineEvents)
         {
-            StartCoroutine(ActivateObjectsWithDelay());
+            StopAllLineEventCoroutines();
         }
-        else
+        
+        // Ferma l'audio se in riproduzione
+        if (audioSource != null && audioSource.isPlaying)
         {
-            ActivateObjects();
+            audioSource.Stop();
         }
-    }
-    
-    // ATTIVA SOTTODIALOGO SE ABILITATO
-    if (enableSubDialogue && !subDialogueTriggered)
+        
+        // Sblocca movimento del player
+        if (lockMovementDuringDialogue)
+        {
+            if (movementLockCoroutine != null)
+            {
+                StopCoroutine(movementLockCoroutine);
+                movementLockCoroutine = null;
+            }
+            
+            UnlockPlayerMovement();
+        }
+        
+        // Nascondi l'UI del dialogo
+        if (dialogueUI != null)
+            dialogueUI.SetActive(false);
+        
+        // Ferma le coroutine se attive
+        if (audioCoroutine != null)
+        {
+            StopCoroutine(audioCoroutine);
+            audioCoroutine = null;
+        }
+        
+        if (autoFinishCoroutine != null)
+        {
+            StopCoroutine(autoFinishCoroutine);
+            autoFinishCoroutine = null;
+        }
+        
+        // ATTIVA OGGETTI SE ABILITATO
+        if (enableObjectActivation && !objectsAlreadyActivated)
+        {
+            if (activationDelay > 0)
+            {
+                StartCoroutine(ActivateObjectsWithDelay());
+            }
+            else
+            {
+                ActivateObjects();
+            }
+        }
+        
+        // ATTIVA SOTTODIALOGO SE ABILITATO
+        if (enableSubDialogue && !subDialogueTriggered)
+        {
+            if (subDialogueDelay > 0)
+            {
+                StartCoroutine(TriggerSubDialogueWithDelay());
+            }
+            else
+            {
+                TriggerSubDialogue();
+            }
+        }
+        
+        // AVVIA DISSOLVE SE ABILITATO E NON DEVE ESSERE INSIEME AL SOTTODIALOGO
+        if (enableDissolveEffect && !dissolveTriggered && !dissolveWithSubDialogue)
+        {
+            StartDissolveEffect();
+        }
+          if (enablePostDialogueEvents)
     {
-        if (subDialogueDelay > 0)
-        {
-            StartCoroutine(TriggerSubDialogueWithDelay());
-        }
-        else
-        {
-            TriggerSubDialogue();
-        }
+        TriggerPostDialogueEvents();
     }
-    
-    // AVVIA DISSOLVE SE ABILITATO E NON DEVE ESSERE INSIEME AL SOTTODIALOGO
-    if (enableDissolveEffect && !dissolveTriggered && !dissolveWithSubDialogue)
+        
+        // Notifica fine dialogo
+        OnDialogueEnded?.Invoke();
+        OnAnyDialogueEnded?.Invoke(this);
+        
+        Debug.Log("[DialogueSystem] Dialogo terminato.");
+    }
+    // NUOVO METODO: Ferma tutte le coroutine eventi pre-dialogo
+void StopAllPreDialogueEventCoroutines()
+{
+    foreach (Coroutine coroutine in preDialogueEventCoroutines)
     {
-        StartDissolveEffect();
+        if (coroutine != null)
+        {
+            StopCoroutine(coroutine);
+        }
     }
-    
-    // Notifica fine dialogo
-    OnDialogueEnded?.Invoke();
-    OnAnyDialogueEnded?.Invoke(this);
-    
-    Debug.Log("[DialogueSystem] Dialogo terminato.");
+    preDialogueEventCoroutines.Clear();
+    Debug.Log("[DialogueSystem] 🛑 Tutte le coroutine eventi pre-dialogo fermate");
 }
+    
+    // NUOVO METODO: Ferma tutte le coroutine eventi post-dialogo
+void StopAllPostDialogueEventCoroutines()
+{
+    foreach (Coroutine coroutine in postDialogueEventCoroutines)
+    {
+        if (coroutine != null)
+        {
+            StopCoroutine(coroutine);
+        }
+    }
+    postDialogueEventCoroutines.Clear();
+    Debug.Log("[DialogueSystem] 🛑 Tutte le coroutine eventi post-dialogo fermate");
+}
+  /// <summary>
+    /// 🆕 Triggera gli eventi per una linea specifica e un timing specifico
+    /// </summary>
+    void TriggerLineEvents(int lineIndex, LineEventTiming timing)
+    {
+        if (!enableLineEvents)
+            return;
+            
+        Debug.Log($"[DialogueSystem] 🎯 Triggerando eventi per linea {lineIndex}, timing: {timing}");
+        
+        // 1. Controlla eventi specifici nella DialogueLine corrente
+        if (prioritizeDialogueLineEvents && lineIndex < dialogueLines.Length)
+        {
+            DialogueLine currentLine = dialogueLines[lineIndex];
+            if (currentLine.hasLineEvents && currentLine.lineEvents != null)
+            {
+                foreach (LineEvent lineEvent in currentLine.lineEvents)
+                {
+                    if (lineEvent != null && lineEvent.timing == timing)
+                    {
+                        ExecuteLineEvent(lineEvent, lineIndex, "DialogueLine");
+                    }
+                }
+                
+                // Se abbiamo eventi nella DialogueLine e la priorità è attiva, skippa gli eventi globali
+                return;
+            }
+        }
+        
+        // 2. Controlla eventi globali per questa linea
+        if (globalLineEvents != null)
+        {
+            foreach (LineEvent lineEvent in globalLineEvents)
+            {
+                if (lineEvent != null && lineEvent.lineIndex == lineIndex && lineEvent.timing == timing)
+                {
+                    ExecuteLineEvent(lineEvent, lineIndex, "Global");
+                }
+            }
+        }
+        
+        // 3. Notifica eventi statici
+        OnAnyLineEvent?.Invoke(this, lineIndex, timing);
+    }
+     // ========== NUOVI GETTERS/SETTERS PER EVENTI LINEA ==========
+    
+    /// <summary>
+    /// 🆕 Abilita/disabilita il sistema eventi linea
+    /// </summary>
+    public void SetLineEventsEnabled(bool enabled)
+    {
+        enableLineEvents = enabled;
+        Debug.Log($"[DialogueSystem] Sistema Eventi Linea {(enabled ? "abilitato" : "disabilitato")}");
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta se dare priorità agli eventi nelle DialogueLine
+    /// </summary>
+    public void SetPrioritizeDialogueLineEvents(bool prioritize)
+    {
+        prioritizeDialogueLineEvents = prioritize;
+        Debug.Log($"[DialogueSystem] Priorità eventi DialogueLine: {prioritize}");
+    }
+    
+    /// <summary>
+    /// 🆕 Imposta gli eventi globali
+    /// </summary>
+    public void SetGlobalLineEvents(LineEvent[] events)
+    {
+        globalLineEvents = events;
+        Debug.Log($"[DialogueSystem] Eventi globali impostati: {(events != null ? events.Length : 0)}");
+    }
+    
+    /// <summary>
+    /// 🆕 Forza il trigger di un evento per una linea specifica (per test)
+    /// </summary>
+    public void ForceTriggerLineEvent(int lineIndex, LineEventTiming timing)
+    {
+        if (enableLineEvents)
+        {
+            TriggerLineEvents(lineIndex, timing);
+            Debug.Log($"[DialogueSystem] 🧪 Forzato trigger evento per linea {lineIndex}, timing {timing}");
+        }
+        else
+        {
+            Debug.LogWarning("[DialogueSystem] Eventi linea disabilitati - impossibile forzare trigger");
+        }
+    }
+    
+    /// <summary>
+    /// 🆕 Aggiunge un evento globale programmmaticamente
+    /// </summary>
+    public void AddGlobalLineEvent(int lineIndex, LineEventTiming timing, UnityAction action, string eventName = "", float delay = 0f)
+    {
+        // Crea nuovo LineEvent
+        LineEvent newEvent = new LineEvent();
+        newEvent.lineIndex = lineIndex;
+        newEvent.timing = timing;
+        newEvent.eventName = eventName;
+        newEvent.delay = delay;
+        newEvent.onLineEvent = new UnityEvent();
+        newEvent.onLineEvent.AddListener(action);
+        
+        // Aggiungi alla lista eventi globali
+        if (globalLineEvents == null)
+        {
+            globalLineEvents = new LineEvent[] { newEvent };
+        }
+        else
+        {
+            var list = new List<LineEvent>(globalLineEvents);
+            list.Add(newEvent);
+            globalLineEvents = list.ToArray();
+        }
+        
+        Debug.Log($"[DialogueSystem] ✅ Aggiunto evento globale per linea {lineIndex}: '{eventName}'");
+    }
+    // ========== GETTERS EVENTI LINEA ==========
+    
+    public bool IsLineEventsEnabled() => enableLineEvents;
+    public LineEvent[] GetGlobalLineEvents() => globalLineEvents;
+    public bool GetPrioritizeDialogueLineEvents() => prioritizeDialogueLineEvents;
+    public int GetActiveLineEventCoroutines() => activeLineEventCoroutines.Count;
+    
+    /// <summary>
+    /// 🆕 Ottiene tutti gli eventi configurati per una linea specifica
+    /// </summary>
+    public List<LineEvent> GetEventsForLine(int lineIndex)
+    {
+        List<LineEvent> events = new List<LineEvent>();
+        
+        // Eventi dalla DialogueLine
+        if (lineIndex < dialogueLines.Length)
+        {
+            DialogueLine line = dialogueLines[lineIndex];
+            if (line.hasLineEvents && line.lineEvents != null)
+            {
+                events.AddRange(line.lineEvents);
+            }
+        }
+        
+        // Eventi globali
+        if (globalLineEvents != null)
+        {
+            foreach (LineEvent globalEvent in globalLineEvents)
+            {
+                if (globalEvent != null && globalEvent.lineIndex == lineIndex)
+                {
+                    events.Add(globalEvent);
+                }
+            }
+        }
+        
+        return events;
+    }
+    
+    /// <summary>
+    /// 🆕 Esegue un singolo evento linea
+    /// </summary>
+    void ExecuteLineEvent(LineEvent lineEvent, int lineIndex, string source)
+    {
+        if (lineEvent.delay > 0f)
+        {
+            // Esegui con delay
+            Coroutine eventCoroutine = StartCoroutine(ExecuteLineEventWithDelay(lineEvent, lineIndex, source));
+            activeLineEventCoroutines.Add(eventCoroutine);
+        }
+        else
+        {
+            // Esegui immediatamente
+            ExecuteLineEventImmediate(lineEvent, lineIndex, source);
+        }
+    }
+    /// <summary>
+    /// 🆕 Esegue un evento linea con delay
+    /// </summary>
+    IEnumerator ExecuteLineEventWithDelay(LineEvent lineEvent, int lineIndex, string source)
+    {
+        Debug.Log($"[DialogueSystem] ⏳ Aspettando {lineEvent.delay}s per evento '{lineEvent.eventName}' (linea {lineIndex}, {source})");
+        yield return new WaitForSeconds(lineEvent.delay);
+        
+        ExecuteLineEventImmediate(lineEvent, lineIndex, source);
+        
+        // Rimuovi dalla lista delle coroutine attive
+        activeLineEventCoroutines.RemoveAll(c => c == null);
+    }
+     /// <summary>
+    /// 🆕 Esegue immediatamente un evento linea
+    /// </summary>
+    void ExecuteLineEventImmediate(LineEvent lineEvent, int lineIndex, string source)
+    {
+        // Debug logging
+        if (lineEvent.enableDebugLogging)
+        {
+            string eventNameStr = !string.IsNullOrEmpty(lineEvent.eventName) ? $"'{lineEvent.eventName}'" : "[Unnamed]";
+            Debug.Log($"[DialogueSystem] 🎯 ESEGUENDO evento {eventNameStr} per linea {lineIndex} ({source}, timing: {lineEvent.timing})");
+            
+            if (!string.IsNullOrEmpty(lineEvent.debugMessage))
+            {
+                Debug.Log($"[DialogueSystem] 📢 {lineEvent.debugMessage}");
+            }
+        }
+        
+        // Esegui l'evento Unity
+        try
+        {
+            lineEvent.onLineEvent?.Invoke();
+            
+            // Notifica evento statico con nome
+            if (!string.IsNullOrEmpty(lineEvent.eventName))
+            {
+                OnAnyLineEventWithName?.Invoke(this, lineIndex, lineEvent.eventName);
+            }
+            
+            Debug.Log($"[DialogueSystem] ✅ Evento per linea {lineIndex} eseguito con successo!");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[DialogueSystem] ❌ Errore nell'eseguire evento per linea {lineIndex}: {e.Message}");
+        }
+    }
+     
+    /// <summary>
+    /// 🆕 Ferma tutte le coroutine di eventi linea attive
+    /// </summary>
+    void StopAllLineEventCoroutines()
+    {
+        foreach (Coroutine coroutine in activeLineEventCoroutines)
+        {
+            if (coroutine != null)
+            {
+                StopCoroutine(coroutine);
+            }
+        }
+        activeLineEventCoroutines.Clear();
+        Debug.Log("[DialogueSystem] 🛑 Tutte le coroutine eventi linea fermate");
+    }
+    /// <summary>
+    /// 🆕 Valida il setup degli eventi linea all'avvio
+    /// </summary>
+    
+/// <summary>
+/// 🆕 Valida il setup degli eventi linea all'avvio
+/// </summary>
+void ValidateLineEventsSetup()
+{
+    if (!enableLineEvents && !enablePreDialogueEvents && !enablePostDialogueEvents)
+    {
+        Debug.Log("[DialogueSystem] Tutti i sistemi eventi disabilitati");
+        return;
+    }
 
+    int totalEvents = 0;
+    int dialogueLineEvents = 0;
+    int globalEvents = 0;
+    int preDialogueEventsCount = 0;  // 🔧 FIX: Dichiarazione locale
+    int postDialogueEventsCount = 0; // 🔧 FIX: Dichiarazione locale
+
+    // Controlla eventi nelle DialogueLine
+    for (int i = 0; i < dialogueLines.Length; i++)
+    {
+        DialogueLine line = dialogueLines[i];
+        if (line.hasLineEvents && line.lineEvents != null)
+        {
+            dialogueLineEvents += line.lineEvents.Length;
+            totalEvents += line.lineEvents.Length;
+
+            foreach (LineEvent lineEvent in line.lineEvents)
+            {
+                if (lineEvent != null)
+                {
+                    Debug.Log($"[DialogueSystem] 📋 Linea {i}: evento '{lineEvent.eventName}' ({lineEvent.timing})");
+                }
+            }
+        }
+    }
+
+    // Controlla eventi globali
+    if (globalLineEvents != null)
+    {
+        globalEvents = globalLineEvents.Length;
+        totalEvents += globalEvents;
+
+        foreach (LineEvent lineEvent in globalLineEvents)
+        {
+            if (lineEvent != null)
+            {
+                Debug.Log($"[DialogueSystem] 🌍 Globale per linea {lineEvent.lineIndex}: '{lineEvent.eventName}' ({lineEvent.timing})");
+            }
+        }
+    }
+
+    Debug.Log($"[DialogueSystem] ✅ Sistema Eventi Linea setup:\n" +
+             $"- Eventi totali: {totalEvents}\n" +
+             $"- Eventi in DialogueLine: {dialogueLineEvents}\n" +
+             $"- Eventi globali: {globalEvents}\n" +
+             $"- Priorità DialogueLine: {prioritizeDialogueLineEvents}");
+
+    if (totalEvents == 0)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Sistema Eventi Linea abilitato ma nessun evento configurato!");
+    }
+    
+    // Valida eventi pre-dialogo
+    if (enablePreDialogueEvents)
+    {
+        if (preDialogueEvents != null && preDialogueEvents.Length > 0)
+        {
+            preDialogueEventsCount = preDialogueEvents.Length;
+            totalEvents += preDialogueEventsCount;
+            
+            foreach (LineEvent preEvent in preDialogueEvents)
+            {
+                if (preEvent != null)
+                {
+                    Debug.Log($"[DialogueSystem] 🎬 Pre-Dialogo: '{preEvent.eventName}' (delay: {preEvent.delay}s)");
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Eventi pre-dialogo abilitati ma nessun evento configurato!");
+        }
+    }
+    
+    // Valida eventi post-dialogo
+    if (enablePostDialogueEvents)
+    {
+        if (postDialogueEvents != null && postDialogueEvents.Length > 0)
+        {
+            postDialogueEventsCount = postDialogueEvents.Length;
+            totalEvents += postDialogueEventsCount;
+            
+            foreach (LineEvent postEvent in postDialogueEvents)
+            {
+                if (postEvent != null)
+                {
+                    Debug.Log($"[DialogueSystem] 🎭 Post-Dialogo: '{postEvent.eventName}' (delay: {postEvent.delay}s)");
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[DialogueSystem] ⚠️ Eventi post-dialogo abilitati ma nessun evento configurato!");
+        }
+    }
+    
+    Debug.Log($"[DialogueSystem] ✅ Sistema Eventi setup completo:\n" +
+             $"- Eventi pre-dialogo: {preDialogueEventsCount}\n" +
+             $"- Eventi post-dialogo: {postDialogueEventsCount}\n" +
+             $"- Max delay pre-dialogo: {maxPreDialogueDelay}s");
+}
     
     // ========== OBJECT ACTIVATION SYSTEM ==========
-    
+
     /// <summary>
     /// Attiva gli oggetti con ritardo se specificato
     /// </summary>
@@ -1905,7 +2576,23 @@ public void ForceUnlockPlayerMovement()
         enableSubDialogue = enabled;
         Debug.Log($"[DialogueSystem] Sub-Dialogue {(enabled ? "abilitato" : "disabilitato")}");
     }
-    
+    public void SetPreDialogueEventsEnabled(bool enabled)
+{
+    enablePreDialogueEvents = enabled;
+    Debug.Log($"[DialogueSystem] Eventi pre-dialogo {(enabled ? "abilitati" : "disabilitati")}");
+}
+
+public void SetPostDialogueEventsEnabled(bool enabled)
+{
+    enablePostDialogueEvents = enabled;
+    Debug.Log($"[DialogueSystem] Eventi post-dialogo {(enabled ? "abilitati" : "disabilitati")}");
+}
+
+public void SetMaxPreDialogueDelay(float delay)
+{
+    maxPreDialogueDelay = delay;
+    Debug.Log($"[DialogueSystem] Max delay pre-dialogo impostato: {delay}s");
+}
     /// <summary>
     /// 🆕 Imposta il DialogueSystem da usare come sottodialogo
     /// </summary>
