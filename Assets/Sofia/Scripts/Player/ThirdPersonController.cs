@@ -119,8 +119,8 @@ private Coroutine climbHeightCoroutine;
     [Header("Jump Audio")]
 [SerializeField] private AudioSource jumpAudioSource;
 [SerializeField] private AudioClip[] jumpSounds;
-[SerializeField] private float jumpVolume = 0.7f;
-[SerializeField] private float jumpPitchVariation = 0.1f;
+[SerializeField] private float jumpVolume = 0.3f;
+[SerializeField] private float jumpPitchVariation = 0f;
     [SerializeField] private bool useRandomJumpSound = true;
 [Header("Hit Audio")]
 [SerializeField] private AudioSource hitAudioSource;
@@ -1331,7 +1331,7 @@ private bool IsLedgeStillValid()
 }
 
     // ✅ TROVA LA PIATTAFORMA SOTTO IL PLAYER
-   private Transform FindPlatformBelow()
+private Transform FindPlatformBelow()
 {
     Vector3 rayStart = transform.position + Vector3.up * 0.1f;
     int hitCount = Physics.RaycastNonAlloc(rayStart, Vector3.down, raycastHits, 1.5f, platformLayers);
@@ -1353,25 +1353,6 @@ private bool IsLedgeStillValid()
             
             if (heightDifference > -0.5f && heightDifference < maxPlatformHeight)
             {
-                // ✅ NUOVO: Verifica compatibilità del collider prima di procedere
-                if (!CanUseClosestPoint(hit.collider))
-                {
-                    if (debugPlatformMovement)
-                        Debug.Log($"[Platform] {hit.collider.name} ha un mesh collider non convex - usando rilevamento alternativo");
-                    
-                    // Per mesh collider non convex, usa solo la distanza dal centro
-                    float distanceFromCenter = Vector3.Distance(transform.position, hitTransform.position);
-                    Bounds bounds = hit.collider.bounds;
-                    float maxAllowedDistance = bounds.size.magnitude * 0.7f; // Più conservativo
-                    
-                    if (distanceFromCenter > maxAllowedDistance)
-                    {
-                        if (debugPlatformMovement)
-                            Debug.Log($"[Platform] {hit.collider.name} troppo lontano per mesh non convex: {distanceFromCenter:F2} > {maxAllowedDistance:F2}");
-                        continue;
-                    }
-                }
-                
                 // Verifica speciale per RotatingObject
                 if (hit.collider.tag == "RotatingPlatform")
                 {
@@ -1449,95 +1430,37 @@ private void AttachToPlatform(Transform platform)
 
     // ✅ VERIFICA SE LA PIATTAFORMA È ANCORA VALIDA
     private bool IsPlatformValid()
-    {
-        if (currentPlatform == null) return false;
-
-        // Durante il salto, sii più permissivo sulla distanza
-        float maxDistance = velocity.y > 0 ? 10f : 5f;
-
-        float distance = Vector3.Distance(transform.position, currentPlatform.position);
-
-        // ✅ NUOVO: Gestione sicura per mesh collider
-        Collider platformCollider = currentPlatform.GetComponent<Collider>();
-        if (platformCollider != null)
-        {
-            float allowedDistance;
-
-            // ✅ Verifica se è un MeshCollider non convex
-            MeshCollider meshCollider = platformCollider as MeshCollider;
-            if (meshCollider != null && !meshCollider.convex)
-            {
-                // Per mesh collider non convex, usa i bounds invece di ClosestPoint
-                Bounds platformBounds = platformCollider.bounds;
-                allowedDistance = Mathf.Max(platformBounds.size.magnitude * 1.5f, maxDistance);
-
-                if (debugPlatformMovement && Time.frameCount % 60 == 0)
-                    Debug.Log($"[Platform] Usando bounds per mesh collider non convex: {currentPlatform.name}");
-            }
-            else
-            {
-                // Per collider convex (Box, Sphere, Capsule, MeshCollider convex), usa ClosestPoint
-                Vector3 closestPoint = platformCollider.ClosestPoint(transform.position);
-                float distanceToSurface = Vector3.Distance(transform.position, closestPoint);
-                allowedDistance = Mathf.Max(distanceToSurface * 2f, maxDistance);
-
-                if (debugPlatformMovement && Time.frameCount % 60 == 0)
-                    Debug.Log($"[Platform] Usando ClosestPoint per collider convex: {currentPlatform.name}");
-            }
-
-            bool isValid = distance <= allowedDistance;
-
-            if (debugPlatformMovement && !isValid)
-                Debug.Log($"[Platform] Piattaforma NON valida: distanza {distance:F2} > max {allowedDistance:F2} (tipo: {platformCollider.GetType().Name})");
-
-            return isValid;
-        }
-        else
-        {
-            // Fallback se non c'è collider
-            bool isValid = distance <= maxDistance;
-
-            if (debugPlatformMovement && !isValid)
-                Debug.Log($"[Platform] Piattaforma senza collider - distanza {distance:F2} > max {maxDistance:F2}");
-
-            return isValid;
-        }
-    }
-    private bool CanUseClosestPoint(Collider collider)
-    {
-        if (collider == null) return false;
-
-        // MeshCollider può usare ClosestPoint solo se è convex
-        MeshCollider meshCollider = collider as MeshCollider;
-        if (meshCollider != null)
-        {
-            return meshCollider.convex;
-        }
-
-        // Tutti gli altri tipi di collider supportano ClosestPoint
-        return collider is BoxCollider ||
-               collider is SphereCollider ||
-               collider is CapsuleCollider ||
-               collider is WheelCollider ||
-               collider is TerrainCollider;
-    }
-private float GetApproximateDistanceToSurface(Collider collider, Vector3 playerPosition)
 {
-    Bounds bounds = collider.bounds;
+    if (currentPlatform == null) return false;
+
+    // Durante il salto, sii più permissivo sulla distanza
+    float maxDistance = velocity.y > 0 ? 10f : 5f;
+    float distance = Vector3.Distance(transform.position, currentPlatform.position);
     
-    // Trova il punto più vicino sui bounds
-    Vector3 closestPointOnBounds = bounds.ClosestPoint(playerPosition);
-    
-    // Calcola distanza
-    float distance = Vector3.Distance(playerPosition, closestPointOnBounds);
-    
-    // Se il player è dentro i bounds, la distanza è 0
-    if (bounds.Contains(playerPosition))
+    // Usa i bounds per determinare se siamo ancora vicini alla piattaforma
+    Collider platformCollider = currentPlatform.GetComponent<Collider>();
+    if (platformCollider != null)
     {
-        distance = 0f;
+        Bounds platformBounds = platformCollider.bounds;
+        float allowedDistance = Mathf.Max(platformBounds.size.magnitude * 1.2f, maxDistance);
+        
+        bool isValid = distance <= allowedDistance;
+        
+        if (debugPlatformMovement && !isValid && Time.frameCount % 60 == 0)
+            Debug.Log($"[Platform] Piattaforma NON valida: distanza {distance:F2} > max {allowedDistance:F2}");
+        
+        return isValid;
     }
-    
-    return distance;
+    else
+    {
+        // Fallback se non c'è collider
+        bool isValid = distance <= maxDistance;
+        
+        if (debugPlatformMovement && !isValid && Time.frameCount % 60 == 0)
+            Debug.Log($"[Platform] Piattaforma senza collider - distanza {distance:F2} > max {maxDistance:F2}");
+        
+        return isValid;
+    }
 }
 
     // ✅ SGANCIA IL PLAYER DALLA PIATTAFORMA

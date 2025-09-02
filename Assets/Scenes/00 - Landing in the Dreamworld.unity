@@ -1401,13 +1401,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: "Wait\u2026 I know this piece!\r                                            
       \nIt\u2019s from the puzzle we started at home! A thousand pieces, but we never
       finished it.\r\nMaybe here\u2026 I can find more...\r"
     audioClip: {fileID: 8300000, guid: a6244432ef501c048ac410667a118aab, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: Then perhaps the dream is giving you a second chance.
     audioClip: {fileID: 8300000, guid: eec7622b69b719142a19462a4e22528b, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -1467,6 +1479,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &131711205
@@ -4812,15 +4830,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: "There\u2026 Do you see it?\r\nA memory twisted into malice. A fear given
       form.\r\nYour first nightmare made flesh."
     audioClip: {fileID: 8300000, guid: 95f8b2995af237f4984c4bac794fb3af, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Huh. I was hoping my first monster would be\u2026 a little bit scarier."
     audioClip: {fileID: 8300000, guid: 187895ac8faf27847838e1e55c95c49e, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Fear rarely has the shape we expect, Dreamer. \r\nNow face it, I\u2019ll
       be here Luke."
     audioClip: {fileID: 8300000, guid: cd7d90dd6c54ff240ab38cf4776a76c9, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -4906,6 +4938,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!4 &445528086 stripped
@@ -7214,32 +7252,56 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: "You know what? I\u2019ve got a good feeling about today.\r\r\nSky dragons,
       living castles, talking sandwiches\u2014let\u2019s make something big!\r"
     audioClip: {fileID: 8300000, guid: cbd468966ec68bd42b0ac64bed41b112, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: 'First things first, hero.
 
       You must go to Luketown. Without delay.'
     audioClip: {fileID: 8300000, guid: 2a4f87bd3bc51f24a8076d6d8e84e951, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Luketown? But its villagers are\u2026 you know\u2026 obsessed with me!
       I can\u2019t even remember why we created them like that!\r\nYou sure we can\u2019t
       squeeze in one flying sandwich?"
     audioClip: {fileID: 8300000, guid: e5d5c97e8c8479143b6fad2a712c6a68, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Trust me, Minis have something quite special waiting for you there.\r
       \r                                                  \nSomething that might
       just change the course of your journey.\r"
     audioClip: {fileID: 8300000, guid: 36b77b339f1e67f4297a1ea0d3d5f270, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: Oh? Like a flying sandwich that grants wishes?
     audioClip: {fileID: 8300000, guid: 39f3dd13d5c839340ba4dd6d3a5e55d8, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Not quite. But maybe even better.\r\n> \rSecrets, challenges... and a
       few surprises only a true hero deserves."
     audioClip: {fileID: 8300000, guid: 35eb943f0ba6afb42b06099fef4af27f, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Alright, Luketown it is. But if I see a sandwich, I\u2019m grabbing it
       and fly away from that weirdoes."
     audioClip: {fileID: 8300000, guid: b92b3b45bb0e54944a4f3a6fefa1d503, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: 'Fair enough. Now go: adventure awaits!'
     audioClip: {fileID: 8300000, guid: 0fa20ae474fafbf48adc494f935361b1, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -7299,6 +7361,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &640090561
@@ -15736,11 +15804,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: 'There it is.
 
       Luketown awaits. Let us cross, Dreamer.'
     audioClip: {fileID: 8300000, guid: 830199696efd4ac4285c9551d610b01f, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -15800,6 +15878,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &1439633083
@@ -17295,17 +17379,33 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: "Tell me, Dreamer\u2014what will you do to celebrate your birthday tomorrow,
       in the waking world?"
     audioClip: {fileID: 8300000, guid: 9e57f15761f80b04897c204d561b1430, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: Dunno. Probably cake. Maybe pizza. Avoid homework. Standard heroic stuff.
     audioClip: {fileID: 8300000, guid: b8e4d18a19babeb4698abdea2c2ce0da, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Ah, yes. The trials of the mortal realm\u2026 far more treacherous than
       shadow beasts."
     audioClip: {fileID: 8300000, guid: c191a797a68e0874e965d1d128615f5c, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: You joke, but have you seen math class?
     audioClip: {fileID: 8300000, guid: 3d86c8779d110564e81cba2d8939b68b, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -17365,6 +17465,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!4 &1581667950 stripped
@@ -17772,16 +17878,30 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: "Uhhh\u2026 okay. That thing\u2019s spinning way too fast.\r\nI mean, I\u2019d
       love to get through it, but I\u2019m kind of attached to having all my limbs.\r"
     audioClip: {fileID: 8300000, guid: f153d512853364543840da0bd46d559b, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Is time for a little birthday present: I\u2019ll teach you some tricks\r\nWhat
       moves too fast for the eye\u2026 can still be slowed by the mind. Focus, Luke.
       In this world, time bends for his Dreamer.\r"
     audioClip: {fileID: 8300000, guid: 1c5c1d9c2e1ac5c49bfcf317878903c7, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Alright, dream-magic slowdown powers. Don\u2019t fail me now."
     audioClip: {fileID: 8300000, guid: 9c6c37ae77662de40b0001e031ea6a85, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -17879,6 +17999,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &1637912242
@@ -19754,15 +19880,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: "Here\u2014your new safe landing zone. Soft, sturdy, and\u2026 slightly
       more reliable."
     audioClip: {fileID: 8300000, guid: 6f0b66570eec79f409ae273c3e63b164, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Well, it\u2019s not exactly what I imagined for an epic quest, but I\u2019ll
       take it."
     audioClip: {fileID: 8300000, guid: da4a86d57f3af5c449d63a93f37c4a2b, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: Even heroes need a soft spot now and then.
     audioClip: {fileID: 8300000, guid: 8ec86daf80d45db4daa524d895424a40, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -19834,6 +19974,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!4 &1878559657 stripped
@@ -23547,20 +23693,36 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueUI: {fileID: 751801831}
   dialogueText: {fileID: 751801833}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
   dialogueLines:
   - text: Whoa! What just happened?! The platform disappeared beneath me!
     audioClip: {fileID: 8300000, guid: 18557c33ec912e14c94cd178a432e7ab, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "Hmm\u2026 That platform might have had a little hiccup during its creation.\r
       \r                                                                                                                                       
       Nothing to worry about\u2014dreams can be... unpredictable sometimes.\r"
     audioClip: {fileID: 8300000, guid: a168c3f0cb8f82042a165b30cf846679, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: Not to worry? I fell! That was dangerous! How can I trust this world if
       the ground just vanishes?
     audioClip: {fileID: 8300000, guid: 5344b55d799dafc43a6b0ec2894a2d09, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   - text: "I truly don\u2019t know what caused it. \nPerhaps a rare flaw... or a
       trick of the dream\u2019s weave.\nLet\u2019s focus on moving forward, shall
       we? Luckily, I have something better than that boring terrain."
     audioClip: {fileID: 8300000, guid: b2f8f3bf94f25a545af27c1e2fd07f6a, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
   canRepeatDialogue: 0
   autoCloseOnExit: 0
   autoFinishLastLine: 1
@@ -23631,6 +23793,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &2134550629

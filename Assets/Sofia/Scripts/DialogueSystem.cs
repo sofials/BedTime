@@ -813,6 +813,11 @@ public void StartDialogue()
     movementLockApplied = false;
     preDialogueEventsCompleted = false;
     isWaitingForPreEvents = false;
+    if (dialogueText != null)
+    {
+        dialogueText.text = ""; // Pulisce il testo del dialogo precedente
+        Debug.Log("[DialogueSystem] 🧹 Testo UI pulito prima dell'attivazione");
+    }
     
     // Attiva l'UI del dialogo
     if (dialogueUI != null)

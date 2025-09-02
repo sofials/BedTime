@@ -14,9 +14,12 @@ public class Mushroom : MonoBehaviour
     public float runSpeed = 9f;
     public Transform[] waypoints;
 
-    [Header("Custom Audio")]
-    public AudioSource customAudioSource;
-    public AudioClip customAudioClip;
+    [Header("Custom Audio - Multiple Sources")]
+public AudioSource[] customAudioSources; // Array di AudioSources
+public AudioClip[] customAudioClips;     // Array di AudioClips corrispondenti
+    [Tooltip("Se true, alterna in ordine sequenziale. Se false, sceglie casualmente")]
+    public bool useSequentialOrder = true;
+private int currentCustomAudioIndex = 0;
 
     [Header("Vision & Attack")]
     public float viewRadius = 15f;
@@ -49,10 +52,6 @@ public class Mushroom : MonoBehaviour
     public AudioSource chaseAudioSource;
     public AudioClip chaseAudioClip;
     public GameObject enemyChildObjectToActivate;
-
-    [Header("Second Audio After Chase")]
-    public AudioSource secondAudioSource;
-    public AudioClip secondAudioClip;
 
     [Header("Death Audio")]
     public AudioSource deathAudioSource;
@@ -575,29 +574,7 @@ public class Mushroom : MonoBehaviour
         currentWarningCoroutine = null;
     }
 
-    private void PlaySecondAudio()
-    {
-        if (secondAudioSource != null && secondAudioClip != null)
-        {
-            secondAudioSource.Stop();
-            secondAudioSource.PlayOneShot(secondAudioClip);
-            
-            if (enableWarningDebug)
-            {
-                WarningDebugLog($"🎧 SECOND AUDIO PLAYED - '{secondAudioClip.name}'");
-            }
-        }
-        else if (secondAudioClip != null && chaseAudioSource != null)
-        {
-            chaseAudioSource.Stop();
-            chaseAudioSource.PlayOneShot(secondAudioClip);
-            
-            if (enableWarningDebug)
-            {
-                WarningDebugLog($"🎧 SECOND AUDIO PLAYED (via chase source) - '{secondAudioClip.name}'");
-            }
-        }
-    }
+
 
     private bool IsPlayerRecentlyLost()
     {
@@ -736,31 +713,83 @@ public class Mushroom : MonoBehaviour
         }
     }
 
-    private void CleanupWarningSequence()
+private void PlaySecondAudio()
+{
+    // Usa solo il sistema custom audio
+    if (customAudioSources != null && customAudioSources.Length > 0 && 
+        customAudioClips != null && customAudioClips.Length > 0)
     {
-        // Stop visual indicator
-        if (enemyChildObjectToActivate != null && enemyChildObjectToActivate.activeSelf)
-        {
-            enemyChildObjectToActivate.SetActive(false);
-        }
+        // Scegli sempre casualmente per il second audio (indipendentemente da useSequentialOrder)
+        int sourceIndex = Random.Range(0, customAudioSources.Length);
+        int clipIndex = Random.Range(0, customAudioClips.Length);
 
-        // Stop coroutine
-        if (currentWarningCoroutine != null)
-        {
-            StopCoroutine(currentWarningCoroutine);
-            currentWarningCoroutine = null;
-        }
+        AudioSource selectedSource = customAudioSources[sourceIndex];
+        AudioClip selectedClip = customAudioClips[clipIndex];
 
-        // Stop all audio
-        if (chaseAudioSource != null && chaseAudioSource.isPlaying)
+        if (selectedSource != null && selectedClip != null)
         {
-            chaseAudioSource.Stop();
+            // Ferma l'audio se in riproduzione
+            if (selectedSource.isPlaying)
+            {
+                selectedSource.Stop();
+            }
+
+            selectedSource.PlayOneShot(selectedClip);
+            
+            if (enableWarningDebug)
+            {
+                WarningDebugLog($"🎧 SECOND AUDIO PLAYED (Custom) - Source: {sourceIndex}, Clip: '{selectedClip.name}'");
+            }
         }
-        if (secondAudioSource != null && secondAudioSource.isPlaying)
+        else
         {
-            secondAudioSource.Stop();
+            if (enableWarningDebug)
+            {
+                WarningDebugLog("🚨 SECOND AUDIO FAILED - Selected custom audio source or clip is null!");
+            }
         }
     }
+    else
+    {
+        if (enableWarningDebug)
+        {
+            WarningDebugLog("🚨 SECOND AUDIO FAILED - Custom audio system not configured!");
+        }
+    }
+}
+private void CleanupWarningSequence()
+{
+    // Stop visual indicator
+    if (enemyChildObjectToActivate != null && enemyChildObjectToActivate.activeSelf)
+    {
+        enemyChildObjectToActivate.SetActive(false);
+    }
+
+    // Stop coroutine
+    if (currentWarningCoroutine != null)
+    {
+        StopCoroutine(currentWarningCoroutine);
+        currentWarningCoroutine = null;
+    }
+
+    // Stop chase audio
+    if (chaseAudioSource != null && chaseAudioSource.isPlaying)
+    {
+        chaseAudioSource.Stop();
+    }
+
+    // Stop all custom audio sources
+    if (customAudioSources != null)
+    {
+        foreach (AudioSource source in customAudioSources)
+        {
+            if (source != null && source.isPlaying)
+            {
+                source.Stop();
+            }
+        }
+    }
+}
 
     private void StopAgentSafely()
     {
@@ -970,14 +999,63 @@ public class Mushroom : MonoBehaviour
     }
 
     public void PlayCustomAudio()
-    {
-        if (isDead) return;
+{
+    if (isDead) return;
 
-        if (customAudioSource != null && customAudioClip != null)
-        {
-            customAudioSource.PlayOneShot(customAudioClip);
-        }
+    // Controlla che gli array non siano vuoti
+    if (customAudioSources == null || customAudioSources.Length == 0)
+    {
+        Debug.LogWarning($"[{name}] CustomAudioSources array is empty!");
+        return;
     }
+
+    if (customAudioClips == null || customAudioClips.Length == 0)
+    {
+        Debug.LogWarning($"[{name}] CustomAudioClips array is empty!");
+        return;
+    }
+
+    int sourceIndex;
+    int clipIndex;
+
+    if (useSequentialOrder)
+    {
+        // Modalità sequenziale
+        sourceIndex = currentCustomAudioIndex % customAudioSources.Length;
+        clipIndex = currentCustomAudioIndex % customAudioClips.Length;
+        
+        // Incrementa l'indice per la prossima volta
+        currentCustomAudioIndex = (currentCustomAudioIndex + 1) % Mathf.Max(customAudioSources.Length, customAudioClips.Length);
+    }
+    else
+    {
+        // Modalità casuale
+        sourceIndex = Random.Range(0, customAudioSources.Length);
+        clipIndex = Random.Range(0, customAudioClips.Length);
+    }
+
+    // Ottieni l'AudioSource e l'AudioClip selezionati
+    AudioSource selectedSource = customAudioSources[sourceIndex];
+    AudioClip selectedClip = customAudioClips[clipIndex];
+
+    // Controlla che non siano null
+    if (selectedSource != null && selectedClip != null)
+    {
+        // Ferma l'audio corrente se in riproduzione
+        if (selectedSource.isPlaying)
+        {
+            selectedSource.Stop();
+        }
+
+        selectedSource.PlayOneShot(selectedClip);
+        
+        Debug.Log($"[{name}] Playing custom audio - Source: {sourceIndex}, Clip: '{selectedClip.name}'");
+    }
+    else
+    {
+        Debug.LogWarning($"[{name}] Selected audio source or clip is null! Source: {selectedSource}, Clip: {selectedClip}");
+    }
+}
 
     // 🔍 UTILITY: Centralized warning debug logging
     private void WarningDebugLog(string message)
