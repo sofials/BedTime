@@ -122173,17 +122173,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 5988298971079125821, guid: 244280a25354eac43a85b161d001e468, type: 3}
   m_PrefabInstance: {fileID: 4479676204923557481}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1550186644 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4524189022493185358, guid: 244280a25354eac43a85b161d001e468, type: 3}
-  m_PrefabInstance: {fileID: 4479676204923557481}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1550186642}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!65 &1550186646
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -158217,6 +158206,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 5827714865091427282}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: lockCameraRotation
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: targetPlayerController
       value: 
       objectReference: {fileID: 5827714865091427282}
@@ -158306,7 +158299,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5695026301721285574, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -5.4
+      value: -53.5
       objectReference: {fileID: 0}
     - target: {fileID: 5695026301721285574, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: m_LocalRotation.w
@@ -158370,12 +158363,12 @@ PrefabInstance:
       objectReference: {fileID: 5827714865091427282}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: enableSubDialogue
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: subDialogueSystem
       value: 
-      objectReference: {fileID: 1550186644}
+      objectReference: {fileID: 0}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: lockCameraRotation
       value: 0
@@ -160893,11 +160886,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3279900285561594506, guid: b90c993a3e084a644918d9c12eb9e5ce, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7080679699898253839, guid: b90c993a3e084a644918d9c12eb9e5ce, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 364.5
+      value: 365
       objectReference: {fileID: 0}
     - target: {fileID: 7080679699898253839, guid: b90c993a3e084a644918d9c12eb9e5ce, type: 3}
       propertyPath: m_LocalPosition.y
@@ -160905,7 +160898,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7080679699898253839, guid: b90c993a3e084a644918d9c12eb9e5ce, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -224.8
+      value: -213.8
       objectReference: {fileID: 0}
     - target: {fileID: 7080679699898253839, guid: b90c993a3e084a644918d9c12eb9e5ce, type: 3}
       propertyPath: m_LocalRotation.w

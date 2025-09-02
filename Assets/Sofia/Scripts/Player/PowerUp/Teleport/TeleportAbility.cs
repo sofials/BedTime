@@ -36,6 +36,14 @@ public class TeleportAbility : AbilityBase
     [SerializeField] private bool useMultipleRaycasts = true;
     [SerializeField] private bool useScreenAreaDetection = true;
     
+    [SerializeField] private bool usePredictiveDetection = true; // NUOVO
+[SerializeField] private float predictionTime = 0.1f; // NUOVO - tempo di predizione in secondi
+    [SerializeField] private int detectionFrameBuffer = 3; // NUOVO - mantieni detection per N frame
+private TeleportBase lastDetectedBase;
+private int detectionFrameCount = 0;
+private Vector3 lastCameraPosition;
+private Vector3 lastCameraForward;
+
     private AudioSource teleportConfirmAudioSource;
     private AudioSource teleportFailureAudioSource;
     private bool isTeleporting = false;
@@ -78,6 +86,11 @@ public class TeleportAbility : AbilityBase
     protected override void Update()
     {
         base.Update();
+         if (lastCameraPosition == Vector3.zero && targetCamera != null)
+    {
+        lastCameraPosition = targetCamera.transform.position;
+        lastCameraForward = targetCamera.transform.forward;
+    }
         CheckScreenCenterForTeleportBases();
 
         if (Input.GetKeyDown(directTeleportKey))
@@ -178,94 +191,207 @@ public class TeleportAbility : AbilityBase
     private void CheckScreenCenterForTeleportBases()
     {
         Camera cameraToUse = targetCamera != null ? targetCamera : Camera.main;
-        if (cameraToUse == null) 
+        if (cameraToUse == null)
         {
             Debug.LogError("Nessuna camera disponibile!");
             return;
         }
 
         TeleportBase newHoveredBase = null;
-        
+
+        // 1. Prova detection normale
         if (useMultipleRaycasts && newHoveredBase == null)
         {
             newHoveredBase = CheckMultipleScreenRaycasts(cameraToUse);
         }
-        
-        if (newHoveredBase == null)
-        {
-            Vector3 rayOrigin = cameraToUse.transform.position + cameraToUse.transform.forward * playerSkipDistance;
-            Vector3 rayDirection = cameraToUse.transform.forward;
-            Ray cameraRay = new Ray(rayOrigin, rayDirection);
-            
-            Debug.DrawRay(rayOrigin, rayDirection * maxTeleportRange, Color.red, 0.1f);
 
-            if (Physics.Raycast(cameraRay, out RaycastHit hit, maxTeleportRange, teleportLayerMask))
-            {
-                TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
-                if (teleportBase != null)
-                {
-                    newHoveredBase = teleportBase;
-                    Debug.Log($"METODO CAMERA SUCCESS: Raycast found '{teleportBase.name}' at {hit.distance:F1}m");
-                }
-            }
-        }
-        
         if (newHoveredBase == null)
         {
-            Vector3 searchCenter = cameraToUse.transform.position + cameraToUse.transform.forward * (playerSkipDistance + 5f);
-            Collider[] nearbyColliders = Physics.OverlapSphere(searchCenter, 12f, teleportLayerMask);
-            
-            float closestScore = float.MaxValue;
-            TeleportBase bestBase = null;
-            
-            foreach (var col in nearbyColliders)
-            {
-                TeleportBase teleportBase = col.GetComponent<TeleportBase>();
-                if (teleportBase != null)
-                {
-                    Vector3 directionToBase = (teleportBase.transform.position - cameraToUse.transform.position).normalized;
-                    float angle = Vector3.Angle(cameraToUse.transform.forward, directionToBase);
-                    
-                    if (angle < maxDetectionAngle)
-                    {
-                        float distance = Vector3.Distance(cameraToUse.transform.position, teleportBase.transform.position);
-                        float score = (angle / maxDetectionAngle) * 0.7f + (distance / maxTeleportRange) * 0.3f;
-                        
-                        if (score < closestScore)
-                        {
-                            closestScore = score;
-                            bestBase = teleportBase;
-                        }
-                    }
-                }
-            }
-            
-            if (bestBase != null)
-            {
-                newHoveredBase = bestBase;
-                Debug.Log($"METODO OVERLAP SUCCESS: Found '{bestBase.name}' with score {closestScore:F2}");
-            }
+            newHoveredBase = CheckSingleRaycast(cameraToUse);
         }
-        
+
+        if (newHoveredBase == null)
+        {
+            newHoveredBase = CheckOverlapSphere(cameraToUse);
+        }
+
         if (useScreenAreaDetection && newHoveredBase == null)
         {
             newHoveredBase = CheckScreenAreaDetection(cameraToUse);
         }
 
-        if (newHoveredBase != TeleportBase.currentHoveredBase)
+        // 2. Se non trovato nulla, prova detection predittiva
+        if (usePredictiveDetection && newHoveredBase == null)
         {
-            if (TeleportBase.currentHoveredBase != null)
-            {
-                TeleportBase.currentHoveredBase.OnCursorExit();
-            }
+            newHoveredBase = CheckPredictiveDetection(cameraToUse);
+        }
 
-            if (newHoveredBase != null)
+        // 3. Sistema di buffer per detection stabile
+        if (newHoveredBase != null)
+        {
+            lastDetectedBase = newHoveredBase;
+            detectionFrameCount = detectionFrameBuffer;
+        }
+        else if (detectionFrameCount > 0)
+        {
+            // Mantieni l'ultima base rilevata per alcuni frame
+            newHoveredBase = lastDetectedBase;
+            detectionFrameCount--;
+        }
+
+        // 4. Aggiorna le hover states
+        UpdateHoverStates(newHoveredBase);
+
+        // 5. Salva posizione per il frame successivo
+        lastCameraPosition = cameraToUse.transform.position;
+        lastCameraForward = cameraToUse.transform.forward;
+    }
+    private TeleportBase CheckOverlapSphere(Camera camera)
+    {
+        Vector3 searchCenter = camera.transform.position + camera.transform.forward * (playerSkipDistance + 5f);
+        Collider[] nearbyColliders = Physics.OverlapSphere(searchCenter, 12f, teleportLayerMask);
+
+        float closestScore = float.MaxValue;
+        TeleportBase bestBase = null;
+
+        foreach (var col in nearbyColliders)
+        {
+            TeleportBase teleportBase = col.GetComponent<TeleportBase>();
+            if (teleportBase != null)
             {
-                newHoveredBase.OnCursorEnter();
+                Vector3 directionToBase = (teleportBase.transform.position - camera.transform.position).normalized;
+                float angle = Vector3.Angle(camera.transform.forward, directionToBase);
+
+                if (angle < maxDetectionAngle)
+                {
+                    float distance = Vector3.Distance(camera.transform.position, teleportBase.transform.position);
+                    float score = (angle / maxDetectionAngle) * 0.7f + (distance / maxTeleportRange) * 0.3f;
+
+                    if (score < closestScore)
+                    {
+                        closestScore = score;
+                        bestBase = teleportBase;
+                    }
+                }
+            }
+        }
+
+        if (bestBase != null)
+        {
+            Debug.Log($"METODO OVERLAP SUCCESS: Found '{bestBase.name}' with score {closestScore:F2}");
+        }
+
+        return bestBase;
+    }
+private void UpdateHoverStates(TeleportBase newHoveredBase)
+{
+    if (newHoveredBase != TeleportBase.currentHoveredBase)
+    {
+        if (TeleportBase.currentHoveredBase != null)
+        {
+            TeleportBase.currentHoveredBase.OnCursorExit();
+        }
+
+        if (newHoveredBase != null)
+        {
+            newHoveredBase.OnCursorEnter();
+        }
+    }
+}
+
+private TeleportBase CheckSingleRaycast(Camera camera)
+    {
+        Vector3 rayOrigin = camera.transform.position + camera.transform.forward * playerSkipDistance;
+        Vector3 rayDirection = camera.transform.forward;
+        Ray cameraRay = new Ray(rayOrigin, rayDirection);
+
+        Debug.DrawRay(rayOrigin, rayDirection * maxTeleportRange, Color.red, 0.1f);
+
+        if (Physics.Raycast(cameraRay, out RaycastHit hit, maxTeleportRange, teleportLayerMask))
+        {
+            TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
+            if (teleportBase != null)
+            {
+                Debug.Log($"METODO CAMERA SUCCESS: Raycast found '{teleportBase.name}' at {hit.distance:F1}m");
+                return teleportBase;
+            }
+        }
+
+        return null;
+    }
+    private TeleportBase CheckPredictiveDetection(Camera camera)
+    {
+        // Calcola la velocità della camera
+        Vector3 cameraVelocity = Vector3.zero;
+        if (lastCameraPosition != Vector3.zero)
+        {
+            cameraVelocity = (camera.transform.position - lastCameraPosition) / Time.deltaTime;
+        }
+
+        // Se la camera si muove lentamente, salta la predizione
+        if (cameraVelocity.magnitude < 1f)
+            return null;
+
+        // Predici dove sarà la camera nel prossimo frame
+        Vector3 predictedPosition = camera.transform.position + cameraVelocity * predictionTime;
+        Vector3 predictedForward = camera.transform.forward; // Assumiamo che la direzione non cambi drasticamente
+
+        // Esegui raycast dalla posizione predetta
+        Vector3 rayOrigin = predictedPosition + predictedForward * playerSkipDistance;
+        Ray predictiveRay = new Ray(rayOrigin, predictedForward);
+
+        Debug.DrawRay(rayOrigin, predictedForward * maxTeleportRange, Color.yellow, 0.1f);
+
+        if (Physics.Raycast(predictiveRay, out RaycastHit hit, maxTeleportRange, teleportLayerMask))
+        {
+            TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
+            if (teleportBase != null)
+            {
+                Debug.Log($"METODO PREDITTIVO SUCCESS: Found '{teleportBase.name}' at predicted position");
+                return teleportBase;
+            }
+        }
+
+        // Prova anche con multiple raycasts predittivi
+        return CheckMultiplePredictiveRaycasts(predictedPosition, predictedForward);
+    }
+private TeleportBase CheckMultiplePredictiveRaycasts(Vector3 predictedPosition, Vector3 predictedForward)
+{
+    TeleportBase bestBase = null;
+    float closestDistance = float.MaxValue;
+    
+    // Crea una griglia di raycasts attorno alla posizione predetta
+    int samples = 5; // Meno samples per performance
+    float spreadAngle = 10f; // Angolo di spread in gradi
+    
+    for (int i = 0; i < samples; i++)
+    {
+        float angle = (i - samples/2) * (spreadAngle / samples) * Mathf.Deg2Rad;
+        Vector3 direction = Quaternion.AngleAxis(angle * Mathf.Rad2Deg, Vector3.up) * predictedForward;
+        
+        Vector3 rayOrigin = predictedPosition + direction * playerSkipDistance;
+        Ray ray = new Ray(rayOrigin, direction);
+        
+        Debug.DrawRay(rayOrigin, direction * maxTeleportRange * 0.3f, Color.magenta, 0.1f);
+        
+        if (Physics.Raycast(ray, out RaycastHit hit, maxTeleportRange, teleportLayerMask))
+        {
+            TeleportBase teleportBase = hit.collider.GetComponent<TeleportBase>();
+            if (teleportBase != null && hit.distance < closestDistance)
+            {
+                closestDistance = hit.distance;
+                bestBase = teleportBase;
             }
         }
     }
     
+    if (bestBase != null)
+    {
+        Debug.Log($"METODO MULTI-PREDITTIVO SUCCESS: Found '{bestBase.name}' at {closestDistance:F1}m");
+    }
+    
+    return bestBase;
+}
     private TeleportBase CheckMultipleScreenRaycasts(Camera camera)
     {
         Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);

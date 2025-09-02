@@ -1646,14 +1646,17 @@ void ValidateLineEventsSetup()
     }
 
     Debug.Log($"[DialogueSystem] ✅ Sistema Eventi Linea setup:\n" +
-             $"- Eventi totali: {totalEvents}\n" +
-             $"- Eventi in DialogueLine: {dialogueLineEvents}\n" +
-             $"- Eventi globali: {globalEvents}\n" +
-             $"- Priorità DialogueLine: {prioritizeDialogueLineEvents}");
+         $"- Eventi totali: {totalEvents}\n" +
+         $"- Eventi in DialogueLine: {dialogueLineEvents}\n" +
+         $"- Eventi globali: {globalEvents}\n" +
+         $"- Priorità DialogueLine: {prioritizeDialogueLineEvents}");
 
-    if (totalEvents == 0)
-    {
-        Debug.LogWarning("[DialogueSystem] ⚠️ Sistema Eventi Linea abilitato ma nessun evento configurato!");
+// Fix: controlla specificamente se line events sono abilitati ma vuoti
+if (enableLineEvents && (dialogueLineEvents + globalEvents) == 0)
+{
+    Debug.LogWarning("[DialogueSystem] ⚠️ Sistema Eventi Linea abilitato ma nessun evento linea configurato!");
+
+            Debug.LogWarning("[DialogueSystem] ⚠️ Sistema Eventi Linea abilitato ma nessun evento configurato!");
     }
     
     // Valida eventi pre-dialogo
