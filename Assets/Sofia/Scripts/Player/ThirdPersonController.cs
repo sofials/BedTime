@@ -30,15 +30,15 @@ private bool lastGroundCheckResult = false;
 [SerializeField] private int groundStabilityFrames = 8; // Numero di frame da mantenere grounded
 [SerializeField] private bool debugGroundStability = false;
     [Header("Platform Smoothing")]
-[SerializeField] private float platformVerticalSmoothing = 1f; // Regolabile nell'inspector
-[SerializeField] private float platformVerticalThreshold = 1f; // Soglia minima per movimento verticale
+[SerializeField] private float platformVerticalSmoothing = 8f; // Regolabile nell'inspector
+[SerializeField] private float platformVerticalThreshold = 0.1f; // Soglia minima per movimento verticale
 // ✅ AGGIUNGI QUESTI NUOVI PARAMETRI PER CONTROLLO FINE
 [Header("Platform Vertical Control")]
-[SerializeField] private float platformVerticalMultiplier = 0f; // ← NUOVO: Riduci da 0.3 a 0.15 (solo 15% del movimento)
-[SerializeField] private float platformVerticalMaxSpeed = 1f; // ← NUOVO: Velocità massima consentita
+[SerializeField] private float platformVerticalMultiplier = 1f; // ← NUOVO: Riduci da 0.3 a 0.15 (solo 15% del movimento)
+[SerializeField] private float platformVerticalMaxSpeed = 25f; // ← NUOVO: Velocità massima consentita
 [SerializeField] private bool useVerticalDeadZone = true; // ← NUOVO: Abilita zona morta
-    [SerializeField] private float verticalDeadZone = 0.02f; // ← NUOVO: Zona morta per movimenti piccoli
-[SerializeField] private bool disableVerticalFollowing = true; // NUOVO: Disabilita completamente
+    [SerializeField] private float verticalDeadZone = 0.005f; // ← NUOVO: Zona morta per movimenti piccoli
+[SerializeField] private bool disableVerticalFollowing = false; // NUOVO: Disabilita completamente
 
     // ✅ NUOVO SISTEMA DI GESTIONE CAMERA DINAMICA CON INTEGRAZIONE CAMERAMANAGER
     [Header("Camera Management")]
@@ -116,6 +116,8 @@ private Coroutine climbHeightCoroutine;
     [SerializeField] private float footstepVolumeRun = 0.5f;
     [SerializeField] private float footstepVolumeSprint = 0.5f;
     [SerializeField] private float pitchVariation = 0.1f;
+    private float platformGripTimer = 0f;
+private const float PLATFORM_GRIP_TIME = 0.15f; // Mantieni attacco per 150ms dopo perdita rilevamento
     [Header("Jump Audio")]
 [SerializeField] private AudioSource jumpAudioSource;
 [SerializeField] private AudioClip[] jumpSounds;
@@ -284,6 +286,38 @@ private bool isClimbing = false;
                 Debug.Log("[ThirdPersonController] 🔄 Ripristinato auto-detect camera");
         }
     }
+    private void UpdatePlatformGrip()
+{
+    if (currentPlatform != null)
+    {
+        // Reset timer se la piattaforma è ancora valida
+        if (IsPlatformValidLoose())
+        {
+            platformGripTimer = 0f;
+        }
+        else
+        {
+            // Inizia il countdown del grip
+            platformGripTimer += Time.deltaTime;
+            
+            if (platformGripTimer >= PLATFORM_GRIP_TIME)
+            {
+                if (debugPlatformMovement)
+                    Debug.Log($"[Platform] Grip scaduto per {currentPlatform.name} dopo {platformGripTimer:F2}s");
+                DetachFromCurrentPlatform();
+                platformGripTimer = 0f;
+            }
+            else if (debugPlatformMovement && Time.frameCount % 30 == 0)
+            {
+                Debug.Log($"[Platform] Grip attivo: {(PLATFORM_GRIP_TIME - platformGripTimer):F2}s rimanenti");
+            }
+        }
+    }
+    else
+    {
+        platformGripTimer = 0f;
+    }
+}
 
     /// <summary>
     /// Forza l'uso di una CinemachineCamera specifica tramite CameraManager
@@ -295,13 +329,13 @@ private bool isClimbing = false;
         {
             // Usa CameraManager per switchare
             CameraManager.SwitchCamera(cinemachineCamera);
-            
+
             // Forza un aggiornamento immediato
             if (autoDetectActiveCamera)
             {
                 DetectActiveCamera();
             }
-            
+
             if (debugCameraChanges)
                 Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via CameraManager: {cinemachineCamera.name}");
         }
@@ -1288,20 +1322,28 @@ private bool IsLedgeStillValid()
 
     // [Il resto dei metodi rimane identico al codice originale...]
     // ✅ NUOVO SISTEMA DI RILEVAMENTO PIATTAFORME INTELLIGENTE
-    private void DetectAndUpdatePlatform()
+   private void DetectAndUpdatePlatform()
 {
+    // Se siamo hanging o climbing, mantieni la piattaforma corrente ma non aggiornare
+    if (hanging || isClimbing)
+    {
+        return;
+    }
+    
     if (!controller.isGrounded)
     {
-        // ✅ NUOVO: Sgancia automaticamente quando saltiamo
-        if (currentPlatform != null && velocity.y > 2f) // Se stiamo saltando verso l'alto
+        // NUOVO: Sganciamento più conservativo
+        if (currentPlatform != null && velocity.y > 5f) // Aumentato da 2f a 5f
         {
             if (debugPlatformMovement)
-                Debug.Log($"[Platform] Sganciato da {currentPlatform.name} durante salto (velocità: {velocity.y:F2})");
+                Debug.Log($"[Platform] Sganciato da {currentPlatform.name} durante salto alto (velocità: {velocity.y:F2})");
             DetachFromCurrentPlatform();
         }
-        // Se non siamo a terra ma non stiamo saltando, mantieni la piattaforma solo se è valida
-        else if (currentPlatform != null && !IsPlatformValid())
+        // Controllo più permissivo della validità
+        else if (currentPlatform != null && !IsPlatformValidLoose())
         {
+            if (debugPlatformMovement)
+                Debug.Log($"[Platform] Piattaforma non più valida: {currentPlatform.name}");
             DetachFromCurrentPlatform();
         }
         
@@ -1329,47 +1371,113 @@ private bool IsLedgeStillValid()
     
     UpdatePlatformMovement();
 }
+private bool IsPlatformValidLoose()
+{
+    if (currentPlatform == null) return false;
+
+    // Distanze più permissive basate sullo stato del player
+    float maxDistance;
+    if (velocity.y > 0) // Saltando
+    {
+        maxDistance = 15f; // Molto permissivo durante salti
+    }
+    else if (!controller.isGrounded)
+    {
+        maxDistance = 10f; // Permissivo in aria
+    }
+    else
+    {
+        maxDistance = 6f; // Normale quando a terra
+    }
+    
+    float distance = Vector3.Distance(transform.position, currentPlatform.position);
+    
+    // Usa i bounds della piattaforma per calcoli più precisi
+    Collider platformCollider = currentPlatform.GetComponent<Collider>();
+    if (platformCollider != null)
+    {
+        // Calcola distanza dai bounds invece che dal centro
+        Vector3 closestPoint = platformCollider.ClosestPoint(transform.position);
+        float boundsDistance = Vector3.Distance(transform.position, closestPoint);
+        
+        // Usa la distanza più piccola tra centro e bounds
+        distance = Mathf.Min(distance, boundsDistance);
+        
+        // Aumenta la tolleranza basata sulla dimensione della piattaforma
+        float platformSize = Mathf.Max(platformCollider.bounds.size.x, platformCollider.bounds.size.z);
+        maxDistance = Mathf.Max(maxDistance, platformSize * 1.5f);
+    }
+    
+    bool isValid = distance <= maxDistance;
+    
+    if (debugPlatformMovement && !isValid && Time.frameCount % 90 == 0) // Ridotto spam
+        Debug.Log($"[Platform] Piattaforma NON valida: distanza {distance:F2} > max {maxDistance:F2} (bounds check)");
+    
+    return isValid;
+}
 
     // ✅ TROVA LA PIATTAFORMA SOTTO IL PLAYER
 private Transform FindPlatformBelow()
 {
     Vector3 rayStart = transform.position + Vector3.up * 0.1f;
-    int hitCount = Physics.RaycastNonAlloc(rayStart, Vector3.down, raycastHits, 1.5f, platformLayers);
+    
+    // Prima prova con il metodo principale
+    int hitCount = Physics.RaycastNonAlloc(rayStart, Vector3.down, raycastHits, 1.8f, platformLayers);
     
     Transform bestPlatform = null;
     float closestDistance = float.MaxValue;
     
+    // Analizza tutti i hits per trovare la piattaforma migliore
     for (int i = 0; i < hitCount; i++)
     {
         RaycastHit hit = raycastHits[i];
         Transform hitTransform = hit.collider.transform;
         
-        // Verifica se è una piattaforma valida
         if (IsPlatformTag(hit.collider.tag) && hit.distance < closestDistance)
         {
-            // Verifica se siamo effettivamente sopra la piattaforma
             Vector3 hitPoint = hit.point;
             float heightDifference = transform.position.y - hitPoint.y;
             
-            if (heightDifference > -0.5f && heightDifference < maxPlatformHeight)
+            if (heightDifference > -0.8f && heightDifference < maxPlatformHeight)
             {
                 // Verifica speciale per RotatingObject
                 if (hit.collider.tag == "RotatingPlatform")
                 {
                     RotatingObject rotObj = hit.collider.GetComponent<RotatingObject>();
-                    if (rotObj != null)
+                    if (rotObj != null && rotObj.GetPlatformType() == PlatformType.ObstaclePlatform && 
+                        rotObj.GetDetachPlayerOnHit())
                     {
-                        // Se è un obstacle platform con detach, lo ignoriamo
-                        if (rotObj.GetPlatformType() == PlatformType.ObstaclePlatform && 
-                            rotObj.GetDetachPlayerOnHit())
-                        {
-                            continue;
-                        }
+                        continue;
                     }
                 }
                 
                 bestPlatform = hitTransform;
                 closestDistance = hit.distance;
+            }
+        }
+    }
+    
+    // Se non trova nulla, prova con un rilevamento multi-punto più ampio
+    if (bestPlatform == null)
+    {
+        Vector3[] checkPoints = {
+            transform.position,
+            transform.position + transform.forward * 0.3f,
+            transform.position - transform.forward * 0.3f,
+            transform.position + transform.right * 0.3f,
+            transform.position - transform.right * 0.3f
+        };
+        
+        foreach (Vector3 point in checkPoints)
+        {
+            Vector3 checkStart = point + Vector3.up * 0.05f;
+            if (Physics.Raycast(checkStart, Vector3.down, out RaycastHit multiHit, 1.2f, platformLayers))
+            {
+                if (IsPlatformTag(multiHit.collider.tag))
+                {
+                    bestPlatform = multiHit.collider.transform;
+                    break;
+                }
             }
         }
     }
@@ -1496,21 +1604,21 @@ private void AttachToPlatform(Transform platform)
     platformDeltaPosition = currentPlatformPos - lastPlatformPosition;
     platformDeltaRotation = currentPlatformRot * Quaternion.Inverse(lastPlatformRotation);
     
-    // ENHANCED STABILIZATION: More aggressive filtering
-    if (platformDeltaPosition.magnitude < 0.003f) // Increased threshold
+    // STABILIZZAZIONE MENO AGGRESSIVA
+    if (platformDeltaPosition.magnitude < 0.001f) // Ridotto da 0.003f
     {
         platformDeltaPosition = Vector3.zero;
     }
     else
     {
-        // Apply damping to reduce oscillations
-        platformDeltaPosition *= 0.9f;
+        // Damping meno aggressivo
+        platformDeltaPosition *= 0.95f; // Era 0.9f
         
-        // Special damping for vertical movement
-        platformDeltaPosition.y *= 0.5f;
+        // Damping verticale meno aggressivo
+        platformDeltaPosition.y *= 0.8f; // Era 0.5f
     }
     
-    if (Quaternion.Angle(platformDeltaRotation, Quaternion.identity) < 0.2f)
+    if (Quaternion.Angle(platformDeltaRotation, Quaternion.identity) < 0.1f) // Ridotto da 0.2f
     {
         platformDeltaRotation = Quaternion.identity;
     }
@@ -1518,16 +1626,17 @@ private void AttachToPlatform(Transform platform)
     lastPlatformPosition = currentPlatformPos;
     lastPlatformRotation = currentPlatformRot;
     
-    if (debugPlatformMovement && platformDeltaPosition.magnitude > 0.001f)
+    if (debugPlatformMovement && platformDeltaPosition.magnitude > 0.0005f) // Soglia ridotta
     {
-        Debug.Log($"[Platform] Delta stabilizzato - Pos: {platformDeltaPosition} Stabile: {platformMovementStabilized}");
+        Debug.Log($"[Platform] Delta meno aggressivo - Pos: {platformDeltaPosition} Mag: {platformDeltaPosition.magnitude:F4}");
     }
 }
+
 
     // ✅ SISTEMA DI APPLICAZIONE MOVIMENTO COMPLETO E OTTIMIZZATO
 private void ApplyAllMovement()
 {
-    // ✅ SE SIAMO HANGING, USA SOLO LA STABILIZZAZIONE
+    // Se siamo hanging, usa solo la stabilizzazione
     if (hanging)
     {
         return;
@@ -1541,24 +1650,27 @@ private void ApplyAllMovement()
     
     Vector3 totalMovement = Vector3.zero;
     
-    // ✅ NUOVO: Non applicare movimento piattaforma se stiamo saltando
-    bool isJumping = velocity.y > 1f; // Soglia per considerare un salto attivo
+    // Verifica grip della piattaforma
+    UpdatePlatformGrip();
     
-    // 1. Movimento piattaforma (solo se non stiamo saltando e se presente e valida)
-    if (currentPlatform != null && !isOnObstaclePlatform && !isJumping)
+    // Soglia di salto più alta per mantenere movimento piattaforma più a lungo
+    bool isHighJump = velocity.y > 8f; // Aumentato da 1f
+    
+    // 1. Movimento piattaforma (più permissivo)
+    if (currentPlatform != null && !isOnObstaclePlatform && !isHighJump)
     {
         Vector3 platformMovement = ApplyPlatformMovement();
         totalMovement += platformMovement;
         
         if (debugPlatformMovement && platformMovement.magnitude > 0.001f)
-            Debug.Log($"[Platform] Applicando movimento piattaforma: {platformMovement} (Jump: {isJumping})");
+            Debug.Log($"[Platform] Applicando movimento: {platformMovement.magnitude:F3} (Jump: {isHighJump}, VelY: {velocity.y:F1})");
     }
-    else if (isJumping && debugPlatformMovement)
+    else if (isHighJump && debugPlatformMovement && Time.frameCount % 30 == 0)
     {
-        Debug.Log($"[Platform] Movimento piattaforma IGNORATO durante salto (velocità Y: {velocity.y:F2})");
+        Debug.Log($"[Platform] Movimento IGNORATO durante salto alto (velocità Y: {velocity.y:F2})");
     }
     
-    // 2. Movimento player (orizzontale + verticale)
+    // 2. Movimento player (invariato)
     Vector3 playerMovement = Vector3.zero;
     playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
     playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
@@ -1569,7 +1681,6 @@ private void ApplyAllMovement()
     // 3. Applica tutto il movimento in una sola chiamata
     controller.Move(totalMovement);
 }
-
 
 private void ExecuteJump(bool isFirstJump)
 {
@@ -1612,46 +1723,47 @@ private Vector3 ApplyPlatformMovement()
 {
     Vector3 totalPlatformMovement = Vector3.zero;
     
-    // A) HORIZONTAL MOVEMENT ONLY
+    // A) MOVIMENTO ORIZZONTALE - Sempre al 100%
     Vector3 horizontalMovement = platformDeltaPosition;
     horizontalMovement.y = 0f;
     totalPlatformMovement += horizontalMovement;
     
-    // B) ENHANCED VERTICAL MOVEMENT with all fields
+    // B) MOVIMENTO VERTICALE OTTIMIZZATO PER VELOCITÀ ALTE
     if (!disableVerticalFollowing)
     {
         float verticalDelta = platformDeltaPosition.y;
         
-        // Apply dead zone check (now using the field)
+        // Soglia molto più bassa per velocità alte (20 unità/sec = 0.33 per frame a 60fps)
         if (useVerticalDeadZone && Mathf.Abs(verticalDelta) <= verticalDeadZone)
         {
             verticalDelta = 0f;
         }
         
-        // Apply smoothing (now using the field)
-        if (platformVerticalSmoothing > 0f)
+        // Smoothing condizionale: NON applicare per movimenti grandi
+        if (platformVerticalSmoothing > 0f && Mathf.Abs(verticalDelta) < 0.5f) // Solo per movimenti piccoli
         {
             verticalDelta = Mathf.Lerp(0f, verticalDelta, Time.deltaTime * platformVerticalSmoothing);
         }
+        // Per movimenti grandi (piattaforme veloci), applica direttamente senza smoothing
         
-        // Apply threshold check (now using the field)
+        // Soglia molto più bassa per piattaforme veloci
         if (Mathf.Abs(verticalDelta) >= platformVerticalThreshold)
         {
-            // Apply multiplier
+            // Multiplier al 100% per seguire completamente la piattaforma
             verticalDelta *= platformVerticalMultiplier;
             
-            // Apply max speed limit (now using the field)
+            // Max speed deve essere maggiore della velocità massima della piattaforma
             verticalDelta = Mathf.Clamp(verticalDelta, -platformVerticalMaxSpeed, platformVerticalMaxSpeed);
             
-            // Only apply when grounded
-            if (controller.isGrounded)
+            // Applica sempre se siamo su una piattaforma valida
+            if (controller.isGrounded || IsPlatformValidLoose())
             {
                 totalPlatformMovement.y = verticalDelta;
             }
         }
     }
     
-    // C) ROTATION (unchanged)
+    // C) ROTAZIONE - Invariato
     if (platformDeltaRotation != Quaternion.identity)
     {
         Vector3 eulerAngles = platformDeltaRotation.eulerAngles;
@@ -1668,7 +1780,8 @@ private Vector3 ApplyPlatformMovement()
     
     if (debugPlatformMovement && totalPlatformMovement.magnitude > 0.001f)
     {
-        Debug.Log($"[Platform] Enhanced movement: H{horizontalMovement} V{totalPlatformMovement.y:F3} (vertical disabled: {disableVerticalFollowing})");
+        float platformSpeed = totalPlatformMovement.magnitude / Time.deltaTime;
+        Debug.Log($"[Platform] Movimento veloce: V{totalPlatformMovement.y:F3} Speed{platformSpeed:F1}u/s Raw{platformDeltaPosition.y:F4}");
     }
     
     return totalPlatformMovement;
