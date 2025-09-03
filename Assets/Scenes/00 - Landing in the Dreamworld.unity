@@ -3191,31 +3191,31 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -362.71
+      value: -363.84
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1188.92
+      value: 1188.42
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -1251.91
+      value: -1251.0099
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.9880345
+      value: 0.98803324
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.15423335
+      value: 0.15424116
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: 0.000000080668435
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: -0.000000012582897
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -4546,6 +4546,7 @@ MonoBehaviour:
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
+  useEmissionForSlow: 1
   slowdownEffect: {fileID: 0}
 --- !u!64 &417665481
 MeshCollider:
@@ -5757,6 +5758,7 @@ MonoBehaviour:
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
+  useEmissionForSlow: 1
   slowdownEffect: {fileID: 0}
 --- !u!64 &528473337
 MeshCollider:
@@ -9774,6 +9776,7 @@ MonoBehaviour:
   overlayIntensity: 0.5
   hdrMultiplier: 1
   applyColorTint: 1
+  useEmissionForSlow: 1
   slowdownEffect: {fileID: 1443121763}
 --- !u!64 &810250067
 MeshCollider:
@@ -13370,15 +13373,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -362.71
+      value: -363.84
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1172.92
+      value: 1172.42
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -1201.91
+      value: -1201.01
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalRotation.w
@@ -21809,6 +21812,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 62f5ad9f90e6c0144adf774406bbf4d3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  startingCamera: {fileID: 131711207}
   defaultTransition:
     blendDuration: 1
     blendStyle: 1
@@ -25869,31 +25873,19 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 4889601977339824062}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: listenToGameManager
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: splineSettings.Array.size
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[0].gemCount
-      value: 20
-      objectReference: {fileID: 0}
-    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[1].gemCount
-      value: 20
-      objectReference: {fileID: 0}
-    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[2].gemCount
-      value: 20
+      propertyPath: autoReinitializeOnSceneReady
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: splineSettings.Array.data[0].spawnOnStart
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[1].spawnOnStart
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[2].spawnOnStart
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
@@ -25905,20 +25897,12 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 693635764}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[2].splineContainer
-      value: 
-      objectReference: {fileID: 693635764}
-    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: splineSettings.Array.data[0].customRotation.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: splineSettings.Array.data[1].customRotation.y
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2229707613548616314, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: splineSettings.Array.data[2].customRotation.y
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2977199943724601911, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: m_Name
@@ -25937,20 +25921,8 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 3981567130020583549, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: autoFindAbilities
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3981567130020583549, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: eventActivations.Array.size
       value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3981567130020583549, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: abilities.Array.data[1].disabledInLevel
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3981567130020583549, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: eventActivations.Array.data[0].abilityToActivate
-      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 4910115921502916631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -25992,14 +25964,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: playerAttack
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: abilitiesManager
-      value: 
-      objectReference: {fileID: 32154046}
     - target: {fileID: 6921977822109627662, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: testMode
       value: 1
@@ -26012,26 +25976,10 @@ PrefabInstance:
       propertyPath: resetOnSceneReload
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 7214885658304405093, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7284148347196032062, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -68
-      objectReference: {fileID: 0}
     - target: {fileID: 8377514343371162182, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: powerUpScript
       value: 
       objectReference: {fileID: 979878002}
-    - target: {fileID: 8785348841605925989, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: m_Size.z
-      value: 300
-      objectReference: {fileID: 0}
-    - target: {fileID: 9022234784484670217, guid: 42019c362096c0746b193c95eb64560a, type: 3}
-      propertyPath: playerCamera
-      value: 
-      objectReference: {fileID: 497487444}
     - target: {fileID: 9022234784484670217, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: targetCamera
       value: 

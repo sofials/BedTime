@@ -167,9 +167,9 @@ public class SceneManager00 : MonoBehaviour
             }
         }
     }
-    
+
     // ========== CALLBACK GAMEMANAGER ==========
-    
+
     /// <summary>
     /// Chiamato quando il GameManager ha completato il setup della scena
     /// </summary>
@@ -177,12 +177,10 @@ public class SceneManager00 : MonoBehaviour
     {
         if (sceneName == this.sceneName || sceneName == UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
         {
-            DebugLog("[SceneManager00] GameManager pronto - attivazione UI di gioco");
-            
-            // Ora possiamo attivare le UI di gioco
+            DebugLog("[SceneManager] GameManager pronto - attivazione UI di gioco");
+
             EnablePowerUpUI();
-            
-            // Se hai un level title da mostrare e l'opzione è abilitata, puoi farlo qui
+
             if (levelTitleUI != null && showLevelTitle)
             {
                 StartCoroutine(ShowLevelTitleCoroutine());

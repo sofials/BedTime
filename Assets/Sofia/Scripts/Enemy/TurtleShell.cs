@@ -37,6 +37,12 @@ public class TurtleShell : MonoBehaviour
     [Header("Health")]
     public float maxHealth = 100f;
     public float currentHealth;
+    [Header("Custom Audio - Multiple Sources")]
+public AudioSource[] customAudioSources; // Array di AudioSources
+public AudioClip[] customAudioClips;     // Array di AudioClips corrispondenti
+[Tooltip("Se true, alterna in ordine sequenziale. Se false, sceglie casualmente")]
+public bool useSequentialOrder = true;
+private int currentCustomAudioIndex = 0;
 
     [Header("VFX")]
     public Renderer Renderer;
@@ -109,7 +115,64 @@ public class TurtleShell : MonoBehaviour
         ForceResetAllWarningVariables();
         InitializeMaterialSystem();
     }
+public void PlayCustomAudio()
+{
+    if (isDead) return;
 
+    // Controlla che gli array non siano vuoti
+    if (customAudioSources == null || customAudioSources.Length == 0)
+    {
+        Debug.LogWarning($"[{name}] CustomAudioSources array is empty!");
+        return;
+    }
+
+    if (customAudioClips == null || customAudioClips.Length == 0)
+    {
+        Debug.LogWarning($"[{name}] CustomAudioClips array is empty!");
+        return;
+    }
+
+    int sourceIndex;
+    int clipIndex;
+
+    if (useSequentialOrder)
+    {
+        // Modalità sequenziale
+        sourceIndex = currentCustomAudioIndex % customAudioSources.Length;
+        clipIndex = currentCustomAudioIndex % customAudioClips.Length;
+        
+        // Incrementa l'indice per la prossima volta
+        currentCustomAudioIndex = (currentCustomAudioIndex + 1) % Mathf.Max(customAudioSources.Length, customAudioClips.Length);
+    }
+    else
+    {
+        // Modalità casuale
+        sourceIndex = Random.Range(0, customAudioSources.Length);
+        clipIndex = Random.Range(0, customAudioClips.Length);
+    }
+
+    // Ottieni l'AudioSource e l'AudioClip selezionati
+    AudioSource selectedSource = customAudioSources[sourceIndex];
+    AudioClip selectedClip = customAudioClips[clipIndex];
+
+    // Controlla che non siano null
+    if (selectedSource != null && selectedClip != null)
+    {
+        // Ferma l'audio corrente se in riproduzione
+        if (selectedSource.isPlaying)
+        {
+            selectedSource.Stop();
+        }
+
+        selectedSource.PlayOneShot(selectedClip);
+        
+        Debug.Log($"[{name}] Playing custom audio - Source: {sourceIndex}, Clip: '{selectedClip.name}'");
+    }
+    else
+    {
+        Debug.LogWarning($"[{name}] Selected audio source or clip is null! Source: {selectedSource}, Clip: {selectedClip}");
+    }
+}
     private void InitializeMaterialSystem()
     {
         if (Renderer == null)

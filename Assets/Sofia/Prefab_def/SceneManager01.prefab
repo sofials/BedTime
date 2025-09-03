@@ -50,6 +50,8 @@ MonoBehaviour:
   enableCheckpointSystem: 1
   autoSaveOnCheckpoint: 1
   enableDebugLogs: 0
+  testMode: 0
+  resetOnSceneReload: 0
   OnCheckpointActivated:
     m_PersistentCalls:
       m_Calls: []
@@ -112,16 +114,72 @@ MonoBehaviour:
   isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
-  teleportableLayers:
-    serializedVersion: 2
-    m_Bits: 1048576
+  directTeleportKey: 101
   meshesToHide:
   - {fileID: 0}
-  teleportPointer: {fileID: 1151521275250858014, guid: 2bfd0bb5aa39b95419ddcb576b68f546, type: 3}
-  playerCamera: {fileID: 0}
   controllerGameObject: {fileID: 0}
   teleportEffectController: {fileID: 0}
   teleportConfirmSound: {fileID: 8300000, guid: 923127e12013cf04a876c1968f550fd0, type: 3}
+  teleportFailureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
+  targetCamera: {fileID: 0}
+  teleportLayerMask:
+    serializedVersion: 2
+    m_Bits: 1048576
+  maxTeleportRange: 1000
+  playerSkipDistance: 50
+  maxDetectionAngle: 120
+  screenDetectionRadius: 1000
+  raycastSamples: 40
+  useMultipleRaycasts: 1
+  useScreenAreaDetection: 1
+  usePredictiveDetection: 1
+  predictionTime: 0.1
+  detectionFrameBuffer: 3
+--- !u!1 &2549574467653424845
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3847913217190277299}
+  - component: {fileID: 4118040784642593937}
+  m_Layer: 0
+  m_Name: GemManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3847913217190277299
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2549574467653424845}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3883109068011121836}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4118040784642593937
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2549574467653424845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e6f1072feaf8a748aced72c3a1f4603, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lifeGemPrefab: {fileID: 7826560920801236237, guid: 852d16b8e26f31348a5a22fbf747cc14, type: 3}
 --- !u!1 &2980471888189265645
 GameObject:
   m_ObjectHideFlags: 0
@@ -258,7 +316,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8677809335907096596}
   - component: {fileID: 1868096667824460806}
-  - component: {fileID: 365894166687735104}
   m_Layer: 0
   m_Name: GemSpawner
   m_TagString: Untagged
@@ -294,21 +351,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gemPrefab: {fileID: 1413473904258511810, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
-  splineSettings: []
+  splineSettings:
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 1
+    gemCount: 20
+    customRotation: {x: -90, y: 0, z: 0}
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 1
+    gemCount: 20
+    customRotation: {x: 0, y: 0, z: 0}
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 1
+    gemCount: 20
+    customRotation: {x: 0, y: 0, z: 0}
   canSpawn: 1
---- !u!114 &365894166687735104
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3805639130609102155}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e6f1072feaf8a748aced72c3a1f4603, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  lifeGemPrefab: {fileID: 7826560920801236237, guid: 852d16b8e26f31348a5a22fbf747cc14, type: 3}
+  debugMode: 1
 --- !u!1 &4418871175402288753
 GameObject:
   m_ObjectHideFlags: 0
@@ -401,6 +458,7 @@ Transform:
   - {fileID: 522936544769405277}
   - {fileID: 8374732861754324822}
   - {fileID: 666845088873259502}
+  - {fileID: 3847913217190277299}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4321529036344408051
@@ -420,7 +478,7 @@ MonoBehaviour:
   collectiblesManager: {fileID: 4495384067855860588}
   levelTitleUI: {fileID: 0}
   playerAttack: {fileID: 0}
-  abilitiesManager: {fileID: 0}
+  abilitiesManager: {fileID: 707331388174613333}
   autoFindManagers: 0
   createManagersIfMissing: 0
   autoFindUIElements: 1
@@ -485,10 +543,6 @@ MonoBehaviour:
   sceneName: 01 - Party in Lukelandia
   autoDetectSceneName: 1
   abilities:
-  - ability: {fileID: 5711221398288499069}
-    abilityName: SlowdownAbility
-    disabledInLevel: 0
-    canBeActivatedByEvents: 0
   - ability: {fileID: 6977967467466513698}
     abilityName: PlatformSpawnerForward
     disabledInLevel: 1
@@ -567,6 +621,11 @@ MonoBehaviour:
   autoSaveOnCollection: 1
   enableDebugLogs: 0
   autoCountOnStart: 1
+  enableFirstMemoryDialogue: 0
+  firstMemoryDialogueSystem: {fileID: 0}
+  firstMemoryDialogueMessage: Prima memory raccolta! Attivando dialogo...
+  firstMemoryDialogueDelay: 0.5
+  blockMemoryCollectionDuringDialogue: 1
   OnPresentCountChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -583,6 +642,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnAllMemoriesCollected:
+    m_PersistentCalls:
+      m_Calls: []
+  OnFirstMemoryDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnFirstMemoryDialogueCompleted:
     m_PersistentCalls:
       m_Calls: []
   OnAllCollectiblesCountChanged:

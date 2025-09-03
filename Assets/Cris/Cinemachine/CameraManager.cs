@@ -13,6 +13,7 @@ public class CameraTransition
 public class CameraManager : MonoBehaviour
 {
     [Header("Camera System")]
+    [SerializeField] private CinemachineCamera startingCamera;
     static List<CinemachineCamera> cameras = new List<CinemachineCamera>();
     static Dictionary<CinemachineCamera, int> originalPriorities = new Dictionary<CinemachineCamera, int>();
 
@@ -36,6 +37,17 @@ public class CameraManager : MonoBehaviour
 
         // Forza la registrazione di tutte le camere Cinemachine nella scena
         RegisterAllCamerasInScene();
+
+        // Imposta la camera iniziale se specificata
+        if (startingCamera != null)
+        {
+            Debug.Log($"[CameraManager] Impostazione camera iniziale: {startingCamera.name}");
+            SwitchCamera(startingCamera);
+        }
+        else
+        {
+            Debug.LogWarning("[CameraManager] Nessuna starting camera specificata! La prima camera registrata sarà quella attiva.");
+        }
     }
 
     public static void LogRegisteredCameras()
@@ -99,7 +111,7 @@ public class CameraManager : MonoBehaviour
         }
 
         LogRegisteredCameras();
-         ThirdPersonController.NotifyAllControllersOfCameraChange();
+        ThirdPersonController.NotifyAllControllersOfCameraChange();
     }
 
     public static void SwitchCameraByName(string cameraName)
@@ -128,12 +140,9 @@ public class CameraManager : MonoBehaviour
         if (!originalPriorities.ContainsKey(camera))
             originalPriorities[camera] = camera.Priority;
 
-        if (ActiveCamera == null)
-        {
-            SwitchCamera(camera);
-        }
-        else
-            camera.Priority = basePriority;
+        // Rimuovi la logica automatica di attivazione della prima camera
+        // Ora sarà gestita esplicitamente dalla startingCamera
+        camera.Priority = basePriority;
     }
 
     public static void Unregister(CinemachineCamera camera)

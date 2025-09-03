@@ -16,6 +16,12 @@ public class CloudMover : MonoBehaviour
     [SerializeField] private ParticleSystem[] particleSystems; // PS da spegnere all'arrivo
     [SerializeField] private bool autoFindParticleSystems = true; // Trova automaticamente i PS figli
     
+    [Header("Audio")]
+    [SerializeField] private AudioSource audioSource; // AudioSource per i suoni
+    [SerializeField] private AudioClip moveSound; // Clip audio da riprodurre quando si muove
+    [SerializeField] private bool autoFindAudioSource = true; // Trova automaticamente l'AudioSource
+    [SerializeField] private float audioVolume = 1f; // Volume del suono (0-1)
+    
     private Vector3 startPosition;
     private bool isMoving = false;
     
@@ -27,6 +33,16 @@ public class CloudMover : MonoBehaviour
         if (autoFindParticleSystems)
         {
             particleSystems = GetComponentsInChildren<ParticleSystem>();
+        }
+        
+        // Trova automaticamente l'AudioSource se abilitato
+        if (autoFindAudioSource && audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null)
+            {
+                audioSource = GetComponentInChildren<AudioSource>();
+            }
         }
         
         // Valida le impostazioni
@@ -62,10 +78,33 @@ public class CloudMover : MonoBehaviour
             return;
         }
         
+        // RIPRODUCE L'AUDIO ONE-SHOT PRIMA DEL MOVIMENTO
+        PlayMoveSound();
+        
         // INIZIA IMMEDIATAMENTE il movimento
         StartCoroutine(MoveToDestinationCoroutine(targetPosition));
         
         Debug.Log($"Nuvola {gameObject.name} inizia IMMEDIATAMENTE il movimento verso {targetPosition}");
+    }
+    
+    /// <summary>
+    /// Riproduce l'audio one-shot per il movimento
+    /// </summary>
+    private void PlayMoveSound()
+    {
+        if (audioSource != null && moveSound != null)
+        {
+            audioSource.PlayOneShot(moveSound, audioVolume);
+            Debug.Log($"Riprodotto suono di movimento per {gameObject.name}");
+        }
+        else if (moveSound == null)
+        {
+            Debug.LogWarning($"Nessun AudioClip assegnato per {gameObject.name}!");
+        }
+        else if (audioSource == null)
+        {
+            Debug.LogWarning($"Nessun AudioSource trovato per {gameObject.name}!");
+        }
     }
     
     /// <summary>
@@ -148,6 +187,9 @@ public class CloudMover : MonoBehaviour
         float duration = totalDistance / movementSpeed;
         float elapsedTime = 0f;
         
+        // Riproduce il suono anche per il reset (opzionale)
+        PlayMoveSound();
+        
         while (elapsedTime < duration)
         {
             elapsedTime += Time.deltaTime;
@@ -226,6 +268,15 @@ public class CloudMover : MonoBehaviour
     }
     
     /// <summary>
+    /// UTILITY: Imposta l'AudioClip per il movimento
+    /// </summary>
+    /// <param name="clip">AudioClip da riprodurre</param>
+    public void SetMoveSound(AudioClip clip)
+    {
+        moveSound = clip;
+    }
+    
+    /// <summary>
     /// Ferma immediatamente qualsiasi movimento in corso
     /// </summary>
     public void StopMovement()
@@ -247,10 +298,22 @@ public class CloudMover : MonoBehaviour
             Debug.LogWarning($"⚠️ {gameObject.name}: Nessuna destinazione configurata! " +
                            $"Imposta 'Specific Target' (Transform) o 'Specific Position' (Vector3).");
         }
+        
+        if (moveSound == null)
+        {
+            Debug.LogWarning($"⚠️ {gameObject.name}: Nessun AudioClip assegnato per il suono di movimento.");
+        }
+        
+        if (audioSource == null)
+        {
+            Debug.LogWarning($"⚠️ {gameObject.name}: Nessun AudioSource trovato. Il suono non verrà riprodotto.");
+        }
     }
     
     // Proprietà pubbliche per controllo esterno
     public bool IsMoving => isMoving;
     public Vector3 StartPosition => startPosition;
     public Vector3 CurrentTarget => GetTargetPosition();
+    public AudioSource AudioSource => audioSource;
+    public AudioClip MoveSound => moveSound;
 }

@@ -1,5 +1,50 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1766228859360554351
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3634371985715878780}
+  - component: {fileID: 4110316166967477597}
+  m_Layer: 0
+  m_Name: GemManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3634371985715878780
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1766228859360554351}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4910115921502916631}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4110316166967477597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1766228859360554351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e6f1072feaf8a748aced72c3a1f4603, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lifeGemPrefab: {fileID: 7826560920801236237, guid: 852d16b8e26f31348a5a22fbf747cc14, type: 3}
 --- !u!1 &2700539311314762210
 GameObject:
   m_ObjectHideFlags: 0
@@ -100,6 +145,7 @@ Transform:
   - {fileID: 6422159006629045719}
   - {fileID: 6517215568821617346}
   - {fileID: 4675106022402979437}
+  - {fileID: 3634371985715878780}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5424070467849329967
@@ -147,7 +193,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7248895162523089367}
   - component: {fileID: 2229707613548616314}
-  - component: {fileID: 9170783885585029028}
   m_Layer: 0
   m_Name: GemSpawner
   m_TagString: Untagged
@@ -185,31 +230,15 @@ MonoBehaviour:
   gemPrefab: {fileID: 1413473904258511810, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
   splineSettings:
   - splineContainer: {fileID: 0}
-    spawnOnStart: 0
+    spawnOnStart: 1
     gemCount: 20
-    customRotation: {x: 0, y: 1, z: 0}
+    customRotation: {x: 0, y: 0, z: 0}
   - splineContainer: {fileID: 0}
     spawnOnStart: 1
     gemCount: 20
-    customRotation: {x: 0, y: 1, z: 0}
-  - splineContainer: {fileID: 0}
-    spawnOnStart: 1
-    gemCount: 20
-    customRotation: {x: 0, y: 1, z: 0}
+    customRotation: {x: 0, y: 0, z: 0}
   canSpawn: 1
---- !u!114 &9170783885585029028
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3159765848054289373}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e6f1072feaf8a748aced72c3a1f4603, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  lifeGemPrefab: {fileID: 7826560920801236237, guid: 852d16b8e26f31348a5a22fbf747cc14, type: 3}
+  debugMode: 0
 --- !u!1 &3958650109995658276
 GameObject:
   m_ObjectHideFlags: 0
@@ -260,6 +289,8 @@ MonoBehaviour:
   enableCheckpointSystem: 1
   autoSaveOnCheckpoint: 1
   enableDebugLogs: 0
+  testMode: 1
+  resetOnSceneReload: 1
   OnCheckpointActivated:
     m_PersistentCalls:
       m_Calls: []
@@ -331,7 +362,12 @@ MonoBehaviour:
     abilityName: TeleportAbility
     disabledInLevel: 1
     canBeActivatedByEvents: 0
-  eventActivations: []
+  eventActivations:
+  - eventName: 
+    abilityToActivate: 
+    forceActivation: 0
+    oneTimeActivation: 0
+    activationMessage: 
   autoFindAbilities: 0
   applyConfigurationOnStart: 1
   autoSaveConfiguration: 1
@@ -521,16 +557,27 @@ MonoBehaviour:
   isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
-  teleportableLayers:
-    serializedVersion: 2
-    m_Bits: 128
+  directTeleportKey: 101
   meshesToHide:
   - {fileID: 0}
-  teleportPointer: {fileID: 0}
-  playerCamera: {fileID: 0}
   controllerGameObject: {fileID: 0}
   teleportEffectController: {fileID: 0}
   teleportConfirmSound: {fileID: 8300000, guid: 923127e12013cf04a876c1968f550fd0, type: 3}
+  teleportFailureSound: {fileID: 0}
+  targetCamera: {fileID: 0}
+  teleportLayerMask:
+    serializedVersion: 2
+    m_Bits: 1048576
+  maxTeleportRange: 100
+  playerSkipDistance: 3
+  maxDetectionAngle: 45
+  screenDetectionRadius: 200
+  raycastSamples: 9
+  useMultipleRaycasts: 1
+  useScreenAreaDetection: 1
+  usePredictiveDetection: 1
+  predictionTime: 0.1
+  detectionFrameBuffer: 3
 --- !u!1 &8411830792674696532
 GameObject:
   m_ObjectHideFlags: 0
@@ -581,6 +628,11 @@ MonoBehaviour:
   autoSaveOnCollection: 1
   enableDebugLogs: 0
   autoCountOnStart: 1
+  enableFirstMemoryDialogue: 1
+  firstMemoryDialogueSystem: {fileID: 0}
+  firstMemoryDialogueMessage: 
+  firstMemoryDialogueDelay: 0.5
+  blockMemoryCollectionDuringDialogue: 1
   OnPresentCountChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -597,6 +649,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnAllMemoriesCollected:
+    m_PersistentCalls:
+      m_Calls: []
+  OnFirstMemoryDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnFirstMemoryDialogueCompleted:
     m_PersistentCalls:
       m_Calls: []
   OnAllCollectiblesCountChanged:
@@ -638,13 +696,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8562877742221916186}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 257.00003, y: 958, z: -925}
-  m_LocalScale: {x: 5, y: 1, z: 5}
+  m_LocalRotation: {x: -0, y: -0.2009713, z: -0, w: 0.97959715}
+  m_LocalPosition: {x: 172, y: 903, z: -311}
+  m_LocalScale: {x: 5.7975, y: 1, z: 5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4910115921502916631}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -23.188, z: 0}
 --- !u!65 &5726216624666105586
 BoxCollider:
   m_ObjectHideFlags: 0

@@ -6109,11 +6109,19 @@ MonoBehaviour:
   attackCooldown: 1.5
   maxHealth: 100
   currentHealth: 0
+  customAudioSources:
+  - {fileID: 5910222089082036589}
+  customAudioClips:
+  - {fileID: 8300000, guid: 27cc68a3ec2efc74bbba7b24d27a81b1, type: 3}
+  useSequentialOrder: 1
   Renderer: {fileID: 8695574110738617889}
   deathEffectController: {fileID: 2028967766314999035}
-  patinaMaterial: {fileID: 2100000, guid: 09b13b60ce037064da5b8ef17d60d209, type: 2}
   slowdownEffect: {fileID: 6893718062255280795}
   activeSlowdownAbility: {fileID: 0}
+  overlayColor: {r: 1, g: 0, b: 0, a: 1}
+  overlayIntensity: 2
+  hdrMultiplier: 3
+  applyColorTint: 1
   warningResetTime: 20
   visionPersistenceTime: 3
   enemyChildObjectToActivate: {fileID: 5549115441516512750}
@@ -11447,11 +11455,11 @@ PrefabInstance:
     - target: {fileID: 3151181848605578389, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
       propertyPath: m_Resource
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 8300000, guid: 27cc68a3ec2efc74bbba7b24d27a81b1, type: 3}
     - target: {fileID: 3151181848605578389, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
       propertyPath: m_audioClip
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 8300000, guid: 27cc68a3ec2efc74bbba7b24d27a81b1, type: 3}
     - target: {fileID: 5937912210040601558, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -11505,5 +11513,10 @@ AudioSource:
 --- !u!4 &3159802006084849198 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5937912210040601558, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
+  m_PrefabInstance: {fileID: 8772568555254035960}
+  m_PrefabAsset: {fileID: 0}
+--- !u!82 &5910222089082036589 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 3151181848605578389, guid: 9bdde54b7240b1244b3d5c98a178dfb5, type: 3}
   m_PrefabInstance: {fileID: 8772568555254035960}
   m_PrefabAsset: {fileID: 0}
