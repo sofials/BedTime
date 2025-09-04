@@ -1,18 +1,30 @@
 using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
+using Unity.Cinemachine;
 
 /// <summary>
 /// SceneManager che gestisce anche le UI specifiche della scena
 /// </summary>
 public class SceneManager01 : MonoBehaviour
 {
+    [Header("Camera Events")]
+public UnityEvent<CameraManager> OnCameraManagerRegistered;
+public UnityEvent OnCameraSystemReady;
     [Header("Scene Configuration")]
     [SerializeField] private string sceneName = "01 - Party in Lukelandia";
     
     [Header("Manager References")]
     [SerializeField] private CheckpointManager checkpointManager;
     [SerializeField] private CollectiblesManager collectiblesManager;
+    [Header("Camera Manager Integration")]
+[SerializeField] private CameraManager cameraManager;
+[SerializeField] private CinemachineCamera preferredSceneCamera;
+[SerializeField] private bool waitForCameraManager = true;
+    [SerializeField] private float cameraWaitTimeout = 10f;
+// Stati camera
+private bool cameraManagerReady = false;
+private bool cameraSystemFullyInitialized = false;
     
     [Header("UI References - Specifiche della Scena")]
     [SerializeField] private GameObject levelTitleUI; // Opzionale
@@ -168,17 +180,24 @@ public class SceneManager01 : MonoBehaviour
         }
     }
 
-    // ========== CALLBACK GAMEMANAGER ==========
-
-    /// <summary>
-    /// Chiamato quando il GameManager ha completato il setup della scena
-    /// </summary>
-    private void OnGameManagerSceneReady(string sceneName)
+   /// <summary>
+/// Chiamato quando il GameManager ha completato il setup della scena
+/// </summary>
+/// <summary>
+/// MODIFICATO: Callback GameManager con verifica camere COORDINATA
+/// </summary>
+private void OnGameManagerSceneReady(string sceneName)
+{
+    if (sceneName == this.sceneName || sceneName == UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
     {
-        if (sceneName == this.sceneName || sceneName == UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
-        {
-            DebugLog("[SceneManager] GameManager pronto - attivazione UI di gioco");
+        DebugLog("[SceneManager] GameManager pronto - verifica coordinamento camera");
 
+        // NUOVO: Prima verifica che il CameraManager sia pronto
+        CameraManager cameraManager = CameraManager.Instance;
+        if (cameraManager != null && cameraManager.IsCameraSystemReady())
+        {
+            DebugLog("[SceneManager] ✅ CameraManager confermato pronto - attivazione UI di gioco");
+            
             EnablePowerUpUI();
 
             if (levelTitleUI != null && showLevelTitle)
@@ -186,7 +205,13 @@ public class SceneManager01 : MonoBehaviour
                 StartCoroutine(ShowLevelTitleCoroutine());
             }
         }
-    } 
+        else
+        {
+            DebugLog("[SceneManager] ⚠️ CameraManager non pronto - avvio verifica coordinata");
+            StartCoroutine(EnsureCamerasAreReadyCoroutine());
+        }
+    }
+}
 
     /// <summary>
     /// Metodo chiamato dal GameManager tramite SendMessage
@@ -196,7 +221,50 @@ public class SceneManager01 : MonoBehaviour
         DebugLog("[SceneManager01] GameManager pronto (via SendMessage)");
         OnGameManagerSceneReady(sceneName);
     }
+    /// <summary>
+/// NUOVO: Verifica che le camere siano pronte e funzionanti
+/// </summary>
+/// <summary>
+/// SOSTITUISCI COMPLETAMENTE: Verifica che le camere siano pronte e funzionanti
+/// </summary>
+private IEnumerator EnsureCamerasAreReadyCoroutine()
+{
+    DebugLog("[SceneManager] Verifica stato camere...");
     
+    yield return new WaitForSeconds(0.5f);
+    
+    // Usa il riferimento diretto al CameraManager
+    if (cameraManager != null)
+    {
+        cameraManager.EnsureCamerasAreReady();
+    }
+    else
+    {
+        DebugLog("[SceneManager] ⚠️ CameraManager non disponibile");
+    }
+    
+    yield return new WaitForSeconds(0.2f);
+    
+    // Verifica finale
+    if (cameraManager != null && cameraManager.GetActiveCamera() != null)
+    {
+        DebugLog($"[SceneManager] ✅ Camera attiva confermata: {cameraManager.GetActiveCamera().name}");
+    }
+    else
+    {
+        DebugLog("[SceneManager] ⚠️ Nessuna camera attiva rilevata!");
+        
+        if (cameraManager != null)
+        {
+            var cameras = cameraManager.GetAllCameras();
+            if (cameras.Count > 0)
+            {
+                cameraManager.SwitchCamera(cameras[0]);
+                DebugLog($"[SceneManager] 🔧 Fix applicato - attivata: {cameras[0].name}");
+            }
+        }
+    }
+}
     private IEnumerator ShowLevelTitleCoroutine()
     {
         if (levelTitleUI != null)
@@ -211,34 +279,34 @@ public class SceneManager01 : MonoBehaviour
             DebugLog("[SceneManager01] Level Title nascosto");
         }
     }
-    
+
     // ========== SETUP MANAGER ==========
-    
+
     private void SetupManagers()
     {
         DebugLog("[SceneManager01] Setup manager...");
-        
+
         if (autoFindManagers)
         {
             FindManagers();
         }
-        
+
         if (createManagersIfMissing)
         {
             CreateMissingManagers();
         }
-        
+
         ConfigureManagers();
-        
+
         managersReady = checkpointManager != null && collectiblesManager != null;
         DebugLog($"[SceneManager01] Manager pronti: {managersReady}");
-        
+
         // Setup AbilitiesManager
         if (abilitiesManager == null && autoFindManagers)
         {
             abilitiesManager = FindFirstObjectByType<AbilitiesManager>();
         }
-        
+
         if (abilitiesManager == null && createManagersIfMissing)
         {
             GameObject abilitiesGO = new GameObject("AbilitiesManager");
@@ -246,8 +314,52 @@ public class SceneManager01 : MonoBehaviour
             abilitiesManager = abilitiesGO.AddComponent<AbilitiesManager>();
             DebugLog("[SceneManager01] ✅ AbilitiesManager creato automaticamente");
         }
+        // Setup CameraManager
+if (cameraManager == null && autoFindManagers)
+{
+    cameraManager = CameraManager.Instance;
+    if (cameraManager == null)
+    {
+        cameraManager = FindFirstObjectByType<CameraManager>();
+    }
+}
+
+if (cameraManager != null)
+{
+    DebugLog($"[SceneManager01] CameraManager trovato: {cameraManager.name}");
+    cameraManagerReady = true;
+}
+    }
+    public void RegisterCameraManager(CameraManager camManager)
+{
+    DebugLog("[SceneManager01] CameraManager registrato");
+    cameraManager = camManager;
+    cameraManagerReady = true;
+    
+    // Configura la camera preferita se specificata
+    if (preferredSceneCamera != null)
+    {
+        cameraManager.ConfigureForScene(preferredSceneCamera, sceneName);
     }
     
+    OnCameraManagerRegistered?.Invoke(cameraManager);
+}
+
+public void OnCameraManagerInitializing(CameraManager camManager)
+{
+    DebugLog("[SceneManager01] CameraManager in inizializzazione...");
+}
+
+public void OnCameraManagerFullyReady(CameraManager camManager)
+{
+    DebugLog("[SceneManager01] CameraManager completamente pronto");
+    cameraSystemFullyInitialized = true;
+    OnCameraSystemReady?.Invoke();
+}
+
+public CameraManager GetCameraManager() => cameraManager;
+
+public bool IsCameraManagerReady() => cameraManagerReady && cameraSystemFullyInitialized;
     private void FindManagers()
     {
         if (checkpointManager == null)
@@ -306,7 +418,45 @@ public class SceneManager01 : MonoBehaviour
             DebugLog("[SceneManager01] CollectiblesManager configurato");
         }
     }
+    /// <summary>
+/// NUOVO: Callback per quando il CameraManager è pronto
+/// </summary>
+public void OnCameraManagerReady(CameraManager cameraManager)
+{
+    DebugLog($"[SceneManager] CameraManager pronto e coordinato: {cameraManager.name}");
     
+    // Verifica che tutto sia OK
+    if (cameraManager.IsCameraSystemReady())
+    {
+        DebugLog("[SceneManager] ✅ Sistema camera confermato pronto");
+        
+        // Ora possiamo procedere con l'attivazione della scena
+        OnGameManagerSceneReady(sceneName);
+    }
+    else
+    {
+        DebugLog("[SceneManager] ⚠️ CameraManager non completamente pronto - attendendo...");
+        StartCoroutine(WaitForCameraManagerReady(cameraManager));
+    }
+}
+/// <summary>
+/// NUOVO: Attende che il CameraManager sia effettivamente pronto
+/// </summary>
+private IEnumerator WaitForCameraManagerReady(CameraManager cameraManager)
+{
+    yield return cameraManager.WaitForCameraSystemReady();
+    
+    if (cameraManager.IsCameraSystemReady())
+    {
+        DebugLog("[SceneManager] ✅ CameraManager ora pronto dopo attesa");
+        OnGameManagerSceneReady(sceneName);
+    }
+    else
+    {
+        DebugLog("[SceneManager] ❌ CameraManager timeout - continuo comunque");
+        OnGameManagerSceneReady(sceneName);
+    }
+}
     private void ConnectManagers()
     {
         if (!managersReady) return;

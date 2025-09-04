@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
+using Unity.Cinemachine;
 
 /// <summary>
 /// SceneManager che gestisce anche le UI specifiche della scena
@@ -13,6 +14,11 @@ public class SceneManager00 : MonoBehaviour
     [Header("Manager References")]
     [SerializeField] private CheckpointManager checkpointManager;
     [SerializeField] private CollectiblesManager collectiblesManager;
+    [Header("Camera Manager Integration")]
+[SerializeField] private CameraManager cameraManager; // NUOVO
+[SerializeField] private CinemachineCamera preferredSceneCamera; // NUOVO
+[SerializeField] private bool waitForCameraManager = true; // NUOVO
+[SerializeField] private float cameraWaitTimeout = 10f; // NUOVO
     
     [Header("UI References - Specifiche della Scena")]
     [SerializeField] private GameObject levelTitleUI; // Opzionale
@@ -42,6 +48,12 @@ public class SceneManager00 : MonoBehaviour
     // Stato interno
     private bool sceneInitialized = false;
     private bool managersReady = false;
+    // Stati camera
+private bool cameraManagerReady = false;
+    private bool cameraSystemFullyInitialized = false;
+[Header("Camera Events")]
+public UnityEvent<CameraManager> OnCameraManagerRegistered;
+public UnityEvent OnCameraSystemReady;
     private bool uiSetupComplete = false;
     
     private void Awake()
@@ -171,7 +183,7 @@ public class SceneManager00 : MonoBehaviour
     // ========== CALLBACK GAMEMANAGER ==========
 
     /// <summary>
-    /// Chiamato quando il GameManager ha completato il setup della scena
+    /// MODIFICATO: Callback GameManager con verifica camere
     /// </summary>
     private void OnGameManagerSceneReady(string sceneName)
     {
@@ -185,8 +197,57 @@ public class SceneManager00 : MonoBehaviour
             {
                 StartCoroutine(ShowLevelTitleCoroutine());
             }
+
+            // NUOVO: Assicurati che le camere siano pronte
+            StartCoroutine(EnsureCamerasAreReadyCoroutine());
         }
     }
+
+/// <summary>
+/// NUOVO: Verifica che le camere siano pronte e funzionanti
+/// </summary>
+/// <summary>
+/// NUOVO: Verifica che le camere siano pronte e funzionanti
+/// </summary>
+private IEnumerator EnsureCamerasAreReadyCoroutine()
+{
+    DebugLog("[SceneManager] Verifica stato camere...");
+    
+    yield return new WaitForSeconds(0.5f);
+    
+    // Usa il riferimento diretto invece del GameManager
+    if (cameraManager != null)
+    {
+        cameraManager.EnsureCamerasAreReady();
+    }
+    else
+    {
+        DebugLog("[SceneManager] Nessun manager disponibile per gestione camere");
+    }
+    
+    yield return new WaitForSeconds(0.2f);
+    
+    // Verifica finale
+    if (cameraManager != null && cameraManager.GetActiveCamera() != null)
+    {
+        DebugLog($"[SceneManager] Camera attiva confermata: {cameraManager.GetActiveCamera().name}");
+    }
+    else
+    {
+        DebugLog("[SceneManager] Nessuna camera attiva rilevata!");
+        
+        if (cameraManager != null)
+        {
+            var cameras = cameraManager.GetAllCameras();
+            if (cameras.Count > 0)
+            {
+                cameraManager.SwitchCamera(cameras[0]);
+                DebugLog($"[SceneManager] Fix applicato - attivata: {cameras[0].name}");
+            }
+        }
+    }
+}
+
     
     /// <summary>
     /// Metodo chiamato dal GameManager tramite SendMessage
@@ -232,20 +293,64 @@ public class SceneManager00 : MonoBehaviour
 
         managersReady = checkpointManager != null && collectiblesManager != null;
         DebugLog($"[SceneManager00] Manager pronti: {managersReady}");
-         if (abilitiesManager == null && autoFindManagers)
+        if (abilitiesManager == null && autoFindManagers)
+        {
+            abilitiesManager = FindFirstObjectByType<AbilitiesManager>();
+        }
+
+        if (abilitiesManager == null && createManagersIfMissing)
+        {
+            GameObject abilitiesGO = new GameObject("AbilitiesManager");
+            abilitiesGO.transform.parent = transform;
+            abilitiesManager = abilitiesGO.AddComponent<AbilitiesManager>();
+            DebugLog("[SceneManager00] ✅ AbilitiesManager creato automaticamente");
+        }
+    // Setup CameraManager
+if (cameraManager == null && autoFindManagers)
+{
+    cameraManager = CameraManager.Instance;
+    if (cameraManager == null)
     {
-         abilitiesManager = FindFirstObjectByType<AbilitiesManager>();
+       // Nel metodo SetupManagers, sostituisci questa riga:
+cameraManager = FindFirstObjectByType<CameraManager>();
+    }
+}
+
+if (cameraManager != null)
+{
+    DebugLog($"[SceneManager00] CameraManager trovato: {cameraManager.name}");
+    cameraManagerReady = true;
+}
+    }
+    public void RegisterCameraManager(CameraManager camManager)
+{
+    DebugLog("[SceneManager00] CameraManager registrato");
+    cameraManager = camManager;
+    cameraManagerReady = true;
+    
+    // Configura la camera preferita se specificata
+    if (preferredSceneCamera != null)
+    {
+        cameraManager.ConfigureForScene(preferredSceneCamera, sceneName);
     }
     
-    if (abilitiesManager == null && createManagersIfMissing)
-    {
-        GameObject abilitiesGO = new GameObject("AbilitiesManager");
-        abilitiesGO.transform.parent = transform;
-        abilitiesManager = abilitiesGO.AddComponent<AbilitiesManager>();
-        DebugLog("[SceneManager00] ✅ AbilitiesManager creato automaticamente");
-    }
-    }
-    
+    OnCameraManagerRegistered?.Invoke(cameraManager);
+}
+
+public void OnCameraManagerInitializing(CameraManager camManager)
+{
+    DebugLog("[SceneManager00] CameraManager in inizializzazione...");
+}
+
+public void OnCameraManagerFullyReady(CameraManager camManager)
+{
+    DebugLog("[SceneManager00] CameraManager completamente pronto");
+    cameraSystemFullyInitialized = true;
+    OnCameraSystemReady?.Invoke();
+}
+
+public CameraManager GetCameraManager() => cameraManager;
+public bool IsCameraManagerReady() => cameraManagerReady && cameraSystemFullyInitialized;
     private void FindManagers()
     {
         if (checkpointManager == null)

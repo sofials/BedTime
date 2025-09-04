@@ -10,9 +10,9 @@ public class GameManager : MonoBehaviour
     public GameObject startMenu; // Riferimento locale per Title Screen
     public GameObject pauseMenu; // Riferimento al menu di pausa (trovato automaticamente)
     
-    // NUOVO: Riferimento al componente PauseMenuUI
+    // Riferimento al componente PauseMenuUI
     private PauseMenuUI pauseMenuUI;
-
+    
     [Header("Scene Management")]
     [SerializeField] private SceneController sceneController;
     [SerializeField] private string mainMenuSceneName = "Title Screen"; // Nome della scena del menu principale
@@ -20,12 +20,12 @@ public class GameManager : MonoBehaviour
     [Header("Cursor Settings")]
     [SerializeField] private bool debugCursorState = false; // Per debugging
 
-    // NUOVO: Stato di pausa
+    // Stato di pausa
     private bool isPaused = false;
 
     // Eventi per compatibilità con SceneManager
     public System.Action<string> OnSceneReady;
-    public System.Action<bool> OnPauseStateChanged; // NUOVO: Evento per notificare cambio stato pausa
+    public System.Action<bool> OnPauseStateChanged; // Evento per notificare cambio stato pausa
 
     private void Awake()
     {
@@ -39,18 +39,37 @@ public class GameManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
     }
-    /// <summary>
-/// FIX CRITICO: Reset forzato del Time.timeScale all'inizio di ogni scena
-/// </summary>
-private void OnEnable()
-{
-    // PRIMA cosa: forza Time.timeScale a 1 sempre quando si attiva il GameManager
-    Time.timeScale = 1f;
-    Debug.Log("[GameManager] OnEnable - Time.timeScale forzato a 1");
-    
-    SceneManager.sceneLoaded += OnSceneLoaded;
-}
 
+    /// <summary>
+    /// FIX CRITICO: Reset forzato del Time.timeScale all'inizio di ogni scena
+    /// </summary>
+    private void OnEnable()
+    {
+        // PRIMA cosa: forza Time.timeScale a 1 sempre quando si attiva il GameManager
+        Time.timeScale = 1f;
+        Debug.Log("[GameManager] OnEnable - Time.timeScale forzato a 1");
+        
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+/// <summary>
+/// Assicura che le camere siano pronte - chiamato da SceneManager
+/// </summary>
+public void EnsureCamerasAreReady()
+{
+    Debug.Log("[GameManager] Verifica stato camere richiesta");
+    
+    // Trova il CameraManager
+    var cameraManager = CameraManager.Instance;
+    if (cameraManager != null)
+    {
+        cameraManager.EnsureCamerasAreReady();
+        Debug.Log("[GameManager] Richiesta inviata al CameraManager");
+    }
+    else
+    {
+        Debug.Log("[GameManager] ⚠️ CameraManager non trovato");
+    }
+}
     private void Start()
     {
         // FIX: Usa coroutine per dare tempo alla scena di inizializzarsi
@@ -58,7 +77,7 @@ private void OnEnable()
     }
 
     /// <summary>
-    /// NUOVO: Inizializzazione ritardata per dare tempo alla scena di caricarsi completamente
+    /// Inizializzazione ritardata per dare tempo alla scena di caricarsi completamente
     /// </summary>
     private IEnumerator InitializeAfterSceneLoad()
     {
@@ -83,7 +102,7 @@ private void OnEnable()
     }
 
     /// <summary>
-    /// MODIFICATO: Trova automaticamente il menu di pausa nella scena corrente con più tentativi
+    /// Trova automaticamente il menu di pausa nella scena corrente con più tentativi
     /// </summary>
     private void FindPauseMenuInScene()
     {
@@ -150,7 +169,7 @@ private void OnEnable()
                     
                     if (foundPauseMenu != null) break;
                     
-                    // MODIFICATO: Controlla tutti i figli del canvas, anche quelli disattivati
+                    // Controlla tutti i figli del canvas, anche quelli disattivati
                     Transform[] allChildren = canvas.GetComponentsInChildren<Transform>(true); // true = include inattivi
                     foreach (Transform child in allChildren)
                     {
@@ -172,7 +191,7 @@ private void OnEnable()
                 }
             }
             
-            // NUOVO: Se ancora non trovato, cerca oggetti disattivati usando Resources.FindObjectsOfTypeAll
+            // Se ancora non trovato, cerca oggetti disattivati usando Resources.FindObjectsOfTypeAll
             if (foundPauseMenu == null)
             {
                 Debug.Log("[GameManager] Ricerca oggetti disattivati...");
@@ -197,7 +216,7 @@ private void OnEnable()
                 }
             }
             
-            // NUOVO: Cerca anche per componente PauseMenuUI
+            // Cerca anche per componente PauseMenuUI
             if (foundPauseMenu == null)
             {
                 Debug.Log("[GameManager] Ricerca tramite componente PauseMenuUI...");
@@ -219,7 +238,7 @@ private void OnEnable()
             {
                 pauseMenu = foundPauseMenu;
                 
-                // NUOVO: Cerca anche il componente PauseMenuUI
+                // Cerca anche il componente PauseMenuUI
                 pauseMenuUI = pauseMenu.GetComponent<PauseMenuUI>();
                 if (pauseMenuUI == null)
                 {
@@ -313,54 +332,53 @@ private void OnEnable()
         }
     }
 
-    // MODIFICATO: Aggiunto controllo input ESC
-private void Update()
-{
-    // FIX: Controllo più aggressivo per trovare il pause menu se mancante
-    if (pauseMenu == null && !IsInMainMenu())
+    private void Update()
     {
-        // Riprova ogni secondo circa invece che ogni frame
-        if (Time.unscaledTime % 1f < Time.unscaledDeltaTime)
+        // Controllo più aggressivo per trovare il pause menu se mancante
+        if (pauseMenu == null && !IsInMainMenu())
         {
-            Debug.Log("[GameManager] Pause menu mancante, tentativo di ricerca...");
-            FindPauseMenuInScene();
-        }
-    }
-    
-    // Gestione ESC per menu di pausa
-    if (Input.GetKeyDown(KeyCode.Escape) && !IsInMainMenu())
-    {
-        if (pauseMenu != null)
-        {
-            TogglePause();
-        }
-        else
-        {
-            Debug.LogWarning("[GameManager] ESC premuto ma pause menu non trovato!");
-        }
-    }
-
-    // Debug cursore e time scale
-    if (debugCursorState)
-    {
-        // Verifica Time.timeScale anomalo
-        if (Time.timeScale != 1f && !isPaused)
-        {
-            Debug.LogError($"[GameManager] Time.timeScale anomalo: {Time.timeScale} (non in pausa!)");
-            Time.timeScale = 1f; // Forza il fix
-        }
-        
-        // Verifica cursore in gameplay
-        if (!IsInMainMenu() && !isPaused)
-        {
-            if (Cursor.visible || Cursor.lockState != CursorLockMode.Locked)
+            // Riprova ogni secondo circa invece che ogni frame
+            if (Time.unscaledTime % 1f < Time.unscaledDeltaTime)
             {
-                Debug.LogWarning("[GameManager] Cursore si è sbloccato, lo riforzo nascosto");
-                SetGameCursorState();
+                Debug.Log("[GameManager] Pause menu mancante, tentativo di ricerca...");
+                FindPauseMenuInScene();
+            }
+        }
+
+        // Gestione ESC per menu di pausa
+        if (Input.GetKeyDown(KeyCode.Escape) && !IsInMainMenu())
+        {
+            if (pauseMenu != null)
+            {
+                TogglePause();
+            }
+            else
+            {
+                Debug.LogWarning("[GameManager] ESC premuto ma pause menu non trovato!");
+            }
+        }
+
+        // Debug cursore e time scale
+        if (debugCursorState)
+        {
+            // Verifica Time.timeScale anomalo
+            if (Time.timeScale != 1f && !isPaused)
+            {
+                Debug.LogError($"[GameManager] Time.timeScale anomalo: {Time.timeScale} (non in pausa!)");
+                Time.timeScale = 1f; // Forza il fix
+            }
+
+            // Verifica cursore in gameplay
+            if (!IsInMainMenu() && !isPaused)
+            {
+                if (Cursor.visible || Cursor.lockState != CursorLockMode.Locked)
+                {
+                    Debug.LogWarning("[GameManager] Cursore si è sbloccato, lo riforzo nascosto");
+                    SetGameCursorState();
+                }
             }
         }
     }
-}
 
     private void HandleTitleScreen()
     {
@@ -481,64 +499,52 @@ private void Update()
     }
 
     /// <summary>
-    /// NUOVO: Torna al menu principale (per il bottone del menu di pausa)
+    /// Torna al menu principale (per il bottone del menu di pausa)
     /// CORRETTO: Usa il nome della scena configurabile invece di riferimento diretto
     /// </summary>
-  public void GoToMainMenu()
-{
-    Debug.Log($"[GameManager] Tornando al menu principale ({mainMenuSceneName})...");
-    
-    // FIX: Reset COMPLETO dello stato prima di cambiare scena
-    isPaused = false;
-    Time.timeScale = 1f;
-    
-    if (pauseMenu != null)
-        pauseMenu.SetActive(false);
-    if (pauseMenuUI != null)
-        pauseMenuUI.Hide();
-    
-    Debug.Log("[GameManager] Stato completamente resettato prima del cambio scena");
-    
-    // Carica immediatamente senza Invoke
-    LoadSceneWithFade(mainMenuSceneName);
-}
-    private void DoGoToMainMenu()
+    public void GoToMainMenu()
     {
-        Debug.Log($"[GameManager] Eseguendo caricamento menu principale: {mainMenuSceneName}");
+        Debug.Log($"[GameManager] Tornando al menu principale ({mainMenuSceneName})...");
+        
+        // FIX: Reset COMPLETO dello stato prima di cambiare scena
+        isPaused = false;
+        Time.timeScale = 1f;
+        
+        if (pauseMenu != null)
+            pauseMenu.SetActive(false);
+        if (pauseMenuUI != null)
+            pauseMenuUI.Hide();
+        
+        Debug.Log("[GameManager] Stato completamente resettato prima del cambio scena");
+        
+        // Carica immediatamente senza Invoke
         LoadSceneWithFade(mainMenuSceneName);
     }
 
     /// <summary>
-    /// NUOVO: Riavvia il livello corrente (per il bottone del menu di pausa)
+    /// Riavvia il livello corrente (per il bottone del menu di pausa)
     /// CORRETTO: Usa Invoke per eseguire dopo un frame, evitando problemi di timeScale
     /// </summary>
- public void RestartLevel()
-{
-    Debug.Log("[GameManager] Riavviando il livello corrente...");
-    
-    string currentScene = SceneManager.GetActiveScene().name;
-    Debug.Log($"[GameManager] Scena corrente da riavviare: {currentScene}");
-    
-    // FIX: Reset COMPLETO dello stato prima di cambiare scena
-    isPaused = false;
-    Time.timeScale = 1f;
-    
-    if (pauseMenu != null)
-        pauseMenu.SetActive(false);
-    if (pauseMenuUI != null)
-        pauseMenuUI.Hide();
-    
-    Debug.Log("[GameManager] Stato completamente resettato prima del riavvio");
-    
-    // Carica immediatamente senza Invoke
-    LoadSceneWithFade(currentScene);
-}
-    
-    private string currentSceneToRestart;
-    private void DoRestartLevel()
+    public void RestartLevel()
     {
-        Debug.Log($"[GameManager] Eseguendo riavvio livello: {currentSceneToRestart}");
-        LoadSceneWithFade(currentSceneToRestart);
+        Debug.Log("[GameManager] Riavviando il livello corrente...");
+        
+        string currentScene = SceneManager.GetActiveScene().name;
+        Debug.Log($"[GameManager] Scena corrente da riavviare: {currentScene}");
+        
+        // FIX: Reset COMPLETO dello stato prima di cambiare scena
+        isPaused = false;
+        Time.timeScale = 1f;
+        
+        if (pauseMenu != null)
+            pauseMenu.SetActive(false);
+        if (pauseMenuUI != null)
+            pauseMenuUI.Hide();
+        
+        Debug.Log("[GameManager] Stato completamente resettato prima del riavvio");
+        
+        // Carica immediatamente senza Invoke
+        LoadSceneWithFade(currentScene);
     }
 
     /// <summary>
@@ -550,7 +556,7 @@ private void Update()
     }
     
     /// <summary>
-    /// NUOVO: Mostra il menu di pausa usando PauseMenuUI se disponibile, altrimenti fallback su GameObject
+    /// Mostra il menu di pausa usando PauseMenuUI se disponibile, altrimenti fallback su GameObject
     /// </summary>
     private void ShowPauseMenu()
     {
@@ -571,7 +577,7 @@ private void Update()
     }
     
     /// <summary>
-    /// NUOVO: Nascondi il menu di pausa usando PauseMenuUI se disponibile, altrimenti fallback su GameObject
+    /// Nascondi il menu di pausa usando PauseMenuUI se disponibile, altrimenti fallback su GameObject
     /// </summary>
     private void HidePauseMenu()
     {
@@ -714,7 +720,7 @@ private void Update()
     }
 
     /// <summary>
-    /// NUOVO: Imposta il nome della scena del menu principale
+    /// Imposta il nome della scena del menu principale
     /// </summary>
     public void SetMainMenuSceneName(string sceneName)
     {
@@ -748,7 +754,9 @@ private void Update()
 
     // ========== GESTIONE EVENTI SCENA ==========
 
-    // MODIFICA il metodo OnSceneLoaded esistente:
+    /// <summary>
+    /// OnSceneLoaded con reset più aggressivo
+    /// </summary>
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         Debug.Log($"[GameManager] Scena caricata: {scene.name}");
@@ -760,15 +768,16 @@ private void Update()
         // IMPORTANTE: Reset di TUTTI i riferimenti UI
         pauseMenu = null;
         pauseMenuUI = null;
-        startMenu = null;  // Reset anche questo
+        startMenu = null;
 
         Debug.Log($"[GameManager] Tutti i riferimenti UI resettati per scena: {scene.name}");
 
         // FIX: Attendi che Unity abbia completamente inizializzato la scena
         StartCoroutine(CompleteSceneInitialization(scene.name));
     }
+
     /// <summary>
-    /// NUOVO: Inizializzazione completa e robusta per ogni scena
+    /// Inizializzazione completa per ogni scena
     /// </summary>
     private IEnumerator CompleteSceneInitialization(string sceneName)
     {
@@ -802,35 +811,35 @@ private void Update()
         // Notifica finale
         NotifySceneReady(sceneName);
     }
+
     private void NotifySceneReady(string sceneName)
-{
-    Debug.Log($"[GameManager] Scena {sceneName} completamente inizializzata e pronta");
-    
-    // Cerca lo SceneManager specifico della scena per notifica
-    StartCoroutine(NotifySceneManagerAfterDelay());
-    
-    // Evento generico
-    OnSceneReady?.Invoke(sceneName);
-}
+    {
+        Debug.Log($"[GameManager] Scena {sceneName} completamente inizializzata e pronta");
+
+        // Cerca lo SceneManager specifico della scena per notifica
+        StartCoroutine(NotifySceneManagerAfterDelay());
+
+        // Evento generico
+        OnSceneReady?.Invoke(sceneName);
+    }
+
     /// <summary>
-    /// MODIFICATO: Configurazione più robusta per Game Scene
+    /// Configurazione Game Scene
     /// </summary>
     private void ConfigureGameScene()
     {
         Debug.Log("[GameManager] Configurando Game Scene...");
 
-        // Assicurati che il menu di pausa sia nascosto
         HidePauseMenu();
-
-        // Configurazione per gameplay
         isPaused = false;
         Time.timeScale = 1f;
         SetGameCursorState();
 
-        Debug.Log("[GameManager] Game Scene configurato - Cursore nascosto, Time.timeScale = 1");
+        Debug.Log("[GameManager] Game Scene configurato");
     }
+
     /// <summary>
-    /// MODIFICATO: Configurazione più robusta per Title Screen
+    /// Configurazione più robusta per Title Screen
     /// </summary>
     private void ConfigureTitleScreen()
     {
@@ -853,8 +862,9 @@ private void Update()
 
         Debug.Log("[GameManager] Title Screen configurato - Cursore visibile, Time.timeScale = 1");
     }
-/// <summary>
-    /// NUOVO: Trova tutti i componenti UI necessari nella scena corrente
+
+    /// <summary>
+    /// Trova tutti i componenti UI necessari nella scena corrente
     /// </summary>
     private void FindAllUIComponents()
     {
@@ -874,66 +884,33 @@ private void Update()
         }
     }
 
-/// <summary>
-/// NUOVO: Trova il start menu nella scena del menu principale
-/// </summary>
-private void FindStartMenuInScene()
-{
-    if (startMenu == null)
+    /// <summary>
+    /// Trova il start menu nella scena del menu principale
+    /// </summary>
+    private void FindStartMenuInScene()
     {
-        string[] possibleNames = { 
-            "StartMenu", "Main Menu", "MenuIniziale", 
-            "MenuPrincipale", "UI_MainMenu", "Canvas_MainMenu" 
-        };
-        
-        foreach (string name in possibleNames)
-        {
-            GameObject found = GameObject.Find(name);
-            if (found != null)
-            {
-                startMenu = found;
-                Debug.Log($"[GameManager] Start menu trovato: {name}");
-                break;
-            }
-        }
-        
         if (startMenu == null)
         {
-            Debug.LogWarning("[GameManager] Start menu non trovato nel menu principale");
-        }
-    }
-}
-    /// <summary>
-    /// NUOVO: Gestisce il caricamento di una nuova scena con timing corretto
-    /// </summary>
-    private IEnumerator HandleNewSceneLoad(string sceneName)
-    {
-        // Aspetta che la scena sia completamente caricata
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForEndOfFrame();
-        
-        Debug.Log($"[GameManager] Inizializzazione ritardata per nuova scena: {sceneName}");
-        
-        // Trova il menu di pausa nella nuova scena
-        FindPauseMenuInScene();
-        
-        // Aspetta un frame per permettere l'inizializzazione
-        yield return ConfigureCursorForNewScene(sceneName);
-    }
-    
-    private IEnumerator ConfigureCursorForNewScene(string sceneName)
-    {
-        yield return null; // Aspetta un frame
-        
-        if (sceneName == mainMenuSceneName)
-        {
-            SetMenuCursorState();
-            Debug.Log("[GameManager] Nuovo caricamento - Cursore configurato per menu");
-        }
-        else
-        {
-            SetGameCursorState();
-            Debug.Log("[GameManager] Nuovo caricamento - Cursore configurato per gameplay");
+            string[] possibleNames = { 
+                "StartMenu", "Main Menu", "MenuIniziale", 
+                "MenuPrincipale", "UI_MainMenu", "Canvas_MainMenu" 
+            };
+            
+            foreach (string name in possibleNames)
+            {
+                GameObject found = GameObject.Find(name);
+                if (found != null)
+                {
+                    startMenu = found;
+                    Debug.Log($"[GameManager] Start menu trovato: {name}");
+                    break;
+                }
+            }
+            
+            if (startMenu == null)
+            {
+                Debug.LogWarning("[GameManager] Start menu non trovato nel menu principale");
+            }
         }
     }
 
@@ -976,7 +953,7 @@ private void FindStartMenuInScene()
         isPaused = paused;
         Time.timeScale = paused ? 0f : 1f;
         
-        // MODIFICATO: Usa i nuovi metodi unificati
+        // Usa i nuovi metodi unificati
         if (paused)
         {
             ShowPauseMenu();

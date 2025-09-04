@@ -4,7 +4,9 @@ using CartoonFX;
 using System.Collections;
 using Unity.Cinemachine;
 using UnityEngine.Events;
-
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
@@ -27,11 +29,11 @@ private const float COLLISION_LOG_THROTTLE = 0.1f; // Only log every 0.1 seconds
     private int unstableFrames = 0;
 private bool lastGroundCheckResult = false;
     [Header("Ground Stability")]
-[SerializeField] private int groundStabilityFrames = 8; // Numero di frame da mantenere grounded
+[SerializeField] private int groundStabilityFrames = 3; // Numero di frame da mantenere grounded
 [SerializeField] private bool debugGroundStability = false;
     [Header("Platform Smoothing")]
-[SerializeField] private float platformVerticalSmoothing = 8f; // Regolabile nell'inspector
-[SerializeField] private float platformVerticalThreshold = 0.1f; // Soglia minima per movimento verticale
+[SerializeField] private float platformVerticalSmoothing = 2f; // Regolabile nell'inspector
+[SerializeField] private float platformVerticalThreshold = 0.05f; // Soglia minima per movimento verticale
 // ✅ AGGIUNGI QUESTI NUOVI PARAMETRI PER CONTROLLO FINE
 [Header("Platform Vertical Control")]
 [SerializeField] private float platformVerticalMultiplier = 1f; // ← NUOVO: Riduci da 0.3 a 0.15 (solo 15% del movimento)
@@ -59,6 +61,18 @@ private bool lastGroundCheckResult = false;
     private int jumpCount = 0;
     private Vector3 velocity;
     private bool isJumpEnabled = true; 
+    [Header("Advanced Jump Timing")]
+#if UNITY_EDITOR
+public float jumpBufferTime = 0.2f;
+#else
+public float jumpBufferTime = 0.35f; // PIÙ GENEROSO NELLE BUILD
+#endif
+
+#if UNITY_EDITOR
+public float coyoteTime = 0.15f;
+#else
+public float coyoteTime = 0.2f; // PIÙ GENEROSO NELLE BUILD
+#endif
     [Header("Ledge Grab Settings")]
 public bool ledgeGrabEnabled = true;
 public float ledgeDetectionDistance = 1f;
@@ -75,10 +89,6 @@ private float lastLedgeGrabTime = 0f; // Ultimo tempo di rilascio dal ledge
 
 [Header("Ledge Grab Debug")]
 public bool debugLedgeGrab = false;
-
-    [Header("Advanced Jump Timing")]
-    public float coyoteTime = 0.15f;
-    public float jumpBufferTime = 0.2f;
     
     private float coyoteTimeCounter = 0f;
     private float jumpBufferCounter = 0f;
@@ -86,6 +96,11 @@ public bool debugLedgeGrab = false;
     [Header("Falling Settings")]
     public float fallingTimeThreshold = 1.0f;
     private float fallingTimer = 0f;
+// AGGIUNGI QUESTE NUOVE VARIABILI:
+[Header("Jump Debug")]
+[SerializeField] private bool debugJumpInBuild = false;
+private float lastJumpAttemptTime = 0f;
+private int jumpAttemptCount = 0;
 
     [Header("Air Control Settings")]
     public float airControlStrength = 0.5f;
@@ -319,57 +334,61 @@ private bool isClimbing = false;
     }
 }
 
-    /// <summary>
-    /// Forza l'uso di una CinemachineCamera specifica tramite CameraManager
-    /// </summary>
-    /// <param name="cinemachineCamera">La CinemachineCamera da attivare</param>
-    public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
+   
+// REPLACE THIS SECTION (around lines 340-410):
+public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
+{
+    if (cinemachineCamera != null && useCameraManagerIntegration)
     {
-        if (cinemachineCamera != null && useCameraManagerIntegration)
+        // OLD: CameraManager.SwitchCamera(cinemachineCamera);
+        // NEW: Use instance
+        CameraManager cameraManager = CameraManager.Instance;
+        if (cameraManager != null)
         {
-            // Usa CameraManager per switchare
-            CameraManager.SwitchCamera(cinemachineCamera);
-
-            // Forza un aggiornamento immediato
-            if (autoDetectActiveCamera)
-            {
-                DetectActiveCamera();
-            }
-
-            if (debugCameraChanges)
-                Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via CameraManager: {cinemachineCamera.name}");
+            cameraManager.SwitchCamera(cinemachineCamera);
         }
-        else if (!useCameraManagerIntegration)
+
+        // Forza un aggiornamento immediato
+        if (autoDetectActiveCamera)
         {
-            Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
+            DetectActiveCamera();
         }
+
+        if (debugCameraChanges)
+            Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via CameraManager: {cinemachineCamera.name}");
     }
-
-    /// <summary>
-    /// Forza l'uso di una CinemachineCamera specifica tramite nome
-    /// </summary>
-    /// <param name="cameraName">Nome della CinemachineCamera da attivare</param>
-    public void SetActiveCinemachineCameraByName(string cameraName)
+    else if (!useCameraManagerIntegration)
     {
-        if (useCameraManagerIntegration)
-        {
-            CameraManager.SwitchCameraByName(cameraName);
-            
-            // Forza un aggiornamento immediato
-            if (autoDetectActiveCamera)
-            {
-                DetectActiveCamera();
-            }
-            
-            if (debugCameraChanges)
-                Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via nome: {cameraName}");
-        }
-        else
-        {
-            Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
-        }
+        Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
     }
+}
 
+   public void SetActiveCinemachineCameraByName(string cameraName)
+{
+    if (useCameraManagerIntegration)
+    {
+        // OLD: CameraManager.SwitchCameraByName(cameraName);
+        // NEW: Use instance
+        CameraManager cameraManager = CameraManager.Instance;
+        if (cameraManager != null)
+        {
+            cameraManager.SwitchCameraByName(cameraName);
+        }
+        
+        // Forza un aggiornamento immediato
+        if (autoDetectActiveCamera)
+        {
+            DetectActiveCamera();
+        }
+        
+        if (debugCameraChanges)
+            Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via nome: {cameraName}");
+    }
+    else
+    {
+        Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
+    }
+}
     /// <summary>
     /// Ottieni la camera attualmente utilizzata per il movimento
     /// </summary>
@@ -379,14 +398,17 @@ private bool isClimbing = false;
         return currentActiveCamera;
     }
 
-    /// <summary>
-    /// Ottieni la CinemachineCamera attualmente attiva dal CameraManager
-    /// </summary>
-    /// <returns>La CinemachineCamera attiva o null</returns>
     public CinemachineCamera GetActiveCinemachineCamera()
+{
+    // OLD: return useCameraManagerIntegration ? CameraManager.ActiveCamera : null;
+    // NEW: Use instance
+    if (useCameraManagerIntegration)
     {
-        return useCameraManagerIntegration ? CameraManager.ActiveCamera : null;
+        CameraManager cameraManager = CameraManager.Instance;
+        return cameraManager != null ? cameraManager.GetActiveCamera() : null;
     }
+    return null;
+}
 
     /// <summary>
     /// Abilita/disabilita il rilevamento automatico della camera
@@ -414,121 +436,127 @@ private bool isClimbing = false;
         }
     }
 
-    /// <summary>
-    /// Ottieni informazioni dettagliate sulla camera attiva
-    /// </summary>
-    /// <returns>Stringa con informazioni sulla camera</returns>
-    public string GetActiveCameraInfo()
+// REPLACE the GetActiveCameraInfo method (around line 430):
+public string GetActiveCameraInfo()
+{
+    if (currentActiveCamera == null) return "Nessuna camera attiva";
+    
+    string info = $"Camera: {currentActiveCamera.name}";
+    
+    CameraManager cameraManager = CameraManager.Instance;
+    if (useCameraManagerIntegration && cameraManager != null && cameraManager.GetActiveCamera() != null)
     {
-        if (currentActiveCamera == null) return "Nessuna camera attiva";
-        
-        string info = $"Camera: {currentActiveCamera.name}";
-        
-        if (useCameraManagerIntegration && CameraManager.ActiveCamera != null)
-        {
-            info += $"\nCinemachine: {CameraManager.ActiveCamera.name}";
-            info += $"\nPriorità: {CameraManager.ActiveCamera.Priority}";
-        }
-        
-        info += $"\nAuto-detect: {autoDetectActiveCamera}";
-        info += $"\nCameraManager: {useCameraManagerIntegration}";
-        
-        return info;
+        info += $"\nCinemachine: {cameraManager.GetActiveCamera().name}";
+        info += $"\nPriorità: {cameraManager.GetActiveCamera().Priority}";
     }
+    
+    info += $"\nAuto-detect: {autoDetectActiveCamera}";
+    info += $"\nCameraManager: {useCameraManagerIntegration}";
+    
+    return info;
+}
 
     /// <summary>
     /// Rileva automaticamente la camera attiva - Integrato con CameraManager
     /// </summary>
-    private void DetectActiveCamera()
+    // REPLACE the DetectActiveCamera method (around line 440-520):
+private void DetectActiveCamera()
+{
+    Camera newActiveCamera = null;
+    
+    // 1. ✅ PRIORITÀ: Usa CameraManager se disponibile
+    CameraManager cameraManager = CameraManager.Instance;
+    if (cameraManager != null && cameraManager.GetActiveCamera() != null)
     {
-        Camera newActiveCamera = null;
-        
-        // 1. ✅ PRIORITÀ: Usa CameraManager se disponibile
-        if (CameraManager.ActiveCamera != null)
+        // Ottieni la camera Unity dal CinemachineBrain
+        CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
+        if (brain != null && brain.OutputCamera != null)
         {
-            // Ottieni la camera Unity dal CinemachineBrain
+            newActiveCamera = brain.OutputCamera;
+            
+            if (debugCameraChanges)
+            {
+                Debug.Log($"[ThirdPersonController] 🎥 Usando CameraManager - Camera attiva: {cameraManager.GetActiveCamera().name}");
+            }
+        }
+    }
+    
+    // 2. FALLBACK: Trova CinemachineCamera con priorità più alta
+    if (newActiveCamera == null)
+    {
+        CinemachineCamera[] cinemachineCameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
+        CinemachineCamera highestPriorityCamera = null;
+        int highestPriority = -1;
+        
+        foreach (var cmCamera in cinemachineCameras)
+        {
+            if (cmCamera.isActiveAndEnabled && cmCamera.Priority > highestPriority)
+            {
+                highestPriorityCamera = cmCamera;
+                highestPriority = cmCamera.Priority;
+            }
+        }
+        
+        if (highestPriorityCamera != null)
+        {
             CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
             if (brain != null && brain.OutputCamera != null)
             {
                 newActiveCamera = brain.OutputCamera;
-                
-                if (debugCameraChanges)
-                {
-                    Debug.Log($"[ThirdPersonController] 🎥 Usando CameraManager - Camera attiva: {CameraManager.ActiveCamera.name}");
-                }
             }
-        }
-        
-        // 2. FALLBACK: Trova CinemachineCamera con priorità più alta
-        if (newActiveCamera == null)
-        {
-            CinemachineCamera[] cinemachineCameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
-            CinemachineCamera highestPriorityCamera = null;
-            int highestPriority = -1;
-            
-            foreach (var cmCamera in cinemachineCameras)
-            {
-                if (cmCamera.isActiveAndEnabled && cmCamera.Priority > highestPriority)
-                {
-                    highestPriorityCamera = cmCamera;
-                    highestPriority = cmCamera.Priority;
-                }
-            }
-            
-            if (highestPriorityCamera != null)
-            {
-                CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
-                if (brain != null && brain.OutputCamera != null)
-                {
-                    newActiveCamera = brain.OutputCamera;
-                }
-            }
-        }
-        
-        // 3. FALLBACK: Camera.main
-        if (newActiveCamera == null)
-        {
-            newActiveCamera = Camera.main;
-        }
-        
-        // 4. FALLBACK FINALE: Prima camera attiva trovata
-        if (newActiveCamera == null)
-        {
-            Camera[] allCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
-            foreach (var cam in allCameras)
-            {
-                if (cam.isActiveAndEnabled)
-                {
-                    newActiveCamera = cam;
-                    break;
-                }
-            }
-        }
-        
-        // 5. ✅ AGGIORNA SOLO SE LA CAMERA È CAMBIATA
-        if (newActiveCamera != currentActiveCamera && newActiveCamera != null)
-        {
-            Camera previousCamera = currentActiveCamera;
-            
-            // ✅ AGGIORNA I RIFERIMENTI PER IL MOVIMENTO
-            currentActiveCamera = newActiveCamera;
-            cameraTransform = newActiveCamera.transform; // ← QUESTO È IL PUNTO CHIAVE!
-            
-            // Log più dettagliato con info CameraManager
-            string cameraManagerInfo = CameraManager.ActiveCamera != null ? 
-                $" (CameraManager: {CameraManager.ActiveCamera.name})" : " (No CameraManager)";
-            
-            if (debugCameraChanges)
-            {
-                Debug.Log($"[ThirdPersonController] ✅ Camera cambiata: {(previousCamera ? previousCamera.name : "nessuna")} → {newActiveCamera.name}{cameraManagerInfo}");
-                Debug.Log($"[ThirdPersonController] 🎮 cameraTransform aggiornato per il movimento: {cameraTransform.name}");
-            }
-            
-            // ✅ NOTIFICA EVENT (se necessario per altri sistemi)
-            OnCameraChanged?.Invoke(previousCamera, newActiveCamera);
         }
     }
-
+    
+    // 3. FALLBACK: Camera.main
+    if (newActiveCamera == null)
+    {
+        newActiveCamera = Camera.main;
+    }
+    
+    // 4. FALLBACK FINALE: Prima camera attiva trovata
+    if (newActiveCamera == null)
+    {
+        Camera[] allCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+        foreach (var cam in allCameras)
+        {
+            if (cam.isActiveAndEnabled)
+            {
+                newActiveCamera = cam;
+                break;
+            }
+        }
+    }
+    
+    // 5. ✅ AGGIORNA SOLO SE LA CAMERA È CAMBIATA
+    if (newActiveCamera != currentActiveCamera && newActiveCamera != null)
+    {
+        Camera previousCamera = currentActiveCamera;
+        
+        // ✅ AGGIORNA I RIFERIMENTI PER IL MOVIMENTO
+        currentActiveCamera = newActiveCamera;
+        cameraTransform = newActiveCamera.transform; // ← QUESTO È IL PUNTO CHIAVE!
+        
+        // Log più dettagliato con info CameraManager
+        string cameraManagerInfo = "";
+        if (cameraManager != null && cameraManager.GetActiveCamera() != null)
+        {
+            cameraManagerInfo = $" (CameraManager: {cameraManager.GetActiveCamera().name})";
+        }
+        else
+        {
+            cameraManagerInfo = " (No CameraManager)";
+        }
+        
+        if (debugCameraChanges)
+        {
+            Debug.Log($"[ThirdPersonController] ✅ Camera cambiata: {(previousCamera ? previousCamera.name : "nessuna")} → {newActiveCamera.name}{cameraManagerInfo}");
+            Debug.Log($"[ThirdPersonController] 🎮 cameraTransform aggiornato per il movimento: {cameraTransform.name}");
+        }
+        
+        // ✅ NOTIFICA EVENT (se necessario per altri sistemi)
+        OnCameraChanged?.Invoke(previousCamera, newActiveCamera);
+    }
+}
     /// <summary>
     /// Forza un aggiornamento immediato della camera attiva - OTTIMIZZATO
     /// </summary>
@@ -606,14 +634,60 @@ private bool isClimbing = false;
     private void OnMoveCanceled(InputAction.CallbackContext ctx) => moveInput = Vector2.zero;
     private void OnSprintPerformed(InputAction.CallbackContext ctx) => isSprinting = true;
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
-    
+
     private void OnJumpStarted(InputAction.CallbackContext ctx)
     {
         if (!isJumpEnabled) return;
-        
+
         jumpBufferCounter = jumpBufferTime;
         isHoldingJump = true;
+
+        // DEBUG PER BUILD
+        if (debugJumpInBuild)
+        {
+            jumpAttemptCount++;
+            lastJumpAttemptTime = Time.time;
+            Debug.Log($"[Jump] Input ricevuto #{jumpAttemptCount} - Buffer: {jumpBufferCounter:F3}");
+        }
+
+        // PROVA SALTO IMMEDIATO
+        if (TryJumpImmediate())
+        {
+            jumpBufferCounter = 0f;
+            if (debugJumpInBuild)
+                Debug.Log("[Jump] Salto eseguito IMMEDIATAMENTE");
+        }
     }
+private bool TryJumpImmediate()
+{
+    if (!isJumpEnabled || IsMovementLocked) return false;
+    
+    // HANGING
+    if (hanging)
+    {
+        ExecuteJumpFromHang();
+        return true;
+    }
+    
+    // GROUND CHECK SEMPLIFICATO
+    bool canJumpNow = controller.isGrounded || coyoteTimeCounter > 0;
+    
+    // PRIMO SALTO
+    if (jumpCount == 0 && canJumpNow)
+    {
+        ExecuteJump(true);
+        return true;
+    }
+    
+    // MULTI JUMP
+    if (jumpCount > 0 && jumpCount < maxJumps && !controller.isGrounded)
+    {
+        ExecuteJump(false);
+        return true;
+    }
+    
+    return false;
+}
 
     private void OnJumpCanceled(InputAction.CallbackContext ctx)
     {
@@ -1305,20 +1379,19 @@ private bool IsLedgeStillValid()
     return true;
 }
 
-    /// <summary>
-    /// Aggiorna la camera attiva se auto-detect è abilitato
-    /// </summary>
-    private void UpdateActiveCamera()
+    // Nel tuo UpdateActiveCamera(), cambia:
+private void UpdateActiveCamera()
+{
+    if (!autoDetectActiveCamera) return;
+    
+    cameraCheckTimer += Time.deltaTime;
+    // AUMENTA L'INTERVALLO da 0.1f a 0.2f o più
+    if (cameraCheckTimer >= 0.2f) // Era 0.1f
     {
-        if (!autoDetectActiveCamera) return;
-        
-        cameraCheckTimer += Time.deltaTime;
-        if (cameraCheckTimer >= cameraCheckInterval)
-        {
-            cameraCheckTimer = 0f;
-            DetectActiveCamera();
-        }
+        cameraCheckTimer = 0f;
+        DetectActiveCamera();
     }
+}
 
     // [Il resto dei metodi rimane identico al codice originale...]
     // ✅ NUOVO SISTEMA DI RILEVAMENTO PIATTAFORME INTELLIGENTE
@@ -1881,21 +1954,36 @@ private Vector3 ApplyPlatformMovement()
     }
 
     private void HandleJumpInput()
+{
+    if (!isJumpEnabled || IsMovementLocked)
     {
-        if (!isJumpEnabled)
+        jumpBufferCounter = 0f;
+        return;
+    }
+    
+    if (jumpBufferCounter > 0)
+    {
+        if (debugJumpInBuild && Time.frameCount % 10 == 0) // Ogni 10 frame
         {
-            jumpBufferCounter = 0f;
-            return;
+            Debug.Log($"[Jump] Buffer attivo: {jumpBufferCounter:F3} - Grounded: {controller.isGrounded} - Coyote: {coyoteTimeCounter:F3}");
         }
         
-        if (jumpBufferCounter > 0 && !IsMovementLocked)
+        // CONDIZIONI PIÙ PERMISSIVE
+        bool canAttemptJump = controller.isGrounded || 
+                             coyoteTimeCounter > 0 || 
+                             (jumpCount > 0 && jumpCount < maxJumps && !controller.isGrounded);
+        
+        if (canAttemptJump)
         {
             if (TryJump())
             {
-                jumpBufferCounter = 0;
+                jumpBufferCounter = 0f;
+                if (debugJumpInBuild)
+                    Debug.Log("[Jump] Salto eseguito da BUFFER");
             }
         }
     }
+}
 
    private void UpdateGroundedState()
 {
@@ -1979,44 +2067,59 @@ private Vector3 ApplyPlatformMovement()
     Debug.Log("[ThirdPersonController] 🛬 Landing completed - all jump animations reset");
 }
 
-    private void UpdateJumpTimers()
+  private void UpdateJumpTimers()
+{
+    // COYOTE TIME - PIÙ GENEROSO
+    if (controller.isGrounded)
     {
-        if (controller.isGrounded)
-            coyoteTimeCounter = coyoteTime;
-        else
-            coyoteTimeCounter -= Time.deltaTime;
-
-        if (jumpBufferCounter > 0)
-            jumpBufferCounter -= Time.deltaTime;
+        coyoteTimeCounter = coyoteTime;
+    }
+    else
+    {
+        coyoteTimeCounter -= Time.deltaTime;
     }
 
-    private bool TryJump()
+    // JUMP BUFFER - DECAY PIÙ LENTO
+    if (jumpBufferCounter > 0)
+    {
+        jumpBufferCounter -= Time.deltaTime;
+        
+        // ASSICURATI CHE NON DIVENTI NEGATIVO
+        if (jumpBufferCounter < 0)
+            jumpBufferCounter = 0;
+    }
+}
+
+   private bool TryJump()
 {
     if (!isJumpEnabled) return false;
     
-    // ✅ GESTIONE SALTO DA HANGING
     if (hanging)
     {
-       if (jumpBufferCounter > 0f) // Solo se è stato premuto il pulsante salto
-    {
-        ExecuteJumpFromHang();
-        return true;
-    }
-    // Se siamo hanging ma non c'è input di salto, non fare nulla
-    return false;
+        if (jumpBufferCounter > 0f)
+        {
+            ExecuteJumpFromHang();
+            return true;
+        }
+        return false;
     }
     
-    // Resto della logica di salto normale rimane uguale...
-    bool grounded = IsGroundedAccurate();
+    // GROUND CHECK PIÙ DIRETTO
+    bool grounded = controller.isGrounded;
     bool canJump = false;
     bool isFirstJump = false;
 
-    if (jumpCount == 0 && (grounded || coyoteTimeCounter > 0))
+    // PRIMO SALTO - CONDIZIONI SEMPLIFICATE
+    if (jumpCount == 0)
     {
-        canJump = true;
-        isFirstJump = true;
+        if (grounded || coyoteTimeCounter > 0)
+        {
+            canJump = true;
+            isFirstJump = true;
+        }
     }
-    else if (jumpCount > 0 && jumpCount < maxJumps && !grounded)
+    // MULTI JUMP
+    else if (jumpCount < maxJumps && !grounded)
     {
         canJump = true;
         isFirstJump = false;
@@ -2166,24 +2269,22 @@ private void HandleJump()
 {
     bool grounded = controller.isGrounded;
     
-    // ✅ SE SIAMO HANGING O IN ARRAMPICATA, NON APPLICARE GRAVITÀ NÉ MOVIMENTO VERTICALE
     if (hanging || isClimbing)
     {
-        // Durante hanging o climbing, forza tutto a zero
         velocity = Vector3.zero;
-        
-        if (debugLedgeGrab && isClimbing && Time.frameCount % 30 == 0)
-            Debug.Log("[LedgeGrab] 🧗 Climbing attivo - gravità disabilitata (Animation Event controllerà la fine)");
-        
         return;
     }
     
+    // VALORE FISSO PER GROUNDED
     if (grounded && velocity.y < 0)
-        velocity.y = -2f;
+    {
+        velocity.y = -2f; // VALORE FISSO INVECE DI VARIABILE
+    }
 
     ApplyGravity();
     UpdateJumpAnimations();
 }
+
 
   private bool IsGroundedAccurate()
 {
@@ -2676,11 +2777,6 @@ public string GetLedgeGrabInfo()
     // Throttle collision processing
     if (Time.time - lastCollisionLogTime < COLLISION_LOG_THROTTLE) return;
     lastCollisionLogTime = Time.time;
-    
-    if (debugPlatformMovement)
-    {
-        Debug.Log($"[Platform] OnControllerColliderHit: {hit.collider.name} (tag: {hit.collider.tag})");
-    }
 }
 
     public void ApplyExternalPush(Vector3 force) => externalPush += force;
@@ -2916,55 +3012,61 @@ public void HandleChildTrigger(Collider other, Transform childTransform)
         controls.Dispose();
     }
 }
+// Replace the OnDrawGizmosSelected method (around line 3020-3070):
 
-    // ✅ METODI DI DEBUG (solo in build di sviluppo)
-    #if UNITY_EDITOR || DEVELOPMENT_BUILD
-    private void OnDrawGizmosSelected()
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+private void OnDrawGizmosSelected()
+{
+    if (!debugPlatformMovement || !Application.isPlaying) return;
+    
+    // Disegna il raggio di rilevamento piattaforme
+    Gizmos.color = Color.cyan;
+    Gizmos.DrawWireSphere(transform.position, platformDetectionRadius);
+    
+    // Disegna la piattaforma corrente
+    if (currentPlatform != null)
     {
-        if (!debugPlatformMovement || !Application.isPlaying) return;
+        Gizmos.color = isOnObstaclePlatform ? Color.red : Color.green;
+        Gizmos.DrawLine(transform.position, currentPlatform.position);
+        Gizmos.DrawWireCube(currentPlatform.position, Vector3.one * 2f);
         
-        // Disegna il raggio di rilevamento piattaforme
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, platformDetectionRadius);
-        
-        // Disegna la piattaforma corrente
-        if (currentPlatform != null)
-        {
-            Gizmos.color = isOnObstaclePlatform ? Color.red : Color.green;
-            Gizmos.DrawLine(transform.position, currentPlatform.position);
-            Gizmos.DrawWireCube(currentPlatform.position, Vector3.one * 2f);
-            
-            // Etichetta
-            UnityEditor.Handles.Label(currentPlatform.position + Vector3.up * 3, GetPlatformInfo());
-        }
-        
-        // Disegna i delta di movimento
-        if (platformDeltaPosition.magnitude > 0.001f)
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawLine(transform.position, transform.position + platformDeltaPosition * 10f);
-        }
+        if (debugPlatformMovement && Time.frameCount % 60 == 0)
+            Debug.Log($"[Platform Debug] {GetPlatformInfo()}");
+    }
+    
+    // Disegna i delta di movimento
+    if (platformDeltaPosition.magnitude > 0.001f)
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawLine(transform.position, transform.position + platformDeltaPosition * 10f);
+    }
 
-        // ✅ DISEGNA INFO CAMERA ATTIVA E CAMERAMANAGER
-        if (currentActiveCamera != null)
+    // ✅ DISEGNA INFO CAMERA ATTIVA E CAMERAMANAGER - FIXED SCOPE
+    if (currentActiveCamera != null)
+    {
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawWireSphere(currentActiveCamera.transform.position, 1f);
+        Gizmos.DrawLine(transform.position, currentActiveCamera.transform.position);
+        
+        string cameraInfo = $"Camera Attiva: {currentActiveCamera.name}\nAuto-detect: {autoDetectActiveCamera}";
+        
+        // FIXED: Declare cameraManager in the correct scope
+        CameraManager cameraManager = CameraManager.Instance;
+        if (useCameraManagerIntegration && cameraManager != null && cameraManager.GetActiveCamera() != null)
         {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(currentActiveCamera.transform.position, 1f);
-            Gizmos.DrawLine(transform.position, currentActiveCamera.transform.position);
+            cameraInfo += $"\nCinemachine: {cameraManager.GetActiveCamera().name}\nPriorità: {cameraManager.GetActiveCamera().Priority}";
             
-            string cameraInfo = $"Camera Attiva: {currentActiveCamera.name}\nAuto-detect: {autoDetectActiveCamera}";
-            if (useCameraManagerIntegration && CameraManager.ActiveCamera != null)
-            {
-                cameraInfo += $"\nCinemachine: {CameraManager.ActiveCamera.name}\nPriorità: {CameraManager.ActiveCamera.Priority}";
-                
-                // Disegna anche la CinemachineCamera
-                Gizmos.color = Color.cyan;
-                Gizmos.DrawWireCube(CameraManager.ActiveCamera.transform.position, Vector3.one * 0.5f);
-            }
-            
-            UnityEditor.Handles.Label(currentActiveCamera.transform.position + Vector3.up * 2, cameraInfo);
+            // Disegna anche la CinemachineCamera
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireCube(cameraManager.GetActiveCamera().transform.position, Vector3.one * 0.5f);
         }
-         if (debugLedgeGrab && Application.isPlaying)
+        
+        if (debugCameraChanges && Time.frameCount % 60 == 0)
+            Debug.Log($"[Camera Debug] {cameraInfo}");
+    }
+    
+    // Ledge grab debug
+    if (debugLedgeGrab && Application.isPlaying)
     {
         Vector3 playerForward = transform.forward;
         
@@ -3001,11 +3103,8 @@ public void HandleChildTrigger(Collider other, Transform childTransform)
             // Direzione del player (verso dove guarda)
             Gizmos.color = Color.blue;
             Gizmos.DrawLine(transform.position, transform.position + transform.forward * 1f);
-            
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 2, 
-                $"HANGING\nVel: {velocity.y:F1}\nStabile: {isHangPositionStable}");
         }
     }
-    }
-    #endif
+}
+#endif
 }
