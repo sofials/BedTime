@@ -25028,7 +25028,7 @@ MonoBehaviour:
   - {fileID: 0}
   customAudioSource: {fileID: 2847167632046886891}
   customAudioClip: {fileID: 8300000, guid: a8700dd4737bf0141ab6729b4aad634d, type: 3}
-  viewRadius: 15
+  viewRadius: 30
   viewAngle: 360
   attackRange: 7
   playerMask:
@@ -25050,8 +25050,19 @@ MonoBehaviour:
   chaseAudioSource: {fileID: 7941009738608889585}
   chaseAudioClip: {fileID: 8300000, guid: 55856e346ef541c49855514916063f6f, type: 3}
   enemyChildObjectToActivate: {fileID: 4368185358940078356}
+  secondAudioSource: {fileID: 0}
+  secondAudioClip: {fileID: 0}
   deathAudioSource: {fileID: 8562091660273535826}
   deathAudioClip: {fileID: 8300000, guid: 8c161e178dd282e4198bf88c5e451c28, type: 3}
+  warningResetTime: 20
+  visionPersistenceTime: 3
+  maxEnemiesPerWaypoint: 2
+  waypointOccupancyRadius: 3
+  enemyMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  enableWarningDebug: 0
+  debugVisionChanges: 0
 --- !u!1 &6507963002113007953
 GameObject:
   m_ObjectHideFlags: 0

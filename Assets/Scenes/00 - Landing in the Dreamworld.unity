@@ -3191,10 +3191,6 @@ PrefabInstance:
       value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 3116263618469385518, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
-      propertyPath: Priority.Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3116263618469385518, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: Priority.m_Value
       value: 10
       objectReference: {fileID: 0}
@@ -3205,10 +3201,6 @@ PrefabInstance:
     - target: {fileID: 3950009083078100798, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_Name
       value: PlayerOrbitalCamera
-      objectReference: {fileID: 0}
-    - target: {fileID: 3950009083078100798, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
-      propertyPath: m_IsActive
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3253,13 +3245,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 3950009083078100798, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 781430394}
-    - targetCorrespondingSourceObject: {fileID: 3950009083078100798, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 4889601977339824063}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
 --- !u!4 &271291342 stripped
 Transform:
@@ -9329,29 +9315,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4910115921502916631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
   m_PrefabInstance: {fileID: 2524558262284659773}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &781430394
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3950009083328501911}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 00b2d199b96b516448144ab30fb26aed, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ApplyAfter: 3
-  ChannelMask: 2
-  Gain: 10
-  Use2DDistance: 0
-  UseCameraSpace: 0
-  ReactionSettings:
-    m_SecondaryNoise: {fileID: 0}
-    AmplitudeGain: 1
-    FrequencyGain: 1
-    Duration: 1
-    m_NoiseOffsets: {x: 0, y: 0, z: 0}
 --- !u!1001 &789236862
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -26794,7 +26757,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3116263618469385518, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
   m_PrefabInstance: {fileID: 255025065}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3950009083328501911}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f9dfa5b682dcd46bda6128250e975f58, type: 3}
@@ -27486,11 +27449,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0dc7e9f2a3a5c0047822243cc33f19a6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &3950009083328501911 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3950009083078100798, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
-  m_PrefabInstance: {fileID: 255025065}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &3961367759933715581
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -27950,45 +27908,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
   m_PrefabInstance: {fileID: 255025065}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &4889601977339824063
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3950009083328501911}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dbe43d662878a7c43bcd44d43c9e2094, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  CollideAgainst:
-    serializedVersion: 2
-    m_Bits: 2097152
-  IgnoreTag: 
-  TransparentLayers:
-    serializedVersion: 2
-    m_Bits: 64
-  MinimumDistanceFromTarget: 11.43
-  AvoidObstacles:
-    Enabled: 1
-    DistanceLimit: 0
-    MinimumOcclusionTime: 0
-    CameraRadius: 0.4
-    UseFollowTarget:
-      Enabled: 0
-      YOffset: 0
-    Strategy: 0
-    MaximumEffort: 4
-    SmoothingTime: 0
-    Damping: 0.4
-    DampingWhenOccluded: 0.2
-  ShotQualityEvaluation:
-    Enabled: 0
-    OptimalDistance: 10
-    NearLimit: 5
-    FarLimit: 30
-    MaxQualityBoost: 0.2
 --- !u!1001 &5051634351560459510
 PrefabInstance:
   m_ObjectHideFlags: 0
