@@ -1543,7 +1543,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Priority:
     Enabled: 1
-    m_Value: 20
+    m_Value: 10
   OutputChannel: 1
   StandbyUpdate: 2
   m_StreamingVersion: 20241001
@@ -3192,7 +3192,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3116263618469385518, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: Priority.m_Value
-      value: 10
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 3116263618469385518, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: Target.TrackingTarget
@@ -3206,17 +3206,21 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 3950009083078100798, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
+      propertyPath: m_TagString
+      value: Untagged
+      objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1267
+      value: 1166.4
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1332.8
+      value: 1332.7
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 113
+      value: 71.900024
       objectReference: {fileID: 0}
     - target: {fileID: 4889601977321789463, guid: 19c5568dce0b9244e85eba6e32ce5a98, type: 3}
       propertyPath: m_LocalRotation.w
@@ -10449,7 +10453,7 @@ GameObject:
   - component: {fileID: 497487441}
   m_Layer: 0
   m_Name: CinemachineBrain
-  m_TagString: Untagged
+  m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -10563,7 +10567,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
-  field of view: 70
+  field of view: 60.8
   orthographic: 0
   orthographic size: 5
   m_Depth: 0
@@ -10589,8 +10593,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 497487440}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.0005211493, y: -0.9772243, z: 0.21141629, w: -0.018317973}
-  m_LocalPosition: {x: -362.92285, y: 1187.0137, z: -1176.701}
+  m_LocalRotation: {x: 0.15424116, y: 0.00000008067006, z: -0.000000012593345, w: 0.98803324}
+  m_LocalPosition: {x: 1166.4, y: 1332.7, z: 71.900024}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -19946,17 +19950,17 @@ PrefabInstance:
       propertyPath: m_Name
       value: Luke
       objectReference: {fileID: 0}
-    - target: {fileID: 6453789389885122214, guid: powershell -ExecutionPolicy Bypass -File .\Find-GUID.ps1, type: 3}
+    - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1267
+      value: 1166.4
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1316.8
+      value: 1316.7
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 163
+      value: 121.9
       objectReference: {fileID: 0}
     - target: {fileID: 6453789389885122214, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: m_LocalRotation.w
@@ -25689,6 +25693,11 @@ NavMeshObstacle:
   m_CarveOnlyStationary: 1
   m_Center: {x: 0, y: 0, z: 0}
   m_TimeToStationary: 0.5
+--- !u!23 &1675275871 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2197073741163348618, guid: 1148a44ddd2cda4478fc63f827d5f98e, type: 3}
+  m_PrefabInstance: {fileID: 2527571105663725962}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1686951175
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -25766,11 +25775,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 62f5ad9f90e6c0144adf774406bbf4d3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!23 &1675275871 stripped
-MeshRenderer:
-  m_CorrespondingSourceObject: {fileID: 2197073741163348618, guid: 1148a44ddd2cda4478fc63f827d5f98e, type: 3}
-  m_PrefabInstance: {fileID: 2527571105663725962}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &1688520698 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3214903696484407238, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}

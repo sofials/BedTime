@@ -51,8 +51,28 @@ public class CameraManager : MonoBehaviour
     private bool isCameraSystemReady = false;
 void Start()
 {
+     var currentScene = SceneManager.GetActiveScene();
+      OnScreenDebugLogger.LogCamera($"=== CAMERA MANAGER START - SCENA: {currentScene.name} ===");
+       var allCameras = Camera.allCameras;
+    OnScreenDebugLogger.LogCamera($"TUTTE LE CAMERE UNITY: {allCameras.Length}");
+    foreach(var cam in allCameras)
+    {
+        OnScreenDebugLogger.LogCamera($"Camera Unity: {cam.name}, Scene: {cam.gameObject.scene.name}, Active: {cam.gameObject.activeInHierarchy}, Tag: {cam.tag}");
+    }
+    var allVCams = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
+    
+    foreach (var vcam in allVCams)
+    {
+        if (vcam.gameObject.scene != currentScene)
+        {
+            DebugLog($"[Cleanup] Disattivando camera da scena precedente: {vcam.name}");
+            vcam.gameObject.SetActive(false);
+            vcam.Priority = -1000; // Priorità bassissima
+        }
+    }
+    
     // NUOVO: Cleanup iniziale per evitare riferimenti da scene precedenti
-    cameras.Clear();
+        cameras.Clear();
     originalPriorities.Clear();
     activeCamera = null;
     brain = null;
