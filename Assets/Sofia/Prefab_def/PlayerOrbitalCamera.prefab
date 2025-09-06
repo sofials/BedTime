@@ -12,8 +12,10 @@ GameObject:
   - component: {fileID: 3116263618469385518}
   - component: {fileID: 886566393792333390}
   - component: {fileID: 6454925688852177362}
+  - component: {fileID: 4058590714942020650}
   - component: {fileID: 534537337231376565}
   - component: {fileID: 2567233737890376390}
+  - component: {fileID: 2430196128935802193}
   m_Layer: 0
   m_Name: PlayerOrbitalCamera
   m_TagString: MainCamera
@@ -50,7 +52,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Priority:
     Enabled: 1
-    m_Value: 50
+    m_Value: 10
   OutputChannel: 1
   StandbyUpdate: 2
   m_StreamingVersion: 20241001
@@ -103,13 +105,13 @@ MonoBehaviour:
   Orbits:
     Top:
       Radius: 40
-      Height: 30
+      Height: 40
     Center:
       Radius: 50
       Height: 16
     Bottom:
       Radius: 40
-      Height: 1
+      Height: 10
     SplineCurvature: 1
   RecenteringTarget: 0
   HorizontalAxis:
@@ -171,6 +173,29 @@ MonoBehaviour:
     Time: 0
     Smoothing: 0
     IgnoreY: 0
+--- !u!114 &4058590714942020650
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3950009083078100798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00b2d199b96b516448144ab30fb26aed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ApplyAfter: 3
+  ChannelMask: 2
+  Gain: 10
+  Use2DDistance: 0
+  UseCameraSpace: 0
+  ReactionSettings:
+    m_SecondaryNoise: {fileID: 0}
+    AmplitudeGain: 1
+    FrequencyGain: 1
+    Duration: 1
+    m_NoiseOffsets: {x: 0, y: 0, z: 0}
 --- !u!114 &534537337231376565
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -244,3 +269,45 @@ MonoBehaviour:
   autoRegisterOnEnable: 1
   autoUnregisterOnDisable: 1
   forceRegisterOnStart: 1
+  registrationDelay: 0.1
+  maxRegistrationAttempts: 10
+  enableDebugLogs: 0
+--- !u!114 &2430196128935802193
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3950009083078100798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dbe43d662878a7c43bcd44d43c9e2094, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  CollideAgainst:
+    serializedVersion: 2
+    m_Bits: 2097152
+  IgnoreTag: 
+  TransparentLayers:
+    serializedVersion: 2
+    m_Bits: 64
+  MinimumDistanceFromTarget: 11.43
+  AvoidObstacles:
+    Enabled: 1
+    DistanceLimit: 0
+    MinimumOcclusionTime: 0
+    CameraRadius: 0.4
+    UseFollowTarget:
+      Enabled: 0
+      YOffset: 0
+    Strategy: 0
+    MaximumEffort: 4
+    SmoothingTime: 0
+    Damping: 0.4
+    DampingWhenOccluded: 0.2
+  ShotQualityEvaluation:
+    Enabled: 0
+    OptimalDistance: 10
+    NearLimit: 5
+    FarLimit: 30
+    MaxQualityBoost: 0.2

@@ -652,11 +652,9 @@ public bool IsFirstMemoryDialogueActive() => isFirstMemoryDialogueActive;
             OnAllCollectiblesCompleted?.Invoke();
         }
     }
-    
-    // ========== REGISTRAZIONE COLLECTIBLES ==========
-    
+
     /// <summary>
-    /// Registra manualmente un collectible
+    /// Registra manualmente un collectible - VERSIONE CORRETTA
     /// </summary>
     public void RegisterCollectible(string name, CollectibleType type, Vector3 position, GameObject gameObject = null)
     {
@@ -665,52 +663,68 @@ public bool IsFirstMemoryDialogueActive() => isFirstMemoryDialogueActive;
             DebugLog("[CollectiblesManager] ⚠️ Nome collectible vuoto, ignorato");
             return;
         }
-        
+
         CollectibleData data = new CollectibleData(name, type, position, gameObject);
-        
+
         switch (type)
         {
-           // ✅ CODICE CORRETTO:
-case CollectibleType.Present:
-    if (!allPresents.ContainsKey(name))
-    {
-        allPresents[name] = data;
-        totalPresents++;
-    }
-    else
-    {
-        allPresents[name] = data; // Aggiorna solo i dati, non il contatore
-    }
-    break;
-                
-            case CollectibleType.Memory:
-                allMemories[name] = data;
-                if (!collectedMemoryNames.Contains(name))
+            case CollectibleType.Present:
+                if (!allPresents.ContainsKey(name))
                 {
+                    allPresents[name] = data;
+                    totalPresents++;
+                    DebugLog($"[CollectiblesManager] ✅ Nuovo Present registrato: '{name}' (totale: {totalPresents})");
+                }
+                else
+                {
+                    allPresents[name] = data; // Aggiorna solo i dati, non il contatore
+                    DebugLog($"[CollectiblesManager] 🔄 Present aggiornato: '{name}' (totale rimane: {totalPresents})");
+                }
+                break;
+
+            case CollectibleType.Memory:
+                // 🔥 FIX: Usa la stessa logica dei Presents!
+                if (!allMemories.ContainsKey(name))
+                {
+                    allMemories[name] = data;
                     totalMemories++;
+                    DebugLog($"[CollectiblesManager] ✅ Nuova Memory registrata: '{name}' (totale: {totalMemories})");
+                }
+                else
+                {
+                    allMemories[name] = data; // Aggiorna solo i dati, non il contatore
+                    DebugLog($"[CollectiblesManager] 🔄 Memory aggiornata: '{name}' (totale rimane: {totalMemories})");
                 }
                 break;
         }
-        
-        DebugLog($"[CollectiblesManager] ✅ Collectible registrato: '{name}' ({type})");
+
+        DebugLog($"[CollectiblesManager] ✅ Collectible gestito: '{name}' ({type}) - P:{totalPresents}, M:{totalMemories}");
         UpdateAllUI();
     }
-    
-    /// <summary>
-    /// Registra un collectible usando la classe Collectibles
-    /// </summary>
-    public void RegisterCollectible(Collectibles collectible)
+// AGGIUNGI QUESTO METODO AL COLLECTIBLESMANAGER dopo il RegisterCollectible esistente
+
+/// <summary>
+/// Registra un collectible usando la classe Collectibles (OVERLOAD)
+/// </summary>
+public void RegisterCollectible(Collectibles collectible)
+{
+    if (collectible == null) 
     {
-        if (collectible == null) return;
-        
-        RegisterCollectible(
-            collectible.GetName(), 
-            collectible.GetCollectibleType(), 
-            collectible.transform.position, 
-            collectible.gameObject
-        );
+        DebugLog("[CollectiblesManager] ⚠️ Collectible null, ignorato");
+        return;
     }
     
+    // Chiama il metodo principale con i parametri estratti dall'oggetto Collectibles
+    RegisterCollectible(
+        collectible.GetName(), 
+        collectible.GetCollectibleType(), 
+        collectible.transform.position, 
+        collectible.gameObject
+    );
+    
+    DebugLog($"[CollectiblesManager] ✅ Collectible registrato tramite overload: {collectible.GetName()}");
+}
+ 
     /// <summary>
     /// Rimuove un collectible registrato
     /// </summary>

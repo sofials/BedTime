@@ -1856,7 +1856,13 @@ if (enableLineEvents && (dialogueLineEvents + globalEvents) == 0)
         }
         
         Debug.Log("[DialogueSystem] 🎭 ATTIVAZIONE SOTTODIALOGO!");
-        
+
+ // NUOVO: Controlla se il sottodialago è effettivamente disponibile
+    if (!subDialogueSystem.gameObject.activeInHierarchy)
+    {
+        Debug.Log($"[DialogueSystem] Sottodialago {subDialogueSystem.name} non ancora disponibile - skip");
+        return;
+    }
         subDialogueTriggered = true;
         
         // Log messaggio personalizzato
