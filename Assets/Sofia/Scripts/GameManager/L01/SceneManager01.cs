@@ -8,23 +8,16 @@ using Unity.Cinemachine;
 /// </summary>
 public class SceneManager01 : MonoBehaviour
 {
-    [Header("Camera Events")]
-public UnityEvent<CameraManager> OnCameraManagerRegistered;
-public UnityEvent OnCameraSystemReady;
+   
     [Header("Scene Configuration")]
     [SerializeField] private string sceneName = "01 - Party in Lukelandia";
+    [Header("Camera Integration")]
+[SerializeField] private CameraManager simpleCameraManager;
+[SerializeField] private Unity.Cinemachine.CinemachineCamera preferredSceneCamera;
     
     [Header("Manager References")]
     [SerializeField] private CheckpointManager checkpointManager;
     [SerializeField] private CollectiblesManager collectiblesManager;
-    [Header("Camera Manager Integration")]
-[SerializeField] private CameraManager cameraManager;
-[SerializeField] private CinemachineCamera preferredSceneCamera;
-[SerializeField] private bool waitForCameraManager = true;
-    [SerializeField] private float cameraWaitTimeout = 10f;
-// Stati camera
-private bool cameraManagerReady = false;
-private bool cameraSystemFullyInitialized = false;
     
     [Header("UI References - Specifiche della Scena")]
     [SerializeField] private GameObject levelTitleUI; // Opzionale
@@ -80,9 +73,19 @@ private bool cameraSystemFullyInitialized = false;
     
     private void Start()
     {
-        StartCoroutine(InitializeSceneCoroutine());
+         StartCoroutine(DelayedInitialization());
+}
+    private void FindSimpleCameraManager()
+{
+    if (simpleCameraManager == null)
+    {
+        simpleCameraManager = FindFirstObjectByType<CameraManager>();
     }
-    
+}
+
+public CameraManager GetCameraManager() => simpleCameraManager;
+
+public Unity.Cinemachine.CinemachineCamera GetPreferredSceneCamera() => preferredSceneCamera;
     private IEnumerator InitializeSceneCoroutine()
     {
         yield return null; // Aspetta un frame
@@ -179,37 +182,21 @@ private bool cameraSystemFullyInitialized = false;
             }
         }
     }
-
-   /// <summary>
-/// Chiamato quando il GameManager ha completato il setup della scena
-/// </summary>
-/// <summary>
-/// MODIFICATO: Callback GameManager con verifica camere COORDINATA
-/// </summary>
 private void OnGameManagerSceneReady(string sceneName)
 {
     if (sceneName == this.sceneName || sceneName == UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
     {
-        DebugLog("[SceneManager] GameManager pronto - verifica coordinamento camera");
-
-        // NUOVO: Prima verifica che il CameraManager sia pronto
-        CameraManager cameraManager = CameraManager.Instance;
-        if (cameraManager != null && cameraManager.IsCameraSystemReady())
+        DebugLog("[SceneManager] GameManager pronto - attivazione UI");
+        
+        // Attiva UI direttamente (il SimpleCameraManager gestisce le camere autonomamente)
+        EnablePowerUpUI();
+        
+        if (levelTitleUI != null && showLevelTitle)
         {
-            DebugLog("[SceneManager] ✅ CameraManager confermato pronto - attivazione UI di gioco");
-            
-            EnablePowerUpUI();
-
-            if (levelTitleUI != null && showLevelTitle)
-            {
-                StartCoroutine(ShowLevelTitleCoroutine());
-            }
+            StartCoroutine(ShowLevelTitleCoroutine());
         }
-        else
-        {
-            DebugLog("[SceneManager] ⚠️ CameraManager non pronto - avvio verifica coordinata");
-            StartCoroutine(EnsureCamerasAreReadyCoroutine());
-        }
+        
+        DebugLog("[SceneManager] UI attivata, scena pronta");
     }
 }
 
@@ -221,49 +208,15 @@ private void OnGameManagerSceneReady(string sceneName)
         DebugLog("[SceneManager01] GameManager pronto (via SendMessage)");
         OnGameManagerSceneReady(sceneName);
     }
-    /// <summary>
-/// NUOVO: Verifica che le camere siano pronte e funzionanti
-/// </summary>
-/// <summary>
-/// SOSTITUISCI COMPLETAMENTE: Verifica che le camere siano pronte e funzionanti
-/// </summary>
-private IEnumerator EnsureCamerasAreReadyCoroutine()
+  private IEnumerator DelayedInitialization()
 {
-    DebugLog("[SceneManager] Verifica stato camere...");
-    
-    yield return new WaitForSeconds(0.5f);
-    
-    // Usa il riferimento diretto al CameraManager
-    if (cameraManager != null)
-    {
-        cameraManager.EnsureCamerasAreReady();
-    }
-    else
-    {
-        DebugLog("[SceneManager] ⚠️ CameraManager non disponibile");
-    }
-    
-    yield return new WaitForSeconds(0.2f);
-    
-    // Verifica finale
-    if (cameraManager != null && cameraManager.GetActiveCamera() != null)
-    {
-        DebugLog($"[SceneManager] ✅ Camera attiva confermata: {cameraManager.GetActiveCamera().name}");
-    }
-    else
-    {
-        DebugLog("[SceneManager] ⚠️ Nessuna camera attiva rilevata!");
-        
-        if (cameraManager != null)
-        {
-            var cameras = cameraManager.GetAllCameras();
-            if (cameras.Count > 0)
-            {
-                cameraManager.SwitchCamera(cameras[0]);
-                DebugLog($"[SceneManager] 🔧 Fix applicato - attivata: {cameras[0].name}");
-            }
-        }
-    }
+    // Attesa per sistemi persistenti
+    yield return new WaitForSeconds(0.1f);
+
+    DebugLog($"[SceneManager] Inizializzazione ritardata per {sceneName}");
+
+    // Inizializzazione normale
+    yield return InitializeSceneCoroutine();
 }
     private IEnumerator ShowLevelTitleCoroutine()
     {
@@ -279,129 +232,95 @@ private IEnumerator EnsureCamerasAreReadyCoroutine()
             DebugLog("[SceneManager01] Level Title nascosto");
         }
     }
-
     // ========== SETUP MANAGER ==========
 
     private void SetupManagers()
     {
-        DebugLog("[SceneManager01] Setup manager...");
+        DebugLog("[SceneManager] Setup manager...");
 
         if (autoFindManagers)
         {
-            FindManagers();
+             FindOtherManagers();
         }
 
-        if (createManagersIfMissing)
-        {
-            CreateMissingManagers();
-        }
-
-        ConfigureManagers();
-
-        managersReady = checkpointManager != null && collectiblesManager != null;
-        DebugLog($"[SceneManager01] Manager pronti: {managersReady}");
-
-        // Setup AbilitiesManager
-        if (abilitiesManager == null && autoFindManagers)
-        {
-            abilitiesManager = FindFirstObjectByType<AbilitiesManager>();
-        }
-
-        if (abilitiesManager == null && createManagersIfMissing)
-        {
-            GameObject abilitiesGO = new GameObject("AbilitiesManager");
-            abilitiesGO.transform.parent = transform;
-            abilitiesManager = abilitiesGO.AddComponent<AbilitiesManager>();
-            DebugLog("[SceneManager01] ✅ AbilitiesManager creato automaticamente");
-        }
-        // Setup CameraManager
-if (cameraManager == null && autoFindManagers)
-{
-    cameraManager = CameraManager.Instance;
-    if (cameraManager == null)
-    {
-        cameraManager = FindFirstObjectByType<CameraManager>();
+        // RIMUOVI tutto il codice relativo al CameraManager setup
+        // Il CameraManager si collega da solo e trova le camere automaticamente
     }
-}
 
-if (cameraManager != null)
+  // E rinomina questo metodo
+private void FindOtherManagers() // RIMUOVI "InBackground" e "IEnumerator"
 {
-    DebugLog($"[SceneManager01] CameraManager trovato: {cameraManager.name}");
-    cameraManagerReady = true;
-}
-    }
-    public void RegisterCameraManager(CameraManager camManager)
-{
-    DebugLog("[SceneManager01] CameraManager registrato");
-    cameraManager = camManager;
-    cameraManagerReady = true;
-    
-    // Configura la camera preferita se specificata
-    if (preferredSceneCamera != null)
+    // Trova CheckpointManager
+    if (checkpointManager == null)
     {
-        cameraManager.ConfigureForScene(preferredSceneCamera, sceneName);
-    }
-    
-    OnCameraManagerRegistered?.Invoke(cameraManager);
-}
-
-public void OnCameraManagerInitializing(CameraManager camManager)
-{
-    DebugLog("[SceneManager01] CameraManager in inizializzazione...");
-}
-
-public void OnCameraManagerFullyReady(CameraManager camManager)
-{
-    DebugLog("[SceneManager01] CameraManager completamente pronto");
-    cameraSystemFullyInitialized = true;
-    OnCameraSystemReady?.Invoke();
-}
-
-public CameraManager GetCameraManager() => cameraManager;
-
-public bool IsCameraManagerReady() => cameraManagerReady && cameraSystemFullyInitialized;
-    private void FindManagers()
-    {
+        checkpointManager = CheckpointManager.Instance;
         if (checkpointManager == null)
         {
-            checkpointManager = CheckpointManager.Instance;
-            if (checkpointManager == null)
-            {
-                checkpointManager = Object.FindFirstObjectByType<CheckpointManager>();
-            }
+            checkpointManager = Object.FindFirstObjectByType<CheckpointManager>();
         }
-        
-        if (collectiblesManager == null)
-        {
-            collectiblesManager = CollectiblesManager.Instance;
-            if (collectiblesManager == null)
-            {
-                collectiblesManager = Object.FindFirstObjectByType<CollectiblesManager>();
-            }
-        }
-        
-        DebugLog($"[SceneManager01] Manager trovati - Checkpoint: {checkpointManager != null}, Collectibles: {collectiblesManager != null}");
     }
-    
-    private void CreateMissingManagers()
+
+    // Trova CollectiblesManager  
+    if (collectiblesManager == null)
     {
-        if (checkpointManager == null)
-        {
-            GameObject checkpointGO = new GameObject("CheckpointManager");
-            checkpointGO.transform.parent = transform;
-            checkpointManager = checkpointGO.AddComponent<CheckpointManager>();
-            DebugLog("[SceneManager01] ✅ CheckpointManager creato automaticamente");
-        }
-        
+        collectiblesManager = CollectiblesManager.Instance;
         if (collectiblesManager == null)
         {
-            GameObject collectiblesGO = new GameObject("CollectiblesManager");
-            collectiblesGO.transform.parent = transform;
-            collectiblesManager = collectiblesGO.AddComponent<CollectiblesManager>();
-            DebugLog("[SceneManager01] ✅ CollectiblesManager creato automaticamente");
+            collectiblesManager = Object.FindFirstObjectByType<CollectiblesManager>();
         }
     }
+
+    // Trova AbilitiesManager
+    if (abilitiesManager == null)
+    {
+        abilitiesManager = FindFirstObjectByType<AbilitiesManager>();
+    }
+
+    // Trova SimpleCameraManager (SOLO per riferimento, non per gestirlo)
+    if (simpleCameraManager == null)
+    {
+        simpleCameraManager = FindFirstObjectByType<CameraManager>();
+    }
+
+    // Crea manager mancanti se necessario
+    if (createManagersIfMissing)
+    {
+        CreateMissingManagersInBackground();
+    }
+
+    // Configura manager
+    ConfigureManagers();
+
+    managersReady = checkpointManager != null && collectiblesManager != null;
+    DebugLog($"[SceneManager] Manager pronti: {managersReady}");
+}
+private void CreateMissingManagersInBackground()
+{
+    if (checkpointManager == null)
+    {
+        GameObject checkpointGO = new GameObject("CheckpointManager");
+        checkpointGO.transform.parent = transform;
+        checkpointManager = checkpointGO.AddComponent<CheckpointManager>();
+        DebugLog("[SceneManager] ✅ CheckpointManager creato");
+    }
     
+    if (collectiblesManager == null)
+    {
+        GameObject collectiblesGO = new GameObject("CollectiblesManager");
+        collectiblesGO.transform.parent = transform;
+        collectiblesManager = collectiblesGO.AddComponent<CollectiblesManager>();
+        DebugLog("[SceneManager] ✅ CollectiblesManager creato");
+    }
+    
+    if (abilitiesManager == null)
+    {
+        GameObject abilitiesGO = new GameObject("AbilitiesManager");
+        abilitiesGO.transform.parent = transform;
+        abilitiesManager = abilitiesGO.AddComponent<AbilitiesManager>();
+        DebugLog("[SceneManager] ✅ AbilitiesManager creato");
+    }
+}
+  
     private void ConfigureManagers()
     {
         if (checkpointManager != null)
@@ -418,45 +337,7 @@ public bool IsCameraManagerReady() => cameraManagerReady && cameraSystemFullyIni
             DebugLog("[SceneManager01] CollectiblesManager configurato");
         }
     }
-    /// <summary>
-/// NUOVO: Callback per quando il CameraManager è pronto
-/// </summary>
-public void OnCameraManagerReady(CameraManager cameraManager)
-{
-    DebugLog($"[SceneManager] CameraManager pronto e coordinato: {cameraManager.name}");
-    
-    // Verifica che tutto sia OK
-    if (cameraManager.IsCameraSystemReady())
-    {
-        DebugLog("[SceneManager] ✅ Sistema camera confermato pronto");
-        
-        // Ora possiamo procedere con l'attivazione della scena
-        OnGameManagerSceneReady(sceneName);
-    }
-    else
-    {
-        DebugLog("[SceneManager] ⚠️ CameraManager non completamente pronto - attendendo...");
-        StartCoroutine(WaitForCameraManagerReady(cameraManager));
-    }
-}
-/// <summary>
-/// NUOVO: Attende che il CameraManager sia effettivamente pronto
-/// </summary>
-private IEnumerator WaitForCameraManagerReady(CameraManager cameraManager)
-{
-    yield return cameraManager.WaitForCameraSystemReady();
-    
-    if (cameraManager.IsCameraSystemReady())
-    {
-        DebugLog("[SceneManager] ✅ CameraManager ora pronto dopo attesa");
-        OnGameManagerSceneReady(sceneName);
-    }
-    else
-    {
-        DebugLog("[SceneManager] ❌ CameraManager timeout - continuo comunque");
-        OnGameManagerSceneReady(sceneName);
-    }
-}
+
     private void ConnectManagers()
     {
         if (!managersReady) return;

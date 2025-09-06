@@ -4959,7 +4959,7 @@ MonoBehaviour:
   OnDialogueStarted:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 1686951177}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -4975,7 +4975,7 @@ MonoBehaviour:
   OnDialogueEnded:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 1686951177}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -10618,9 +10618,9 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1686951176}
   - {fileID: 131711206}
   - {fileID: 1931930804}
-  - {fileID: 1986059379}
   - {fileID: 497487445}
   - {fileID: 4889601977339824062}
   - {fileID: 1657835116}
@@ -18283,7 +18283,7 @@ MonoBehaviour:
   OnDialogueStarted:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 1686951177}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -18314,7 +18314,7 @@ MonoBehaviour:
   OnLastLineReached:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 1686951177}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -18478,11 +18478,32 @@ MonoBehaviour:
   oneShot: 0
   alreadyEntered: 0
   alreadyExited: 0
+  requireGroundedPlayer: 0
   collisionTag: 
+  triggerLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  triggerCameraSwitch: 0
+  targetCameraName: 
+  targetCamera: {fileID: 0}
+  restorePreviousCamera: 0
+  enterDelay: 0
+  exitDelay: 0
+  cooldownTime: 0
+  triggerSceneTransition: 0
+  targetSceneName: 
+  sceneTransitionDelay: 1
+  isCheckpoint: 0
+  checkpointName: 
+  showDebugGizmos: 1
+  gizmoColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  activeGizmoColor: {r: 1, g: 0, b: 0, a: 1}
+  enableDebugLogs: 0
+  logAllCollisions: 0
   onTriggerEnter:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -18498,7 +18519,7 @@ MonoBehaviour:
   onTriggerExit:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -18512,6 +18533,21 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   onTriggerStay:
+    m_PersistentCalls:
+      m_Calls: []
+  onPlayerEnterWithName:
+    m_PersistentCalls:
+      m_Calls: []
+  onPlayerExitWithName:
+    m_PersistentCalls:
+      m_Calls: []
+  onCameraSwitched:
+    m_PersistentCalls:
+      m_Calls: []
+  onCheckpointTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  onSceneTransitionStarted:
     m_PersistentCalls:
       m_Calls: []
 --- !u!65 &1657835118
@@ -18639,6 +18675,83 @@ NavMeshObstacle:
   m_CarveOnlyStationary: 1
   m_Center: {x: 0, y: 0, z: 0}
   m_TimeToStationary: 0.5
+--- !u!1001 &1686951175
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 942293823}
+    m_Modifications:
+    - target: {fileID: 4136613644868461249, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: startingCamera
+      value: 
+      objectReference: {fileID: 3116263618554104455}
+    - target: {fileID: 7473795066176284701, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_Name
+      value: CameraManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+--- !u!4 &1686951176 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8842360392534314740, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+  m_PrefabInstance: {fileID: 1686951175}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1686951177 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4136613644868461249, guid: e29ff9d97b57a5b469484cb54a44e103, type: 3}
+  m_PrefabInstance: {fileID: 1686951175}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62f5ad9f90e6c0144adf774406bbf4d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &1688520698 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3214903696484407238, guid: 80774eef191d3f54db3863e8ab2aa0d2, type: 3}
@@ -19835,7 +19948,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4217053907998255505}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
   m_Name: 
@@ -20792,14 +20905,35 @@ MonoBehaviour:
   oneShot: 0
   alreadyEntered: 0
   alreadyExited: 0
+  requireGroundedPlayer: 0
   collisionTag: 
+  triggerLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  triggerCameraSwitch: 0
+  targetCameraName: 
+  targetCamera: {fileID: 0}
+  restorePreviousCamera: 0
+  enterDelay: 0
+  exitDelay: 0
+  cooldownTime: 0
+  triggerSceneTransition: 0
+  targetSceneName: 
+  sceneTransitionDelay: 1
+  isCheckpoint: 0
+  checkpointName: 
+  showDebugGizmos: 1
+  gizmoColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  activeGizmoColor: {r: 1, g: 0, b: 0, a: 1}
+  enableDebugLogs: 0
+  logAllCollisions: 0
   onTriggerEnter:
     m_PersistentCalls:
       m_Calls: []
   onTriggerExit:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 1686951177}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -20815,7 +20949,7 @@ MonoBehaviour:
   onTriggerStay:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1986059378}
+      - m_Target: {fileID: 1686951177}
         m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
         m_MethodName: SwitchCamera
         m_Mode: 2
@@ -20828,6 +20962,21 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  onPlayerEnterWithName:
+    m_PersistentCalls:
+      m_Calls: []
+  onPlayerExitWithName:
+    m_PersistentCalls:
+      m_Calls: []
+  onCameraSwitched:
+    m_PersistentCalls:
+      m_Calls: []
+  onCheckpointTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  onSceneTransitionStarted:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1001 &1935505345
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -21438,79 +21587,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4082919237372269233, guid: c0ec7ed3af36b8b42ab71e3c5a62d091, type: 3}
   m_PrefabInstance: {fileID: 1983311045}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1986059377
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1986059379}
-  - component: {fileID: 1986059378}
-  m_Layer: 0
-  m_Name: CameraManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1986059378
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1986059377}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62f5ad9f90e6c0144adf774406bbf4d3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  startingCamera: {fileID: 3116263618554104455}
-  cameras: []
-  activeCamera: {fileID: 0}
-  basePriority: 10
-  activePriority: 100
-  defaultTransition:
-    blendDuration: 1
-    blendStyle: 1
-  autoRegisterOnStart: 1
-  findStartingCameraAutomatically: 1
-  enableSceneCoordination: 1
-  maxSceneWaitTime: 10
-  waitForSceneManagerReady: 1
-  enableDebugLogs: 1
-  OnCameraSystemInitialized:
-    m_PersistentCalls:
-      m_Calls: []
-  OnCameraSystemReady:
-    m_PersistentCalls:
-      m_Calls: []
-  OnCameraActivated:
-    m_PersistentCalls:
-      m_Calls: []
-  OnCameraSwitched:
-    m_PersistentCalls:
-      m_Calls: []
-  OnCameraSystemRegisteredWithScene:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!4 &1986059379
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1986059377}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -337.28735, y: 1210.4082, z: -1067.8824}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 942293823}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &1986368168
 Mesh:
   m_ObjectHideFlags: 0
@@ -25899,7 +25975,11 @@ PrefabInstance:
     - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: cameraManager
       value: 
-      objectReference: {fileID: 1986059378}
+      objectReference: {fileID: 1686951177}
+    - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: autoFindUIElements
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: preferredSceneCamera
       value: 
@@ -26706,6 +26786,83 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3329426670475757374}
   m_LocalEulerAnglesHint: {x: 3.441, y: -147.841, z: 9.192}
+--- !u!1001 &3184832155159498175
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.109314
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 333.9206
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -885.48315
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 105280732329416224, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 171005717315152339, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: m_Name
+      value: DebugLogger
+      objectReference: {fileID: 0}
+    - target: {fileID: 5933433950973742805, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: fontSize
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 5933433950973742805, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: logLifetime
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 5933433950973742805, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: panelSize.x
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 5933433950973742805, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: panelSize.y
+      value: 800
+      objectReference: {fileID: 0}
+    - target: {fileID: 5933433950973742805, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
+      propertyPath: showTimestamps
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 62ad3cfd1799db94c829631c42bc4756, type: 3}
 --- !u!1001 &3193746447239945788
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -29516,3 +29673,4 @@ SceneRoots:
   - {fileID: 942293823}
   - {fileID: 1292342657}
   - {fileID: 1129213536}
+  - {fileID: 3184832155159498175}
