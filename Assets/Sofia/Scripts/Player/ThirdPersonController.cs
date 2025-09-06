@@ -335,58 +335,43 @@ private bool isClimbing = false;
 }
 
    
-// REPLACE THIS SECTION (around lines 340-410):
 public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
 {
     if (cinemachineCamera != null && useCameraManagerIntegration)
     {
-        // OLD: CameraManager.SwitchCamera(cinemachineCamera);
-        // NEW: Use instance
-        CameraManager cameraManager = CameraManager.Instance;
+        CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
         if (cameraManager != null)
         {
             cameraManager.SwitchCamera(cinemachineCamera);
         }
-
-        // Forza un aggiornamento immediato
+        
         if (autoDetectActiveCamera)
         {
             DetectActiveCamera();
         }
-
+        
         if (debugCameraChanges)
-            Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via CameraManager: {cinemachineCamera.name}");
-    }
-    else if (!useCameraManagerIntegration)
-    {
-        Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
+            Debug.Log($"[ThirdPersonController] CinemachineCamera attivata via SimpleCameraManager: {cinemachineCamera.name}");
     }
 }
 
-   public void SetActiveCinemachineCameraByName(string cameraName)
+  public void SetActiveCinemachineCameraByName(string cameraName)
 {
     if (useCameraManagerIntegration)
     {
-        // OLD: CameraManager.SwitchCameraByName(cameraName);
-        // NEW: Use instance
-        CameraManager cameraManager = CameraManager.Instance;
+        CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
         if (cameraManager != null)
         {
             cameraManager.SwitchCameraByName(cameraName);
         }
         
-        // Forza un aggiornamento immediato
         if (autoDetectActiveCamera)
         {
             DetectActiveCamera();
         }
         
         if (debugCameraChanges)
-            Debug.Log($"[ThirdPersonController] 🎬 CinemachineCamera attivata via nome: {cameraName}");
-    }
-    else
-    {
-        Debug.LogWarning("[ThirdPersonController] CameraManager integration è disabilitata!");
+            Debug.Log($"[ThirdPersonController] CinemachineCamera attivata via nome: {cameraName}");
     }
 }
     /// <summary>
@@ -398,13 +383,11 @@ public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
         return currentActiveCamera;
     }
 
-    public CinemachineCamera GetActiveCinemachineCamera()
+   public CinemachineCamera GetActiveCinemachineCamera()
 {
-    // OLD: return useCameraManagerIntegration ? CameraManager.ActiveCamera : null;
-    // NEW: Use instance
     if (useCameraManagerIntegration)
     {
-        CameraManager cameraManager = CameraManager.Instance;
+        CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
         return cameraManager != null ? cameraManager.GetActiveCamera() : null;
     }
     return null;
@@ -436,14 +419,13 @@ public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
         }
     }
 
-// REPLACE the GetActiveCameraInfo method (around line 430):
 public string GetActiveCameraInfo()
 {
     if (currentActiveCamera == null) return "Nessuna camera attiva";
     
     string info = $"Camera: {currentActiveCamera.name}";
     
-    CameraManager cameraManager = CameraManager.Instance;
+    CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
     if (useCameraManagerIntegration && cameraManager != null && cameraManager.GetActiveCamera() != null)
     {
         info += $"\nCinemachine: {cameraManager.GetActiveCamera().name}";
@@ -451,7 +433,7 @@ public string GetActiveCameraInfo()
     }
     
     info += $"\nAuto-detect: {autoDetectActiveCamera}";
-    info += $"\nCameraManager: {useCameraManagerIntegration}";
+    info += $"\nSimpleCameraManager: {useCameraManagerIntegration}";
     
     return info;
 }
@@ -464,22 +446,21 @@ private void DetectActiveCamera()
 {
     Camera newActiveCamera = null;
     
-    // 1. ✅ PRIORITÀ: Usa CameraManager se disponibile
-    CameraManager cameraManager = CameraManager.Instance;
-    if (cameraManager != null && cameraManager.GetActiveCamera() != null)
+    CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
+if (cameraManager != null && cameraManager.GetActiveCamera() != null)
+{
+    // Ottieni la camera Unity dal CinemachineBrain
+    CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
+    if (brain != null && brain.OutputCamera != null)
     {
-        // Ottieni la camera Unity dal CinemachineBrain
-        CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
-        if (brain != null && brain.OutputCamera != null)
+        newActiveCamera = brain.OutputCamera;
+        
+        if (debugCameraChanges)
         {
-            newActiveCamera = brain.OutputCamera;
-            
-            if (debugCameraChanges)
-            {
-                Debug.Log($"[ThirdPersonController] 🎥 Usando CameraManager - Camera attiva: {cameraManager.GetActiveCamera().name}");
-            }
+            Debug.Log($"[ThirdPersonController] Usando SimpleCameraManager - Camera attiva: {cameraManager.GetActiveCamera().name}");
         }
     }
+}
     
     // 2. FALLBACK: Trova CinemachineCamera con priorità più alta
     if (newActiveCamera == null)
@@ -3050,16 +3031,16 @@ private void OnDrawGizmosSelected()
         
         string cameraInfo = $"Camera Attiva: {currentActiveCamera.name}\nAuto-detect: {autoDetectActiveCamera}";
         
-        // FIXED: Declare cameraManager in the correct scope
-        CameraManager cameraManager = CameraManager.Instance;
-        if (useCameraManagerIntegration && cameraManager != null && cameraManager.GetActiveCamera() != null)
-        {
-            cameraInfo += $"\nCinemachine: {cameraManager.GetActiveCamera().name}\nPriorità: {cameraManager.GetActiveCamera().Priority}";
-            
-            // Disegna anche la CinemachineCamera
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireCube(cameraManager.GetActiveCamera().transform.position, Vector3.one * 0.5f);
-        }
+        
+        CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
+if (useCameraManagerIntegration && cameraManager != null && cameraManager.GetActiveCamera() != null)
+{
+    cameraInfo += $"\nCinemachine: {cameraManager.GetActiveCamera().name}\nPriorità: {cameraManager.GetActiveCamera().Priority}";
+    
+    // Disegna anche la CinemachineCamera
+    Gizmos.color = Color.cyan;
+    Gizmos.DrawWireCube(cameraManager.GetActiveCamera().transform.position, Vector3.one * 0.5f);
+}
         
         if (debugCameraChanges && Time.frameCount % 60 == 0)
             Debug.Log($"[Camera Debug] {cameraInfo}");

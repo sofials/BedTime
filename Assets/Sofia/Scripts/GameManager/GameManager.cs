@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
-
+using Unity.Cinemachine;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
@@ -51,25 +51,6 @@ public class GameManager : MonoBehaviour
         
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
-/// <summary>
-/// Assicura che le camere siano pronte - chiamato da SceneManager
-/// </summary>
-public void EnsureCamerasAreReady()
-{
-    Debug.Log("[GameManager] Verifica stato camere richiesta");
-    
-    // Trova il CameraManager
-    var cameraManager = CameraManager.Instance;
-    if (cameraManager != null)
-    {
-        cameraManager.EnsureCamerasAreReady();
-        Debug.Log("[GameManager] Richiesta inviata al CameraManager");
-    }
-    else
-    {
-        Debug.Log("[GameManager] ⚠️ CameraManager non trovato");
-    }
-}
     private void Start()
     {
         // FIX: Usa coroutine per dare tempo alla scena di inizializzarsi
@@ -616,13 +597,17 @@ public void EnsureCamerasAreReady()
         // Piccolo delay per assicurarsi che tutto sia inizializzato
         yield return new WaitForSeconds(0.1f);
         
-        // Ri-forza lo stato del cursore dopo l'inizializzazione
-        if (!IsInMainMenu() && !isPaused)
-        {
-            SetGameCursorState();
-        }
         
         string currentScene = SceneManager.GetActiveScene().name;
+    OnScreenDebugLogger.LogGameManager($"Cercando CameraManager in scena: {currentScene}");
+    
+    var allCameraManagers = Object.FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
+    OnScreenDebugLogger.LogGameManager($"CameraManager trovati: {allCameraManagers.Length}");
+    
+    foreach (var cm in allCameraManagers)
+    {
+        OnScreenDebugLogger.LogGameManager($"CameraManager: {cm.name} - GameObject Attivo: {cm.gameObject.activeInHierarchy} - Component Abilitato: {cm.enabled}");
+    }
         
         // Cerca lo SceneManager specifico della scena
         string[] possibleNames = { 
@@ -754,64 +739,48 @@ public void EnsureCamerasAreReady()
 
     // ========== GESTIONE EVENTI SCENA ==========
 
-    /// <summary>
-    /// OnSceneLoaded con reset più aggressivo
-    /// </summary>
-    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+{
+    Debug.Log($"[GameManager] Scena caricata: {scene.name}");
+
+    isPaused = false;
+    Time.timeScale = 1f;
+
+    // Reset riferimenti UI
+    pauseMenu = null;
+    pauseMenuUI = null;
+    startMenu = null;
+
+    Debug.Log($"[GameManager] Riferimenti UI resettati per scena: {scene.name}");
+
+    StartCoroutine(CompleteSceneInitialization(scene.name));
+}
+  private IEnumerator CompleteSceneInitialization(string sceneName)
+{
+    yield return new WaitForEndOfFrame();
+    yield return new WaitForEndOfFrame();
+    yield return new WaitForSeconds(0.1f);
+
+    Debug.Log($"[GameManager] Inizializzazione completa per scena: {sceneName}");
+
+    Time.timeScale = 1f;
+    isPaused = false;
+
+    HandleDuplicateEventSystems();
+    FindAllUIComponents();
+
+    // Configurazione immediata senza attesa camera
+    if (sceneName == mainMenuSceneName)
     {
-        Debug.Log($"[GameManager] Scena caricata: {scene.name}");
-
-        // FIX CRITICO: Reset completo di tutto lo stato
-        isPaused = false;
-        Time.timeScale = 1f;
-
-        // IMPORTANTE: Reset di TUTTI i riferimenti UI
-        pauseMenu = null;
-        pauseMenuUI = null;
-        startMenu = null;
-
-        Debug.Log($"[GameManager] Tutti i riferimenti UI resettati per scena: {scene.name}");
-
-        // FIX: Attendi che Unity abbia completamente inizializzato la scena
-        StartCoroutine(CompleteSceneInitialization(scene.name));
+        ConfigureTitleScreen();
+    }
+    else
+    {
+        ConfigureGameScene();
     }
 
-    /// <summary>
-    /// Inizializzazione completa per ogni scena
-    /// </summary>
-    private IEnumerator CompleteSceneInitialization(string sceneName)
-    {
-        // Attendi che Unity abbia finito completamente di caricare
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForSeconds(0.1f); // Attesa extra per sicurezza
-
-        Debug.Log($"[GameManager] Inizializzazione completa per scena: {sceneName}");
-
-        // FORZA il reset del time scale di nuovo (per sicurezza)
-        Time.timeScale = 1f;
-        isPaused = false;
-
-        // Gestisci EventSystem duplicati PRIMA di tutto
-        HandleDuplicateEventSystems();
-
-        // Trova tutti i componenti UI necessari
-        FindAllUIComponents();
-
-        // Configura la scena basandosi sul tipo
-        if (sceneName == mainMenuSceneName)
-        {
-            ConfigureTitleScreen();
-        }
-        else
-        {
-            ConfigureGameScene();
-        }
-
-        // Notifica finale
-        NotifySceneReady(sceneName);
-    }
-
+    NotifySceneReady(sceneName);
+}
     private void NotifySceneReady(string sceneName)
     {
         Debug.Log($"[GameManager] Scena {sceneName} completamente inizializzata e pronta");

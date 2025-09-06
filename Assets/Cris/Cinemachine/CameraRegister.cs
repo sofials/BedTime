@@ -25,11 +25,11 @@ public class CameraRegister : MonoBehaviour
         virtualCamera = GetComponent<CinemachineCamera>();
         if (virtualCamera == null)
         {
-            DebugLog($"[CameraRegister] ERRORE: CinemachineCamera non trovato su {gameObject.name}!");
+            DebugLog($"[SimpleCameraRegister] ERRORE: CinemachineCamera non trovato su {gameObject.name}!");
         }
         else
         {
-            DebugLog($"[CameraRegister] Component trovato: {virtualCamera.name}");
+            DebugLog($"[SimpleCameraRegister] Component trovato: {virtualCamera.name}");
         }
     }
 
@@ -58,14 +58,14 @@ public class CameraRegister : MonoBehaviour
     }
 
     /// <summary>
-    /// Registrazione ritardata che aspetta il CameraManager
+    /// Registrazione ritardata che aspetta il SimpleCameraManager
     /// </summary>
     private IEnumerator DelayedRegistration()
     {
         // Aspetta il delay iniziale
         yield return new WaitForSeconds(registrationDelay);
         
-        // Trova il CameraManager
+        // Trova il SimpleCameraManager
         yield return FindCameraManager();
         
         if (cameraManager != null && cameraManager.IsInitialized())
@@ -74,13 +74,13 @@ public class CameraRegister : MonoBehaviour
         }
         else
         {
-            DebugLog("[CameraRegister] ⚠️ CameraManager non pronto, registrazione forzata");
+            DebugLog("[SimpleCameraRegister] SimpleCameraManager non pronto, registrazione forzata");
             RegisterCamera(); // Prova comunque
         }
     }
 
     /// <summary>
-    /// Trova il CameraManager nella scena corrente
+    /// Trova il SimpleCameraManager nella scena corrente
     /// </summary>
     private IEnumerator FindCameraManager()
     {
@@ -88,70 +88,63 @@ public class CameraRegister : MonoBehaviour
         
         while (cameraManager == null && attempts < maxRegistrationAttempts)
         {
-            // Prova prima con l'Instance
-            cameraManager = CameraManager.Instance;
-            
-            // Se non trovato, cerca nella scena
-            if (cameraManager == null)
+            // Cerca SimpleCameraManager nella scena
+            var allManagers = Object.FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
+            if (allManagers.Length > 0)
             {
-                var allManagers = Object.FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
-                foreach (var manager in allManagers)
-                {
-                    if (manager.gameObject.scene == gameObject.scene)
-                    {
-                        cameraManager = manager;
-                        break;
-                    }
-                }
+                cameraManager = allManagers[0];
+                DebugLog($"[SimpleCameraRegister] SimpleCameraManager trovato: {cameraManager.name}");
+                break;
             }
             
-            if (cameraManager == null)
-            {
-                attempts++;
-                DebugLog($"[CameraRegister] CameraManager non trovato, tentativo {attempts}/{maxRegistrationAttempts}");
-                yield return new WaitForSeconds(0.1f);
-            }
+            attempts++;
+            DebugLog($"[SimpleCameraRegister] SimpleCameraManager non trovato, tentativo {attempts}/{maxRegistrationAttempts}");
+            yield return new WaitForSeconds(0.2f);
         }
         
         if (cameraManager != null)
         {
-            DebugLog($"[CameraRegister] CameraManager trovato: {cameraManager.name}");
+            DebugLog($"[SimpleCameraRegister] SimpleCameraManager collegato: {cameraManager.name}");
         }
         else
         {
-            DebugLog("[CameraRegister] ⚠️ CameraManager non trovato dopo tutti i tentativi");
+            DebugLog("[SimpleCameraRegister] SimpleCameraManager non trovato dopo tutti i tentativi!");
         }
     }
 
     /// <summary>
-    /// Registra la camera con il CameraManager
+    /// Registra la camera con il SimpleCameraManager
     /// </summary>
     private void RegisterCamera()
     {
         if (virtualCamera == null || isRegistered) return;
         
-        // Assicurati di avere un riferimento al CameraManager
+        // Assicurati di avere un riferimento al SimpleCameraManager
         if (cameraManager == null)
         {
-            cameraManager = CameraManager.Instance;
+            var managers = Object.FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
+            if (managers.Length > 0)
+            {
+                cameraManager = managers[0];
+            }
         }
         
         if (cameraManager == null)
         {
-            DebugLog("[CameraRegister] ⚠️ Impossibile registrare: CameraManager non trovato");
+            DebugLog("[SimpleCameraRegister] Impossibile registrare: SimpleCameraManager non trovato");
             return;
         }
         
-        DebugLog($"[CameraRegister] Registrazione {virtualCamera.name}...");
+        DebugLog($"[SimpleCameraRegister] Registrazione {virtualCamera.name}...");
         
         cameraManager.Register(virtualCamera);
         isRegistered = true;
         
-        DebugLog($"[CameraRegister] ✅ {virtualCamera.name} registrata con successo");
+        DebugLog($"[SimpleCameraRegister] {virtualCamera.name} registrata con successo");
     }
 
     /// <summary>
-    /// Deregistra la camera dal CameraManager
+    /// Deregistra la camera dal SimpleCameraManager
     /// </summary>
     private void UnregisterCamera()
     {
@@ -159,12 +152,12 @@ public class CameraRegister : MonoBehaviour
         
         if (cameraManager != null)
         {
-            DebugLog($"[CameraRegister] Deregistrazione {virtualCamera.name}...");
+            DebugLog($"[SimpleCameraRegister] Deregistrazione {virtualCamera.name}...");
             cameraManager.Unregister(virtualCamera);
         }
         
         isRegistered = false;
-        DebugLog($"[CameraRegister] ✅ {virtualCamera.name} deregistrata");
+        DebugLog($"[SimpleCameraRegister] {virtualCamera.name} deregistrata");
     }
 
     /// <summary>
@@ -195,7 +188,7 @@ public class CameraRegister : MonoBehaviour
     /// </summary>
     public void ForceReregister()
     {
-        DebugLog("[CameraRegister] Force re-registrazione...");
+        DebugLog("[SimpleCameraRegister] Force re-registrazione...");
         
         if (isRegistered)
         {
@@ -216,7 +209,7 @@ public class CameraRegister : MonoBehaviour
     public CinemachineCamera GetVirtualCamera() => virtualCamera;
 
     /// <summary>
-    /// Ottieni il riferimento al CameraManager
+    /// Ottieni il riferimento al SimpleCameraManager
     /// </summary>
     public CameraManager GetCameraManager() => cameraManager;
 
@@ -242,8 +235,55 @@ public class CameraRegister : MonoBehaviour
         }
         else
         {
-            DebugLog("[CameraRegister] ⚠️ Impossibile attivare camera: riferimenti mancanti");
+            DebugLog("[SimpleCameraRegister] Impossibile attivare camera: riferimenti mancanti");
         }
+    }
+
+    /// <summary>
+    /// Verifica se il SimpleCameraManager è pronto
+    /// </summary>
+    public bool IsCameraManagerReady()
+    {
+        return cameraManager != null && cameraManager.IsCameraSystemReady();
+    }
+
+    /// <summary>
+    /// Aspetta che il SimpleCameraManager sia pronto
+    /// </summary>
+    public IEnumerator WaitForCameraManagerReady()
+    {
+        float waitTime = 0f;
+        const float maxWaitTime = 5f;
+        
+        while (!IsCameraManagerReady() && waitTime < maxWaitTime)
+        {
+            yield return new WaitForSeconds(0.1f);
+            waitTime += 0.1f;
+            
+            // Riprova a trovare il manager se non c'è
+            if (cameraManager == null)
+            {
+                yield return FindCameraManager();
+            }
+        }
+        
+        if (IsCameraManagerReady())
+        {
+            DebugLog("[SimpleCameraRegister] SimpleCameraManager pronto");
+        }
+        else
+        {
+            DebugLog($"[SimpleCameraRegister] Timeout aspettando SimpleCameraManager dopo {maxWaitTime}s");
+        }
+    }
+
+    /// <summary>
+    /// Forza la ricerca di un nuovo SimpleCameraManager
+    /// </summary>
+    public void RefreshCameraManager()
+    {
+        cameraManager = null;
+        StartCoroutine(FindCameraManager());
     }
 
     private void DebugLog(string message)
@@ -259,10 +299,11 @@ public class CameraRegister : MonoBehaviour
     [ContextMenu("Debug Camera Register State")]
     public void DebugState()
     {
-        Debug.Log($"=== CameraRegister State ({gameObject.name}) ===\n" +
+        Debug.Log($"=== SimpleCameraRegister State ({gameObject.name}) ===\n" +
                   $"Virtual Camera: {(virtualCamera != null ? virtualCamera.name : "null")}\n" +
                   $"Is Registered: {isRegistered}\n" +
                   $"Camera Manager: {(cameraManager != null ? cameraManager.name : "null")}\n" +
+                  $"Manager Ready: {IsCameraManagerReady()}\n" +
                   $"Is Active Camera: {IsActiveCamera()}\n" +
                   $"Current Scene: {gameObject.scene.name}\n" +
                   $"Auto Register: {autoRegisterOnEnable}\n" +
@@ -292,5 +333,47 @@ public class CameraRegister : MonoBehaviour
     public void TestFindCameraManager()
     {
         StartCoroutine(FindCameraManager());
+    }
+
+    [ContextMenu("Test - Refresh Camera Manager")]
+    public void TestRefreshCameraManager()
+    {
+        RefreshCameraManager();
+    }
+
+    [ContextMenu("Test - Wait For Manager Ready")]
+    public void TestWaitForManagerReady()
+    {
+        StartCoroutine(WaitForCameraManagerReady());
+    }
+
+    // ========== CALLBACK EVENTS ==========
+    
+    /// <summary>
+    /// Chiamato quando il GameObject viene attivato
+    /// Utile per debug o logiche personalizzate
+    /// </summary>
+    private void OnValidate()
+    {
+        // Assicurati che ci sia una CinemachineCamera
+        if (virtualCamera == null)
+        {
+            virtualCamera = GetComponent<CinemachineCamera>();
+        }
+    }
+
+    /// <summary>
+    /// Cleanup quando l'oggetto viene distrutto
+    /// </summary>
+    private void OnDestroy()
+    {
+        if (isRegistered && cameraManager != null && virtualCamera != null)
+        {
+            DebugLog($"[SimpleCameraRegister] Cleanup: deregistrazione {virtualCamera.name}");
+            cameraManager.Unregister(virtualCamera);
+        }
+        
+        isRegistered = false;
+        cameraManager = null;
     }
 }
