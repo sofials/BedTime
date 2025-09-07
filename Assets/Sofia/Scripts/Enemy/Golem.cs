@@ -13,7 +13,9 @@ public class Golem : MonoBehaviour
     public float viewAngle = 360f;
     public LayerMask playerMask;
     public LayerMask obstacleMask;
-
+    [Header("Death Settings")]
+[Tooltip("Oggetto figlio da attivare quando il Golem muore")]
+public GameObject deathActivationObject;
     [Header("Attack Settings")]
     public float meleeRange = 20f;
     public float rangedRange = 280f;
@@ -622,28 +624,39 @@ public class Golem : MonoBehaviour
     }
 
     private void Die()
+{
+    isDead = true;
+    animator.SetTrigger("Die");
+
+    // Cleanup overlay al momento della morte
+    if (patinaActive)
     {
-        isDead = true;
-        animator.SetTrigger("Die");
+        SetOverlayActive(false);
+    }
 
-        // Cleanup overlay al momento della morte
-        if (patinaActive)
+    // NUOVA FUNZIONALITÀ: Attiva l'oggetto figlio specificato
+    if (deathActivationObject != null)
+    {
+        deathActivationObject.SetActive(true);
+        Debug.Log($"[Golem] Oggetto {deathActivationObject.name} attivato alla morte di {gameObject.name}");
+    }
+    else
+    {
+        Debug.LogWarning($"[Golem] Nessun oggetto di attivazione morte assegnato per {gameObject.name}");
+    }
+
+    if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        agent.isStopped = true;
+
+    Collider[] colliders = GetComponentsInChildren<Collider>();
+    foreach (var col in colliders)
+    {
+        if (col.CompareTag("GolemHurtbox"))
         {
-            SetOverlayActive(false);
-        }
-
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-            agent.isStopped = true;
-
-        Collider[] colliders = GetComponentsInChildren<Collider>();
-        foreach (var col in colliders)
-        {
-            if (col.CompareTag("GolemHurtbox"))
-            {
-                col.isTrigger = false;
-            }
+            col.isTrigger = false;
         }
     }
+}
 
     private void OnDrawGizmosSelected()
     {
