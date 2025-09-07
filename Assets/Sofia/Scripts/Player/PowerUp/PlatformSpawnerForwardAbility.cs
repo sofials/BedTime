@@ -19,6 +19,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     [SerializeField] private Transform cameraTransform; // Make this assignable in inspector
 
     private GameObject currentGhost;
+    private GameObject currentPlatform; // AGGIUNTA: traccia la piattaforma attuale
     private bool       placing = false;
 
     private Vector3    lastForwardDirection;
@@ -121,10 +122,14 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             return;
         }
 
+        // MODIFICA: Distruggi la piattaforma precedente prima di crearne una nuova
+        DestroyCurrentPlatform();
+
         Destroy(currentGhost);
         currentGhost = null;
 
-        Instantiate(platformPrefab, targetPos, targetRotation);
+        // MODIFICA: Salva il riferimento alla nuova piattaforma
+        currentPlatform = Instantiate(platformPrefab, targetPos, targetRotation);
 
         powerUpScript.SpendPower(powerCost);
         Deactivate();
@@ -279,6 +284,17 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         IsActive = false;
     }
 
+    // AGGIUNTA: Metodo per distruggere la piattaforma corrente
+    private void DestroyCurrentPlatform()
+    {
+        if (currentPlatform != null)
+        {
+            Debug.Log("[PlatformSpawnerForwardAbility] Distruggendo piattaforma precedente");
+            Destroy(currentPlatform);
+            currentPlatform = null;
+        }
+    }
+
     private Vector3 GetCameraForwardFlat()
     {
         if (cameraTransform == null) return transform.forward; // Fallback to object's forward
@@ -299,15 +315,20 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     {
         return !Physics.CheckSphere(pos, checkRadius, obstacleMask);
     }
-public override bool CanActivate()
-{
-    bool baseCanActivate = base.CanActivate();
-    bool cameraAvailable = cameraTransform != null;
-    
-    return baseCanActivate && cameraAvailable;
-}
+
+    public override bool CanActivate()
+    {
+        bool baseCanActivate = base.CanActivate();
+        bool cameraAvailable = cameraTransform != null;
+        
+        return baseCanActivate && cameraAvailable;
+    }
+
     private void OnDestroy()
     {
+        // AGGIUNTA: Distruggi la piattaforma quando l'ability viene distrutta
+        DestroyCurrentPlatform();
+        
         if (controls != null)
         {
             controls.Disable();
