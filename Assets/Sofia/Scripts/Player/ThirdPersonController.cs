@@ -4,9 +4,32 @@ using CartoonFX;
 using System.Collections;
 using Unity.Cinemachine;
 using UnityEngine.Events;
+using System.Collections.Generic;
 #if UNITY_EDITOR
 using UnityEditor;
+
 #endif
+[System.Serializable]
+public class CameraMovementSettings
+{
+    [Header("Camera Reference")]
+    public CinemachineCamera cinemachineCamera;
+    public Camera unityCamera;
+    
+    [Header("Movement Settings")]
+    public bool invertForwardBackward = false;
+    public bool invertLeftRight = false;
+    
+    [Header("Identification")]
+    public string cameraName = "";
+    
+    public CameraMovementSettings()
+    {
+        invertForwardBackward = false;
+        invertLeftRight = false;
+        cameraName = "New Camera";
+    }
+}
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
 {
@@ -50,6 +73,12 @@ private bool lastGroundCheckResult = false;
     [SerializeField] private bool debugCameraChanges = false;
     private float cameraCheckTimer = 0f;
     private Camera currentActiveCamera;
+    [Header("Camera Movement Inversion")]
+[SerializeField] private bool enableMovementInversion = true;
+[SerializeField] private List<CameraMovementSettings> cameraSettings = new List<CameraMovementSettings>();
+[SerializeField] private bool debugMovementInversion = false;
+private CameraMovementSettings currentCameraSettings = null;
+private bool movementInverted = false;
     
     // ✅ EVENT SYSTEM PER NOTIFICHE DI CAMBIO CAMERA
     public System.Action<Camera, Camera> OnCameraChanged;
@@ -913,6 +942,7 @@ public void PlayHitSound()
     {
         // 0. ✅ AGGIORNA CAMERA ATTIVA (se auto-detect è abilitato)
         UpdateActiveCamera();
+        UpdateCurrentCameraSettings();
         
         // 1. RILEVAMENTO E AGGIORNAMENTO PIATTAFORME
         DetectAndUpdatePlatform();
@@ -2221,8 +2251,9 @@ private void HandleMovement()
         return;
     }
 
-    float h = moveInput.x;
-    float v = moveInput.y;
+    Vector2 processedInput = GetProcessedMoveInput();
+float h = processedInput.x;
+float v = processedInput.y;
 
     Vector3 inputVector = new Vector3(h, 0f, v);
     float inputMagnitude = inputVector.magnitude;
@@ -3062,7 +3093,113 @@ public bool GetAutoDetectCamera()
 
         return $"{currentPlatform.name} (Tipo: {platformType}, Obstacle: {isOnObstaclePlatform})";
     }
+private void UpdateCurrentCameraSettings()
+{
+    if (!enableMovementInversion) 
+    {
+        currentCameraSettings = null;
+        movementInverted = false;
+        return;
+    }
+    
+    CameraMovementSettings newSettings = null;
+    
+    // Prima prova con CinemachineCamera
+    if (useCameraManagerIntegration)
+    {
+        CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
+        if (cameraManager != null && cameraManager.GetActiveCamera() != null)
+        {
+            CinemachineCamera activeCinemachine = cameraManager.GetActiveCamera();
+            newSettings = cameraSettings.Find(cs => cs.cinemachineCamera == activeCinemachine);
+        }
+    }
+    
+    // Se non trovato, prova con Unity Camera
+    if (newSettings == null && currentActiveCamera != null)
+    {
+        newSettings = cameraSettings.Find(cs => cs.unityCamera == currentActiveCamera);
+    }
+    
+    // Se non trovato, prova per nome
+    if (newSettings == null && currentActiveCamera != null)
+    {
+        string cameraName = currentActiveCamera.name;
+        newSettings = cameraSettings.Find(cs => cs.cameraName.Equals(cameraName, System.StringComparison.OrdinalIgnoreCase));
+    }
+    
+    if (newSettings != currentCameraSettings)
+    {
+        currentCameraSettings = newSettings;
+        movementInverted = newSettings != null && (newSettings.invertForwardBackward || newSettings.invertLeftRight);
+        
+        if (debugMovementInversion)
+        {
+            if (newSettings != null)
+            {
+                Debug.Log($"[Movement] Camera: {newSettings.cameraName} - FB: {newSettings.invertForwardBackward}, LR: {newSettings.invertLeftRight}");
+            }
+            else
+            {
+                Debug.Log("[Movement] Nessuna inversione per questa camera");
+            }
+        }
+    }
+}
 
+private Vector2 GetProcessedMoveInput()
+{
+    Vector2 processedInput = moveInput;
+    
+    if (enableMovementInversion && currentCameraSettings != null)
+    {
+        if (currentCameraSettings.invertForwardBackward)
+        {
+            processedInput.y = -processedInput.y;
+        }
+        
+        if (currentCameraSettings.invertLeftRight)
+        {
+            processedInput.x = -processedInput.x;
+        }
+        
+        if (debugMovementInversion && processedInput != moveInput && Time.frameCount % 30 == 0)
+        {
+            Debug.Log($"[Movement] Input: {moveInput} → {processedInput}");
+        }
+    }
+    
+    return processedInput;
+}
+
+[ContextMenu("Auto Setup Current Cameras")]
+public void AutoSetupCurrentCameras()
+{
+    cameraSettings.Clear();
+    
+    CinemachineCamera[] cinemachineCameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
+    foreach (var cam in cinemachineCameras)
+    {
+        var newSettings = new CameraMovementSettings();
+        newSettings.cinemachineCamera = cam;
+        newSettings.cameraName = cam.name;
+        cameraSettings.Add(newSettings);
+    }
+    
+    Camera[] unityCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+    foreach (var cam in unityCameras)
+    {
+        if (!cameraSettings.Exists(cs => cs.unityCamera == cam))
+        {
+            var newSettings = new CameraMovementSettings();
+            newSettings.unityCamera = cam;
+            newSettings.cameraName = cam.name;
+            cameraSettings.Add(newSettings);
+        }
+    }
+    
+    Debug.Log($"[Movement] Setup completato: {cameraSettings.Count} camere");
+}
     private void OnDestroy()
 {
     // ✅ FERMA LA COROUTINE DI CLIMBING

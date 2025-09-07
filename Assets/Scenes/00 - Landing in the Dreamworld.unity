@@ -20707,7 +20707,7 @@ Transform:
   m_GameObject: {fileID: 440297700}
   serializedVersion: 2
   m_LocalRotation: {x: -0.000000009094138, y: 0.9997921, z: 0.0000000028389913, w: -0.020390488}
-  m_LocalPosition: {x: -591.2, y: 1277, z: -707.2001}
+  m_LocalPosition: {x: -522.5, y: 1277, z: -699.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -20732,7 +20732,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 30, y: 90, z: 120}
+  m_Size: {x: 130, y: 100, z: 180}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &440297703
 MonoBehaviour:
@@ -33679,7 +33679,7 @@ Transform:
   m_GameObject: {fileID: 895323824}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -379.4, y: 1179.0243, z: -1164}
+  m_LocalPosition: {x: -357.8, y: 1179.0243, z: -1204.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -39524,6 +39524,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 897191e6b35df6a48be2e5e6253442bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &979878005 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2431887308047467736, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+  m_PrefabInstance: {fileID: 1179324869}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 979878000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c060dc217d84cc439cdf0a00954cc41, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &983159000
@@ -56525,7 +56536,31 @@ PrefabInstance:
       value: 129
       objectReference: {fileID: 0}
     - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: debugMovementInversion
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
       propertyPath: disableVerticalFollowing
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: cameraSettings.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: cameraSettings.Array.data[0].cameraName
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: cameraSettings.Array.data[0].invertLeftRight
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: cameraSettings.Array.data[0].cinemachineCamera
+      value: 
+      objectReference: {fileID: 131711207}
+    - target: {fileID: 7402629981581973632, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
+      propertyPath: cameraSettings.Array.data[0].invertForwardBackward
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8818503449476171832, guid: 60cb87f20e864c74ea6b395ff5678996, type: 3}
@@ -90666,7 +90701,7 @@ MonoBehaviour:
   collisionTag: 
   triggerLayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 64
   triggerCameraSwitch: 0
   targetCameraName: 
   targetCamera: {fileID: 0}
@@ -90682,8 +90717,8 @@ MonoBehaviour:
   showDebugGizmos: 1
   gizmoColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   activeGizmoColor: {r: 1, g: 0, b: 0, a: 1}
-  enableDebugLogs: 0
-  logAllCollisions: 0
+  enableDebugLogs: 1
+  logAllCollisions: 1
   onTriggerEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -90705,20 +90740,7 @@ MonoBehaviour:
         m_CallState: 2
   onTriggerStay:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1686951177}
-        m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
-        m_MethodName: SwitchCamera
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 131711207}
-          m_ObjectArgumentAssemblyTypeName: Unity.Cinemachine.CinemachineCamera,
-            Unity.Cinemachine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onPlayerEnterWithName:
     m_PersistentCalls:
       m_Calls: []
@@ -110489,7 +110511,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3981567130020583549, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: eventActivations.Array.size
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4910115921502916631, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -110532,6 +110554,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: playerAttack
+      value: 
+      objectReference: {fileID: 979878005}
+    - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: cameraManager
       value: 
       objectReference: {fileID: 1686951177}
@@ -110539,6 +110565,10 @@ PrefabInstance:
       propertyPath: autoFindUIElements
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
+      propertyPath: simpleCameraManager
+      value: 
+      objectReference: {fileID: 1686951177}
     - target: {fileID: 5424070467849329967, guid: 42019c362096c0746b193c95eb64560a, type: 3}
       propertyPath: preferredSceneCamera
       value: 
