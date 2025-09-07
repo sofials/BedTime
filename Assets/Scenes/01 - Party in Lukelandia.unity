@@ -129248,7 +129248,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8314900717679636331, guid: 3fdd47e05936ea544b7f9304bad02999, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -154570,7 +154570,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 618.19
+      value: -23.6
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalPosition.y
@@ -154578,7 +154578,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -216.86
+      value: 42
       objectReference: {fileID: 0}
     - target: {fileID: 5015278887937904641, guid: 5ccfa1dedc4084145adee8835037888d, type: 3}
       propertyPath: m_LocalRotation.w
@@ -155720,15 +155720,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -272
+      value: -6
       objectReference: {fileID: 0}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 87.7
+      value: -23.1
       objectReference: {fileID: 0}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 994
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 4781761996910072179, guid: c351a53aa58142d48a3836abc67a0f91, type: 3}
       propertyPath: m_LocalRotation.w
@@ -162770,6 +162770,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 633107605}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: enableLineEvents
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: playerController
       value: 
       objectReference: {fileID: 5827714865091427282}
@@ -162782,16 +162786,56 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 5827714865091427282}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: prioritizeDialogueLineEvents
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
-      propertyPath: dialogueLines.Array.data[3].hasLineEvents
+      propertyPath: globalLineEvents.Array.data[0].timing
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].timing
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].eventName
+      value: cameratele
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].lineIndex
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].eventName
+      value: cameraplayer
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].lineIndex
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].hasLineEvents
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[3].hasLineEvents
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.size
-      value: 2
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].enableDebugLogging
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].enableDebugLogging
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: OnDialogueEnded.m_PersistentCalls.m_Calls.Array.size
@@ -162802,8 +162846,12 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: OnSpecificLineReached.m_PersistentCalls.m_Calls.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].delay
-      value: 0.3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[1].delay
@@ -162811,15 +162859,27 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].timing
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[1].timing
-      value: 4
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].eventName
+      value: CameraTele
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].lineIndex
-      value: 0
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[1].eventName
+      value: CameraPlayer
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[1].lineIndex
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: OnLastLineReached.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
@@ -162850,6 +162910,18 @@ PrefabInstance:
       value: SwitchCamera
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: OnSpecificLineReached.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: OnLastLineReached.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
       value: CameraManager, Assembly-CSharp
       objectReference: {fileID: 0}
@@ -162858,8 +162930,40 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1588699205}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1369322970}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1369322970}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: SwitchCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: SwitchCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.size
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.size
@@ -162870,6 +162974,14 @@ PrefabInstance:
       value: Unity.Cinemachine.CinemachineCamera, Unity.Cinemachine
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: CameraManager, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: CameraManager, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
       value: 2
       objectReference: {fileID: 0}
@@ -162877,6 +162989,14 @@ PrefabInstance:
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgument
+      value: 
+      objectReference: {fileID: 1573264748}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgument
+      value: 
+      objectReference: {fileID: 1588699205}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
@@ -162900,6 +163020,14 @@ PrefabInstance:
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
       value: SwitchCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: Unity.Cinemachine.CinemachineCamera, Unity.Cinemachine
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: Unity.Cinemachine.CinemachineCamera, Unity.Cinemachine
       objectReference: {fileID: 0}
     - target: {fileID: 4533144519476887682, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: dialogueLines.Array.data[3].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
@@ -163018,6 +163146,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1550186642}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: enableLineEvents
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: playerController
       value: 
       objectReference: {fileID: 5827714865091427282}
@@ -163046,11 +163178,87 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: prioritizeDialogueLineEvents
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].timing
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].timing
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].eventName
+      value: pietrocam
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].lineIndex
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].eventName
+      value: playercam2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].lineIndex
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].hasLineEvents
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].enableDebugLogging
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].enableDebugLogging
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: OnDialogueStarted.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].delay
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].delay
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].timing
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].timing
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].eventName
+      value: PietroCam
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].lineIndex
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].eventName
+      value: PlayerCam
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].lineIndex
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
@@ -163082,6 +163290,14 @@ PrefabInstance:
       value: ActivateSceneTriggerWithCheck
       objectReference: {fileID: 0}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: OnDialogueStarted.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
       value: SceneTrigger, Assembly-CSharp
       objectReference: {fileID: 0}
@@ -163094,8 +163310,128 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1369322970}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1369322970}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: SwitchCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: SwitchCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: OnDialogueStarted.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName
       value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: CameraManager, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: CameraManager, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgument
+      value: 
+      objectReference: {fileID: 1225503076}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgument
+      value: 
+      objectReference: {fileID: 1588699205}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1369322970}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1369322970}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: SwitchCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: SwitchCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: Unity.Cinemachine.CinemachineCamera, Unity.Cinemachine
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: globalLineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: Unity.Cinemachine.CinemachineCamera, Unity.Cinemachine
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: CameraManager, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: CameraManager, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgument
+      value: 
+      objectReference: {fileID: 1225503076}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgument
+      value: 
+      objectReference: {fileID: 1588699205}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[0].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: Unity.Cinemachine.CinemachineCamera, Unity.Cinemachine
+      objectReference: {fileID: 0}
+    - target: {fileID: 6258320056589190259, guid: 244280a25354eac43a85b161d001e468, type: 3}
+      propertyPath: dialogueLines.Array.data[1].lineEvents.Array.data[1].onLineEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: Unity.Cinemachine.CinemachineCamera, Unity.Cinemachine
       objectReference: {fileID: 0}
     - target: {fileID: 7594718117421647608, guid: 244280a25354eac43a85b161d001e468, type: 3}
       propertyPath: m_LocalPosition.x

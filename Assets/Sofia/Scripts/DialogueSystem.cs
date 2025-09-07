@@ -1353,50 +1353,72 @@ void StopAllPostDialogueEventCoroutines()
     postDialogueEventCoroutines.Clear();
     Debug.Log("[DialogueSystem] 🛑 Tutte le coroutine eventi post-dialogo fermate");
 }
-  /// <summary>
-    /// 🆕 Triggera gli eventi per una linea specifica e un timing specifico
-    /// </summary>
-    void TriggerLineEvents(int lineIndex, LineEventTiming timing)
-    {
-        if (!enableLineEvents)
-            return;
-            
-        Debug.Log($"[DialogueSystem] 🎯 Triggerando eventi per linea {lineIndex}, timing: {timing}");
+ /// <summary>
+/// 🆕 Triggera gli eventi per una linea specifica e un timing specifico - VERSIONE CORRETTA
+/// </summary>
+void TriggerLineEvents(int lineIndex, LineEventTiming timing)
+{
+    if (!enableLineEvents)
+        return;
         
-        // 1. Controlla eventi specifici nella DialogueLine corrente
-        if (prioritizeDialogueLineEvents && lineIndex < dialogueLines.Length)
+    Debug.Log($"[DialogueSystem] 🎯 Triggerando eventi per linea {lineIndex}, timing: {timing}");
+    
+    bool eventsExecuted = false;
+    
+    // 1. Controlla eventi specifici nella DialogueLine corrente
+    if (prioritizeDialogueLineEvents && lineIndex >= 0 && lineIndex < dialogueLines.Length)
+    {
+        DialogueLine currentLine = dialogueLines[lineIndex];
+        if (currentLine.hasLineEvents && currentLine.lineEvents != null && currentLine.lineEvents.Length > 0)
         {
-            DialogueLine currentLine = dialogueLines[lineIndex];
-            if (currentLine.hasLineEvents && currentLine.lineEvents != null)
+            bool foundMatchingEvents = false;
+            
+            foreach (LineEvent lineEvent in currentLine.lineEvents)
             {
-                foreach (LineEvent lineEvent in currentLine.lineEvents)
+                if (lineEvent != null && lineEvent.timing == timing)
                 {
-                    if (lineEvent != null && lineEvent.timing == timing)
-                    {
-                        ExecuteLineEvent(lineEvent, lineIndex, "DialogueLine");
-                    }
+                    ExecuteLineEvent(lineEvent, lineIndex, "DialogueLine");
+                    foundMatchingEvents = true;
+                    eventsExecuted = true;
                 }
-                
-                // Se abbiamo eventi nella DialogueLine e la priorità è attiva, skippa gli eventi globali
+            }
+            
+            // Se abbiamo trovato eventi con timing corrispondente E la priorità è attiva, skippa gli eventi globali
+            if (foundMatchingEvents)
+            {
+                Debug.Log($"[DialogueSystem] ✅ Trovati eventi DialogueLine per timing {timing} - skip eventi globali");
+                OnAnyLineEvent?.Invoke(this, lineIndex, timing);
                 return;
             }
-        }
-        
-        // 2. Controlla eventi globali per questa linea
-        if (globalLineEvents != null)
-        {
-            foreach (LineEvent lineEvent in globalLineEvents)
+            else
             {
-                if (lineEvent != null && lineEvent.lineIndex == lineIndex && lineEvent.timing == timing)
-                {
-                    ExecuteLineEvent(lineEvent, lineIndex, "Global");
-                }
+                Debug.Log($"[DialogueSystem] ⚠️ DialogueLine ha eventi ma nessuno per timing {timing} - controllo eventi globali");
             }
         }
-        
-        // 3. Notifica eventi statici
-        OnAnyLineEvent?.Invoke(this, lineIndex, timing);
     }
+    
+    // 2. Controlla eventi globali per questa linea (solo se non abbiamo eseguito eventi specifici o priorità disabilitata)
+    if (globalLineEvents != null && globalLineEvents.Length > 0)
+    {
+        foreach (LineEvent lineEvent in globalLineEvents)
+        {
+            if (lineEvent != null && lineEvent.lineIndex == lineIndex && lineEvent.timing == timing)
+            {
+                ExecuteLineEvent(lineEvent, lineIndex, "Global");
+                eventsExecuted = true;
+            }
+        }
+    }
+    
+    // 3. Log se non sono stati trovati eventi
+    if (!eventsExecuted)
+    {
+        Debug.Log($"[DialogueSystem] ℹ️ Nessun evento trovato per linea {lineIndex}, timing {timing}");
+    }
+    
+    // 4. Notifica eventi statici
+    OnAnyLineEvent?.Invoke(this, lineIndex, timing);
+}
      // ========== NUOVI GETTERS/SETTERS PER EVENTI LINEA ==========
     
     /// <summary>

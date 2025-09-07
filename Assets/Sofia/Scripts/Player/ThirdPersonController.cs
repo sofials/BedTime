@@ -438,60 +438,62 @@ public string GetActiveCameraInfo()
     return info;
 }
 
-    /// <summary>
-    /// Rileva automaticamente la camera attiva - Integrato con CameraManager
-    /// </summary>
-    // REPLACE the DetectActiveCamera method (around line 440-520):
 private void DetectActiveCamera()
 {
     Camera newActiveCamera = null;
+    string detectionMethod = "";
     
-    CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
-if (cameraManager != null && cameraManager.GetActiveCamera() != null)
-{
-    // Ottieni la camera Unity dal CinemachineBrain
-    CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
-    if (brain != null && brain.OutputCamera != null)
+    // 1. PRIORITÀ ASSOLUTA: CameraManager (se disponibile e configurato)
+    if (useCameraManagerIntegration)
     {
-        newActiveCamera = brain.OutputCamera;
-        
-        if (debugCameraChanges)
+        CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
+        if (cameraManager != null && cameraManager.IsCameraSystemReady() && cameraManager.GetActiveCamera() != null)
         {
-            Debug.Log($"[ThirdPersonController] Usando SimpleCameraManager - Camera attiva: {cameraManager.GetActiveCamera().name}");
-        }
-    }
-}
-    
-    // 2. FALLBACK: Trova CinemachineCamera con priorità più alta
-    if (newActiveCamera == null)
-    {
-        CinemachineCamera[] cinemachineCameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
-        CinemachineCamera highestPriorityCamera = null;
-        int highestPriority = -1;
-        
-        foreach (var cmCamera in cinemachineCameras)
-        {
-            if (cmCamera.isActiveAndEnabled && cmCamera.Priority > highestPriority)
+            // Cerca il CinemachineBrain nella scena corrente
+            CinemachineBrain brain = null;
+            CinemachineBrain[] allBrains = FindObjectsByType<CinemachineBrain>(FindObjectsSortMode.None);
+            
+            // Trova il brain nella scena corrente e che sia attivo
+            foreach (var b in allBrains)
             {
-                highestPriorityCamera = cmCamera;
-                highestPriority = cmCamera.Priority;
+                if (b.isActiveAndEnabled && b.OutputCamera != null && b.OutputCamera.isActiveAndEnabled)
+                {
+                    brain = b;
+                    break;
+                }
             }
-        }
-        
-        if (highestPriorityCamera != null)
-        {
-            CinemachineBrain brain = FindFirstObjectByType<CinemachineBrain>();
+            
             if (brain != null && brain.OutputCamera != null)
             {
                 newActiveCamera = brain.OutputCamera;
+                detectionMethod = $"CameraManager→{cameraManager.GetActiveCamera().name}→Brain→{newActiveCamera.name}";
             }
         }
     }
     
-    // 3. FALLBACK: Camera.main
+    // 2. FALLBACK: Camera.main (solo se è valida e attiva)
     if (newActiveCamera == null)
     {
-        newActiveCamera = Camera.main;
+        if (Camera.main != null && Camera.main.isActiveAndEnabled)
+        {
+            newActiveCamera = Camera.main;
+            detectionMethod = "Camera.main";
+        }
+    }
+    
+    // 3. FALLBACK: Prima CinemachineBrain attiva
+    if (newActiveCamera == null)
+    {
+        CinemachineBrain[] brains = FindObjectsByType<CinemachineBrain>(FindObjectsSortMode.None);
+        foreach (var brain in brains)
+        {
+            if (brain.isActiveAndEnabled && brain.OutputCamera != null && brain.OutputCamera.isActiveAndEnabled)
+            {
+                newActiveCamera = brain.OutputCamera;
+                detectionMethod = $"FirstActiveBrain→{newActiveCamera.name}";
+                break;
+            }
+        }
     }
     
     // 4. FALLBACK FINALE: Prima camera attiva trovata
@@ -503,51 +505,55 @@ if (cameraManager != null && cameraManager.GetActiveCamera() != null)
             if (cam.isActiveAndEnabled)
             {
                 newActiveCamera = cam;
+                detectionMethod = $"FirstActiveCamera→{cam.name}";
                 break;
             }
         }
     }
     
-    // 5. ✅ AGGIORNA SOLO SE LA CAMERA È CAMBIATA
-    if (newActiveCamera != currentActiveCamera && newActiveCamera != null)
+    // 5. AGGIORNA SOLO SE CAMERA È DIVERSA E VALIDA
+    if (newActiveCamera != currentActiveCamera)
     {
-        Camera previousCamera = currentActiveCamera;
-        
-        // ✅ AGGIORNA I RIFERIMENTI PER IL MOVIMENTO
-        currentActiveCamera = newActiveCamera;
-        cameraTransform = newActiveCamera.transform; // ← QUESTO È IL PUNTO CHIAVE!
-        
-        // Log più dettagliato con info CameraManager
-        string cameraManagerInfo = "";
-        if (cameraManager != null && cameraManager.GetActiveCamera() != null)
+        if (newActiveCamera != null)
         {
-            cameraManagerInfo = $" (CameraManager: {cameraManager.GetActiveCamera().name})";
+            Camera previousCamera = currentActiveCamera;
+            
+            // ⭐ PUNTO CRUCIALE: Aggiorna IMMEDIATAMENTE cameraTransform
+            currentActiveCamera = newActiveCamera;
+            cameraTransform = newActiveCamera.transform;
+            
+            if (debugCameraChanges)
+            {
+                Debug.Log($"[ThirdPersonController] 🎮 Camera cambiata: {(previousCamera ? previousCamera.name : "null")} → {newActiveCamera.name} via {detectionMethod}");
+                Debug.Log($"[ThirdPersonController] ✅ cameraTransform aggiornato: {cameraTransform.name}");
+            }
+            
+            // Eventi di notifica
+            OnCameraChanged?.Invoke(previousCamera, newActiveCamera);
         }
-        else
+        else if (debugCameraChanges)
         {
-            cameraManagerInfo = " (No CameraManager)";
+            Debug.LogError("[ThirdPersonController] ❌ NESSUNA CAMERA VALIDA TROVATA! Movimento bloccato.");
         }
+    }
+}
+
+public void ForceUpdateActiveCamera()
+{
+    if (autoDetectActiveCamera)
+    {
+        DetectActiveCamera();
         
         if (debugCameraChanges)
         {
-            Debug.Log($"[ThirdPersonController] ✅ Camera cambiata: {(previousCamera ? previousCamera.name : "nessuna")} → {newActiveCamera.name}{cameraManagerInfo}");
-            Debug.Log($"[ThirdPersonController] 🎮 cameraTransform aggiornato per il movimento: {cameraTransform.name}");
+            Debug.Log($"[ThirdPersonController] ForceUpdate: Camera attiva ora è {(currentActiveCamera ? currentActiveCamera.name : "null")}");
         }
-        
-        // ✅ NOTIFICA EVENT (se necessario per altri sistemi)
-        OnCameraChanged?.Invoke(previousCamera, newActiveCamera);
+    }
+    else if (debugCameraChanges)
+    {
+        Debug.Log("[ThirdPersonController] ForceUpdate richiesto ma auto-detect è disabilitato");
     }
 }
-    /// <summary>
-    /// Forza un aggiornamento immediato della camera attiva - OTTIMIZZATO
-    /// </summary>
-    public void ForceUpdateActiveCamera()
-    {
-        if (autoDetectActiveCamera)
-        {
-            DetectActiveCamera();
-        }
-    }
 
     /// <summary>
     /// Callback statico per notificare tutti i controller del cambio camera
@@ -694,40 +700,95 @@ private bool TryJumpImmediate()
         
         SetupFootstepAudio();
 
-        // ✅ ASSICURATI CHE LA CAMERA SIA CONFIGURATA
-        if (autoDetectActiveCamera && currentActiveCamera == null)
+        StartCoroutine(InitializeCameraWithRetryImproved());
+    }
+  private IEnumerator InitializeCameraWithRetryImproved()
+{
+    int attempts = 0;
+    const int maxAttempts = 20; // Aumentato per maggiore sicurezza
+    
+    while (attempts < maxAttempts && cameraTransform == null)
+    {
+        if (debugCameraChanges)
         {
-            DetectActiveCamera();
+            Debug.Log($"[ThirdPersonController] Tentativo inizializzazione camera {attempts + 1}/{maxAttempts}");
+        }
+        
+        // Aspetta che il CameraManager sia pronto (se utilizzato)
+        if (useCameraManagerIntegration)
+        {
+            CameraManager cameraManager = FindFirstObjectByType<CameraManager>();
+            if (cameraManager != null && !cameraManager.IsCameraSystemReady())
+            {
+                if (debugCameraChanges)
+                {
+                    Debug.Log($"[ThirdPersonController] Aspettando CameraManager...");
+                }
+                attempts++;
+                yield return new WaitForSeconds(0.1f);
+                continue;
+            }
+        }
+        
+        // Prova il rilevamento
+        DetectActiveCamera();
+        
+        if (cameraTransform != null)
+        {
+            if (debugCameraChanges)
+            {
+                Debug.Log($"[ThirdPersonController] ✅ Camera inizializzata con successo al tentativo {attempts + 1}: {cameraTransform.name}");
+            }
+            break;
+        }
+        
+        attempts++;
+        yield return new WaitForSeconds(0.1f);
+    }
+    
+    if (cameraTransform == null)
+    {
+        Debug.LogError($"[ThirdPersonController] ❌ FALLIMENTO COMPLETO inizializzazione camera dopo {maxAttempts} tentativi!");
+        Debug.LogError("Il movimento del player sarà compromesso. Verifica la configurazione delle camere.");
+        
+        // Ultima disperata ricerca
+        Camera fallbackCamera = Camera.main ?? FindFirstObjectByType<Camera>();
+        if (fallbackCamera != null)
+        {
+            Debug.LogWarning($"[ThirdPersonController] Usando camera di emergenza: {fallbackCamera.name}");
+            currentActiveCamera = fallbackCamera;
+            cameraTransform = fallbackCamera.transform;
         }
     }
+}
 
     private void SetupFootstepAudio()
-{
-    // Setup footstep audio (codice esistente)
-    if (footstepAudioSource == null)
     {
-        footstepAudioSource = GetComponent<AudioSource>();
+        // Setup footstep audio (codice esistente)
         if (footstepAudioSource == null)
         {
-            GameObject audioGO = new GameObject("FootstepAudio");
-            audioGO.transform.SetParent(transform);
-            audioGO.transform.localPosition = Vector3.zero;
-            footstepAudioSource = audioGO.AddComponent<AudioSource>();
+            footstepAudioSource = GetComponent<AudioSource>();
+            if (footstepAudioSource == null)
+            {
+                GameObject audioGO = new GameObject("FootstepAudio");
+                audioGO.transform.SetParent(transform);
+                audioGO.transform.localPosition = Vector3.zero;
+                footstepAudioSource = audioGO.AddComponent<AudioSource>();
+            }
         }
+
+        footstepAudioSource.playOnAwake = false;
+        footstepAudioSource.loop = false;
+        footstepAudioSource.spatialBlend = 0.7f;
+        footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
+        footstepAudioSource.maxDistance = 15f;
+
+        // ✅ SETUP JUMP AUDIO SOURCE
+        SetupJumpAudio();
+
+        // ✅ SETUP HIT AUDIO SOURCE
+        SetupHitAudio();
     }
-
-    footstepAudioSource.playOnAwake = false;
-    footstepAudioSource.loop = false;
-    footstepAudioSource.spatialBlend = 0.7f;
-    footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
-    footstepAudioSource.maxDistance = 15f;
-
-    // ✅ SETUP JUMP AUDIO SOURCE
-    SetupJumpAudio();
-    
-    // ✅ SETUP HIT AUDIO SOURCE
-    SetupHitAudio();
-}
     // ✅ NUOVO METODO PER SETUP DELL'AUDIO DEL SALTO
     private void SetupJumpAudio()
     {
@@ -1360,17 +1421,25 @@ private bool IsLedgeStillValid()
     return true;
 }
 
-    // Nel tuo UpdateActiveCamera(), cambia:
-private void UpdateActiveCamera()
+  private void UpdateActiveCamera()
 {
     if (!autoDetectActiveCamera) return;
     
+    // Controlla molto più frequentemente se non abbiamo una camera valida
+    float checkInterval = (currentActiveCamera == null || cameraTransform == null) ? 0.02f : 0.1f; // Molto più frequente
+    
     cameraCheckTimer += Time.deltaTime;
-    // AUMENTA L'INTERVALLO da 0.1f a 0.2f o più
-    if (cameraCheckTimer >= 0.2f) // Era 0.1f
+    
+    if (cameraCheckTimer >= checkInterval)
     {
         cameraCheckTimer = 0f;
         DetectActiveCamera();
+        
+        // NUOVO: Verifica immediata dopo rilevamento
+        if (cameraTransform == null && debugCameraChanges)
+        {
+            Debug.LogWarning("[ThirdPersonController] ⚠️ Camera ancora null dopo DetectActiveCamera!");
+        }
     }
 }
 
@@ -2117,27 +2186,35 @@ private Vector3 ApplyPlatformMovement()
 
 private void HandleMovement()
 {
-    // ✅ BLOCCA MOVIMENTO DURANTE HANGING (prima di tutto)
-    if (hanging ||isClimbing || IsMovementLocked)
-    {
-        playerVelocity = Vector3.zero;
-        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
-        return;
-    }
-
-    // ✅ VERIFICA CHE LA CAMERA SIA VALIDA PER IL MOVIMENTO
+    // ⭐ CONTROLLO PRIORITARIO: Verifica camera PRIMA di tutto
     if (cameraTransform == null)
     {
-        if (debugCameraChanges)
-            Debug.LogWarning("[ThirdPersonController] ⚠️ Nessuna cameraTransform disponibile per calcolare il movimento!");
+        if (autoDetectActiveCamera)
+        {
+            // Forzatura immediata del rilevamento camera
+            DetectActiveCamera();
+        }
         
-        playerVelocity = Vector3.zero;
-        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
-        return;
+        // Se ancora null dopo il rilevamento, blocca completamente il movimento
+        if (cameraTransform == null)
+        {
+            if (debugCameraChanges && Time.frameCount % 30 == 0) // Log ogni mezzo secondo circa
+            {
+                Debug.LogError("[ThirdPersonController] ❌ MOVIMENTO BLOCCATO: cameraTransform è null!");
+            }
+            
+            playerVelocity = Vector3.zero;
+            _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
+            return;
+        }
+        else if (debugCameraChanges)
+        {
+            Debug.Log($"[ThirdPersonController] ✅ Camera recuperata durante HandleMovement: {cameraTransform.name}");
+        }
     }
-
-    // ✅ CONTROLLO AGGIUNTIVO PER canMoveAfterHang
-    if (!canMoveAfterHang)
+    
+    // Blocca movimento durante stati speciali
+    if (hanging || isClimbing || IsMovementLocked || !canMoveAfterHang)
     {
         playerVelocity = Vector3.zero;
         _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
@@ -2147,46 +2224,55 @@ private void HandleMovement()
     float h = moveInput.x;
     float v = moveInput.y;
 
-    Vector3 tempVector3 = new Vector3(h, 0f, v);
-    float inputMag = tempVector3.magnitude;
+    Vector3 inputVector = new Vector3(h, 0f, v);
+    float inputMagnitude = inputVector.magnitude;
     
-    if (inputMag > 1f)
+    if (inputMagnitude > 1f)
     {
-        tempVector3.Normalize();
-        inputMag = 1f;
+        inputVector.Normalize();
+        inputMagnitude = 1f;
     }
     
-    smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMag, Time.deltaTime * 5f);
+    smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 5f);
 
-    if (inputMag < 0.1f)
+    if (inputMagnitude < 0.1f)
     {
         playerVelocity = Vector3.zero;
         _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
         return;
     }
 
-    // ✅ CALCOLO MOVIMENTO RELATIVO ALLA CAMERA ATTIVA
-    float targetAngle = Mathf.Atan2(tempVector3.x, tempVector3.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+    // ⭐ CALCOLO MOVIMENTO RELATIVO ALLA CAMERA - CON VERIFICA AGGIUNTIVA
+    if (cameraTransform == null)
+    {
+        Debug.LogError("[ThirdPersonController] ❌ ERRORE CRITICO: cameraTransform è diventato null durante il calcolo!");
+        playerVelocity = Vector3.zero;
+        return;
+    }
+    
+    float targetAngle = Mathf.Atan2(inputVector.x, inputVector.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
     float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
     transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
-    Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-    moveDir = Vector3.ProjectOnPlane(moveDir, GetGroundNormal());
+    Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+    moveDirection = Vector3.ProjectOnPlane(moveDirection, GetGroundNormal());
 
     float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
-    playerVelocity = moveDir * targetSpeed;
+    playerVelocity = moveDirection * targetSpeed;
 
     Vector3 totalVelocity = playerVelocity + attackVelocity;
     float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
     _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
     
-    // ✅ DEBUG: Mostra quale camera sta usando per il movimento
-    if (debugCameraChanges && inputMag > 0.1f)
+    // ⭐ DEBUG MIGLIORATO: Mostra le informazioni più importanti
+    if (debugCameraChanges && inputMagnitude > 0.1f && Time.frameCount % 30 == 0)
     {
-        Debug.DrawLine(transform.position, transform.position + moveDir * 2f, Color.green, 0.1f);
-        Debug.DrawLine(cameraTransform.position, cameraTransform.position + cameraTransform.forward * 3f, Color.blue, 0.1f);
+        Debug.Log($"[Movement] Camera: {cameraTransform.name} | TargetAngle: {targetAngle:F1}° | Speed: {targetSpeed:F1} | Input: {inputVector}");
+        Debug.DrawLine(transform.position, transform.position + moveDirection * 2f, Color.green, 0.5f);
+        Debug.DrawLine(cameraTransform.position, cameraTransform.position + cameraTransform.forward * 3f, Color.blue, 0.5f);
     }
 }
+
 
 /// <summary>
 /// Esegue il salto da ledge grab
@@ -2956,6 +3042,11 @@ public void HandleChildTrigger(Collider other, Transform childTransform)
     {
         return isOnObstaclePlatform;
     }
+    // AGGIUNGI QUESTO GETTER PUBBLICO (dopo gli altri getter pubblici)
+public bool GetAutoDetectCamera()
+{
+    return autoDetectActiveCamera;
+}
 
     /// <summary>
     /// Ottieni informazioni sulla piattaforma corrente
@@ -2964,11 +3055,11 @@ public void HandleChildTrigger(Collider other, Transform childTransform)
     public string GetPlatformInfo()
     {
         if (currentPlatform == null) return "Nessuna piattaforma";
-        
-        string platformType = currentMovingPlatform ? "Moving" : 
-                             currentRaftPlatform ? "Raft" : 
+
+        string platformType = currentMovingPlatform ? "Moving" :
+                             currentRaftPlatform ? "Raft" :
                              currentRotatingObject ? "Rotating" : "Unknown";
-        
+
         return $"{currentPlatform.name} (Tipo: {platformType}, Obstacle: {isOnObstaclePlatform})";
     }
 
@@ -3088,4 +3179,5 @@ if (useCameraManagerIntegration && cameraManager != null && cameraManager.GetAct
     }
 }
 #endif
+
 }
