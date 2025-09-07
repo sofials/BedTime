@@ -58,13 +58,13 @@ MonoBehaviour:
     m_Value: 1
   gaussianStart:
     m_OverrideState: 1
-    m_Value: 300
+    m_Value: 600
   gaussianEnd:
     m_OverrideState: 1
-    m_Value: 600
+    m_Value: 1500
   gaussianMaxRadius:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 1.5
   highQualitySampling:
     m_OverrideState: 1
     m_Value: 0
@@ -99,11 +99,11 @@ MonoBehaviour:
   m_Name: postProcessing01 Profile
   m_EditorClassIdentifier: 
   components:
+  - {fileID: -1302911422587801045}
   - {fileID: -2822794051918532979}
   - {fileID: 3251116055990805298}
   - {fileID: 2322389226042835901}
   - {fileID: 1472792764336143573}
-  - {fileID: -1302911422587801045}
 --- !u!114 &1472792764336143573
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -159,7 +159,7 @@ MonoBehaviour:
   active: 1
   postExposure:
     m_OverrideState: 1
-    m_Value: 0.25
+    m_Value: 0.1
   contrast:
     m_OverrideState: 1
     m_Value: -5
