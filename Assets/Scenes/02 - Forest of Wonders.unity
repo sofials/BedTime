@@ -16877,6 +16877,8 @@ Transform:
   m_Children:
   - {fileID: 1030388562}
   - {fileID: 105516516}
+  - {fileID: 1237086105}
+  - {fileID: 1109806623}
   m_Father: {fileID: 1882341405}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &538882610
@@ -38463,6 +38465,166 @@ NavMeshObstacle:
   m_CarveOnlyStationary: 1
   m_Center: {x: 0, y: 0, z: 0}
   m_TimeToStationary: 0.5
+--- !u!1 &1109806622
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1109806623}
+  - component: {fileID: 1109806625}
+  - component: {fileID: 1109806624}
+  m_Layer: 0
+  m_Name: D22
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1109806623
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1109806622}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.32583815, z: -0, w: 0.94542557}
+  m_LocalPosition: {x: -177.3, y: 227, z: 247.2}
+  m_LocalScale: {x: 130, y: 100, z: 200}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 537153006}
+  m_LocalEulerAnglesHint: {x: 0, y: 38.033, z: 0}
+--- !u!114 &1109806624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1109806622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 796150842}
+  dialogueText: {fileID: 796150844}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
+  dialogueLines:
+  - text: "Perfect timing, Luke! You\u2019re a natural at this. Keep it up!"
+    audioClip: {fileID: 8300000, guid: 7bf1ac55c7da92744a1fcb5b7701b38a, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  preventOverlappingDialogues: 1
+  lockMovementDuringDialogue: 1
+  movementLockDelay: 0.14
+  lockCameraRotation: 1
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 1064682891}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  playerController: {fileID: 1464624053}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2541887519491962181}
+        m_TargetAssemblyTypeName: AbilityBase, Assembly-CSharp
+        m_MethodName: SetLevelAllowed
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &1109806625
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1109806622}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!64 &1109890237
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -41548,6 +41710,166 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -8130473271703356564, guid: 8ce9b1fcf38d435458fa66ea7f84eb4f, type: 3}
+--- !u!1 &1237086104
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1237086105}
+  - component: {fileID: 1237086107}
+  - component: {fileID: 1237086106}
+  m_Layer: 0
+  m_Name: D23
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1237086105
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1237086104}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.32583815, z: -0, w: 0.94542557}
+  m_LocalPosition: {x: -177.3, y: 227, z: 247.2}
+  m_LocalScale: {x: 130, y: 100, z: 200}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 537153006}
+  m_LocalEulerAnglesHint: {x: 0, y: 38.033, z: 0}
+--- !u!114 &1237086106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1237086104}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 796150842}
+  dialogueText: {fileID: 796150844}
+  enableLineEvents: 0
+  globalLineEvents: []
+  prioritizeDialogueLineEvents: 1
+  enablePreDialogueEvents: 0
+  preDialogueEvents: []
+  enablePostDialogueEvents: 0
+  postDialogueEvents: []
+  maxPreDialogueDelay: 3
+  dialogueLines:
+  - text: "See? I knew you could do it! You\u2019re really mastering these skills."
+    audioClip: {fileID: 8300000, guid: f5a639291e36da640aa983ad23e52a5c, type: 3}
+    hasLineEvents: 0
+    lineEvents: []
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  preventOverlappingDialogues: 1
+  lockMovementDuringDialogue: 1
+  movementLockDelay: 0.14
+  lockCameraRotation: 1
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 1064682891}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  canBeTriggeredByCollectiblesManager: 0
+  autoRegisterAsFirstMemoryDialogue: 0
+  targetCollectiblesManager: {fileID: 0}
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  playerController: {fileID: 1464624053}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2541887519491962181}
+        m_TargetAssemblyTypeName: AbilityBase, Assembly-CSharp
+        m_MethodName: SetLevelAllowed
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSpecificLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &1237086107
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1237086104}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1238731205
 GameObject:
   m_ObjectHideFlags: 0
