@@ -47,6 +47,7 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 1
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
   platformPrefab: {fileID: 7169113157556343471, guid: 64e509d991a2dde47908d012713ac623, type: 3}
@@ -59,6 +60,51 @@ MonoBehaviour:
     m_Bits: 128
   footTarget: {fileID: 0}
   cameraTransform: {fileID: 0}
+--- !u!1 &2001143853994849765
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2964897744839401718}
+  - component: {fileID: 8942711217910716547}
+  m_Layer: 0
+  m_Name: GemManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2964897744839401718
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2001143853994849765}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -740.6838, y: -262.9914, z: 1150.9517}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6337509276034011453}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8942711217910716547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2001143853994849765}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e6f1072feaf8a748aced72c3a1f4603, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lifeGemPrefab: {fileID: 7826560920801236237, guid: 852d16b8e26f31348a5a22fbf747cc14, type: 3}
 --- !u!1 &2945591767801708335
 GameObject:
   m_ObjectHideFlags: 0
@@ -109,6 +155,8 @@ MonoBehaviour:
   enableCheckpointSystem: 1
   autoSaveOnCheckpoint: 1
   enableDebugLogs: 0
+  testMode: 0
+  resetOnSceneReload: 0
   OnCheckpointActivated:
     m_PersistentCalls:
       m_Calls: []
@@ -116,6 +164,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnSpawnPointChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  OnPlayerCheckpointChanged:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &3750691464039575395
@@ -165,20 +216,13 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 3
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
   slowdownRadius: 20
   slowdownFactor: 0.5
   customDuration: 10
   effectAudioClip: {fileID: 8300000, guid: 43351392746a1e74683ba5106d9f01fc, type: 3}
-  villageNPCsToSlow:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  verdeNPCsToSlow:
-  - {fileID: 0}
 --- !u!1 &4106158176252525192
 GameObject:
   m_ObjectHideFlags: 0
@@ -206,7 +250,7 @@ Transform:
   m_GameObject: {fileID: 4106158176252525192}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -483.68378, y: -337.73517, z: 439.95166}
+  m_LocalPosition: {x: -483.68378, y: -412, z: 1725}
   m_LocalScale: {x: 5, y: 1, z: 5}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -282,6 +326,8 @@ Transform:
   - {fileID: 6179341171471617400}
   - {fileID: 836275738961245624}
   - {fileID: 1844955925305065606}
+  - {fileID: 2964897744839401718}
+  - {fileID: 1648646190591214758}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5924043711086099541
@@ -299,11 +345,14 @@ MonoBehaviour:
   sceneName: 02 - Finding Pietro
   checkpointManager: {fileID: 4396014349843614858}
   collectiblesManager: {fileID: 1984817628633566031}
+  simpleCameraManager: {fileID: 0}
+  preferredSceneCamera: {fileID: 0}
   levelTitleUI: {fileID: 0}
   playerAttack: {fileID: 0}
+  abilitiesManager: {fileID: 2285112508742193581}
   autoFindManagers: 0
   createManagersIfMissing: 0
-  autoFindUIElements: 0
+  autoFindUIElements: 1
   showLevelTitle: 0
   enableDebugLogs: 0
   OnSceneInitialized:
@@ -365,17 +414,30 @@ MonoBehaviour:
   duration: 5
   powerUpScript: {fileID: 0}
   effectIconIndex: 2
+  isEnabled: 1
   activationSound: {fileID: 8300000, guid: 2a11ca0548769ba498cce5f8fb3af18e, type: 3}
   failureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
-  telePointerPrefab: {fileID: 807697996776966529, guid: e1442c3cd4617754ea595d83d78c9806, type: 3}
-  teleportableLayers:
-    serializedVersion: 2
-    m_Bits: 128
+  directTeleportKey: 101
   meshesToHide:
   - {fileID: 0}
   controllerGameObject: {fileID: 0}
   teleportEffectController: {fileID: 0}
   teleportConfirmSound: {fileID: 8300000, guid: 923127e12013cf04a876c1968f550fd0, type: 3}
+  teleportFailureSound: {fileID: 8300000, guid: 1a02d2b33b0ccc34f9c155470ecd6fd0, type: 3}
+  targetCamera: {fileID: 0}
+  teleportLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxTeleportRange: 100
+  playerSkipDistance: 3
+  maxDetectionAngle: 45
+  screenDetectionRadius: 200
+  raycastSamples: 9
+  useMultipleRaycasts: 1
+  useScreenAreaDetection: 1
+  usePredictiveDetection: 1
+  predictionTime: 0.1
+  detectionFrameBuffer: 3
 --- !u!1 &5069078123234358516
 GameObject:
   m_ObjectHideFlags: 0
@@ -426,6 +488,11 @@ MonoBehaviour:
   autoSaveOnCollection: 1
   enableDebugLogs: 0
   autoCountOnStart: 1
+  enableFirstMemoryDialogue: 0
+  firstMemoryDialogueSystem: {fileID: 0}
+  firstMemoryDialogueMessage: Prima memory raccolta! Attivando dialogo...
+  firstMemoryDialogueDelay: 0.5
+  blockMemoryCollectionDuringDialogue: 1
   OnPresentCountChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -442,6 +509,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnAllMemoriesCollected:
+    m_PersistentCalls:
+      m_Calls: []
+  OnFirstMemoryDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnFirstMemoryDialogueCompleted:
     m_PersistentCalls:
       m_Calls: []
   OnAllCollectiblesCountChanged:
@@ -467,7 +540,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5128323692855950613}
   - component: {fileID: 9171690031591110435}
-  - component: {fileID: 7959141339534449007}
   m_Layer: 0
   m_Name: GemSpawner
   m_TagString: Untagged
@@ -503,19 +575,95 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gemPrefab: {fileID: 1413473904258511810, guid: dd3c253886df33044b9f7e1e6f84ad3f, type: 3}
-  splineContainers:
-  - {fileID: 0}
-  gemCount: 20
---- !u!114 &7959141339534449007
+  splineSettings:
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 1
+    gemCount: 10
+    customRotation: {x: 0, y: 0, z: 0}
+  - splineContainer: {fileID: 0}
+    spawnOnStart: 1
+    gemCount: 10
+    customRotation: {x: 0, y: 0, z: 0}
+  canSpawn: 1
+  listenToGameManager: 1
+  autoReinitializeOnSceneReady: 1
+  debugMode: 0
+--- !u!1 &7073300657065893915
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1648646190591214758}
+  - component: {fileID: 2285112508742193581}
+  m_Layer: 0
+  m_Name: AbilitiesManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1648646190591214758
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7073300657065893915}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -740.6838, y: -262.9914, z: 1150.9517}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6337509276034011453}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2285112508742193581
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6007002924681391171}
+  m_GameObject: {fileID: 7073300657065893915}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e6f1072feaf8a748aced72c3a1f4603, type: 3}
+  m_Script: {fileID: 11500000, guid: c37084b96482fd54eafb81d196de8f83, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lifeGemPrefab: {fileID: 7826560920801236237, guid: 852d16b8e26f31348a5a22fbf747cc14, type: 3}
+  sceneName: 
+  autoDetectSceneName: 1
+  abilities:
+  - ability: {fileID: 8886601047117811227}
+    abilityName: PlatformSpawnerForwardAbility
+    disabledInLevel: 1
+    canBeActivatedByEvents: 1
+  - ability: {fileID: 2484258902469291860}
+    abilityName: SlowdownAbility
+    disabledInLevel: 0
+    canBeActivatedByEvents: 0
+  - ability: {fileID: 501154061705834116}
+    abilityName: TeleportAbility
+    disabledInLevel: 0
+    canBeActivatedByEvents: 0
+  eventActivations: []
+  autoFindAbilities: 0
+  applyConfigurationOnStart: 1
+  autoSaveConfiguration: 1
+  enableDebugLogs: 0
+  OnAbilitiesConfigured:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityActivatedByEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityFailedToActivate:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityEnabled:
+    m_PersistentCalls:
+      m_Calls: []
+  OnAbilityDisabled:
+    m_PersistentCalls:
+      m_Calls: []
