@@ -1900,7 +1900,7 @@ private Vector3 ApplyPlatformMovement()
         // Per movimenti grandi (piattaforme veloci), applica direttamente senza smoothing
         
         // Soglia molto più bassa per piattaforme veloci
-        if (Mathf.Abs(verticalDelta) >= platformVerticalThreshold)
+        if (currentRaftPlatform != null || Mathf.Abs(verticalDelta) >= platformVerticalThreshold)
         {
             // Multiplier al 100% per seguire completamente la piattaforma
             verticalDelta *= platformVerticalMultiplier;
