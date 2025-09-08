@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
 using Unity.Cinemachine;
+using TMPro;
 
 /// <summary>
 /// SceneManager che gestisce anche le UI specifiche della scena
@@ -13,7 +14,14 @@ public class SceneManager01 : MonoBehaviour
     [SerializeField] private string sceneName = "01 - Party in Lukelandia";
     [Header("Camera Integration")]
 [SerializeField] private CameraManager simpleCameraManager;
-[SerializeField] private Unity.Cinemachine.CinemachineCamera preferredSceneCamera;
+    [SerializeField] private Unity.Cinemachine.CinemachineCamera preferredSceneCamera;
+
+[Header("UI Animation Settings")]
+[SerializeField] private float fadeInDuration = 0.5f;
+[SerializeField] private float displayDuration = 2f;
+    [SerializeField] private float fadeOutDuration = 0.5f;
+private bool isTitleAnimationPlaying = false;
+
     
     [Header("Manager References")]
     [SerializeField] private CheckpointManager checkpointManager;
@@ -21,6 +29,7 @@ public class SceneManager01 : MonoBehaviour
     
     [Header("UI References - Specifiche della Scena")]
     [SerializeField] private GameObject levelTitleUI; // Opzionale
+    [SerializeField] private TextMeshProUGUI levelTitleText; // NUOVO: Campo per il TextMeshPro
     [SerializeField] private PlayerAttack playerAttack; // Per accedere al PowerUp UI
     
     [Header("Abilities Management")]
@@ -108,25 +117,30 @@ public Unity.Cinemachine.CinemachineCamera GetPreferredSceneCamera() => preferre
     
     // ========== SETUP UI ==========
     
-    private void SetupUI()
+private void SetupUI()
+{
+    DebugLog("[SceneManager01] Setup UI...");
+    
+    if (autoFindUIElements)
     {
-        DebugLog("[SceneManager01] Setup UI...");
-        
-        // Auto-trova elementi UI se abilitato
-        if (autoFindUIElements)
-        {
-            FindUIElements();
-        }
-        
-        // Configura stato iniziale UI
-        ConfigureInitialUIState();
-        
-        uiSetupComplete = true;
-        OnUISetupComplete?.Invoke();
-        
-        DebugLog("[SceneManager01] Setup UI completato");
+        FindUIElements();
     }
     
+    ConfigureInitialUIState();
+    
+    uiSetupComplete = true;
+    OnUISetupComplete?.Invoke();
+    
+    // NUOVO: Avvia subito l'animazione del titolo se abilitata (come SM00)
+    if (levelTitleUI != null && showLevelTitle)
+    {
+        DebugLog("[SceneManager01] Avvio immediato animazione titolo livello");
+        StartCoroutine(ShowLevelTitleCoroutine());
+    }
+    
+    DebugLog("[SceneManager01] Setup UI completato");
+}
+
     private void FindUIElements()
     {
         // Trova elementi UI se non assegnati
@@ -186,17 +200,12 @@ private void OnGameManagerSceneReady(string sceneName)
 {
     if (sceneName == this.sceneName || sceneName == UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
     {
-        DebugLog("[SceneManager] GameManager pronto - attivazione UI");
+        DebugLog("[SceneManager01] GameManager pronto - attivazione PowerUp UI");
         
-        // Attiva UI direttamente (il SimpleCameraManager gestisce le camere autonomamente)
+        // CAMBIATO: Attiva solo la PowerUp UI, il titolo è già partito
         EnablePowerUpUI();
         
-        if (levelTitleUI != null && showLevelTitle)
-        {
-            StartCoroutine(ShowLevelTitleCoroutine());
-        }
-        
-        DebugLog("[SceneManager] UI attivata, scena pronta");
+        DebugLog("[SceneManager01] PowerUp UI attivata, scena pronta");
     }
 }
 
@@ -218,20 +227,102 @@ private void OnGameManagerSceneReady(string sceneName)
     // Inizializzazione normale
     yield return InitializeSceneCoroutine();
 }
-    private IEnumerator ShowLevelTitleCoroutine()
+    
+
+private IEnumerator ShowLevelTitleCoroutine()
+{
+    isTitleAnimationPlaying = true;
+    DebugLog("[SceneManager01] Inizio animazione titolo livello");
+    
+    // Se levelTitleText è assegnato dall'inspector, usalo direttamente
+    TextMeshProUGUI titleText = levelTitleText;
+    
+    // Se non è assegnato, cerca automaticamente come prima
+    if (titleText == null && levelTitleUI != null)
     {
+        titleText = levelTitleUI.GetComponent<TextMeshProUGUI>();
+        if (titleText == null)
+        {
+            titleText = levelTitleUI.GetComponentInChildren<TextMeshProUGUI>();
+        }
+    }
+    
+    // Se ancora non trovato, esci
+    if (titleText == null)
+    {
+        DebugLog("[SceneManager01] ⚠️ TextMeshProUGUI non trovato. Assegna 'levelTitleText' dall'inspector o verifica 'levelTitleUI'");
+        
+        // Fallback solo se levelTitleUI esiste
         if (levelTitleUI != null)
         {
             levelTitleUI.SetActive(true);
-            DebugLog("[SceneManager01] Level Title mostrato");
-            
-            // Mostra per qualche secondo poi nascondi
             yield return new WaitForSeconds(3f);
-            
             levelTitleUI.SetActive(false);
-            DebugLog("[SceneManager01] Level Title nascosto");
         }
+        isTitleAnimationPlaying = false;
+        yield break;
     }
+    
+    DebugLog($"[SceneManager01] TextMeshProUGUI trovato: {titleText.name}");
+    
+    // Attiva l'UI parent se necessario
+    if (levelTitleUI != null && !levelTitleUI.activeInHierarchy)
+    {
+        levelTitleUI.SetActive(true);
+    }
+    
+    // Salva il colore originale
+    Color originalColor = titleText.color;
+    Color targetColor = originalColor;
+    
+    // === FADE IN ===
+    DebugLog("[SceneManager01] Level Title - Fade In");
+    targetColor.a = 0f;
+    titleText.color = targetColor;
+    
+    float elapsed = 0f;
+    while (elapsed < fadeInDuration)
+    {
+        elapsed += Time.deltaTime;
+        float alpha = Mathf.Lerp(0f, originalColor.a, elapsed / fadeInDuration);
+        targetColor.a = alpha;
+        titleText.color = targetColor;
+        yield return null;
+    }
+    
+    // Assicura alpha completo
+    targetColor.a = originalColor.a;
+    titleText.color = targetColor;
+    DebugLog("[SceneManager01] Level Title - Completamente visibile");
+    
+    // === DISPLAY ===
+    yield return new WaitForSeconds(displayDuration);
+    
+    // === FADE OUT ===
+    DebugLog("[SceneManager01] Level Title - Fade Out");
+    elapsed = 0f;
+    
+    while (elapsed < fadeOutDuration)
+    {
+        elapsed += Time.deltaTime;
+        float alpha = Mathf.Lerp(originalColor.a, 0f, elapsed / fadeOutDuration);
+        targetColor.a = alpha;
+        titleText.color = targetColor;
+        yield return null;
+    }
+    
+    // Ripristina il colore originale e disattiva l'UI parent se necessario
+    titleText.color = originalColor;
+    
+    if (levelTitleUI != null)
+    {
+        levelTitleUI.SetActive(false);
+    }
+    
+    isTitleAnimationPlaying = false;
+    DebugLog("[SceneManager01] Level Title - Animazione completata");
+}
+public bool IsTitleAnimationPlaying() => isTitleAnimationPlaying;
     // ========== SETUP MANAGER ==========
 
     private void SetupManagers()
