@@ -207,16 +207,21 @@ public Unity.Cinemachine.CinemachineCamera GetPreferredSceneCamera() => preferre
 
     // ========== CALLBACK GAMEMANAGER ==========
 
-  private void OnGameManagerSceneReady(string sceneName)
+private void OnGameManagerSceneReady(string sceneName)
 {
     if (sceneName == this.sceneName || sceneName == UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
     {
-        DebugLog("[SceneManager02] GameManager pronto - attivazione PowerUp UI");
+        DebugLog("[SceneManager02] GameManager pronto - configurazione camera e PowerUp UI");
         
-        // CAMBIATO: Attiva solo la PowerUp UI, il titolo è già partito
+        // NUOVO: Configura la camera preferita
+        if (preferredSceneCamera != null && simpleCameraManager != null)
+        {
+            simpleCameraManager.SwitchCamera(preferredSceneCamera);
+            DebugLog($"[SceneManager02] Camera preferita attivata: {preferredSceneCamera.name}");
+        }
+        
         EnablePowerUpUI();
-        
-        DebugLog("[SceneManager02] PowerUp UI attivata, scena pronta");
+        DebugLog("[SceneManager02] Configurazione scena completata");
     }
 }
     /// <summary>

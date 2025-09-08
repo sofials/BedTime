@@ -735,15 +735,24 @@ void OnEnable()
             StartCoroutine(NotifyControllersAfterSceneLoad());
         }
     }
-private IEnumerator NotifyControllersAfterSceneLoad()
+    private IEnumerator NotifyControllersAfterSceneLoad()
+    {
+        // Aspetta che tutti i GameObject siano inizializzati
+        yield return new WaitForSeconds(0.5f);
+
+        // Forza l'aggiornamento di tutti i controller
+        ForceNotifyAllControllers();
+
+        DebugLog("[CameraManager] Controller notificati dopo caricamento scena");
+    }
+public void SetPreferredCamera(CinemachineCamera camera)
 {
-    // Aspetta che tutti i GameObject siano inizializzati
-    yield return new WaitForSeconds(0.5f);
-    
-    // Forza l'aggiornamento di tutti i controller
-    ForceNotifyAllControllers();
-    
-    DebugLog("[CameraManager] Controller notificati dopo caricamento scena");
+    if (camera != null)
+    {
+        Register(camera);
+        SwitchCamera(camera);
+        DebugLog($"[CameraManager] Camera preferita impostata: {camera.name}");
+    }
 }
     // CLEANUP
     void OnDestroy()

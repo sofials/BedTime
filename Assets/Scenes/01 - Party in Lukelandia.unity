@@ -5869,6 +5869,38 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -2320300207898620832, guid: eff52ae2b0cf1554aa73b45e5284bb30, type: 3}
+--- !u!114 &49337740
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1615183467}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 0
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_MinRegionArea: 2
+  m_NavMeshData: {fileID: 23800000, guid: 980e51f02e39b314b88e28632c57549e, type: 2}
+  m_BuildHeightMesh: 0
 --- !u!64 &49545631
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -13451,9 +13483,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 195840898}
-  - component: {fileID: 195840901}
-  - component: {fileID: 195840900}
-  - component: {fileID: 195840899}
   m_Layer: 11
   m_Name: casetta
   m_TagString: Enemy
@@ -13477,68 +13506,6 @@ Transform:
   - {fileID: 8900292607068800010}
   m_Father: {fileID: 1984527327}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &195840899
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 195840897}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a1813b13e1eb7ba4e95ea06205a8fe21, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxHealth: 75
-  forceMultiplier: 3
-  upwardForce: 1.5
-  enablePhysicsOnHit: 1
-  damageAmount: 25
-  canDropLifeGem: 1
-  lifeGemPrefab: {fileID: 0}
-  dropChance: 0.3
-  dropUpwardForce: 5
-  dropScatterForce: 3
-  deathEffect: {fileID: 857098886}
---- !u!114 &195840900
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 195840897}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b9da828e291b00845843bd81e477daad, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!54 &195840901
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 195840897}
-  serializedVersion: 4
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
 --- !u!64 &199519696
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -127729,6 +127696,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 5148817236446094103, guid: b57caf1b4870c49468f658bbfc97c625, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1407616743}
+    - targetCorrespondingSourceObject: {fileID: 5148817236446094103, guid: b57caf1b4870c49468f658bbfc97c625, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 49337740}
     - targetCorrespondingSourceObject: {fileID: -6845350685188964458, guid: b57caf1b4870c49468f658bbfc97c625, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1207074339}
@@ -154522,9 +154492,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 543450652608937117}
-  - component: {fileID: 919132148131554859}
-  - component: {fileID: 919132148131554857}
-  - component: {fileID: 919132148131554856}
   m_Layer: 11
   m_Name: carrellino
   m_TagString: Enemy
@@ -154532,68 +154499,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
   m_IsActive: 1
---- !u!114 &919132148131554856
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 919132148131554855}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a1813b13e1eb7ba4e95ea06205a8fe21, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxHealth: 50
-  forceMultiplier: 5
-  upwardForce: 2
-  enablePhysicsOnHit: 1
-  damageAmount: 25
-  canDropLifeGem: 1
-  lifeGemPrefab: {fileID: 0}
-  dropChance: 0.3
-  dropUpwardForce: 5
-  dropScatterForce: 3
-  deathEffect: {fileID: 1811765368}
---- !u!114 &919132148131554857
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 919132148131554855}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b9da828e291b00845843bd81e477daad, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!54 &919132148131554859
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 919132148131554855}
-  serializedVersion: 4
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
 --- !u!1 &919132148409892522
 GameObject:
   m_ObjectHideFlags: 0
