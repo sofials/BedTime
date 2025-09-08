@@ -714,7 +714,37 @@ private void DebugLog(string message)
         OnScreenDebugLogger.LogCamera(message);
     }
 }
+// GESTIONE CAMBIO SCENA
+void OnEnable()
+{
+    // Registrati per gli eventi di cambio scena
+    UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+}
+    void OnDisable()
+    {
+        // Deregistrati dagli eventi
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        DebugLog($"[CameraManager] Scena caricata: {scene.name}");
 
+        // Dopo il caricamento della scena, forza la notifica ai controller
+        if (activeCamera != null)
+        {
+            StartCoroutine(NotifyControllersAfterSceneLoad());
+        }
+    }
+private IEnumerator NotifyControllersAfterSceneLoad()
+{
+    // Aspetta che tutti i GameObject siano inizializzati
+    yield return new WaitForSeconds(0.5f);
+    
+    // Forza l'aggiornamento di tutti i controller
+    ForceNotifyAllControllers();
+    
+    DebugLog("[CameraManager] Controller notificati dopo caricamento scena");
+}
     // CLEANUP
     void OnDestroy()
     {
