@@ -134,7 +134,7 @@ public class GameManager : MonoBehaviour
             // Se ancora non trovato, cerca tutti i Canvas e controlla i loro figli
             if (foundPauseMenu == null)
             {
-                Canvas[] allCanvas = Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+                Canvas[] allCanvas = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
                 foreach (Canvas canvas in allCanvas)
                 {
                     // Controlla se il canvas stesso ha un nome che suggerisce sia il menu di pausa
@@ -252,7 +252,7 @@ public class GameManager : MonoBehaviour
                 if (debugCursorState)
                 {
                     Debug.Log("[GameManager] Oggetti nella scena corrente:");
-                    GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+                    GameObject[] allObjects = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
                     foreach (GameObject obj in allObjects)
                     {
                         if (obj.name.ToLower().Contains("pause") || obj.name.ToLower().Contains("menu"))
@@ -294,7 +294,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void HandleDuplicateEventSystems()
     {
-        var eventSystems = Object.FindObjectsByType<UnityEngine.EventSystems.EventSystem>(FindObjectsSortMode.None);
+        var eventSystems = UnityEngine.Object.FindObjectsByType<UnityEngine.EventSystems.EventSystem>(FindObjectsSortMode.None);
+
         
         if (eventSystems.Length > 1)
         {
@@ -326,11 +327,18 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Gestione ESC per menu di pausa
+        // Gestione ESC per menu di pausa CON SUPPORTO LEVELS UI
         if (Input.GetKeyDown(KeyCode.Escape) && !IsInMainMenu())
         {
-            if (pauseMenu != null)
+            // Prima controlla se il Levels UI è attivo
+            if (IsLevelsUIActive())
             {
+                // Se Levels UI è attivo, ESCI DALLA PAUSA (torna al gameplay)
+                ExitFromLevelsUI();
+            }
+            else if (pauseMenu != null)
+            {
+                // Comportamento normale: toggle pause
                 TogglePause();
             }
             else
@@ -360,7 +368,73 @@ public class GameManager : MonoBehaviour
             }
         }
     }
+/// <summary>
+/// Controlla se il Levels UI è attualmente attivo
+/// </summary>
+private bool IsLevelsUIActive()
+{
+    // Prima cerca tramite PauseMenuUI se disponibile
+    if (pauseMenuUI != null && pauseMenuUI.GetLevelsUI() != null)
+    {
+        return pauseMenuUI.GetLevelsUI().activeSelf;
+    }
+    
+    // Fallback: cerca manualmente
+    GameObject levelsUI = GameObject.Find("LEVELSUI");
+    if (levelsUI == null)
+    {
+        // Cerca con nomi alternativi
+        string[] possibleNames = { "LevelsUI", "Levels UI", "LevelSelect", "Level Select", "LevelSelection" };
+        foreach (string name in possibleNames)
+        {
+            levelsUI = GameObject.Find(name);
+            if (levelsUI != null) break;
+        }
+    }
+    
+    return levelsUI != null && levelsUI.activeSelf;
+}
 
+/// <summary>
+/// Esce dalla pausa quando si è nel Levels UI (ESC dal Levels UI torna al gameplay)
+/// </summary>
+private void ExitFromLevelsUI()
+{
+    Debug.Log("[GameManager] ESC premuto con Levels UI attivo - uscendo dalla pausa e tornando al gameplay");
+    
+    // Prima nascondi il Levels UI
+    GameObject levelsUI = GameObject.Find("LEVELSUI");
+    if (levelsUI == null)
+    {
+        string[] possibleNames = { "LevelsUI", "Levels UI", "LevelSelect", "Level Select", "LevelSelection" };
+        foreach (string name in possibleNames)
+        {
+            levelsUI = GameObject.Find(name);
+            if (levelsUI != null) break;
+        }
+    }
+    
+    if (levelsUI != null)
+    {
+        levelsUI.SetActive(false);
+        Debug.Log($"[GameManager] Levels UI nascosto: {levelsUI.name}");
+    }
+    
+    // Nascondi anche il pause menu (se per caso era rimasto attivo)
+    HidePauseMenu();
+    
+    // ESCI DALLA PAUSA COMPLETAMENTE - torna al gameplay
+    isPaused = false;
+    Time.timeScale = 1f;
+    
+    // Imposta il cursore per il gameplay
+    SetGameCursorState();
+    
+    // Notifica altri sistemi del cambio di stato
+    OnPauseStateChanged?.Invoke(false);
+    
+    Debug.Log("[GameManager] Uscita dalla pausa completata dal Levels UI");
+}
     private void HandleTitleScreen()
     {
         // Nel menu principale, cerca il startMenu solo se siamo effettivamente nel Title Screen
@@ -601,7 +675,7 @@ public class GameManager : MonoBehaviour
         string currentScene = SceneManager.GetActiveScene().name;
     OnScreenDebugLogger.LogGameManager($"Cercando CameraManager in scena: {currentScene}");
     
-    var allCameraManagers = Object.FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
+    var allCameraManagers = UnityEngine.Object.FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
     OnScreenDebugLogger.LogGameManager($"CameraManager trovati: {allCameraManagers.Length}");
     
     foreach (var cm in allCameraManagers)
@@ -654,7 +728,7 @@ public class GameManager : MonoBehaviour
         // Trova il SceneController nella scena corrente
         if (sceneController == null)
         {
-            sceneController = Object.FindFirstObjectByType<SceneController>();
+            sceneController = UnityEngine.Object.FindFirstObjectByType<SceneController>();
         }
         
         if (sceneController != null)

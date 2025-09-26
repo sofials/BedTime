@@ -15,12 +15,14 @@ public class PauseMenuUI : MonoBehaviour
     [Header("Button References (Opzionale - vengono trovati automaticamente)")]
     [SerializeField] private Button resumeButton;
     [SerializeField] private Button restartButton;
+    [SerializeField] private Button levelsButton; // Nuovo bottone per i livelli
     [SerializeField] private Button mainMenuButton;
     [SerializeField] private Button exitButton;
     
     [Header("UI Elements (Opzionale)")]
     [SerializeField] private GameObject pausePanel; // Panel principale del menu
     [SerializeField] private CanvasGroup canvasGroup; // Per animazioni fade
+    [SerializeField] private GameObject levelsUI; // UI dei livelli da attivare
     
     // Riferimenti automatici
     private GameManager gameManager;
@@ -48,6 +50,12 @@ public class PauseMenuUI : MonoBehaviour
         {
             pausePanel = gameObject;
         }
+        
+        // Trova automaticamente il LEVELSUI se non specificato
+        if (levelsUI == null)
+        {
+            levelsUI = FindLevelsUI();
+        }
     }
 
     private void Start()
@@ -57,30 +65,98 @@ public class PauseMenuUI : MonoBehaviour
     }
 
     /// <summary>
+    /// Trova automaticamente l'oggetto LEVELSUI nella scena
+    /// </summary>
+    private GameObject FindLevelsUI()
+    {
+        // Prima cerca per nome esatto
+        GameObject levelsUIObject = GameObject.Find("LEVELSUI");
+        if (levelsUIObject != null)
+        {
+            if (debugMode) Debug.Log($"[PauseMenuUI] LEVELSUI trovato per nome: {levelsUIObject.name}");
+            return levelsUIObject;
+        }
+        
+        // Cerca con varianti del nome
+        string[] possibleNames = { "LevelsUI", "Levels UI", "LevelSelect", "Level Select", "LevelSelection" };
+        
+        foreach (string name in possibleNames)
+        {
+            levelsUIObject = GameObject.Find(name);
+            if (levelsUIObject != null)
+            {
+                if (debugMode) Debug.Log($"[PauseMenuUI] LEVELSUI trovato con nome alternativo: {levelsUIObject.name}");
+                return levelsUIObject;
+            }
+        }
+        
+        // Cerca tramite tag se disponibile
+        levelsUIObject = GameObject.FindGameObjectWithTag("LevelsUI");
+        if (levelsUIObject != null)
+        {
+            if (debugMode) Debug.Log($"[PauseMenuUI] LEVELSUI trovato tramite tag: {levelsUIObject.name}");
+            return levelsUIObject;
+        }
+        
+        if (debugMode) Debug.LogWarning("[PauseMenuUI] LEVELSUI non trovato automaticamente. Assegnalo manualmente nell'Inspector.");
+        return null;
+    }
+
+    /// <summary>
     /// Inizializzazione ritardata per assicurarsi che il GameManager sia pronto
     /// </summary>
     private IEnumerator DelayedInitialization()
     {
-        // Aspetta alcuni frame
+        // Aspetta più frame per essere sicuri che tutto sia caricato
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
+        yield return new WaitForEndOfFrame(); // Frame aggiuntivo
+        yield return new WaitForSeconds(0.1f); // Aspetta anche un po' di tempo reale
         
         // Cerca il GameManager
         FindGameManager();
         
-        // Trova e collega i bottoni automaticamente
-        if (autoFindButtons)
+        // Trova e collega i bottoni automaticamente con retry
+        bool buttonsConnected = false;
+        int retryCount = 0;
+        int maxRetries = 5;
+        
+        while (!buttonsConnected && retryCount < maxRetries)
         {
-            FindAndConnectButtons();
+            if (autoFindButtons)
+            {
+                FindAndConnectButtons();
+            }
+            else
+            {
+                ConnectAssignedButtons();
+            }
+            
+            // Verifica se almeno un bottone è stato collegato
+            buttonsConnected = (resumeButton != null || restartButton != null || 
+                              levelsButton != null || mainMenuButton != null || exitButton != null);
+            
+            if (!buttonsConnected)
+            {
+                retryCount++;
+                if (debugMode) Debug.LogWarning($"[PauseMenuUI] Tentativo {retryCount}/{maxRetries} - Bottoni non trovati, riprovo...");
+                yield return new WaitForSeconds(0.2f);
+            }
         }
-        else
+        
+        if (!buttonsConnected)
         {
-            // Se non auto, collega i bottoni già assegnati
-            ConnectAssignedButtons();
+            Debug.LogError("[PauseMenuUI] ERRORE: Nessun bottone è stato collegato dopo tutti i tentativi!");
         }
         
         // Assicurati che il menu sia nascosto all'inizio
         Hide();
+        
+        // Assicurati che il LEVELSUI sia nascosto all'inizio
+        if (levelsUI != null)
+        {
+            levelsUI.SetActive(false);
+        }
         
         // Sottoscrivi agli eventi del GameManager se disponibile
         SubscribeToGameManagerEvents();
@@ -108,7 +184,7 @@ public class PauseMenuUI : MonoBehaviour
         }
         
         // Se non trovato come singleton, cerca nell'oggetto
-        gameManager = Object.FindFirstObjectByType<GameManager>();
+        gameManager = UnityEngine.Object.FindFirstObjectByType<GameManager>();
         
         if (gameManager != null)
         {
@@ -145,6 +221,11 @@ public class PauseMenuUI : MonoBehaviour
                 if (restartButton == null) restartButton = button;
                 ConnectRestartButton(button);
             }
+            else if (IsLevelsButton(buttonName))
+            {
+                if (levelsButton == null) levelsButton = button;
+                ConnectLevelsButton(button);
+            }
             else if (IsMainMenuButton(buttonName))
             {
                 if (mainMenuButton == null) mainMenuButton = button;
@@ -163,7 +244,7 @@ public class PauseMenuUI : MonoBehaviour
         
         if (debugMode)
         {
-            Debug.Log($"[PauseMenuUI] Bottoni trovati - Resume: {resumeButton != null}, Restart: {restartButton != null}, MainMenu: {mainMenuButton != null}, Exit: {exitButton != null}");
+            Debug.Log($"[PauseMenuUI] Bottoni trovati - Resume: {resumeButton != null}, Restart: {restartButton != null}, Levels: {levelsButton != null}, MainMenu: {mainMenuButton != null}, Exit: {exitButton != null}");
         }
     }
 
@@ -174,6 +255,7 @@ public class PauseMenuUI : MonoBehaviour
     {
         if (resumeButton != null) ConnectResumeButton(resumeButton);
         if (restartButton != null) ConnectRestartButton(restartButton);
+        if (levelsButton != null) ConnectLevelsButton(levelsButton);
         if (mainMenuButton != null) ConnectMainMenuButton(mainMenuButton);
         if (exitButton != null) ConnectExitButton(exitButton);
         
@@ -192,6 +274,12 @@ public class PauseMenuUI : MonoBehaviour
     {
         return name.Contains("restart") || name.Contains("riavvia") || name.Contains("reload") || 
                name.Contains("ricarica") || name.Contains("retry");
+    }
+
+    private bool IsLevelsButton(string name)
+    {
+        return name.Contains("levels") || name.Contains("livelli") || name.Contains("level") || 
+               name.Contains("livello") || name.Contains("select") || name.Contains("selezione");
     }
 
     private bool IsMainMenuButton(string name)
@@ -220,6 +308,13 @@ public class PauseMenuUI : MonoBehaviour
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(OnRestartClicked);
         if (debugMode) Debug.Log($"[PauseMenuUI] Bottone Restart collegato: {button.name}");
+    }
+
+    private void ConnectLevelsButton(Button button)
+    {
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(OnLevelsClicked);
+        if (debugMode) Debug.Log($"[PauseMenuUI] Bottone Levels collegato: {button.name}");
     }
 
     private void ConnectMainMenuButton(Button button)
@@ -271,6 +366,35 @@ public class PauseMenuUI : MonoBehaviour
             // Fallback: ricarica la scena corrente
             UnityEngine.SceneManagement.SceneManager.LoadScene(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        }
+    }
+
+    public void OnLevelsClicked()
+    {
+        if (debugMode) Debug.Log("[PauseMenuUI] Levels button clicked");
+        
+        // IMPORTANTE: Nascondi completamente questo menu prima di aprire Levels UI
+        Hide();
+        
+        // Attiva il LEVELSUI se disponibile
+        if (levelsUI != null)
+        {
+            levelsUI.SetActive(true);
+            
+            // Imposta il riferimento al PauseMenuUI nel LevelsMenuUI per il ritorno
+            LevelsMenuUI levelsComponent = levelsUI.GetComponent<LevelsMenuUI>();
+            if (levelsComponent != null)
+            {
+                levelsComponent.SetPauseMenuUI(gameObject);
+            }
+            
+            if (debugMode) Debug.Log($"[PauseMenuUI] LEVELSUI attivato: {levelsUI.name}");
+        }
+        else
+        {
+            Debug.LogWarning("[PauseMenuUI] LEVELSUI non trovato! Non posso aprire il menu dei livelli.");
+            // Se non trova il Levels UI, rimetti il pause menu visibile
+            Show();
         }
     }
 
@@ -333,6 +457,12 @@ public class PauseMenuUI : MonoBehaviour
         
         if (isPaused)
         {
+            // IMPORTANTE: Ricollegamento automatico dei bottoni quando il menu viene mostrato
+            if (!IsInitialized() || (resumeButton == null && restartButton == null && levelsButton == null))
+            {
+                Debug.LogWarning("[PauseMenuUI] Bottoni non collegati, ricollegamento automatico...");
+                ForceReconnectButtons();
+            }
             Show();
         }
         else
@@ -348,6 +478,13 @@ public class PauseMenuUI : MonoBehaviour
     /// </summary>
     public void Show()
     {
+        // IMPORTANTE: Ricollegamento automatico dei bottoni quando il menu viene mostrato
+        if (!IsInitialized() || (resumeButton == null && restartButton == null && levelsButton == null))
+        {
+            Debug.LogWarning("[PauseMenuUI] Bottoni non collegati, ricollegamento automatico...");
+            ForceReconnectButtons();
+        }
+        
         if (pausePanel != null)
         {
             pausePanel.SetActive(true);
@@ -412,6 +549,13 @@ public class PauseMenuUI : MonoBehaviour
 
     private IEnumerator FadeIn(float duration)
     {
+        // IMPORTANTE: Ricollegamento automatico dei bottoni quando il menu viene mostrato con fade
+        if (!IsInitialized() || (resumeButton == null && restartButton == null && levelsButton == null))
+        {
+            Debug.LogWarning("[PauseMenuUI] Bottoni non collegati, ricollegamento automatico...");
+            ForceReconnectButtons();
+        }
+        
         if (pausePanel != null) pausePanel.SetActive(true);
         
         canvasGroup.interactable = false;
@@ -446,6 +590,33 @@ public class PauseMenuUI : MonoBehaviour
         canvasGroup.alpha = 0f;
         canvasGroup.blocksRaycasts = false;
         if (pausePanel != null) pausePanel.SetActive(false);
+    }
+
+    // ========== METODI PUBBLICI PER CONTROLLO ESTERNO ==========
+
+    /// <summary>
+    /// Ottieni il riferimento al Levels UI (per il GameManager)
+    /// </summary>
+    public GameObject GetLevelsUI()
+    {
+        return levelsUI;
+    }
+
+    /// <summary>
+    /// Controlla se il Levels UI è attualmente attivo
+    /// </summary>
+    public bool IsLevelsUIActive()
+    {
+        return levelsUI != null && levelsUI.activeSelf;
+    }
+
+    /// <summary>
+    /// Imposta manualmente il riferimento al LEVELSUI
+    /// </summary>
+    public void SetLevelsUI(GameObject levelsUIObject)
+    {
+        levelsUI = levelsUIObject;
+        if (debugMode) Debug.Log($"[PauseMenuUI] LEVELSUI impostato manualmente: {levelsUI.name}");
     }
 
     // ========== DEBUG E UTILITY ==========
@@ -487,6 +658,23 @@ public class PauseMenuUI : MonoBehaviour
     }
 
     /// <summary>
+    /// Forza la ricerca del LEVELSUI
+    /// </summary>
+    [ContextMenu("Force Find LevelsUI")]
+    public void ForceFindLevelsUI()
+    {
+        levelsUI = FindLevelsUI();
+        if (levelsUI != null)
+        {
+            Debug.Log($"[PauseMenuUI] LEVELSUI trovato: {levelsUI.name}");
+        }
+        else
+        {
+            Debug.LogWarning("[PauseMenuUI] LEVELSUI non trovato!");
+        }
+    }
+
+    /// <summary>
     /// Stampa informazioni di debug
     /// </summary>
     [ContextMenu("Debug Info")]
@@ -499,10 +687,12 @@ public class PauseMenuUI : MonoBehaviour
                   $"Auto Find Buttons: {autoFindButtons}\n" +
                   $"Resume Button: {(resumeButton != null ? resumeButton.name : "❌")}\n" +
                   $"Restart Button: {(restartButton != null ? restartButton.name : "❌")}\n" +
+                  $"Levels Button: {(levelsButton != null ? levelsButton.name : "❌")}\n" +
                   $"MainMenu Button: {(mainMenuButton != null ? mainMenuButton.name : "❌")}\n" +
                   $"Exit Button: {(exitButton != null ? exitButton.name : "❌")}\n" +
                   $"Canvas Group: {(canvasGroup != null ? "✅" : "❌")}\n" +
                   $"Pause Panel: {(pausePanel != null ? pausePanel.name : "❌")}\n" +
+                  $"Levels UI: {(levelsUI != null ? levelsUI.name : "❌")}\n" +
                   $"Parent Canvas: {(parentCanvas != null ? parentCanvas.name : "❌")}");
     }
 

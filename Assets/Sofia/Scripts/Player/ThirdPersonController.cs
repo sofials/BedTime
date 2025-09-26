@@ -91,17 +91,8 @@ private bool movementInverted = false;
     private Vector3 velocity;
     private bool isJumpEnabled = true; 
     [Header("Advanced Jump Timing")]
-#if UNITY_EDITOR
-public float jumpBufferTime = 0.2f;
-#else
-public float jumpBufferTime = 0.35f; // PIÙ GENEROSO NELLE BUILD
-#endif
-
-#if UNITY_EDITOR
-public float coyoteTime = 0.15f;
-#else
-public float coyoteTime = 0.2f; // PIÙ GENEROSO NELLE BUILD
-#endif
+public float jumpBufferTime = 0.3f;
+public float coyoteTime = 0.2f;
     [Header("Ledge Grab Settings")]
 public bool ledgeGrabEnabled = true;
 public float ledgeDetectionDistance = 1f;
@@ -652,54 +643,69 @@ public void ForceUpdateActiveCamera()
     private void OnSprintCanceled(InputAction.CallbackContext ctx) => isSprinting = false;
 
     private void OnJumpStarted(InputAction.CallbackContext ctx)
+{
+    if (!isJumpEnabled || IsMovementLocked) return;
+
+    // Debug per build problematiche
+    if (debugJumpInBuild)
     {
-        if (!isJumpEnabled) return;
-
-        jumpBufferCounter = jumpBufferTime;
-        isHoldingJump = true;
-
-        // DEBUG PER BUILD
-        if (debugJumpInBuild)
-        {
-            jumpAttemptCount++;
-            lastJumpAttemptTime = Time.time;
-            Debug.Log($"[Jump] Input ricevuto #{jumpAttemptCount} - Buffer: {jumpBufferCounter:F3}");
-        }
-
-        // PROVA SALTO IMMEDIATO
-        if (TryJumpImmediate())
-        {
-            jumpBufferCounter = 0f;
-            if (debugJumpInBuild)
-                Debug.Log("[Jump] Salto eseguito IMMEDIATAMENTE");
-        }
+        jumpAttemptCount++;
+        lastJumpAttemptTime = Time.time;
+        string deviceInfo = $"Device: {SystemInfo.deviceModel} | FPS: {(1f/Time.deltaTime):F1} | " +
+                           $"Ground: {controller.isGrounded} | Count: {jumpCount}/{maxJumps}";
+        Debug.Log($"[Jump #{jumpAttemptCount}] {deviceInfo}");
     }
-private bool TryJumpImmediate()
+
+    isHoldingJump = true;
+
+    // LOGICA UNIFICATA E SEMPLIFICATA
+    if (TryExecuteJumpImmediate())
+    {
+        if (debugJumpInBuild)
+            Debug.Log("[Jump] Eseguito IMMEDIATAMENTE");
+    }
+    else
+    {
+        // Imposta buffer solo se il salto non è stato eseguito
+        jumpBufferCounter = jumpBufferTime;
+        if (debugJumpInBuild)
+            Debug.Log($"[Jump] Impostato buffer: {jumpBufferCounter}s");
+    }
+}
+private bool TryExecuteJumpImmediate()
 {
     if (!isJumpEnabled || IsMovementLocked) return false;
     
-    // HANGING
+    // HANGING - priorità assoluta
     if (hanging)
     {
         ExecuteJumpFromHang();
         return true;
     }
     
-    // GROUND CHECK SEMPLIFICATO
-    bool canJumpNow = controller.isGrounded || coyoteTimeCounter > 0;
-    
-    // PRIMO SALTO
-    if (jumpCount == 0 && canJumpNow)
+    // PRIMO SALTO - condizioni semplificate
+    if (jumpCount == 0)
     {
-        ExecuteJump(true);
-        return true;
+        bool canFirstJump = controller.isGrounded || coyoteTimeCounter > 0f;
+        
+        if (canFirstJump)
+        {
+            ExecuteJump(true);
+            return true;
+        }
     }
     
-    // MULTI JUMP
-    if (jumpCount > 0 && jumpCount < maxJumps && !controller.isGrounded)
+    // MULTI JUMP - logica diretta
+    else if (jumpCount > 0 && jumpCount < maxJumps)
     {
-        ExecuteJump(false);
-        return true;
+        // Deve essere in aria per il multi-jump
+        bool inAir = !controller.isGrounded;
+        
+        if (inAir)
+        {
+            ExecuteJump(false);
+            return true;
+        }
     }
     
     return false;
@@ -1837,38 +1843,50 @@ private void ApplyAllMovement()
 
 private void ExecuteJump(bool isFirstJump)
 {
+    // Reset velocità verticale se negativa
     if (velocity.y < 0) velocity.y = 0f;
+    
+    // Calcola velocità di salto
     velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
     
-    // ✅ Track when jump started
+    // Track del tempo di salto
     lastJumpTime = Time.time;
 
-    // ✅ NUOVO: Sgancia dalla piattaforma quando saltiamo
+    // Sgancia da piattaforma se necessario
     if (currentPlatform != null)
     {
         if (debugPlatformMovement)
-            Debug.Log($"[Platform] Sganciato da {currentPlatform.name} durante ExecuteJump");
+            Debug.Log($"[Platform] Sganciato durante salto da {currentPlatform.name}");
         DetachFromCurrentPlatform();
     }
 
+    // Gestione contatore e animazioni
     if (isFirstJump)
     {
+        jumpCount = 1;
         _animator.SetBool(JumpHash, true);
         _animator.SetBool(DoubleJumpHash, false);
-        jumpCount = 1;
         
-        PlayJumpSound();
+        if (debugJumpInBuild)
+            Debug.Log("[Jump] PRIMO SALTO eseguito");
     }
     else
     {
+        jumpCount++;
         _animator.SetBool(JumpHash, false);
         _animator.SetBool(DoubleJumpHash, true);
-        jumpCount++;
+        
+        if (debugJumpInBuild)
+            Debug.Log($"[Jump] MULTI-SALTO #{jumpCount} eseguito");
     }
 
-    coyoteTimeCounter = 0;
+    // Reset timers
+    coyoteTimeCounter = 0f;
+    jumpBufferCounter = 0f;
     fallingTimer = 0f;
     
+    // Audio
+    PlayJumpSound();
     StopFootstepAudio();
 }
 
@@ -2033,7 +2051,7 @@ private Vector3 ApplyPlatformMovement()
         }
     }
 
-    private void HandleJumpInput()
+  private void HandleJumpInput()
 {
     if (!isJumpEnabled || IsMovementLocked)
     {
@@ -2041,26 +2059,20 @@ private Vector3 ApplyPlatformMovement()
         return;
     }
     
-    if (jumpBufferCounter > 0)
+    // Processa il buffer solo se è attivo
+    if (jumpBufferCounter > 0f)
     {
-        if (debugJumpInBuild && Time.frameCount % 10 == 0) // Ogni 10 frame
+        if (debugJumpInBuild && Time.frameCount % 10 == 0)
         {
-            Debug.Log($"[Jump] Buffer attivo: {jumpBufferCounter:F3} - Grounded: {controller.isGrounded} - Coyote: {coyoteTimeCounter:F3}");
+            Debug.Log($"[Jump] Buffer attivo: {jumpBufferCounter:F3}s");
         }
         
-        // CONDIZIONI PIÙ PERMISSIVE
-        bool canAttemptJump = controller.isGrounded || 
-                             coyoteTimeCounter > 0 || 
-                             (jumpCount > 0 && jumpCount < maxJumps && !controller.isGrounded);
-        
-        if (canAttemptJump)
+        // Riprova il salto
+        if (TryExecuteJumpImmediate())
         {
-            if (TryJump())
-            {
-                jumpBufferCounter = 0f;
-                if (debugJumpInBuild)
-                    Debug.Log("[Jump] Salto eseguito da BUFFER");
-            }
+            jumpBufferCounter = 0f; // Reset buffer dopo successo
+            if (debugJumpInBuild)
+                Debug.Log("[Jump] Eseguito da BUFFER");
         }
     }
 }
@@ -2147,26 +2159,27 @@ private Vector3 ApplyPlatformMovement()
     Debug.Log("[ThirdPersonController] 🛬 Landing completed - all jump animations reset");
 }
 
-  private void UpdateJumpTimers()
+private void UpdateJumpTimers()
 {
-    // COYOTE TIME - PIÙ GENEROSO
+    // Usa Time.fixedDeltaTime per consistenza cross-platform
+    float deltaTime = Time.fixedDeltaTime;
+    
+    // COYOTE TIME
     if (controller.isGrounded)
     {
         coyoteTimeCounter = coyoteTime;
     }
-    else
+    else if (coyoteTimeCounter > 0f)
     {
-        coyoteTimeCounter -= Time.deltaTime;
+        coyoteTimeCounter -= deltaTime;
+        if (coyoteTimeCounter < 0f) coyoteTimeCounter = 0f;
     }
 
-    // JUMP BUFFER - DECAY PIÙ LENTO
-    if (jumpBufferCounter > 0)
+    // JUMP BUFFER
+    if (jumpBufferCounter > 0f)
     {
-        jumpBufferCounter -= Time.deltaTime;
-        
-        // ASSICURATI CHE NON DIVENTI NEGATIVO
-        if (jumpBufferCounter < 0)
-            jumpBufferCounter = 0;
+        jumpBufferCounter -= deltaTime;
+        if (jumpBufferCounter < 0f) jumpBufferCounter = 0f;
     }
 }
 
