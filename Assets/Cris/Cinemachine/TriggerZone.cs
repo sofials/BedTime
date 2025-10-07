@@ -2,9 +2,6 @@ using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
 
-/// <summary>
-/// Simplified TriggerZone that works independently without scene managers
-/// </summary>
 public class SimpleTriggerZone : MonoBehaviour
 {
     [Header("Trigger Settings")]
@@ -59,13 +56,11 @@ public class SimpleTriggerZone : MonoBehaviour
     public UnityEvent onCheckpointTriggered;
     public UnityEvent onSceneTransitionStarted;
     
-    // Stato interno
     private bool isPlayerInside = false;
     private Collider currentPlayerCollider = null;
     private Unity.Cinemachine.CinemachineCamera previousCamera = null;
     private Collider triggerCollider;
     
-    // Reference ai manager
     private CameraManager cameraManager;
     
     private void Awake()
@@ -89,30 +84,37 @@ public class SimpleTriggerZone : MonoBehaviour
         StartCoroutine(FindManagerReferences());
     }
     
-    /// <summary>
-    /// Trova i riferimenti ai manager necessari
-    /// </summary>
     private IEnumerator FindManagerReferences()
     {
-        // Attendi che i manager siano inizializzati
         yield return new WaitForSeconds(0.2f);
         
-        // Trova SimpleCameraManager nella scena
-        cameraManager = FindFirstObjectByType<CameraManager>();
+        var currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        
+        // FIX: Cerca solo nella scena corrente
+        var managers = FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
+        cameraManager = null;
+        
+        foreach (var manager in managers)
+        {
+            if (manager.gameObject.scene == currentScene)
+            {
+                cameraManager = manager;
+                break;
+            }
+        }
         
         if (cameraManager == null)
         {
-            DebugLog("SimpleCameraManager non trovato nella scena");
+            DebugLog("SimpleCameraManager non trovato nella scena corrente");
         }
         else
         {
             DebugLog($"SimpleCameraManager trovato: {cameraManager.name}");
         }
         
-        // Se abbiamo una target camera per nome, prova a trovarla
         if (triggerCameraSwitch && !string.IsNullOrEmpty(targetCameraName) && targetCamera == null)
         {
-            yield return new WaitForSeconds(0.5f); // Attendi che le camere siano registrate
+            yield return new WaitForSeconds(0.5f);
             
             if (cameraManager != null)
             {
@@ -138,7 +140,14 @@ public class SimpleTriggerZone : MonoBehaviour
             DebugLog($"Collision detected with: {other.name} (Tag: {other.tag})");
         }
         
-        if (!ShouldProcessCollision(other) || alreadyEntered)
+        // FIX: Controlla oneShot PRIMA di tutto
+        if (oneShot && alreadyEntered)
+        {
+            DebugLog("OneShot già attivato, ignorando enter");
+            return;
+        }
+        
+        if (!ShouldProcessCollision(other))
             return;
             
         if (IsCooldownActive())
@@ -147,7 +156,6 @@ public class SimpleTriggerZone : MonoBehaviour
             return;
         }
         
-        // Controllo player a terra se richiesto
         if (requireGroundedPlayer && !IsPlayerGrounded(other))
         {
             DebugLog("Player non a terra, trigger ignorato");
@@ -172,11 +180,19 @@ public class SimpleTriggerZone : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        if (!ShouldProcessCollision(other) || alreadyExited)
+        // FIX: Controlla oneShot PRIMA di tutto
+        if (oneShot && alreadyExited)
+        {
+            DebugLog("OneShot già attivato, ignorando exit");
+            return;
+        }
+        
+        if (!ShouldProcessCollision(other))
             return;
             
         DebugLog($"Trigger EXIT: {other.name}");
         
+        // FIX: Imposta SEMPRE lo stato interno, anche con oneShot
         isPlayerInside = false;
         currentPlayerCollider = null;
         
@@ -198,98 +214,70 @@ public class SimpleTriggerZone : MonoBehaviour
         onTriggerStay?.Invoke(other);
     }
     
-    /// <summary>
-    /// Controlla se dovremmo processare questa collisione
-    /// </summary>
     private bool ShouldProcessCollision(Collider other)
     {
-        // Controllo tag
         if (!string.IsNullOrEmpty(collisionTag) && !other.CompareTag(collisionTag))
             return false;
         
-        // Controllo layer
         if (triggerLayerMask != -1 && ((1 << other.gameObject.layer) & triggerLayerMask) == 0)
             return false;
 
         return true;
     }
     
-    /// <summary>
-    /// Controlla se il player è a terra (se richiesto)
-    /// </summary>
     private bool IsPlayerGrounded(Collider playerCollider)
     {
-        // Cerca un PlayerController o similar per verificare se è a terra
         var playerController = playerCollider.GetComponent<CharacterController>();
         if (playerController != null)
         {
             return playerController.isGrounded;
         }
         
-        // Fallback: raycast verso il basso
         return Physics.Raycast(playerCollider.transform.position, Vector3.down, 1.1f);
     }
     
-    /// <summary>
-    /// Verifica se il trigger è in cooldown
-    /// </summary>
     private bool IsCooldownActive()
     {
         return cooldownTime > 0f && (Time.time - lastTriggerTime) < cooldownTime;
     }
     
-    /// <summary>
-    /// Esegue il trigger enter con delay
-    /// </summary>
     private IEnumerator DelayedTriggerEnter(Collider other)
     {
         yield return new WaitForSeconds(enterDelay);
         
-        // Verifica che il player sia ancora dentro
         if (isPlayerInside && currentPlayerCollider == other)
         {
             ExecuteTriggerEnter(other);
         }
     }
     
-    /// <summary>
-    /// Esegue il trigger exit con delay
-    /// </summary>
     private IEnumerator DelayedTriggerExit(Collider other)
     {
         yield return new WaitForSeconds(exitDelay);
         
-        // Verifica che il player sia effettivamente uscito
         if (!isPlayerInside)
         {
             ExecuteTriggerExit(other);
         }
     }
     
-    /// <summary>
-    /// Esegue effettivamente il trigger enter
-    /// </summary>
     private void ExecuteTriggerEnter(Collider other)
     {
         DebugLog($"Executing Trigger ENTER for: {other.name}");
         
-        // Eventi base
         onTriggerEnter?.Invoke(other);
         onPlayerEnterWithName?.Invoke(gameObject.name);
         
-        // Gestione camera
         if (triggerCameraSwitch && HandleCameraSwitch())
         {
             onCameraSwitched?.Invoke();
         }
         
-        // Gestione checkpoint
         if (isCheckpoint && HandleCheckpoint())
         {
             onCheckpointTriggered?.Invoke();
         }
         
-        // Gestione transizione scena
         if (triggerSceneTransition && !string.IsNullOrEmpty(targetSceneName))
         {
             HandleSceneTransition();
@@ -299,18 +287,13 @@ public class SimpleTriggerZone : MonoBehaviour
             alreadyEntered = true;
     }
     
-    /// <summary>
-    /// Esegue effettivamente il trigger exit
-    /// </summary>
     private void ExecuteTriggerExit(Collider other)
     {
         DebugLog($"Executing Trigger EXIT for: {other.name}");
         
-        // Eventi base
         onTriggerExit?.Invoke(other);
         onPlayerExitWithName?.Invoke(gameObject.name);
         
-        // Ripristina camera precedente se richiesto
         if (restorePreviousCamera && previousCamera != null && cameraManager != null)
         {
             cameraManager.SwitchCamera(previousCamera);
@@ -322,9 +305,6 @@ public class SimpleTriggerZone : MonoBehaviour
             alreadyExited = true;
     }
     
-    /// <summary>
-    /// Gestisce il cambio camera
-    /// </summary>
     private bool HandleCameraSwitch()
     {
         if (cameraManager == null || targetCamera == null)
@@ -333,42 +313,32 @@ public class SimpleTriggerZone : MonoBehaviour
             return false;
         }
         
-        // Salva camera precedente se dobbiamo ripristinarla
         if (restorePreviousCamera)
         {
             previousCamera = cameraManager.GetActiveCamera();
             DebugLog($"Camera precedente salvata: {previousCamera?.name}");
         }
         
-        // Cambia camera
         cameraManager.SwitchCamera(targetCamera);
         DebugLog($"Camera cambiata a: {targetCamera.name}");
         
         return true;
     }
     
-    /// <summary>
-    /// Gestisce l'attivazione del checkpoint
-    /// </summary>
     private bool HandleCheckpoint()
     {
         if (string.IsNullOrEmpty(checkpointName))
         {
-            checkpointName = gameObject.name; // Usa il nome dell'oggetto come fallback
+            checkpointName = gameObject.name;
         }
         
         DebugLog($"Checkpoint attivato: {checkpointName}");
         
-        // Potresti salvare qui le informazioni del checkpoint
-        // Per esempio, posizione del player, stato del gioco, etc.
         SaveCheckpointData();
         
         return true;
     }
     
-    /// <summary>
-    /// Salva i dati del checkpoint
-    /// </summary>
     private void SaveCheckpointData()
     {
         if (currentPlayerCollider != null)
@@ -384,9 +354,6 @@ public class SimpleTriggerZone : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Gestisce la transizione di scena
-    /// </summary>
     private void HandleSceneTransition()
     {
         DebugLog($"Avviando transizione verso: {targetSceneName}");
@@ -395,9 +362,6 @@ public class SimpleTriggerZone : MonoBehaviour
         StartCoroutine(DelayedSceneTransition());
     }
     
-    /// <summary>
-    /// Transizione di scena con delay
-    /// </summary>
     private IEnumerator DelayedSceneTransition()
     {
         if (sceneTransitionDelay > 0f)
@@ -405,13 +369,9 @@ public class SimpleTriggerZone : MonoBehaviour
             yield return new WaitForSeconds(sceneTransitionDelay);
         }
         
-        // Carica la scena
         UnityEngine.SceneManagement.SceneManager.LoadScene(targetSceneName);
     }
     
-    /// <summary>
-    /// Carica l'ultimo checkpoint salvato
-    /// </summary>
     public static Vector3 GetLastCheckpointPosition()
     {
         string lastCheckpoint = PlayerPrefs.GetString("LastCheckpoint", "");
@@ -426,17 +386,11 @@ public class SimpleTriggerZone : MonoBehaviour
         return Vector3.zero;
     }
     
-    /// <summary>
-    /// Ottieni il nome dell'ultimo checkpoint
-    /// </summary>
     public static string GetLastCheckpointName()
     {
         return PlayerPrefs.GetString("LastCheckpoint", "");
     }
     
-    /// <summary>
-    /// Reset del trigger
-    /// </summary>
     public void ResetTrigger()
     {
         alreadyEntered = false;
@@ -449,9 +403,6 @@ public class SimpleTriggerZone : MonoBehaviour
         DebugLog("Trigger resettato");
     }
     
-    /// <summary>
-    /// Forza l'attivazione del trigger
-    /// </summary>
     public void ForceTrigger()
     {
         if (currentPlayerCollider != null)
@@ -460,7 +411,6 @@ public class SimpleTriggerZone : MonoBehaviour
         }
         else
         {
-            // Cerca il player nella scena
             var player = GameObject.FindWithTag(collisionTag);
             if (player != null)
             {
@@ -473,9 +423,6 @@ public class SimpleTriggerZone : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Imposta la camera target tramite codice
-    /// </summary>
     public void SetTargetCamera(Unity.Cinemachine.CinemachineCamera camera)
     {
         targetCamera = camera;
@@ -487,9 +434,6 @@ public class SimpleTriggerZone : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Imposta il checkpoint tramite codice
-    /// </summary>
     public void SetCheckpointName(string checkpoint)
     {
         checkpointName = checkpoint;
@@ -497,17 +441,12 @@ public class SimpleTriggerZone : MonoBehaviour
         DebugLog($"Checkpoint impostato: {checkpoint}");
     }
     
-    /// <summary>
-    /// Imposta la scena target per la transizione
-    /// </summary>
     public void SetTargetScene(string sceneName)
     {
         targetSceneName = sceneName;
         triggerSceneTransition = true;
         DebugLog($"Scena target impostata: {sceneName}");
     }
-    
-    // ========== GETTERS ==========
     
     public bool IsPlayerInside() => isPlayerInside;
     public Collider GetCurrentPlayer() => currentPlayerCollider;
@@ -516,8 +455,6 @@ public class SimpleTriggerZone : MonoBehaviour
     public bool HasTriggeredExit() => alreadyExited;
     public float GetTimeSinceLastTrigger() => Time.time - lastTriggerTime;
     public CameraManager GetCameraManager() => cameraManager;
-    
-    // ========== DEBUG ==========
     
     private void DebugLog(string message)
     {
@@ -578,8 +515,6 @@ public class SimpleTriggerZone : MonoBehaviour
         Debug.Log($"Last Checkpoint: {name} at {pos}");
     }
     
-    // ========== GIZMOS ==========
-    
     private void OnDrawGizmos()
     {
         if (!showDebugGizmos) return;
@@ -611,11 +546,9 @@ public class SimpleTriggerZone : MonoBehaviour
         }
         else
         {
-            // Fallback: cubo di default
             Gizmos.DrawWireCube(transform.position, Vector3.one);
         }
         
-        // Indicatori aggiuntivi
         if (triggerCameraSwitch && targetCamera != null)
         {
             Gizmos.color = Color.blue;

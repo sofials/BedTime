@@ -4,8 +4,7 @@ using UnityEngine.SceneManagement;
 using System.Collections;
 
 /// <summary>
-/// Script per il Main Menu con supporto per navigazione verso Levels UI
-/// Include auto-detection dei bottoni e integrazione con VideoIntroManager
+/// Script per il Main Menu - RISCRITTO seguendo la logica di PauseMenuUI che funziona
 /// </summary>
 public class MainMenu : MonoBehaviour
 {
@@ -14,19 +13,19 @@ public class MainMenu : MonoBehaviour
     
     [Header("Video Intro")]
     [SerializeField] private VideoIntroManager videoIntroManager;
-    [SerializeField] private bool useVideoIntro = true; // Flag per abilitare/disabilitare il video
+    [SerializeField] private bool useVideoIntro = true;
 
     [Header("Auto-Detection Settings")]
     [SerializeField] private bool debugMode = false;
-    [SerializeField] private bool autoFindButtons = true; // Se true, trova automaticamente i bottoni
+    [SerializeField] private bool autoFindButtons = true;
     
     [Header("Button References (Opzionale - vengono trovati automaticamente)")]
     [SerializeField] private Button playButton;
-    [SerializeField] private Button levelsButton; // Nuovo bottone per i livelli
+    [SerializeField] private Button levelsButton;
     [SerializeField] private Button exitButton;
     
     [Header("UI Elements")]
-    [SerializeField] private GameObject mainMenuPanel; // Panel principale del main menu
+    [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject levelsUI; // UI dei livelli da attivare
     
     // Stati
@@ -34,13 +33,11 @@ public class MainMenu : MonoBehaviour
 
     private void Awake()
     {
-        // Trova il panel principale se non specificato
         if (mainMenuPanel == null)
         {
             mainMenuPanel = gameObject;
         }
         
-        // Trova automaticamente il LEVELSUI se non specificato
         if (levelsUI == null)
         {
             levelsUI = FindLevelsUI();
@@ -53,11 +50,10 @@ public class MainMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Trova automaticamente l'oggetto LEVELSUI nella scena
+    /// Trova automaticamente l'oggetto LEVELSUI nella scena - IDENTICO a PauseMenuUI
     /// </summary>
     private GameObject FindLevelsUI()
     {
-        // Prima cerca per nome esatto
         GameObject levelsUIObject = GameObject.Find("LEVELSUI");
         if (levelsUIObject != null)
         {
@@ -65,7 +61,6 @@ public class MainMenu : MonoBehaviour
             return levelsUIObject;
         }
         
-        // Cerca con varianti del nome
         string[] possibleNames = { "LevelsUI", "Levels UI", "LevelSelect", "Level Select", "LevelSelection" };
         
         foreach (string name in possibleNames)
@@ -78,7 +73,6 @@ public class MainMenu : MonoBehaviour
             }
         }
         
-        // Cerca tramite tag se disponibile
         levelsUIObject = GameObject.FindGameObjectWithTag("LevelsUI");
         if (levelsUIObject != null)
         {
@@ -86,33 +80,48 @@ public class MainMenu : MonoBehaviour
             return levelsUIObject;
         }
         
-        // Cerca tramite componente LevelsMenuUI
-        LevelsMenuUI levelsComponent = FindFirstObjectByType<LevelsMenuUI>();
-        if (levelsComponent != null)
-        {
-            if (debugMode) Debug.Log($"[MainMenu] LEVELSUI trovato tramite componente: {levelsComponent.gameObject.name}");
-            return levelsComponent.gameObject;
-        }
-        
         if (debugMode) Debug.LogWarning("[MainMenu] LEVELSUI non trovato automaticamente. Assegnalo manualmente nell'Inspector.");
         return null;
     }
 
     /// <summary>
-    /// Inizializzazione ritardata
+    /// Inizializzazione ritardata - IDENTICA a PauseMenuUI
     /// </summary>
     private IEnumerator DelayedInitialization()
     {
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
+        yield return new WaitForEndOfFrame();
+        yield return new WaitForSeconds(0.1f);
         
-        if (autoFindButtons)
+        bool buttonsConnected = false;
+        int retryCount = 0;
+        int maxRetries = 5;
+        
+        while (!buttonsConnected && retryCount < maxRetries)
         {
-            FindAndConnectButtons();
+            if (autoFindButtons)
+            {
+                FindAndConnectButtons();
+            }
+            else
+            {
+                ConnectAssignedButtons();
+            }
+            
+            buttonsConnected = (playButton != null || levelsButton != null || exitButton != null);
+            
+            if (!buttonsConnected)
+            {
+                retryCount++;
+                if (debugMode) Debug.LogWarning($"[MainMenu] Tentativo {retryCount}/{maxRetries} - Bottoni non trovati, riprovo...");
+                yield return new WaitForSeconds(0.2f);
+            }
         }
-        else
+        
+        if (!buttonsConnected)
         {
-            ConnectAssignedButtons();
+            Debug.LogError("[MainMenu] ERRORE: Nessun bottone è stato collegato dopo tutti i tentativi!");
         }
         
         // Assicurati che il LEVELSUI sia nascosto all'inizio
@@ -120,6 +129,9 @@ public class MainMenu : MonoBehaviour
         {
             levelsUI.SetActive(false);
         }
+        
+        // Assicurati che il main menu sia visibile
+        ShowMainMenu();
         
         isInitialized = true;
         
@@ -131,7 +143,7 @@ public class MainMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Trova automaticamente i bottoni nel main menu
+    /// Trova automaticamente i bottoni - IDENTICO a PauseMenuUI
     /// </summary>
     private void FindAndConnectButtons()
     {
@@ -170,9 +182,6 @@ public class MainMenu : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Collega i bottoni già assegnati manualmente
-    /// </summary>
     private void ConnectAssignedButtons()
     {
         if (playButton != null) ConnectPlayButton(playButton);
@@ -182,7 +191,7 @@ public class MainMenu : MonoBehaviour
         if (debugMode) Debug.Log("[MainMenu] Bottoni assegnati manualmente collegati");
     }
 
-    // ========== METODI DI IDENTIFICAZIONE BOTTONI ==========
+    // ========== IDENTIFICAZIONE BOTTONI ==========
 
     private bool IsPlayButton(string name)
     {
@@ -202,7 +211,7 @@ public class MainMenu : MonoBehaviour
                name.Contains("chiudi") || name.Contains("close");
     }
 
-    // ========== METODI DI COLLEGAMENTO BOTTONI ==========
+    // ========== COLLEGAMENTO BOTTONI ==========
 
     private void ConnectPlayButton(Button button)
     {
@@ -225,32 +234,24 @@ public class MainMenu : MonoBehaviour
         if (debugMode) Debug.Log($"[MainMenu] Bottone Exit collegato: {button.name}");
     }
 
-    // ========== GESTORI EVENTI BOTTONI ==========
+    // ========== GESTORI EVENTI - Play e Exit rimangono come prima ==========
 
-    /// <summary>
-    /// Funzionalità originale del bottone Play
-    /// </summary>
     public void Play()
     {
         if (debugMode) Debug.Log("[MainMenu] Play button clicked");
         
         if (useVideoIntro && videoIntroManager != null)
         {
-            // Avvia il video intro che poi caricherà automaticamente la scena
             Debug.Log("[MainMenu] Avvio video intro...");
             videoIntroManager.StartIntro();
         }
         else
         {
-            // Carica direttamente la scena (comportamento originale)
             Debug.Log("[MainMenu] Caricamento diretto della scena (no video)...");
             LoadGameScene();
         }
     }
     
-    /// <summary>
-    /// Carica la scena di gioco direttamente (senza video)
-    /// </summary>
     public void LoadGameScene()
     {
         if (_sceneController != null)
@@ -259,14 +260,10 @@ public class MainMenu : MonoBehaviour
         }
         else
         {
-            // Fallback
             SceneManager.LoadScene("00 - Landing in the Dreamworld");
         }
     }
     
-    /// <summary>
-    /// Salta il video e carica direttamente la scena
-    /// </summary>
     public void SkipVideoAndPlay()
     {
         if (videoIntroManager != null)
@@ -279,14 +276,19 @@ public class MainMenu : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Gestisce il click sul bottone Levels
-    /// </summary>
+    public void Exit()
+    {
+        if (debugMode) Debug.Log("[MainMenu] Exit button clicked");
+        Application.Quit();
+    }
+
+    // ========== GESTORE LEVELS - IDENTICO a PauseMenuUI.OnLevelsClicked() ==========
+
     public void OnLevelsClicked()
     {
         if (debugMode) Debug.Log("[MainMenu] Levels button clicked");
         
-        // Nascondi il main menu
+        // IDENTICO A PAUSEMENUUI: Nascondi completamente questo menu prima di aprire Levels UI
         HideMainMenu();
         
         // Attiva il LEVELSUI se disponibile
@@ -294,11 +296,11 @@ public class MainMenu : MonoBehaviour
         {
             levelsUI.SetActive(true);
             
-            // Imposta il riferimento al main menu nel LevelsMenuUI per il ritorno
+            // Imposta il riferimento al MainMenu nel LevelsMenuUI per il ritorno
             LevelsMenuUI levelsComponent = levelsUI.GetComponent<LevelsMenuUI>();
             if (levelsComponent != null)
             {
-                levelsComponent.SetPauseMenuUI(gameObject); // Usa il MainMenu come "PauseMenu" per il back
+                levelsComponent.SetPauseMenuUI(gameObject); // Usa lo stesso metodo!
             }
             
             if (debugMode) Debug.Log($"[MainMenu] LEVELSUI attivato: {levelsUI.name}");
@@ -306,25 +308,12 @@ public class MainMenu : MonoBehaviour
         else
         {
             Debug.LogWarning("[MainMenu] LEVELSUI non trovato! Non posso aprire il menu dei livelli.");
-            // Se non trova il Levels UI, rimetti il main menu visibile
             ShowMainMenu();
         }
     }
 
-    /// <summary>
-    /// Chiudi l'applicazione
-    /// </summary>
-    public void Exit()
-    {
-        if (debugMode) Debug.Log("[MainMenu] Exit button clicked");
-        Application.Quit();
-    }
-
     // ========== GESTIONE VISIBILITÀ ==========
 
-    /// <summary>
-    /// Mostra il main menu
-    /// </summary>
     public void ShowMainMenu()
     {
         if (mainMenuPanel != null)
@@ -332,12 +321,14 @@ public class MainMenu : MonoBehaviour
             mainMenuPanel.SetActive(true);
         }
         
-        if (debugMode) Debug.Log("[MainMenu] Main menu mostrato");
+        if (levelsUI != null && levelsUI.activeSelf)
+        {
+            levelsUI.SetActive(false);
+        }
+        
+        if (debugMode) Debug.Log("[MainMenu] Main menu mostrato, Levels UI nascosto");
     }
     
-    /// <summary>
-    /// Nascondi il main menu
-    /// </summary>
     public void HideMainMenu()
     {
         if (mainMenuPanel != null)
@@ -349,67 +340,43 @@ public class MainMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Equivalente al metodo Show() del PauseMenuUI per compatibilità con LevelsMenuUI
+    /// Equivalente a Show() per compatibilità con LevelsMenuUI
     /// </summary>
     public void Show()
     {
         ShowMainMenu();
     }
 
-    // ========== METODI PUBBLICI PER CONTROLLO ESTERNO ==========
+    // ========== METODI PUBBLICI ==========
 
-    /// <summary>
-    /// Ottieni il riferimento al Levels UI
-    /// </summary>
     public GameObject GetLevelsUI()
     {
         return levelsUI;
     }
 
-    /// <summary>
-    /// Controlla se il Levels UI è attualmente attivo
-    /// </summary>
     public bool IsLevelsUIActive()
     {
         return levelsUI != null && levelsUI.activeSelf;
     }
 
-    /// <summary>
-    /// Imposta manualmente il riferimento al LEVELSUI
-    /// </summary>
     public void SetLevelsUI(GameObject levelsUIObject)
     {
         levelsUI = levelsUIObject;
         if (debugMode) Debug.Log($"[MainMenu] LEVELSUI impostato manualmente: {levelsUI.name}");
     }
 
-    /// <summary>
-    /// Ottieni lo stato di inizializzazione
-    /// </summary>
     public bool IsInitialized()
     {
         return isInitialized;
     }
 
-    // ========== DEBUG E CONTEXT MENU ==========
-
-    [ContextMenu("Test Play")]
-    public void TestPlay()
+    public void ForceReturnToMainMenu()
     {
-        Play();
+        if (debugMode) Debug.Log("[MainMenu] Forzato ritorno al main menu");
+        ShowMainMenu();
     }
 
-    [ContextMenu("Test Levels")]
-    public void TestLevels()
-    {
-        OnLevelsClicked();
-    }
-
-    [ContextMenu("Test Exit")]
-    public void TestExit()
-    {
-        Debug.Log("[MainMenu] Exit test (non chiude in editor)");
-    }
+    // ========== DEBUG ==========
 
     [ContextMenu("Force Find LevelsUI")]
     public void ForceFindLevelsUI()
@@ -452,6 +419,7 @@ public class MainMenu : MonoBehaviour
                   $"Exit Button: {(exitButton != null ? exitButton.name : "❌")}\n" +
                   $"Main Menu Panel: {(mainMenuPanel != null ? mainMenuPanel.name : "❌")}\n" +
                   $"Levels UI: {(levelsUI != null ? levelsUI.name : "❌")}\n" +
+                  $"Levels UI Active: {(levelsUI != null ? levelsUI.activeSelf.ToString() : "N/A")}\n" +
                   $"Scene Controller: {(_sceneController != null ? _sceneController.name : "❌")}\n" +
                   $"Video Intro Manager: {(videoIntroManager != null ? videoIntroManager.name : "❌")}");
     }

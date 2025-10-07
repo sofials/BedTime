@@ -4,7 +4,7 @@ using Unity.Cinemachine;
 using UnityEngine;
 using System.Collections;
 using UnityEngine.Events;
-using UnityEngine.SceneManagement; // AGGIUNGI QUESTA RIGA
+using UnityEngine.SceneManagement;
 
 [System.Serializable]
 public class CameraTransition
@@ -24,8 +24,9 @@ public class CameraManager : MonoBehaviour
     [SerializeField] private CinemachineCamera activeCamera = null;
     [SerializeField] private int basePriority = 10;
     [SerializeField] private int activePriority = 100;
+    
     [Header("ThirdPersonController Integration")]
-[SerializeField] private bool autoNotifyControllers = true;
+    [SerializeField] private bool autoNotifyControllers = true;
 
     [Header("Transition Settings")]
     public CameraTransition defaultTransition = new CameraTransition();
@@ -51,6 +52,7 @@ public class CameraManager : MonoBehaviour
     private bool isInitialized = false;
     private bool isInitializing = false;
     private bool isCameraSystemReady = false;
+    
     void Start()
     {
         var currentScene = SceneManager.GetActiveScene();
@@ -69,11 +71,11 @@ public class CameraManager : MonoBehaviour
             {
                 DebugLog($"[Cleanup] Disattivando camera da scena precedente: {vcam.name}");
                 vcam.gameObject.SetActive(false);
-                vcam.Priority = -1000; // Priorità bassissima
+                vcam.Priority = -1000;
             }
         }
 
-        // NUOVO: Cleanup iniziale per evitare riferimenti da scene precedenti
+        // Cleanup iniziale per evitare riferimenti da scene precedenti
         cameras.Clear();
         originalPriorities.Clear();
         activeCamera = null;
@@ -84,33 +86,31 @@ public class CameraManager : MonoBehaviour
 
         if (autoRegisterOnStart)
         {
-            // Aspetta un frame per assicurarsi che il GameObject sia completamente attivo
             Invoke(nameof(StartInitialization), 0.1f);
         }
 
 #if !UNITY_EDITOR
-    Invoke(nameof(StartBuildCheck), 0.2f);
+        Invoke(nameof(StartBuildCheck), 0.2f);
 #endif
     }
-private void NotifyControllersOfCameraChange(CinemachineCamera newCamera)
-{
-    if (!autoNotifyControllers) return;
-    
-    // Trova tutti i ThirdPersonController nella scena
-    ThirdPersonController[] controllers = FindObjectsByType<ThirdPersonController>(FindObjectsSortMode.None);
-    
-    foreach (var controller in controllers)
-    {
-        if (controller.GetAutoDetectCamera()) // Verifica se ha auto-detect abilitato
-        {
-            controller.ForceUpdateActiveCamera();
-        }
-    }
-    
-    DebugLog($"[CameraManager] Notificati {controllers.Length} controller del cambio camera: {newCamera.name}");
-}
 
-    // AGGIUNGI QUESTI METODI
+    private void NotifyControllersOfCameraChange(CinemachineCamera newCamera)
+    {
+        if (!autoNotifyControllers) return;
+        
+        ThirdPersonController[] controllers = FindObjectsByType<ThirdPersonController>(FindObjectsSortMode.None);
+        
+        foreach (var controller in controllers)
+        {
+            if (controller.GetAutoDetectCamera())
+            {
+                controller.ForceUpdateActiveCamera();
+            }
+        }
+        
+        DebugLog($"[CameraManager] Notificati {controllers.Length} controller del cambio camera: {newCamera.name}");
+    }
+
     private void StartInitialization()
     {
         if (gameObject.activeInHierarchy && enabled)
@@ -119,25 +119,24 @@ private void NotifyControllersOfCameraChange(CinemachineCamera newCamera)
         }
         else
         {
-            // Riprova dopo un altro frame
             Invoke(nameof(StartInitialization), 0.1f);
         }
     }
+
 #if !UNITY_EDITOR
-private void StartBuildCheck()
-{
-    if (gameObject.activeInHierarchy && enabled)
+    private void StartBuildCheck()
     {
-        StartCoroutine(BuildSpecificCameraCheck());
+        if (gameObject.activeInHierarchy && enabled)
+        {
+            StartCoroutine(BuildSpecificCameraCheck());
+        }
+        else
+        {
+            Invoke(nameof(StartBuildCheck), 0.1f);
+        }
     }
-    else
-    {
-        // Riprova dopo un altro frame
-        Invoke(nameof(StartBuildCheck), 0.1f);
-    }
-}
 #endif
-    // INIZIALIZZAZIONE PRINCIPALE
+
     private IEnumerator InitializeCameraManagerCoroutine()
     {
         if (isInitializing) yield break;
@@ -145,29 +144,21 @@ private void StartBuildCheck()
         isInitializing = true;
         DebugLog("[SimpleCameraManager] Inizializzazione camera system avviata");
 
-        // Attesa extra per le build
-        #if !UNITY_EDITOR
+#if !UNITY_EDITOR
         if (useExtendedBuildWait)
         {
             yield return new WaitForSeconds(buildExtraWaitTime);
         }
-        #endif
+#endif
 
-        // Aspetta che la scena sia completamente caricata
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
         yield return new WaitForSeconds(0.1f);
 
-        // 1. Trova il CinemachineBrain
         yield return FindCinemachineBrain();
-
-        // 2. Registra tutte le camere nella scena
         RegisterAllCamerasInScene();
-
-        // 3. Imposta la camera iniziale
         yield return SetupStartingCamera();
 
-        // 4. Finalizza inizializzazione
         isInitialized = true;
         isCameraSystemReady = true;
         isInitializing = false;
@@ -177,30 +168,25 @@ private void StartBuildCheck()
         OnCameraSystemInitialized?.Invoke();
         OnCameraSystemReady?.Invoke();
         
-        // Verifica finale per le build
-        #if !UNITY_EDITOR
+#if !UNITY_EDITOR
         yield return new WaitForSeconds(0.5f);
         yield return VerifyCameraIsWorking();
-        #endif
+#endif
     }
 
-    // CHECK SPECIFICO PER BUILD
-    #if !UNITY_EDITOR
+#if !UNITY_EDITOR
     private IEnumerator BuildSpecificCameraCheck()
     {
-        // Attesa più lunga nelle build
         yield return new WaitForSeconds(3f);
         
         DebugLog("[Build Check] Verifica stato camera system...");
         
-        // Verifica 1: Sistema generale
         if (!isCameraSystemReady)
         {
             DebugLog("[Build Check] Sistema camera non pronto, forzando inizializzazione");
             yield return InitializeCameraManagerCoroutine();
         }
         
-        // Verifica 2: Camera attiva
         if (activeCamera == null && cameras.Count > 0)
         {
             DebugLog("[Build Check] Nessuna camera attiva, registrazione forzata");
@@ -214,18 +200,16 @@ private void StartBuildCheck()
             }
         }
         
-        // Verifica 3: Brain connectivity
         if (brain != null && activeCamera != null)
         {
             var brainCamera = brain.ActiveVirtualCamera as CinemachineCamera;
             if (brainCamera != activeCamera)
             {
                 DebugLog($"[Build Check] Brain mismatch! Forzando: {activeCamera.name}");
-                activeCamera.Priority = activePriority + 200; // Priorità extra alta
+                activeCamera.Priority = activePriority + 200;
             }
         }
         
-        // Verifica finale
         yield return new WaitForSeconds(1f);
         
         if (activeCamera != null)
@@ -237,80 +221,75 @@ private void StartBuildCheck()
             DebugLog("[Build Check] Sistema non funzionante!");
         }
     }
-    #endif
+#endif
 
-    // TROVA CINEMACHINE BRAIN
-private IEnumerator FindCinemachineBrain()
-{
-    brain = null; // NUOVO: Reset esplicito
-    var currentScene = SceneManager.GetActiveScene(); // NUOVO: Riferimento scena corrente
-    int attempts = 0;
-    const int maxAttempts = 15;
-
-    while (brain == null && attempts < maxAttempts)
+    private IEnumerator FindCinemachineBrain()
     {
-        brain = Camera.main?.GetComponent<CinemachineBrain>();
+        brain = null;
+        var currentScene = SceneManager.GetActiveScene();
+        int attempts = 0;
+        const int maxAttempts = 15;
 
-        // NUOVO: Verifica che il brain sia nella scena corrente
-        if (brain != null && brain.gameObject.scene != currentScene)
+        while (brain == null && attempts < maxAttempts)
         {
-            brain = null;
-        }
+            brain = Camera.main?.GetComponent<CinemachineBrain>();
 
-        if (brain == null)
-        {
-            var allBrains = Object.FindObjectsByType<CinemachineBrain>(FindObjectsSortMode.None);
-            // MODIFICATO: Cerca solo brain nella scena corrente
-            foreach (var brainCandidate in allBrains)
+            if (brain != null && brain.gameObject.scene != currentScene)
             {
-                if (brainCandidate.gameObject.scene == currentScene)
+                brain = null;
+            }
+
+            if (brain == null)
+            {
+                var allBrains = Object.FindObjectsByType<CinemachineBrain>(FindObjectsSortMode.None);
+                foreach (var brainCandidate in allBrains)
                 {
-                    brain = brainCandidate;
-                    break;
+                    if (brainCandidate.gameObject.scene == currentScene)
+                    {
+                        brain = brainCandidate;
+                        break;
+                    }
                 }
+            }
+
+            if (brain == null)
+            {
+                attempts++;
+                DebugLog($"[SimpleCameraManager] CinemachineBrain non trovato nella scena {currentScene.name}, tentativo {attempts}/{maxAttempts}");
+                yield return new WaitForSeconds(0.2f);
             }
         }
 
-        if (brain == null)
+        if (brain != null)
         {
-            attempts++;
-            DebugLog($"[SimpleCameraManager] CinemachineBrain non trovato nella scena {currentScene.name}, tentativo {attempts}/{maxAttempts}");
-            yield return new WaitForSeconds(0.2f);
+            DebugLog($"[SimpleCameraManager] CinemachineBrain trovato nella scena: {currentScene.name}");
+        }
+        else
+        {
+            DebugLog($"[SimpleCameraManager] CinemachineBrain non trovato nella scena {currentScene.name}!");
         }
     }
-
-    if (brain != null)
-    {
-        DebugLog($"[SimpleCameraManager] CinemachineBrain trovato nella scena: {currentScene.name}");
-    }
-    else
-    {
-        DebugLog($"[SimpleCameraManager] CinemachineBrain non trovato nella scena {currentScene.name}!");
-    }
-}
 
     public void RegisterAllCamerasInScene()
-{
-    var currentScene = SceneManager.GetActiveScene(); // AGGIUNGI QUESTA RIGA
-    var allCameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.InstanceID);
-
-    DebugLog($"[SimpleCameraManager] Scansione camere nella scena {currentScene.name}: {allCameras.Length} trovate");
-
-    int registered = 0;
-    foreach (var cam in allCameras)
     {
-        // AGGIUNGI QUESTO CONTROLLO
-        if (cam.gameObject.scene == currentScene)
+        var currentScene = SceneManager.GetActiveScene();
+        var allCameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.InstanceID);
+
+        DebugLog($"[SimpleCameraManager] Scansione camere nella scena {currentScene.name}: {allCameras.Length} trovate");
+
+        int registered = 0;
+        foreach (var cam in allCameras)
         {
-            Register(cam);
-            registered++;
+            if (cam.gameObject.scene == currentScene)
+            {
+                Register(cam);
+                registered++;
+            }
         }
+
+        DebugLog($"[SimpleCameraManager] {registered} camere registrate nella scena {currentScene.name}");
     }
 
-    DebugLog($"[SimpleCameraManager] {registered} camere registrate nella scena {currentScene.name}");
-}
-
-    // SWITCH CAMERA PRINCIPALE
     public void SwitchCamera(CinemachineCamera newCamera)
     {
         if (newCamera == null)
@@ -345,16 +324,13 @@ private IEnumerator FindCinemachineBrain()
             brain.DefaultBlend.Style = defaultTransition.blendStyle;
         }
 
-        // GESTIONE PRIORITÀ DIFFERENZIATA PER BUILD
 #if !UNITY_EDITOR
-          // Nelle build: priorità molto alta e disattivazione completa delle altre
-         foreach (CinemachineCamera cam in cameras.Where(c => c != newCamera && c != null))
-         {
-              cam.Priority = basePriority - 10; // Priorità molto bassa
-         }
-             newCamera.Priority = activePriority + 200; // Priorità molto alta
+        foreach (CinemachineCamera cam in cameras.Where(c => c != newCamera && c != null))
+        {
+            cam.Priority = basePriority - 10;
+        }
+        newCamera.Priority = activePriority + 200;
 #else
-        // Nell'editor: comportamento normale
         newCamera.Priority = activePriority;
         foreach (CinemachineCamera cam in cameras.Where(c => c != newCamera && c != null))
         {
@@ -371,37 +347,34 @@ private IEnumerator FindCinemachineBrain()
             OnCameraSwitched?.Invoke(previousCamera, newCamera);
         }
 
-        // VERIFICA IMMEDIATA PER BUILD - MODIFICATO
 #if !UNITY_EDITOR
         if (gameObject.activeInHierarchy && enabled)
         {
-           StartCoroutine(VerifyCameraSwitchCoroutine(newCamera));
+            StartCoroutine(VerifyCameraSwitchCoroutine(newCamera));
         }
 #endif
         if (gameObject.activeInHierarchy && enabled)
         {
-            // Delay leggermente la notifica per assicurarsi che il cambio sia completato
             StartCoroutine(DelayedControllerNotification(newCamera));
         }
-
     }
+
     private IEnumerator DelayedControllerNotification(CinemachineCamera newCamera)
     {
         yield return new WaitForEndOfFrame();
         yield return new WaitForFixedUpdate();
         NotifyControllersOfCameraChange(newCamera);
     }
-// Metodo pubblico per forzare la notifica
-public void ForceNotifyAllControllers()
-{
-    if (activeCamera != null)
-    {
-        NotifyControllersOfCameraChange(activeCamera);
-    }
-}
 
-    // VERIFICA CAMBIO CAMERA PER BUILD
-    #if !UNITY_EDITOR
+    public void ForceNotifyAllControllers()
+    {
+        if (activeCamera != null)
+        {
+            NotifyControllersOfCameraChange(activeCamera);
+        }
+    }
+
+#if !UNITY_EDITOR
     private IEnumerator VerifyCameraSwitchCoroutine(CinemachineCamera expectedCamera)
     {
         yield return new WaitForSeconds(1.5f);
@@ -422,11 +395,9 @@ public void ForceNotifyAllControllers()
             
             DebugLog($"[Build] Camera switch failed! Expected: {expectedCamera.name}, Got: {activeCameraName}");
             
-            // Forza di nuovo con priorità ancora più alta
             expectedCamera.Priority = activePriority + 300;
             activeCamera = expectedCamera;
             
-            // Disattiva completamente le altre camere
             foreach (var cam in cameras.Where(c => c != expectedCamera && c != null))
             {
                 cam.gameObject.SetActive(false);
@@ -434,7 +405,6 @@ public void ForceNotifyAllControllers()
             
             yield return new WaitForSeconds(0.5f);
             
-            // Riattiva le altre con priorità bassa
             foreach (var cam in cameras.Where(c => c != expectedCamera && c != null))
             {
                 cam.gameObject.SetActive(true);
@@ -446,9 +416,8 @@ public void ForceNotifyAllControllers()
             DebugLog($"[Build] Camera switch verified: {expectedCamera.name}");
         }
     }
-    #endif
+#endif
 
-    // VERIFICA CHE LA CAMERA SIA EFFETTIVAMENTE FUNZIONANTE
     private IEnumerator VerifyCameraIsWorking()
     {
         if (activeCamera == null) yield break;
@@ -484,7 +453,6 @@ public void ForceNotifyAllControllers()
         }
     }
 
-    // REGISTRA UNA CAMERA
     public void Register(CinemachineCamera camera)
     {
         if (camera == null) return;
@@ -505,27 +473,25 @@ public void ForceNotifyAllControllers()
         DebugLog($"[SimpleCameraManager] Camera registrata: {camera.name} (Priority: {camera.Priority})");
     }
 
-   // DEREGISTRA UNA CAMERA
-public void Unregister(CinemachineCamera camera)
-{
-    if (camera == null) return;
-
-    cameras.Remove(camera);
-    originalPriorities.Remove(camera);
-
-    if (activeCamera == camera)
+    public void Unregister(CinemachineCamera camera)
     {
-        activeCamera = null;
-        if (cameras.Count > 0 && gameObject.activeInHierarchy && enabled)
+        if (camera == null) return;
+
+        cameras.Remove(camera);
+        originalPriorities.Remove(camera);
+
+        if (activeCamera == camera)
         {
-            SwitchCamera(cameras[0]);
+            activeCamera = null;
+            if (cameras.Count > 0 && gameObject.activeInHierarchy && enabled)
+            {
+                SwitchCamera(cameras[0]);
+            }
         }
+
+        DebugLog($"[SimpleCameraManager] Camera deregistrata: {camera.name}");
     }
 
-    DebugLog($"[SimpleCameraManager] Camera deregistrata: {camera.name}");
-}
-
-    // SETUP CAMERA INIZIALE
     private IEnumerator SetupStartingCamera()
     {
         CinemachineCamera targetCamera = startingCamera;
@@ -555,7 +521,7 @@ public void Unregister(CinemachineCamera camera)
         {
             SwitchCamera(targetCamera);
             yield return new WaitForSeconds(0.2f);
-        NotifyControllersOfCameraChange(targetCamera);
+            NotifyControllersOfCameraChange(targetCamera);
         }
         else
         {
@@ -565,7 +531,6 @@ public void Unregister(CinemachineCamera camera)
         yield return null;
     }
 
-    // METODI PUBBLICI DI UTILITY
     public bool IsCameraSystemReady()
     {
         return isCameraSystemReady && activeCamera != null && isInitialized;
@@ -649,7 +614,6 @@ public void Unregister(CinemachineCamera camera)
         }
     }
 
-    // METODI DEBUG
     [ContextMenu("Debug Camera State")]
     public void DebugCameraState()
     {
@@ -693,7 +657,6 @@ public void Unregister(CinemachineCamera camera)
         ForceInitialize();
     }
 
-    // VERIFICA CONTINUA IN LATEUPDATE
     void LateUpdate()
     {
         if (isInitialized && activeCamera == null && cameras.Count > 0)
@@ -703,58 +666,59 @@ public void Unregister(CinemachineCamera camera)
         }
     }
 
- // DEBUG LOG - TROVA QUESTO METODO E SOSTITUISCILO
-private void DebugLog(string message)
-{
-    if (enableDebugLogs)
+    private void DebugLog(string message)
     {
-        Debug.Log(message);
-        
-        // AGGIUNGI SOLO QUESTA RIGA
-        OnScreenDebugLogger.LogCamera(message);
+        if (enableDebugLogs)
+        {
+            Debug.Log(message);
+            OnScreenDebugLogger.LogCamera(message);
+        }
     }
-}
-// GESTIONE CAMBIO SCENA
-void OnEnable()
-{
-    // Registrati per gli eventi di cambio scena
-    UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
-}
+
+    void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
     void OnDisable()
     {
-        // Deregistrati dagli eventi
-        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
-    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        // FIX: Ignora eventi per scene diverse dalla nostra
+        if (gameObject.scene != scene)
+        {
+            DebugLog($"[CameraManager] Ignoro evento per scena diversa: {scene.name}");
+            return;
+        }
+        
         DebugLog($"[CameraManager] Scena caricata: {scene.name}");
 
-        // Dopo il caricamento della scena, forza la notifica ai controller
         if (activeCamera != null)
         {
             StartCoroutine(NotifyControllersAfterSceneLoad());
         }
     }
+
     private IEnumerator NotifyControllersAfterSceneLoad()
     {
-        // Aspetta che tutti i GameObject siano inizializzati
         yield return new WaitForSeconds(0.5f);
-
-        // Forza l'aggiornamento di tutti i controller
         ForceNotifyAllControllers();
-
         DebugLog("[CameraManager] Controller notificati dopo caricamento scena");
     }
-public void SetPreferredCamera(CinemachineCamera camera)
-{
-    if (camera != null)
+
+    public void SetPreferredCamera(CinemachineCamera camera)
     {
-        Register(camera);
-        SwitchCamera(camera);
-        DebugLog($"[CameraManager] Camera preferita impostata: {camera.name}");
+        if (camera != null)
+        {
+            Register(camera);
+            SwitchCamera(camera);
+            DebugLog($"[CameraManager] Camera preferita impostata: {camera.name}");
+        }
     }
-}
-    // CLEANUP
+
     void OnDestroy()
     {
         DebugLog($"[SimpleCameraManager] {gameObject.name} distrutto - cleanup...");

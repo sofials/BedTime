@@ -5816,10 +5816,10 @@ MonoBehaviour:
   triggerLayerMask:
     serializedVersion: 2
     m_Bits: 64
-  triggerCameraSwitch: 0
+  triggerCameraSwitch: 1
   targetCameraName: 
-  targetCamera: {fileID: 0}
-  restorePreviousCamera: 0
+  targetCamera: {fileID: 1326215832}
+  restorePreviousCamera: 1
   enterDelay: 0
   exitDelay: 0
   cooldownTime: 0
@@ -5835,36 +5835,10 @@ MonoBehaviour:
   logAllCollisions: 0
   onTriggerEnter:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1785285697}
-        m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
-        m_MethodName: SwitchCamera
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 1326215832}
-          m_ObjectArgumentAssemblyTypeName: Unity.Cinemachine.CinemachineCamera,
-            Unity.Cinemachine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onTriggerExit:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1785285697}
-        m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
-        m_MethodName: SwitchCamera
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 2120743125}
-          m_ObjectArgumentAssemblyTypeName: Unity.Cinemachine.CinemachineCamera,
-            Unity.Cinemachine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onTriggerStay:
     m_PersistentCalls:
       m_Calls: []
@@ -24773,6 +24747,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: LevelsUI
       objectReference: {fileID: 0}
+    - target: {fileID: 2401615967522740322, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2669038966067564612, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2669038966067564612, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2669038966067564612, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -225
+      objectReference: {fileID: 0}
     - target: {fileID: 5079201542846498109, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
       propertyPath: pauseMenuUI
       value: 
@@ -24781,6 +24771,38 @@ PrefabInstance:
       propertyPath: sceneController
       value: 
       objectReference: {fileID: 1886037857}
+    - target: {fileID: 5886597159824774679, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5886597159824774679, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5886597159824774679, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 250
+      objectReference: {fileID: 0}
+    - target: {fileID: 5886597159824774679, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -225
+      objectReference: {fileID: 0}
+    - target: {fileID: 6336219325948607288, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6336219325948607288, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6336219325948607288, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -250
+      objectReference: {fileID: 0}
+    - target: {fileID: 6336219325948607288, guid: c3d47f462dfa5cc4cbdffc709ec69073, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -225
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -40808,14 +40830,14 @@ MonoBehaviour:
   alreadyEntered: 0
   alreadyExited: 0
   requireGroundedPlayer: 0
-  collisionTag: 
+  collisionTag: Player
   triggerLayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
-  triggerCameraSwitch: 0
+    m_Bits: 64
+  triggerCameraSwitch: 1
   targetCameraName: 
-  targetCamera: {fileID: 0}
-  restorePreviousCamera: 0
+  targetCamera: {fileID: 687340265}
+  restorePreviousCamera: 1
   enterDelay: 0
   exitDelay: 0
   cooldownTime: 0
@@ -40824,43 +40846,17 @@ MonoBehaviour:
   sceneTransitionDelay: 1
   isCheckpoint: 0
   checkpointName: 
-  showDebugGizmos: 1
+  showDebugGizmos: 0
   gizmoColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   activeGizmoColor: {r: 1, g: 0, b: 0, a: 1}
   enableDebugLogs: 0
   logAllCollisions: 0
   onTriggerEnter:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1785285697}
-        m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
-        m_MethodName: SwitchCamera
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 687340265}
-          m_ObjectArgumentAssemblyTypeName: Unity.Cinemachine.CinemachineCamera,
-            Unity.Cinemachine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onTriggerExit:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1785285697}
-        m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
-        m_MethodName: SwitchCamera
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 2120743125}
-          m_ObjectArgumentAssemblyTypeName: Unity.Cinemachine.CinemachineCamera,
-            Unity.Cinemachine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onTriggerStay:
     m_PersistentCalls:
       m_Calls: []
@@ -71763,11 +71759,11 @@ MonoBehaviour:
   collisionTag: Player
   triggerLayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
-  triggerCameraSwitch: 0
+    m_Bits: 64
+  triggerCameraSwitch: 1
   targetCameraName: 
-  targetCamera: {fileID: 0}
-  restorePreviousCamera: 0
+  targetCamera: {fileID: 1206798209}
+  restorePreviousCamera: 1
   enterDelay: 0
   exitDelay: 0
   cooldownTime: 0
@@ -71783,36 +71779,10 @@ MonoBehaviour:
   logAllCollisions: 0
   onTriggerEnter:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1785285697}
-        m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
-        m_MethodName: SwitchCamera
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 1206798209}
-          m_ObjectArgumentAssemblyTypeName: Unity.Cinemachine.CinemachineCamera,
-            Unity.Cinemachine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onTriggerExit:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1785285697}
-        m_TargetAssemblyTypeName: CameraManager, Assembly-CSharp
-        m_MethodName: SwitchCamera
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 2120743125}
-          m_ObjectArgumentAssemblyTypeName: Unity.Cinemachine.CinemachineCamera,
-            Unity.Cinemachine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onTriggerStay:
     m_PersistentCalls:
       m_Calls: []
