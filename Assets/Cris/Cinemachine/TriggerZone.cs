@@ -26,6 +26,9 @@ public class SimpleTriggerZone : MonoBehaviour
     [SerializeField] private float cooldownTime = 0f;
     private float lastTriggerTime = 0f;
     
+    // FIX: Cooldown separato per enter/exit
+    [SerializeField] private bool applyCooldownToExit = false;
+    
     [Header("Scene Transition")]
     [SerializeField] private bool triggerSceneTransition = false;
     [SerializeField] private string targetSceneName = "";
@@ -63,6 +66,11 @@ public class SimpleTriggerZone : MonoBehaviour
     
     private CameraManager cameraManager;
     
+    // FIX: Tracciamento coroutine per prevenire duplicati
+    private Coroutine delayedEnterCoroutine = null;
+    private Coroutine delayedExitCoroutine = null;
+    private Coroutine findManagerCoroutine = null;
+    
     private void Awake()
     {
         triggerCollider = GetComponent<Collider>();
@@ -81,22 +89,26 @@ public class SimpleTriggerZone : MonoBehaviour
     
     private void Start()
     {
-        StartCoroutine(FindManagerReferences());
+        if (findManagerCoroutine != null)
+        {
+            StopCoroutine(findManagerCoroutine);
+        }
+        findManagerCoroutine = StartCoroutine(FindManagerReferences());
     }
     
     private IEnumerator FindManagerReferences()
     {
         yield return new WaitForSeconds(0.2f);
         
-        var currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        // FIX: Usa gameObject.scene invece di GetActiveScene
+        var currentScene = gameObject.scene;
         
-        // FIX: Cerca solo nella scena corrente
         var managers = FindObjectsByType<CameraManager>(FindObjectsSortMode.None);
         cameraManager = null;
         
         foreach (var manager in managers)
         {
-            if (manager.gameObject.scene == currentScene)
+            if (manager != null && manager.gameObject.scene == currentScene)
             {
                 cameraManager = manager;
                 break;
@@ -105,11 +117,11 @@ public class SimpleTriggerZone : MonoBehaviour
         
         if (cameraManager == null)
         {
-            DebugLog("SimpleCameraManager non trovato nella scena corrente");
+            DebugLog("CameraManager non trovato nella scena corrente");
         }
         else
         {
-            DebugLog($"SimpleCameraManager trovato: {cameraManager.name}");
+            DebugLog($"CameraManager trovato: {cameraManager.name}");
         }
         
         if (triggerCameraSwitch && !string.IsNullOrEmpty(targetCameraName) && targetCamera == null)
@@ -131,6 +143,7 @@ public class SimpleTriggerZone : MonoBehaviour
         }
         
         DebugLog($"SimpleTriggerZone inizializzato - Camera: {triggerCameraSwitch}, Checkpoint: {isCheckpoint}");
+        findManagerCoroutine = null;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -140,10 +153,10 @@ public class SimpleTriggerZone : MonoBehaviour
             DebugLog($"Collision detected with: {other.name} (Tag: {other.tag})");
         }
         
-        // FIX: Controlla oneShot PRIMA di tutto
+        // FIX: Logica oneShot migliorata - se oneShot attivo e già entrato, blocca tutto
         if (oneShot && alreadyEntered)
         {
-            DebugLog("OneShot già attivato, ignorando enter");
+            DebugLog("OneShot già attivato per enter, ignorando");
             return;
         }
         
@@ -152,7 +165,7 @@ public class SimpleTriggerZone : MonoBehaviour
             
         if (IsCooldownActive())
         {
-            DebugLog("Trigger in cooldown, ignorando...");
+            DebugLog("Trigger in cooldown, ignorando enter...");
             return;
         }
         
@@ -168,9 +181,16 @@ public class SimpleTriggerZone : MonoBehaviour
         currentPlayerCollider = other;
         lastTriggerTime = Time.time;
         
+        // FIX: Ferma coroutine precedente se esiste
+        if (delayedEnterCoroutine != null)
+        {
+            StopCoroutine(delayedEnterCoroutine);
+            delayedEnterCoroutine = null;
+        }
+        
         if (enterDelay > 0f)
         {
-            StartCoroutine(DelayedTriggerEnter(other));
+            delayedEnterCoroutine = StartCoroutine(DelayedTriggerEnter(other));
         }
         else
         {
@@ -180,25 +200,39 @@ public class SimpleTriggerZone : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        // FIX: Controlla oneShot PRIMA di tutto
+        // FIX: Logica oneShot per exit - se oneShot attivo e già uscito, blocca
         if (oneShot && alreadyExited)
         {
-            DebugLog("OneShot già attivato, ignorando exit");
+            DebugLog("OneShot già attivato per exit, ignorando");
             return;
         }
         
         if (!ShouldProcessCollision(other))
             return;
+        
+        // FIX: Applica cooldown anche all'exit se richiesto
+        if (applyCooldownToExit && IsCooldownActive())
+        {
+            DebugLog("Trigger in cooldown, ignorando exit...");
+            return;
+        }
             
         DebugLog($"Trigger EXIT: {other.name}");
         
-        // FIX: Imposta SEMPRE lo stato interno, anche con oneShot
+        // Aggiorna sempre lo stato interno
         isPlayerInside = false;
         currentPlayerCollider = null;
         
+        // FIX: Ferma coroutine precedente se esiste
+        if (delayedExitCoroutine != null)
+        {
+            StopCoroutine(delayedExitCoroutine);
+            delayedExitCoroutine = null;
+        }
+        
         if (exitDelay > 0f)
         {
-            StartCoroutine(DelayedTriggerExit(other));
+            delayedExitCoroutine = StartCoroutine(DelayedTriggerExit(other));
         }
         else
         {
@@ -216,6 +250,9 @@ public class SimpleTriggerZone : MonoBehaviour
     
     private bool ShouldProcessCollision(Collider other)
     {
+        if (other == null)
+            return false;
+            
         if (!string.IsNullOrEmpty(collisionTag) && !other.CompareTag(collisionTag))
             return false;
         
@@ -227,6 +264,9 @@ public class SimpleTriggerZone : MonoBehaviour
     
     private bool IsPlayerGrounded(Collider playerCollider)
     {
+        if (playerCollider == null)
+            return false;
+            
         var playerController = playerCollider.GetComponent<CharacterController>();
         if (playerController != null)
         {
@@ -245,24 +285,44 @@ public class SimpleTriggerZone : MonoBehaviour
     {
         yield return new WaitForSeconds(enterDelay);
         
-        if (isPlayerInside && currentPlayerCollider == other)
+        // FIX: Verifica più robusta - controlla che l'oggetto esista ancora
+        if (other != null && isPlayerInside && currentPlayerCollider == other)
         {
             ExecuteTriggerEnter(other);
         }
+        else
+        {
+            DebugLog("DelayedTriggerEnter cancellato - condizioni cambiate");
+        }
+        
+        delayedEnterCoroutine = null;
     }
     
     private IEnumerator DelayedTriggerExit(Collider other)
     {
         yield return new WaitForSeconds(exitDelay);
         
-        if (!isPlayerInside)
+        // FIX: Verifica che l'oggetto esista ancora e che effettivamente sia uscito
+        if (other != null && !isPlayerInside)
         {
             ExecuteTriggerExit(other);
         }
+        else
+        {
+            DebugLog("DelayedTriggerExit cancellato - player rientrato");
+        }
+        
+        delayedExitCoroutine = null;
     }
     
     private void ExecuteTriggerEnter(Collider other)
     {
+        if (other == null)
+        {
+            DebugLog("ExecuteTriggerEnter chiamato con collider null");
+            return;
+        }
+        
         DebugLog($"Executing Trigger ENTER for: {other.name}");
         
         onTriggerEnter?.Invoke(other);
@@ -284,11 +344,20 @@ public class SimpleTriggerZone : MonoBehaviour
         }
         
         if (oneShot)
+        {
             alreadyEntered = true;
+            DebugLog("OneShot attivato - enter bloccato per il futuro");
+        }
     }
     
     private void ExecuteTriggerExit(Collider other)
     {
+        if (other == null)
+        {
+            DebugLog("ExecuteTriggerExit chiamato con collider null");
+            return;
+        }
+        
         DebugLog($"Executing Trigger EXIT for: {other.name}");
         
         onTriggerExit?.Invoke(other);
@@ -302,21 +371,24 @@ public class SimpleTriggerZone : MonoBehaviour
         }
         
         if (oneShot)
+        {
             alreadyExited = true;
+            DebugLog("OneShot attivato - exit bloccato per il futuro");
+        }
     }
     
     private bool HandleCameraSwitch()
     {
         if (cameraManager == null || targetCamera == null)
         {
-            DebugLog("SimpleCameraManager o target camera non disponibili");
+            DebugLog("CameraManager o target camera non disponibili");
             return false;
         }
         
         if (restorePreviousCamera)
         {
             previousCamera = cameraManager.GetActiveCamera();
-            DebugLog($"Camera precedente salvata: {previousCamera?.name}");
+            DebugLog($"Camera precedente salvata: {previousCamera?.name ?? "null"}");
         }
         
         cameraManager.SwitchCamera(targetCamera);
@@ -397,10 +469,25 @@ public class SimpleTriggerZone : MonoBehaviour
         alreadyExited = false;
         isPlayerInside = false;
         currentPlayerCollider = null;
-        previousCamera = null;
         lastTriggerTime = 0f;
         
-        DebugLog("Trigger resettato");
+        // FIX: Pulisce anche previousCamera
+        previousCamera = null;
+        
+        // FIX: Ferma coroutine attive
+        if (delayedEnterCoroutine != null)
+        {
+            StopCoroutine(delayedEnterCoroutine);
+            delayedEnterCoroutine = null;
+        }
+        
+        if (delayedExitCoroutine != null)
+        {
+            StopCoroutine(delayedExitCoroutine);
+            delayedExitCoroutine = null;
+        }
+        
+        DebugLog("Trigger resettato completamente");
     }
     
     public void ForceTrigger()
@@ -419,6 +506,14 @@ public class SimpleTriggerZone : MonoBehaviour
                 {
                     ExecuteTriggerEnter(playerCollider);
                 }
+                else
+                {
+                    DebugLog("ForceTrigger: Player trovato ma senza Collider");
+                }
+            }
+            else
+            {
+                DebugLog($"ForceTrigger: Nessun GameObject con tag '{collisionTag}' trovato");
             }
         }
     }
@@ -477,10 +572,13 @@ public class SimpleTriggerZone : MonoBehaviour
                   $"Time Since Last Trigger: {GetTimeSinceLastTrigger():F1}s\n" +
                   $"Camera Switch: {triggerCameraSwitch}\n" +
                   $"Target Camera: {(targetCamera != null ? targetCamera.name : "null")}\n" +
+                  $"Previous Camera: {(previousCamera != null ? previousCamera.name : "null")}\n" +
                   $"Is Checkpoint: {isCheckpoint}\n" +
                   $"Checkpoint Name: {checkpointName}\n" +
                   $"Scene Transition: {triggerSceneTransition} -> {targetSceneName}\n" +
-                  $"SimpleCameraManager: {(cameraManager != null ? "Found" : "Not Found")}");
+                  $"CameraManager: {(cameraManager != null ? "Found" : "Not Found")}\n" +
+                  $"Delayed Enter Active: {delayedEnterCoroutine != null}\n" +
+                  $"Delayed Exit Active: {delayedExitCoroutine != null}");
     }
     
     [ContextMenu("Test - Force Trigger")]
@@ -498,7 +596,11 @@ public class SimpleTriggerZone : MonoBehaviour
     [ContextMenu("Test - Find Manager")]
     public void DebugFindManager()
     {
-        StartCoroutine(FindManagerReferences());
+        if (findManagerCoroutine != null)
+        {
+            StopCoroutine(findManagerCoroutine);
+        }
+        findManagerCoroutine = StartCoroutine(FindManagerReferences());
     }
     
     [ContextMenu("Test - Save Checkpoint")]
@@ -513,6 +615,45 @@ public class SimpleTriggerZone : MonoBehaviour
         Vector3 pos = GetLastCheckpointPosition();
         string name = GetLastCheckpointName();
         Debug.Log($"Last Checkpoint: {name} at {pos}");
+    }
+    
+    // FIX: Cleanup completo in OnDisable
+    private void OnDisable()
+    {
+        // Ferma tutte le coroutine attive
+        if (delayedEnterCoroutine != null)
+        {
+            StopCoroutine(delayedEnterCoroutine);
+            delayedEnterCoroutine = null;
+        }
+        
+        if (delayedExitCoroutine != null)
+        {
+            StopCoroutine(delayedExitCoroutine);
+            delayedExitCoroutine = null;
+        }
+        
+        if (findManagerCoroutine != null)
+        {
+            StopCoroutine(findManagerCoroutine);
+            findManagerCoroutine = null;
+        }
+    }
+    
+    // FIX: Cleanup in OnDestroy
+    private void OnDestroy()
+    {
+        DebugLog($"SimpleTriggerZone {gameObject.name} distrutto - cleanup completo");
+        
+        StopAllCoroutines();
+        
+        currentPlayerCollider = null;
+        previousCamera = null;
+        cameraManager = null;
+        
+        delayedEnterCoroutine = null;
+        delayedExitCoroutine = null;
+        findManagerCoroutine = null;
     }
     
     private void OnDrawGizmos()

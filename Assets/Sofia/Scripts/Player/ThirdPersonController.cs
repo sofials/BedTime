@@ -141,9 +141,19 @@ private Coroutine climbHeightCoroutine;
 
     [Header("Footstep Audio")]
     [SerializeField] private AudioSource footstepAudioSource;
-    [SerializeField] private AudioClip[] walkFootsteps;
-    [SerializeField] private AudioClip[] runFootsteps;
-    [SerializeField] private AudioClip[] sprintFootsteps;
+    // ✅ NUOVO: Configurazione Terrain Paint Texture Detection
+[Header("Terrain Texture Detection")]
+[SerializeField] private string terrainLayerName = "SquareVillage"; // Layer del terrain da controllare
+[SerializeField] private int[] grassTextureIndices = { 0 }; // ← Indici delle Paint Texture erba (es: 0, 2, 4)
+[SerializeField] private int[] groundTextureIndices = { 1 }; // ← Indici delle Paint Texture terreno (es: 1, 3, 5)
+[SerializeField] private bool debugTerrainTexture = false; // ← Debug per vedere indici in console
+ // Set audio per ERBA (Layer: Grass) - 3 suoni casuali
+[Header("Grass Footsteps")]
+[SerializeField] private AudioClip[] grassFootsteps; // ← SINGOLO ARRAY
+
+// Set audio per TERRENO (Layer: Ground) - 3 suoni casuali
+[Header("Ground Footsteps")]
+[SerializeField] private AudioClip[] groundFootsteps; // ← SINGOLO ARRAY
     [SerializeField] private float walkStepInterval = 0.5f;
     [SerializeField] private float runStepInterval = 0.35f;
     [SerializeField] private float sprintStepInterval = 0.25f;
@@ -304,23 +314,32 @@ private bool isClimbing = false;
     /// </summary>
     /// <param name="camera">La camera da utilizzare (null per auto-detect)</param>
     public void SetActiveCamera(Camera camera)
+{
+    if (camera != null)
     {
-        if (camera != null)
+        currentActiveCamera = camera;
+        cameraTransform = camera.transform;
+        autoDetectActiveCamera = false;
+        
+        // ✅ FIX: Aggiorna camera settings quando si imposta manualmente la camera
+        UpdateCurrentCameraSettings();
+        
+        if (debugCameraChanges)
         {
-            currentActiveCamera = camera;
-            cameraTransform = camera.transform;
-            autoDetectActiveCamera = false;
-            
-            if (debugCameraChanges)
-                Debug.Log($"[ThirdPersonController] 🎮 Camera manualmente impostata: {camera.name}");
-        }
-        else
-        {
-            autoDetectActiveCamera = true;
-            if (debugCameraChanges)
-                Debug.Log("[ThirdPersonController] 🔄 Ripristinato auto-detect camera");
+            Debug.Log($"[ThirdPersonController] 🎮 Camera manualmente impostata: {camera.name}");
+            if (currentCameraSettings != null)
+            {
+                Debug.Log($"[ThirdPersonController] Settings applicate: {currentCameraSettings.cameraName}");
+            }
         }
     }
+    else
+    {
+        autoDetectActiveCamera = true;
+        if (debugCameraChanges)
+            Debug.Log("[ThirdPersonController] 🔄 Ripristinato auto-detect camera");
+    }
+}
     private void UpdatePlatformGrip()
 {
     if (currentPlatform != null)
@@ -368,14 +387,21 @@ public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
         if (autoDetectActiveCamera)
         {
             DetectActiveCamera();
+            // ✅ FIX: Aggiorna camera settings dopo cambio camera
+            UpdateCurrentCameraSettings();
         }
         
         if (debugCameraChanges)
-            Debug.Log($"[ThirdPersonController] CinemachineCamera attivata via SimpleCameraManager: {cinemachineCamera.name}");
+        {
+            Debug.Log($"[ThirdPersonController] CinemachineCamera attivata: {cinemachineCamera.name}");
+            if (currentCameraSettings != null)
+            {
+                Debug.Log($"[ThirdPersonController] Settings applicate: {currentCameraSettings.cameraName}");
+            }
+        }
     }
 }
-
-  public void SetActiveCinemachineCameraByName(string cameraName)
+public void SetActiveCinemachineCameraByName(string cameraName)
 {
     if (useCameraManagerIntegration)
     {
@@ -388,10 +414,18 @@ public void SetActiveCinemachineCamera(CinemachineCamera cinemachineCamera)
         if (autoDetectActiveCamera)
         {
             DetectActiveCamera();
+            // ✅ FIX: Aggiorna camera settings dopo cambio camera
+            UpdateCurrentCameraSettings();
         }
         
         if (debugCameraChanges)
+        {
             Debug.Log($"[ThirdPersonController] CinemachineCamera attivata via nome: {cameraName}");
+            if (currentCameraSettings != null)
+            {
+                Debug.Log($"[ThirdPersonController] Settings applicate: {currentCameraSettings.cameraName}");
+            }
+        }
     }
 }
     /// <summary>
@@ -532,41 +566,89 @@ private void DetectActiveCamera()
     }
     
     // 5. AGGIORNA SOLO SE CAMERA È DIVERSA E VALIDA
-    if (newActiveCamera != currentActiveCamera)
+   if (newActiveCamera != currentActiveCamera)
+{
+    if (newActiveCamera != null)
     {
-        if (newActiveCamera != null)
+        Camera previousCamera = currentActiveCamera;
+        
+        currentActiveCamera = newActiveCamera;
+                cameraTransform = newActiveCamera.transform;
+             rotationVelocity = 0f;
+        
+        if (debugCameraChanges)
         {
-            Camera previousCamera = currentActiveCamera;
-            
-            // ⭐ PUNTO CRUCIALE: Aggiorna IMMEDIATAMENTE cameraTransform
-            currentActiveCamera = newActiveCamera;
-            cameraTransform = newActiveCamera.transform;
-            
-            if (debugCameraChanges)
-            {
-                Debug.Log($"[ThirdPersonController] 🎮 Camera cambiata: {(previousCamera ? previousCamera.name : "null")} → {newActiveCamera.name} via {detectionMethod}");
-                Debug.Log($"[ThirdPersonController] ✅ cameraTransform aggiornato: {cameraTransform.name}");
-            }
-            
-            // Eventi di notifica
-            OnCameraChanged?.Invoke(previousCamera, newActiveCamera);
+            Debug.Log($"[ThirdPersonController] 🎮 Camera cambiata: {(previousCamera ? previousCamera.name : "null")} → {newActiveCamera.name} via {detectionMethod}");
+            Debug.Log($"[ThirdPersonController] ✅ cameraTransform aggiornato: {cameraTransform.name}");
         }
-        else if (debugCameraChanges)
+        
+        // ✅ FIX: Invoca evento PRIMA di aggiornare settings
+        OnCameraChanged?.Invoke(previousCamera, newActiveCamera);
+
+                // ✅ FIX: IMPORTANTE - Aggiorna settings DOPO aver cambiato camera
+                // Questo garantisce che le settings siano sincronizzate con la nuova camera
+                UpdateCurrentCameraSettings();
+             ForceRecalculateMovementDirection();
+        
+        if (debugCameraChanges && currentCameraSettings != null)
         {
-            Debug.LogError("[ThirdPersonController] ❌ NESSUNA CAMERA VALIDA TROVATA! Movimento bloccato.");
+            Debug.Log($"[ThirdPersonController] 🎯 Camera settings aggiornate automaticamente: {currentCameraSettings.cameraName}");
+        }
+    }
+    else if (debugCameraChanges)
+    {
+        Debug.LogError("[ThirdPersonController] ❌ NESSUNA CAMERA VALIDA TROVATA! Movimento bloccato.");
+    }
+}
+}
+/// <summary>
+/// Forza il ricalcolo immediato della direzione di movimento al cambio camera
+/// </summary>
+private void ForceRecalculateMovementDirection()
+{
+    if (moveInput.magnitude < 0.1f) return;
+    
+    // Ricalcola immediatamente l'angolo target con la nuova camera
+    Vector2 processedInput = GetProcessedMoveInput();
+    Vector3 inputVector = new Vector3(processedInput.x, 0f, processedInput.y);
+    
+    if (cameraTransform != null)
+    {
+        float targetAngle = Mathf.Atan2(inputVector.x, inputVector.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+        
+        // ✅ APPLICA IMMEDIATAMENTE la rotazione per evitare transizioni strane
+        transform.rotation = Quaternion.Euler(0f, targetAngle, 0f);
+        
+        if (debugCameraChanges)
+        {
+            Debug.Log($"[Movement] Direzione ricalcolata: {targetAngle:F1}° (Camera Y: {cameraTransform.eulerAngles.y:F1}°)");
         }
     }
 }
-
 public void ForceUpdateActiveCamera()
 {
     if (autoDetectActiveCamera)
     {
         DetectActiveCamera();
         
+        // ✅ FIX: Aggiorna anche le camera settings per inversione movimento
+        UpdateCurrentCameraSettings();
+        
         if (debugCameraChanges)
         {
             Debug.Log($"[ThirdPersonController] ForceUpdate: Camera attiva ora è {(currentActiveCamera ? currentActiveCamera.name : "null")}");
+            
+            // ✅ FIX: Debug info sulle camera settings
+            if (currentCameraSettings != null)
+            {
+                Debug.Log($"[ThirdPersonController] Camera Settings: {currentCameraSettings.cameraName} " +
+                         $"(FB Invert: {currentCameraSettings.invertForwardBackward}, " +
+                         $"LR Invert: {currentCameraSettings.invertLeftRight})");
+            }
+            else
+            {
+                Debug.Log("[ThirdPersonController] Nessuna camera settings trovata per questa camera");
+            }
         }
     }
     else if (debugCameraChanges)
@@ -1885,8 +1967,10 @@ private void ExecuteJump(bool isFirstJump)
     jumpBufferCounter = 0f;
     fallingTimer = 0f;
     
-    // Audio
-    PlayJumpSound();
+    if (isFirstJump) 
+    {
+        PlayJumpSound();
+    }
     StopFootstepAudio();
 }
 
@@ -1996,40 +2080,155 @@ private Vector3 ApplyPlatformMovement()
         else
             return walkStepInterval;
     }
+
+   private void PlayFootstepSound()
+{
+    if (footstepAudioSource == null) return;
+
+    // ✅ RILEVA IL LAYER SOTTO IL PLAYER
+    string currentGroundLayer = GetGroundLayerName();
+
+    // ✅ SELEZIONA IL SET AUDIO BASATO SUL LAYER
+    AudioClip[] currentClips = (currentGroundLayer == "Grass") ? grassFootsteps : groundFootsteps;
     
-    private void PlayFootstepSound()
+    // ✅ VOLUME BASATO SULLA VELOCITÀ (walk/run/sprint)
+    float currentVolume;
+    if (isSprinting)
+        currentVolume = footstepVolumeSprint;
+    else if (smoothInputMagnitude > 0.5f)
+        currentVolume = footstepVolumeRun;
+    else
+        currentVolume = footstepVolumeWalk;
+
+    // ✅ RIPRODUCI UN SUONO CASUALE DAI 3 DISPONIBILI
+    if (currentClips != null && currentClips.Length > 0)
     {
-        if (footstepAudioSource == null) return;
-        
-        AudioClip[] currentClips;
-        float currentVolume;
-        
-        if (isSprinting)
+        AudioClip clipToPlay = currentClips[Random.Range(0, currentClips.Length)];
+
+        footstepAudioSource.pitch = 1f + Random.Range(-pitchVariation, pitchVariation);
+        footstepAudioSource.volume = currentVolume;
+        footstepAudioSource.clip = clipToPlay;
+        footstepAudioSource.Play();
+    }
+}
+    /// <summary>
+    /// Rileva il nome del layer sotto il player usando raycast
+    /// </summary>
+    /// <summary>
+    /// Rileva il tipo di superficie sotto il player
+    /// - Per layer "SquareVillage": controlla Paint Texture del Terrain
+    /// - Per altri layer: usa il nome del layer normale (Grass/Ground)
+    /// </summary>
+    private string GetGroundLayerName()
+    {
+        Vector3 rayStart = transform.position + Vector3.up * 0.1f;
+
+        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, 1.5f))
         {
-            currentClips = sprintFootsteps;
-            currentVolume = footstepVolumeSprint;
+            GameObject hitObject = hit.collider.gameObject;
+            string layerName = LayerMask.LayerToName(hitObject.layer);
+
+            // ✅ CASO SPECIALE: Layer SquareVillage -> Controlla Paint Texture del Terrain
+            if (layerName == terrainLayerName)
+            {
+                Terrain terrain = hitObject.GetComponent<Terrain>();
+                if (terrain != null && terrain.terrainData != null)
+                {
+                    string textureType = GetDominantTerrainTextureType(terrain, hit.point);
+                    return textureType; // Ritorna "Grass" o "Ground" in base alla texture
+                }
+            }
+
+            // ✅ CASO NORMALE: Altri layer -> Usa il nome del layer direttamente
+            return layerName; // Ritorna "Grass" o "Ground" dal layer
         }
-        else if (smoothInputMagnitude > 0.5f)
+
+        // Fallback: controlla currentPlatform
+        if (currentPlatform != null)
         {
-            currentClips = runFootsteps;
-            currentVolume = footstepVolumeRun;
+            string platformLayer = LayerMask.LayerToName(currentPlatform.gameObject.layer);
+
+            // Controlla anche qui se è un terrain speciale
+            if (platformLayer == terrainLayerName)
+            {
+                Terrain terrain = currentPlatform.GetComponent<Terrain>();
+                if (terrain != null && terrain.terrainData != null)
+                {
+                    return GetDominantTerrainTextureType(terrain, transform.position);
+                }
+            }
+
+            return platformLayer;
         }
-        else
+
+        return "Ground"; // Default assoluto
+    }
+/// <summary>
+/// Analizza quale Paint Texture del Terrain è dominante nella posizione specificata
+/// e ritorna "Grass" o "Ground" in base agli INDICI configurati
+/// </summary>
+private string GetDominantTerrainTextureType(Terrain terrain, Vector3 worldPosition)
+{
+    TerrainData terrainData = terrain.terrainData;
+    Vector3 terrainPosition = terrain.transform.position;
+    
+    // ✅ Converti posizione world in coordinate della alphamap
+    int mapX = (int)(((worldPosition.x - terrainPosition.x) / terrainData.size.x) * terrainData.alphamapWidth);
+    int mapZ = (int)(((worldPosition.z - terrainPosition.z) / terrainData.size.z) * terrainData.alphamapHeight);
+    
+    // Clamp per sicurezza
+    mapX = Mathf.Clamp(mapX, 0, terrainData.alphamapWidth - 1);
+    mapZ = Mathf.Clamp(mapZ, 0, terrainData.alphamapHeight - 1);
+    
+    // ✅ Ottieni i pesi delle texture in questa posizione (1x1 pixel)
+    float[,,] splatmapData = terrainData.GetAlphamaps(mapX, mapZ, 1, 1);
+    
+    // ✅ Trova l'indice della texture con il peso maggiore
+    int dominantIndex = 0;
+    float maxWeight = 0f;
+    
+    for (int i = 0; i < splatmapData.GetLength(2); i++)
+    {
+        if (splatmapData[0, 0, i] > maxWeight)
         {
-            currentClips = walkFootsteps;
-            currentVolume = footstepVolumeWalk;
-        }
-        
-        if (currentClips != null && currentClips.Length > 0)
-        {
-            AudioClip clipToPlay = currentClips[Random.Range(0, currentClips.Length)];
-            
-            footstepAudioSource.pitch = 1f + Random.Range(-pitchVariation, pitchVariation);
-            footstepAudioSource.volume = currentVolume;
-            footstepAudioSource.clip = clipToPlay;
-            footstepAudioSource.Play();
+            maxWeight = splatmapData[0, 0, i];
+            dominantIndex = i;
         }
     }
+    
+    // ✅ DEBUG: Mostra quale texture è dominante
+    if (debugTerrainTexture && Time.frameCount % 60 == 0)
+    {
+        string textureName = dominantIndex < terrainData.terrainLayers.Length 
+            ? terrainData.terrainLayers[dominantIndex].name 
+            : "Unknown";
+        Debug.Log($"[Footsteps] 🎨 Texture dominante: Index={dominantIndex}, Name='{textureName}', Weight={maxWeight:F2}");
+    }
+    
+    // ✅ Controlla se l'indice è in GRASS
+    if (System.Array.IndexOf(grassTextureIndices, dominantIndex) >= 0)
+    {
+        if (debugTerrainTexture && Time.frameCount % 60 == 0)
+            Debug.Log($"[Footsteps] ✅ Index {dominantIndex} = GRASS");
+        return "Grass";
+    }
+    
+    // ✅ Controlla se l'indice è in GROUND
+    if (System.Array.IndexOf(groundTextureIndices, dominantIndex) >= 0)
+    {
+        if (debugTerrainTexture && Time.frameCount % 60 == 0)
+            Debug.Log($"[Footsteps] ✅ Index {dominantIndex} = GROUND");
+        return "Ground";
+    }
+    
+    // ✅ Fallback: texture non configurata
+    if (debugTerrainTexture && Time.frameCount % 60 == 0)
+    {
+        Debug.LogWarning($"[Footsteps] ⚠️ Texture Index {dominantIndex} NON configurato - usando Ground di default");
+    }
+    
+    return "Ground"; // Default
+}
     
     private void StopFootstepAudio()
     {
@@ -2294,16 +2493,33 @@ float v = processedInput.y;
         return;
     }
     
-    float targetAngle = Mathf.Atan2(inputVector.x, inputVector.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-    float smoothedAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationVelocity, rotationSmoothTime);
+      // ✅ CALCOLO ANGOLO TARGET BASATO SULLA CAMERA
+    // Questo garantisce che il movimento sia SEMPRE relativo alla camera
+    float cameraYaw = cameraTransform.eulerAngles.y;
+    float inputAngle = Mathf.Atan2(inputVector.x, inputVector.z) * Mathf.Rad2Deg;
+    float targetAngle = inputAngle + cameraYaw;
+    
+    // ✅ SMOOTH ROTATION verso l'angolo target
+    float smoothedAngle = Mathf.SmoothDampAngle(
+        transform.eulerAngles.y, 
+        targetAngle, 
+        ref rotationVelocity, 
+        rotationSmoothTime
+    );
     transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
 
+    // ✅ DIREZIONE MOVIMENTO = Quaternion basato sull'angolo target
     Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+    
+    // Proietta sul piano del terreno
     moveDirection = Vector3.ProjectOnPlane(moveDirection, GetGroundNormal());
+    moveDirection.Normalize();
 
+    // ✅ CALCOLO VELOCITÀ TARGET
     float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
     playerVelocity = moveDirection * targetSpeed;
 
+    // ✅ AGGIORNA ANIMATORE
     Vector3 totalVelocity = playerVelocity + attackVelocity;
     float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
     _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
