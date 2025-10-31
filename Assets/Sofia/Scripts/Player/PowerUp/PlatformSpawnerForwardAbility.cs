@@ -19,6 +19,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     [SerializeField] private Transform cameraTransform; // Make this assignable in inspector
 
     private GameObject currentGhost;
+    private GameObject currentPlatform; // AGGIUNTA: traccia la piattaforma attuale
     private bool       placing = false;
 
     private Vector3    lastForwardDirection;
@@ -121,30 +122,129 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             return;
         }
 
+        // MODIFICA: Distruggi la piattaforma precedente prima di crearne una nuova
+        DestroyCurrentPlatform();
+
         Destroy(currentGhost);
         currentGhost = null;
 
-        Instantiate(platformPrefab, targetPos, targetRotation);
+        // MODIFICA: Salva il riferimento alla nuova piattaforma
+        currentPlatform = Instantiate(platformPrefab, targetPos, targetRotation);
 
         powerUpScript.SpendPower(powerCost);
         Deactivate();
     }
 
     public override void TryActivate()
+{
+    Debug.Log("\n=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG START ===");
+    Debug.Log($"IsEnabled: {IsEnabled}");
+    Debug.Log($"GetDisableReason(): {GetDisableReason()}");
+    Debug.Log($"IsActive: {IsActive}");
+    Debug.Log($"powerUpScript null: {powerUpScript == null}");
+    if (powerUpScript != null)
+        Debug.Log($"HasEnoughPower({powerCost}): {powerUpScript.HasEnoughPower(powerCost)}");
+
+    // Prima controlla se l'abilità è abilitata a livello di sistema
+    if (!IsEnabled)
     {
-        if (IsActive)
+        string reason = GetDisableReason();
+        Debug.LogWarning($"[PlatformSpawnerForwardAbility] Abilità disabilitata: {reason}");
+
+        // SE L'ABILITÀ NON È PERMESSA NEL LIVELLO, NON FARE ASSOLUTAMENTE NIENTE
+        if (reason.Contains("non permessa in questo livello"))
         {
-            Deactivate();
+            Debug.Log("[PlatformSpawnerForwardAbility] Abilità non permessa nel livello - nessun feedback, nessuna UI");
+            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (silent exit) ===\n");
+            return; // Esce silenziosamente - NO suoni, NO UI, NO coroutines
         }
-        else if (CanActivate())
+        Debug.Log("[PlatformSpawnerForwardAbility] Altri tipi di disabilitazione - riproduce failure sound");
+
+        // Solo per altri tipi di disabilitazione (abilità disabilitata manualmente)
+        if (failureSound != null && audioSource != null)
         {
-            base.TryActivate(); // questo fa partire il suono di attivazione
+            audioSource.PlayOneShot(failureSound);
+            Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per abilità disabilitata");
         }
-        else
+
+        // UI pulse solo per disabilitazioni manuali, NON per restrizioni di livello
+        if (PlayerUI.Instance != null)
         {
-            Debug.Log("Impossibile attivare lo spawn piattaforma.");
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
         }
+
+        return;
     }
+
+    // Se è già attiva, disattiva (toggle behavior)
+    if (IsActive)
+    {
+        Debug.Log("[PlatformSpawnerForwardAbility] Già attiva - disattivazione");
+        Deactivate();
+        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (deactivated) ===\n");
+        return;
+    }
+
+    // Controlla energia
+    if (powerUpScript == null || !powerUpScript.HasEnoughPower(powerCost))
+    {
+        Debug.LogWarning("[PlatformSpawnerForwardAbility] Energia insufficiente o PowerUp script mancante");
+        
+        // Suona failure sound per energia insufficiente
+        if (failureSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(failureSound);
+            Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per energia insufficiente");
+        }
+        
+        if (PlayerUI.Instance != null)
+        {
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
+        }
+        
+        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no energy) ===\n");
+        return;
+    }
+
+    // Verifica se la camera è disponibile
+    if (cameraTransform == null)
+    {
+        Debug.LogWarning("[PlatformSpawnerForwardAbility] Camera non disponibile");
+        
+        if (failureSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(failureSound);
+        }
+        
+        if (PlayerUI.Instance != null)
+        {
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
+        }
+        
+        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no camera) ===\n");
+        return;
+    }
+
+    // Se arriviamo qui, tutto è OK - attiva l'abilità
+    Debug.Log("[PlatformSpawnerForwardAbility] Attivazione abilità");
+    
+    // Chiama Activate() direttamente (non base.TryActivate() per evitare doppio controllo)
+    Activate();
+    
+    // Suona activation sound
+    if (activationSound != null && audioSource != null)
+    {
+        audioSource.PlayOneShot(activationSound);
+        Debug.Log("[PlatformSpawnerForwardAbility] Audio di attivazione riprodotto");
+    }
+
+    if (PlayerUI.Instance != null)
+    {
+        PlayerUI.Instance.PulseIconAt(effectIconIndex);
+    }
+    
+    Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (activated) ===\n");
+}
 
     public override void Activate()
     {
@@ -184,6 +284,17 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         IsActive = false;
     }
 
+    // AGGIUNTA: Metodo per distruggere la piattaforma corrente
+    private void DestroyCurrentPlatform()
+    {
+        if (currentPlatform != null)
+        {
+            Debug.Log("[PlatformSpawnerForwardAbility] Distruggendo piattaforma precedente");
+            Destroy(currentPlatform);
+            currentPlatform = null;
+        }
+    }
+
     private Vector3 GetCameraForwardFlat()
     {
         if (cameraTransform == null) return transform.forward; // Fallback to object's forward
@@ -205,8 +316,19 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         return !Physics.CheckSphere(pos, checkRadius, obstacleMask);
     }
 
+    public override bool CanActivate()
+    {
+        bool baseCanActivate = base.CanActivate();
+        bool cameraAvailable = cameraTransform != null;
+        
+        return baseCanActivate && cameraAvailable;
+    }
+
     private void OnDestroy()
     {
+        // AGGIUNTA: Distruggi la piattaforma quando l'ability viene distrutta
+        DestroyCurrentPlatform();
+        
         if (controls != null)
         {
             controls.Disable();

@@ -50,6 +50,8 @@ private Vector3 lastCameraForward;
 
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
+    [Header("Distance Settings")]
+[SerializeField] private float minTeleportDistance = 3f; // Distanza minima per il teletrasporto
 
     protected override void Awake()
     {
@@ -57,10 +59,10 @@ private Vector3 lastCameraForward;
 
         teleportConfirmAudioSource = gameObject.AddComponent<AudioSource>();
         teleportConfirmAudioSource.playOnAwake = false;
-        
+
         teleportFailureAudioSource = gameObject.AddComponent<AudioSource>();
         teleportFailureAudioSource.playOnAwake = false;
-        
+
         if (teleportLayerMask == -1)
         {
             teleportLayerMask = LayerMask.GetMask("Teleport");
@@ -99,14 +101,26 @@ private Vector3 lastCameraForward;
         }
     }
 
-    public override bool CanActivate()
+    
+public override bool CanActivate()
+{
+    bool baseCanActivate = base.CanActivate();
+    bool notTeleporting = !isTeleporting;
+    bool hasValidTarget = TeleportBase.currentHoveredBase != null;
+    
+    // Nuovo controllo: verifica che non siamo già sopra la base target
+    bool notOnTargetBase = true;
+    if (TeleportBase.currentHoveredBase != null && controllerGameObject != null)
     {
-        bool baseCanActivate = base.CanActivate();
-        bool notTeleporting = !isTeleporting;
-        bool hasValidTarget = TeleportBase.currentHoveredBase != null;
-        
-        return baseCanActivate && notTeleporting && hasValidTarget;
+        float distanceToTarget = Vector3.Distance(
+            controllerGameObject.transform.position, 
+            TeleportBase.currentHoveredBase.transform.position
+        );
+        notOnTargetBase = distanceToTarget > minTeleportDistance;
     }
+    
+    return baseCanActivate && notTeleporting && hasValidTarget && notOnTargetBase;
+}
 
     public override void Activate()
     {
@@ -177,16 +191,27 @@ private Vector3 lastCameraForward;
     base.TryActivate();
 }
 
-    public new string GetDisableReason()
+  public new string GetDisableReason()
+{
+    string baseReason = base.GetDisableReason();
+    if (baseReason != "motivo sconosciuto") return baseReason;
+    
+    if (isTeleporting) return "teletrasporto in corso";
+    if (TeleportBase.currentHoveredBase == null) return "nessun bersaglio inquadrato";
+    
+    // Nuovo controllo distanza
+    if (TeleportBase.currentHoveredBase != null && controllerGameObject != null)
     {
-        string baseReason = base.GetDisableReason();
-        if (baseReason != "motivo sconosciuto") return baseReason;
-        
-        if (isTeleporting) return "teletrasporto in corso";
-        if (TeleportBase.currentHoveredBase == null) return "nessun bersaglio inquadrato";
-        
-        return "motivo sconosciuto";
+        float distanceToTarget = Vector3.Distance(
+            controllerGameObject.transform.position, 
+            TeleportBase.currentHoveredBase.transform.position
+        );
+        if (distanceToTarget <= minTeleportDistance)
+            return "già sopra la base di teletrasporto";
     }
+    
+    return "motivo sconosciuto";
+}
 
     private void CheckScreenCenterForTeleportBases()
     {

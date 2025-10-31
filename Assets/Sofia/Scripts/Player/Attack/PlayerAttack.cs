@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 public class PlayerAttack : MonoBehaviour
 {
@@ -42,22 +43,31 @@ public class PlayerAttack : MonoBehaviour
     private int attackId = 0;
     public int AttackId => attackId;
 
-    [Header("Attack Movement")]
-    [SerializeField] private float attackAdvanceDistance = 1f; // Distanza da percorrere durante l'attacco
-    [SerializeField] private AnimationCurve attackAdvanceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1); // Curva per il movimento
-    [SerializeField] private float attackAdvanceDuration = 0.4f; // Durata del movimento di avanzamento
+    // SISTEMA DI AUTO-TARGETING
+    [Header("Auto-Targeting System")]
+    [SerializeField] private bool enableAutoTargeting = true;
+    [SerializeField] private float targetDetectionRange = 5f; // Raggio di rilevamento nemici
+    [SerializeField] private float targetDetectionAngle = 120f; // Angolo di rilevamento (gradi)
+    [SerializeField] private LayerMask enemyLayerMask = 1 << 6; // Layer dei nemici (esempio: layer 6 per Enemy)
+    [SerializeField] private string[] enemyTags = {"Enemy", "EnemyHurtbox"}; // Tag dei nemici
+    [SerializeField] private float rotationSpeed = 720f; // Velocità di rotazione verso il target (gradi/sec)
+    [SerializeField] private bool instantRotation = false; // Rotazione istantanea vs smooth
+    [SerializeField] private bool debugTargeting = false; // Debug per visualizzare targeting
     
-    // Riferimenti per il movimento
-    private ThirdPersonController playerController;
-    private bool isAdvancing = false;
-    private float advanceTimer = 0f;
-    private Vector3 advanceDirection;
-    private Vector3 startPosition;
+    // Variabili per il targeting
+    private Transform currentTarget;
+    private bool isRotatingToTarget = false;
+    private Quaternion targetRotation;
+    private float rotationTimer = 0f;
+    private const float MAX_ROTATION_TIME = 0.2f; // Tempo massimo per completare rotazione
 
-    // NUOVO: Riferimento al TeleportAbility per disabilitare l'attacco durante il teletrasporto
+    // RIFERIMENTO AL TELEPORT ABILITY
     [Header("Teleport Integration")]
     [Tooltip("Riferimento al TeleportAbility per disabilitare l'attacco durante il teletrasporto")]
     public TeleportAbility teleportAbility;
+
+    // Cache per ottimizzazione
+    private Collider[] enemyColliders = new Collider[20]; // Cache per evitare allocazioni
 
     private void Awake()
     {
@@ -77,18 +87,16 @@ public class PlayerAttack : MonoBehaviour
 
     private void Start()
     {
-        // NUOVO: Registra il tempo di avvio della scena per la protezione iniziale
+        // Registra il tempo di avvio della scena per la protezione iniziale
         sceneStartTime = Time.time;
         
         animator = GetComponentInChildren<Animator>();
-        playerController = GetComponent<ThirdPersonController>();
         attackInput = false;
         isAttacking = false;
         attackTimer = 0f;
         hitConfirmedThisSwing = false;
         
-        
-        // NUOVO: Auto-trova TeleportAbility se non assegnato
+        // Auto-trova TeleportAbility se non assegnato
         if (teleportAbility == null)
         {
             teleportAbility = GetComponent<TeleportAbility>();
@@ -127,16 +135,20 @@ public class PlayerAttack : MonoBehaviour
             punchImpactAudioSource.playOnAwake = false;
         }
 
-        // Crea una curva di default se non è stata impostata
-        if (attackAdvanceCurve == null || attackAdvanceCurve.keys.Length == 0)
+        // Valida la configurazione del targeting
+        ValidateTargetingSettings();
+        
+        // Debug iniziale della configurazione
+        if (enableAutoTargeting && debugTargeting)
         {
-            attackAdvanceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+            Debug.Log($"[PlayerAttack] Auto-targeting configurato - Range: {targetDetectionRange}, Angle: {targetDetectionAngle}, LayerMask: {enemyLayerMask.value}");
+            Debug.Log($"[PlayerAttack] Enemy tags: [{string.Join(", ", enemyTags)}]");
         }
     }
 
     private void Update()
     {
-        // NUOVO: Protezione iniziale contro input fantasma durante il caricamento della scena
+        // Protezione iniziale contro input fantasma durante il caricamento della scena
         if (Time.time < sceneStartTime + INITIAL_PROTECTION_TIME)
         {
             attackInput = false; // Reset eventuali input bufferizzati
@@ -152,7 +164,7 @@ public class PlayerAttack : MonoBehaviour
         if (Time.timeScale == 0f)
             return;
 
-        // NUOVO: Controlla se il teletrasporto è attivo e blocca l'attacco
+        // Controlla se il teletrasporto è attivo e blocca l'attacco
         if (teleportAbility != null && teleportAbility.IsActive)
         {
             // Resetta l'input di attacco per evitare attacchi in coda
@@ -167,6 +179,9 @@ public class PlayerAttack : MonoBehaviour
             return; // Esce dall'Update senza processare attacchi
         }
 
+        // Gestisci la rotazione verso il target (solo dopo aver premuto attacco)
+        HandleTargetRotation();
+
         if (attackInput)
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -177,9 +192,15 @@ public class PlayerAttack : MonoBehaviour
 
             if (Time.time >= lastAttackTime + attackCooldown)
             {
+                // Trova e orienta verso il nemico più vicino SOLO quando si attacca
+                if (enableAutoTargeting)
+                {
+                    FindAndTargetNearestEnemy();
+                }
+
                 animator.SetTrigger("Attack");
 
-                // NUOVO: Controllo per evitare errore coroutine con oggetti inattivi
+                // Controllo per evitare errore coroutine con oggetti inattivi
                 if (currentEffectIcon != null && 
                     currentEffectIcon.gameObject.activeInHierarchy && 
                     currentEffectIcon.enabled)
@@ -194,9 +215,6 @@ public class PlayerAttack : MonoBehaviour
                 // Reset completo per nuovo attacco
                 attackId++;
                 hitConfirmedThisSwing = false;
-
-                // Inizia il movimento di avanzamento
-                StartAttackAdvance();
             }
             attackInput = false;
         }
@@ -209,19 +227,246 @@ public class PlayerAttack : MonoBehaviour
                 isAttacking = false;
             }
         }
-
-        // Gestisci il movimento di avanzamento
-        HandleAttackAdvance();
     }
 
-    // NUOVO: Metodo per fermare l'attacco in corso
+    // SISTEMA DI AUTO-TARGETING
+    private void FindAndTargetNearestEnemy()
+    {
+        if (debugTargeting)
+            Debug.Log("[PlayerAttack] Cercando nemico più vicino...");
+        
+        Transform nearestEnemy = FindNearestEnemyInRange();
+        
+        if (nearestEnemy != null)
+        {
+            currentTarget = nearestEnemy;
+            
+            // Calcola la direzione verso il nemico
+            Vector3 directionToEnemy = (nearestEnemy.position - transform.position).normalized;
+            directionToEnemy.y = 0f; // Mantieni solo la rotazione orizzontale
+            
+            // Calcola la rotazione target
+            targetRotation = Quaternion.LookRotation(directionToEnemy);
+            
+            if (debugTargeting)
+            {
+                Debug.Log($"[PlayerAttack] Target trovato: {nearestEnemy.name}");
+                Debug.Log($"[PlayerAttack] Rotazione corrente: {transform.rotation.eulerAngles}");
+                Debug.Log($"[PlayerAttack] Rotazione target: {targetRotation.eulerAngles}");
+                Debug.Log($"[PlayerAttack] Instant rotation: {instantRotation}");
+            }
+            
+            if (instantRotation)
+            {
+                // Rotazione istantanea
+                transform.rotation = targetRotation;
+                isRotatingToTarget = false;
+                
+                if (debugTargeting)
+                    Debug.Log($"[PlayerAttack] Rotazione istantanea applicata verso: {nearestEnemy.name}");
+            }
+            else
+            {
+                // Rotazione smooth
+                isRotatingToTarget = true;
+                rotationTimer = 0f;
+                
+                if (debugTargeting)
+                    Debug.Log($"[PlayerAttack] Iniziando rotazione smooth verso: {nearestEnemy.name}");
+            }
+        }
+        else if (debugTargeting)
+        {
+            Debug.Log("[PlayerAttack] Nessun nemico trovato nel raggio di targeting");
+        }
+    }
+
+    private Transform FindNearestEnemyInRange()
+    {
+        Vector3 playerPosition = transform.position;
+        Vector3 playerForward = transform.forward;
+        
+        if (debugTargeting)
+        {
+            Debug.Log($"[PlayerAttack] Scansionando da posizione: {playerPosition}");
+            Debug.Log($"[PlayerAttack] LayerMask: {enemyLayerMask.value}, Range: {targetDetectionRange}");
+        }
+        
+        // Usa OverlapSphere per trovare tutti i collider nemici nel raggio
+        int hitCount = Physics.OverlapSphereNonAlloc(
+            playerPosition, 
+            targetDetectionRange, 
+            enemyColliders, 
+            enemyLayerMask
+        );
+        
+        if (debugTargeting)
+            Debug.Log($"[PlayerAttack] Trovati {hitCount} collider nel raggio");
+        
+        Transform nearestEnemy = null;
+        float nearestDistance = float.MaxValue;
+        
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider enemyCollider = enemyColliders[i];
+            
+            if (debugTargeting)
+                Debug.Log($"[PlayerAttack] Controllando collider {i}: {enemyCollider.name}, Tag: {enemyCollider.tag}");
+            
+            // Verifica se ha un tag nemico
+            if (!HasEnemyTag(enemyCollider.tag))
+            {
+                if (debugTargeting)
+                    Debug.Log($"[PlayerAttack] Tag '{enemyCollider.tag}' non è un tag nemico, saltando");
+                continue;
+            }
+            
+            Vector3 enemyPosition = enemyCollider.transform.position;
+            Vector3 directionToEnemy = (enemyPosition - playerPosition).normalized;
+            
+            // Verifica se il nemico è nell'angolo di rilevamento
+            float angleToEnemy = Vector3.Angle(playerForward, directionToEnemy);
+            if (angleToEnemy > targetDetectionAngle * 0.5f)
+            {
+                if (debugTargeting)
+                    Debug.Log($"[PlayerAttack] Nemico {enemyCollider.name} fuori dall'angolo: {angleToEnemy:F1}° > {targetDetectionAngle * 0.5f:F1}°");
+                continue;
+            }
+            
+            // Calcola la distanza
+            float distance = Vector3.Distance(playerPosition, enemyPosition);
+            
+            if (debugTargeting)
+                Debug.Log($"[PlayerAttack] Nemico {enemyCollider.name} valido - distanza: {distance:F2}, angolo: {angleToEnemy:F1}°");
+            
+            // Controlla se è il più vicino finora
+            if (distance < nearestDistance)
+            {
+                // Opzionale: Raycast per verificare che non ci siano ostacoli
+                if (HasClearLineOfSight(playerPosition, enemyPosition))
+                {
+                    nearestDistance = distance;
+                    nearestEnemy = enemyCollider.transform;
+                    
+                    if (debugTargeting)
+                        Debug.Log($"[PlayerAttack] Nuovo nemico più vicino: {nearestEnemy.name} a distanza {nearestDistance:F2}");
+                }
+                else if (debugTargeting)
+                {
+                    Debug.Log($"[PlayerAttack] Nemico {enemyCollider.name} bloccato da ostacoli");
+                }
+            }
+        }
+        
+        if (debugTargeting)
+        {
+            if (nearestEnemy != null)
+                Debug.Log($"[PlayerAttack] Nemico finale selezionato: {nearestEnemy.name} a distanza {nearestDistance:F2}");
+            else
+                Debug.Log("[PlayerAttack] Nessun nemico valido trovato dopo tutti i controlli");
+        }
+        
+        return nearestEnemy;
+    }
+
+    private bool HasEnemyTag(string tag)
+    {
+        for (int i = 0; i < enemyTags.Length; i++)
+        {
+            if (tag == enemyTags[i])
+                return true;
+        }
+        return false;
+    }
+
+    private bool HasClearLineOfSight(Vector3 from, Vector3 to)
+    {
+        // Raggio verso il nemico per verificare ostacoli
+        Vector3 direction = to - from;
+        float distance = direction.magnitude;
+        
+        // Usa un layer mask che escluda i nemici e il player per rilevare solo ostacoli
+        LayerMask obstacleLayerMask = ~(enemyLayerMask | LayerMask.GetMask("Player"));
+        
+        return !Physics.Raycast(from + Vector3.up * 0.5f, direction.normalized, distance - 0.5f, obstacleLayerMask);
+    }
+
+    private void HandleTargetRotation()
+    {
+        if (!isRotatingToTarget) return;
+        
+        rotationTimer += Time.deltaTime;
+        
+        // Calcola il progresso della rotazione
+        float rotationProgress;
+        
+        if (rotationSpeed > 0)
+        {
+            // Basato sulla velocità di rotazione
+            float maxRotationThisFrame = rotationSpeed * Time.deltaTime;
+            float currentAngleDifference = Quaternion.Angle(transform.rotation, targetRotation);
+            
+            if (currentAngleDifference <= maxRotationThisFrame || rotationTimer >= MAX_ROTATION_TIME)
+            {
+                // Completata la rotazione
+                transform.rotation = targetRotation;
+                isRotatingToTarget = false;
+                
+                if (debugTargeting)
+                    Debug.Log("[PlayerAttack] Rotazione verso target completata");
+                
+                return;
+            }
+            
+            rotationProgress = maxRotationThisFrame / currentAngleDifference;
+        }
+        else
+        {
+            // Fallback basato su tempo
+            rotationProgress = rotationTimer / MAX_ROTATION_TIME;
+            
+            if (rotationProgress >= 1f)
+            {
+                transform.rotation = targetRotation;
+                isRotatingToTarget = false;
+                return;
+            }
+        }
+        
+        // Applica la rotazione smooth
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationProgress);
+    }
+
+    private void ValidateTargetingSettings()
+    {
+        if (enableAutoTargeting)
+        {
+            if (enemyTags.Length == 0)
+            {
+                Debug.LogWarning("[PlayerAttack] Auto-targeting abilitato ma nessun enemyTag specificato!");
+            }
+            
+            if (targetDetectionRange <= 0f)
+            {
+                Debug.LogWarning("[PlayerAttack] targetDetectionRange deve essere maggiore di 0!");
+                targetDetectionRange = 5f;
+            }
+            
+            if (targetDetectionAngle <= 0f || targetDetectionAngle > 360f)
+            {
+                Debug.LogWarning("[PlayerAttack] targetDetectionAngle deve essere tra 0 e 360 gradi!");
+                targetDetectionAngle = 120f;
+            }
+        }
+    }
+
+    // Metodo per fermare l'attacco in corso
     private void StopCurrentAttack()
     {
         isAttacking = false;
         attackTimer = 0f;
-        
-        // Ferma l'avanzamento
-        StopAttackAdvance();
+        isRotatingToTarget = false;
+        currentTarget = null;
         
         // Ferma effetti audio e visivi
         if (punchEffect != null && punchEffect.isPlaying)
@@ -239,64 +484,6 @@ public class PlayerAttack : MonoBehaviour
         Debug.Log("Attacco fermato a causa del teletrasporto attivo");
     }
 
-    private void StartAttackAdvance()
-    {
-        if (playerController == null) return;
-
-        // NUOVO: Controlla di nuovo se il teletrasporto è attivo prima di iniziare l'avanzamento
-        if (teleportAbility != null && teleportAbility.IsActive)
-        {
-            Debug.Log("Avanzamento attacco annullato: teletrasporto attivo");
-            return;
-        }
-
-        // Calcola la direzione di avanzamento basata sulla rotazione del player
-        advanceDirection = transform.forward;
-        startPosition = transform.position;
-        
-        isAdvancing = true;
-        advanceTimer = 0f;
-
-        Debug.Log($"Iniziato avanzamento attacco: direzione {advanceDirection}, distanza {attackAdvanceDistance}");
-    }
-
-    private void HandleAttackAdvance()
-    {
-        if (!isAdvancing || playerController == null) return;
-
-        // NUOVO: Controlla se il teletrasporto è diventato attivo durante l'avanzamento
-        if (teleportAbility != null && teleportAbility.IsActive)
-        {
-            StopAttackAdvance();
-            return;
-        }
-
-        advanceTimer += Time.deltaTime;
-        float normalizedTime = Mathf.Clamp01(advanceTimer / attackAdvanceDuration);
-
-        if (normalizedTime >= 1f)
-        {
-            // Movimento completato
-            isAdvancing = false;
-            return;
-        }
-
-        // Calcola la velocità di avanzamento basata sulla curva
-        float curveValue = attackAdvanceCurve.Evaluate(normalizedTime);
-        float nextCurveValue = attackAdvanceCurve.Evaluate(Mathf.Clamp01((advanceTimer + Time.deltaTime) / attackAdvanceDuration));
-        float speedMultiplier = (nextCurveValue - curveValue) / Time.deltaTime;
-        
-        // Calcola la velocità di avanzamento per questo frame
-        Vector3 advanceVelocity = advanceDirection * (attackAdvanceDistance * speedMultiplier);
-        
-        // Applica direttamente la velocità di avanzamento al player
-        // Manteniamo solo la componente orizzontale per non interferire con gravità/salti
-        advanceVelocity.y = 0f;
-        
-        // Aggiungi la velocità di avanzamento alla playerVelocity esistente
-        playerController.AddAttackVelocity(advanceVelocity);
-    }
-
     public void IgnoreNextClick()
     {
         ignoreFrames = 5;
@@ -305,7 +492,7 @@ public class PlayerAttack : MonoBehaviour
     // ANIMATION EVENT - Chiamato dall'animazione per attivare l'effetto generale del pugno
     public void EnablePunchEffect()
     {
-        // NUOVO: Controlla se il teletrasporto è attivo
+        // Controlla se il teletrasporto è attivo
         if (teleportAbility != null && teleportAbility.IsActive)
         {
             Debug.Log("EnablePunchEffect ignorato: teletrasporto attivo");
@@ -346,7 +533,7 @@ public class PlayerAttack : MonoBehaviour
     // COLLISION DETECTION - Chiamato quando il pugno colpisce effettivamente un nemico
     public void RegisterSuccessfulHit()
     {
-        // NUOVO: Controlla se il teletrasporto è attivo
+        // Controlla se il teletrasporto è attivo
         if (teleportAbility != null && teleportAbility.IsActive)
         {
             Debug.Log("RegisterSuccessfulHit ignorato: teletrasporto attivo");
@@ -393,29 +580,41 @@ public class PlayerAttack : MonoBehaviour
         }
     }
 
-    // Metodo pubblico per fermare manualmente l'avanzamento (se necessario)
-    public void StopAttackAdvance()
+    // METODI PUBBLICI PER CONTROLLO TARGETING
+    public bool IsAutoTargetingEnabled()
     {
-        isAdvancing = false;
-        advanceTimer = 0f;
-        Debug.Log("Avanzamento attacco fermato");
+        return enableAutoTargeting;
     }
 
-    // NUOVO: Metodo pubblico per controllare se il teletrasporto è attivo
+    public void SetAutoTargeting(bool enabled)
+    {
+        enableAutoTargeting = enabled;
+        if (!enabled)
+        {
+            isRotatingToTarget = false;
+            currentTarget = null;
+        }
+    }
+
+    public void SetTargetDetectionRange(float range)
+    {
+        targetDetectionRange = Mathf.Max(0f, range);
+    }
+
+    public void SetTargetDetectionAngle(float angle)
+    {
+        targetDetectionAngle = Mathf.Clamp(angle, 0f, 360f);
+    }
+
+    public Transform GetCurrentTarget()
+    {
+        return currentTarget;
+    }
+
+    // Metodo pubblico per controllare se il teletrasporto è attivo
     public bool IsTeleportActive()
     {
         return teleportAbility != null && teleportAbility.IsActive;
-    }
-
-    // Metodi per impostare i parametri dell'avanzamento da altri script se necessario
-    public void SetAttackAdvanceDistance(float distance)
-    {
-        attackAdvanceDistance = distance;
-    }
-
-    public void SetAttackAdvanceDuration(float duration)
-    {
-        attackAdvanceDuration = duration;
     }
 
     // Metodi aggiuntivi per controllo audio (opzionali)
@@ -431,11 +630,32 @@ public class PlayerAttack : MonoBehaviour
             punchImpactAudioSource.volume = volume;
     }
 
-    // NUOVO: Metodo helper per controllare se un UIEffectHandler è utilizzabile
-    private bool IsUIEffectHandlerUsable(UIEffectHandler handler)
+    // Debug Gizmos per visualizzare il targeting
+    private void OnDrawGizmosSelected()
     {
-        return handler != null && 
-               handler.gameObject.activeInHierarchy && 
-               handler.enabled;
+        if (!enableAutoTargeting) return;
+
+        // Disegna il raggio di rilevamento
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, targetDetectionRange);
+
+        // Disegna l'angolo di rilevamento
+        Vector3 forward = transform.forward;
+        float halfAngle = targetDetectionAngle * 0.5f;
+        
+        Vector3 leftBoundary = Quaternion.AngleAxis(-halfAngle, Vector3.up) * forward * targetDetectionRange;
+        Vector3 rightBoundary = Quaternion.AngleAxis(halfAngle, Vector3.up) * forward * targetDetectionRange;
+        
+        Gizmos.color = Color.green;
+        Gizmos.DrawLine(transform.position, transform.position + leftBoundary);
+        Gizmos.DrawLine(transform.position, transform.position + rightBoundary);
+
+        // Disegna una linea verso il target corrente
+        if (currentTarget != null)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(transform.position, currentTarget.position);
+            Gizmos.DrawWireSphere(currentTarget.position, 0.5f);
+        }
     }
 }

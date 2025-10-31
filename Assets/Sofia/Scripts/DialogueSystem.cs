@@ -1022,6 +1022,12 @@ void ExecutePostDialogueEventImmediate(LineEvent postEvent)
         {
             DialogueLine currentLine = dialogueLines[currentLineIndex];
             string lineToShow = currentLine.text;
+             
+        // CORREZIONE: Triggera OnDialogueStart solo per la prima linea
+        if (currentLineIndex == 0 && enableLineEvents)
+        {
+            TriggerLineEvents(0, LineEventTiming.OnDialogueStart);
+        }
             
             // Controlla se siamo sull'ultima battuta
             isOnLastLine = (currentLineIndex == dialogueLines.Length - 1);
@@ -1244,10 +1250,7 @@ void ExecutePostDialogueEventImmediate(LineEvent postEvent)
         isOnLastLine = false;
         
         // 🆕 NUOVO: Ferma tutte le coroutine eventi linea
-        if (enableLineEvents)
-        {
-            StopAllLineEventCoroutines();
-        }
+       
         
         // Ferma l'audio se in riproduzione
         if (audioSource != null && audioSource.isPlaying)
@@ -1266,7 +1269,12 @@ void ExecutePostDialogueEventImmediate(LineEvent postEvent)
             
             UnlockPlayerMovement();
         }
-        
+       
+            if (enableLineEvents)
+    {
+        // Usa indice speciale -1 per eventi di fine dialogo
+        TriggerLineEvents(-1, LineEventTiming.OnDialogueEnd);
+    }
         // Nascondi l'UI del dialogo
         if (dialogueUI != null)
             dialogueUI.SetActive(false);
@@ -1366,38 +1374,31 @@ void TriggerLineEvents(int lineIndex, LineEventTiming timing)
     bool eventsExecuted = false;
     
     // 1. Controlla eventi specifici nella DialogueLine corrente
-    if (prioritizeDialogueLineEvents && lineIndex >= 0 && lineIndex < dialogueLines.Length)
+    if (lineIndex >= 0 && lineIndex < dialogueLines.Length)
     {
         DialogueLine currentLine = dialogueLines[lineIndex];
         if (currentLine.hasLineEvents && currentLine.lineEvents != null && currentLine.lineEvents.Length > 0)
         {
-            bool foundMatchingEvents = false;
-            
             foreach (LineEvent lineEvent in currentLine.lineEvents)
             {
                 if (lineEvent != null && lineEvent.timing == timing)
                 {
                     ExecuteLineEvent(lineEvent, lineIndex, "DialogueLine");
-                    foundMatchingEvents = true;
                     eventsExecuted = true;
                 }
             }
             
-            // Se abbiamo trovato eventi con timing corrispondente E la priorità è attiva, skippa gli eventi globali
-            if (foundMatchingEvents)
+            // CORREZIONE: Se abbiamo priorità E abbiamo eseguito eventi, skippa globali
+            if (prioritizeDialogueLineEvents && eventsExecuted)
             {
-                Debug.Log($"[DialogueSystem] ✅ Trovati eventi DialogueLine per timing {timing} - skip eventi globali");
+                Debug.Log($"[DialogueSystem] ✅ Eventi DialogueLine eseguiti con priorità - skip eventi globali");
                 OnAnyLineEvent?.Invoke(this, lineIndex, timing);
                 return;
-            }
-            else
-            {
-                Debug.Log($"[DialogueSystem] ⚠️ DialogueLine ha eventi ma nessuno per timing {timing} - controllo eventi globali");
             }
         }
     }
     
-    // 2. Controlla eventi globali per questa linea (solo se non abbiamo eseguito eventi specifici o priorità disabilitata)
+    // 2. Controlla eventi globali (solo se non abbiamo priorità o non abbiamo eseguito eventi specifici)
     if (globalLineEvents != null && globalLineEvents.Length > 0)
     {
         foreach (LineEvent lineEvent in globalLineEvents)
@@ -1410,13 +1411,11 @@ void TriggerLineEvents(int lineIndex, LineEventTiming timing)
         }
     }
     
-    // 3. Log se non sono stati trovati eventi
     if (!eventsExecuted)
     {
         Debug.Log($"[DialogueSystem] ℹ️ Nessun evento trovato per linea {lineIndex}, timing {timing}");
     }
     
-    // 4. Notifica eventi statici
     OnAnyLineEvent?.Invoke(this, lineIndex, timing);
 }
      // ========== NUOVI GETTERS/SETTERS PER EVENTI LINEA ==========
@@ -1612,13 +1611,7 @@ void TriggerLineEvents(int lineIndex, LineEventTiming timing)
         activeLineEventCoroutines.Clear();
         Debug.Log("[DialogueSystem] 🛑 Tutte le coroutine eventi linea fermate");
     }
-    /// <summary>
-    /// 🆕 Valida il setup degli eventi linea all'avvio
-    /// </summary>
     
-/// <summary>
-/// 🆕 Valida il setup degli eventi linea all'avvio
-/// </summary>
 void ValidateLineEventsSetup()
 {
     if (!enableLineEvents && !enablePreDialogueEvents && !enablePostDialogueEvents)
@@ -1630,8 +1623,8 @@ void ValidateLineEventsSetup()
     int totalEvents = 0;
     int dialogueLineEvents = 0;
     int globalEvents = 0;
-    int preDialogueEventsCount = 0;  // 🔧 FIX: Dichiarazione locale
-    int postDialogueEventsCount = 0; // 🔧 FIX: Dichiarazione locale
+    int preDialogueEventsCount = 0;   // ✅ Dichiarata UNA SOLA VOLTA qui
+    int postDialogueEventsCount = 0;  // ✅ Dichiarata UNA SOLA VOLTA qui
 
     // Controlla eventi nelle DialogueLine
     for (int i = 0; i < dialogueLines.Length; i++)
@@ -1673,12 +1666,11 @@ void ValidateLineEventsSetup()
          $"- Eventi globali: {globalEvents}\n" +
          $"- Priorità DialogueLine: {prioritizeDialogueLineEvents}");
 
-// Fix: controlla specificamente se line events sono abilitati ma vuoti
-if (enableLineEvents && (dialogueLineEvents + globalEvents) == 0)
-{
-    Debug.LogWarning("[DialogueSystem] ⚠️ Sistema Eventi Linea abilitato ma nessun evento linea configurato!");
-
-            Debug.LogWarning("[DialogueSystem] ⚠️ Sistema Eventi Linea abilitato ma nessun evento configurato!");
+    // ✅ CORREZIONE: Check eventi linea vuoti (un solo warning)
+    if (enableLineEvents && (dialogueLineEvents + globalEvents) == 0)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Sistema Eventi Linea abilitato ma nessun evento configurato!");
+        // ❌ ELIMINATA la riga duplicata del warning
     }
     
     // Valida eventi pre-dialogo
@@ -1686,7 +1678,7 @@ if (enableLineEvents && (dialogueLineEvents + globalEvents) == 0)
     {
         if (preDialogueEvents != null && preDialogueEvents.Length > 0)
         {
-            preDialogueEventsCount = preDialogueEvents.Length;
+            preDialogueEventsCount = preDialogueEvents.Length; // ✅ USA la variabile già dichiarata
             totalEvents += preDialogueEventsCount;
             
             foreach (LineEvent preEvent in preDialogueEvents)
@@ -1708,7 +1700,7 @@ if (enableLineEvents && (dialogueLineEvents + globalEvents) == 0)
     {
         if (postDialogueEvents != null && postDialogueEvents.Length > 0)
         {
-            postDialogueEventsCount = postDialogueEvents.Length;
+            postDialogueEventsCount = postDialogueEvents.Length; // ✅ USA la variabile già dichiarata
             totalEvents += postDialogueEventsCount;
             
             foreach (LineEvent postEvent in postDialogueEvents)
