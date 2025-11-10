@@ -13,7 +13,9 @@ public class TeleportBase : MonoBehaviour
     [Header("Particle System Hover")]
     [SerializeField] private new ParticleSystem particleSystem;
     [SerializeField] private Color hoverColor = Color.white;
-    
+    [Header("Teleport Connection")]
+[Tooltip("La base gemella a cui teletrasportarsi quando si è sopra questa base")]
+public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezionale
     private Color originalStartColor;
     private bool isHovering = false;
     
@@ -209,7 +211,7 @@ public class TeleportBase : MonoBehaviour
             originalStartColor = main.startColor.color;
         }
     }
-    
+
     /// <summary>
     /// Imposta il colore hover personalizzato
     /// </summary>
@@ -217,4 +219,19 @@ public class TeleportBase : MonoBehaviour
     {
         hoverColor = color;
     }
+    private void OnTriggerEnter(Collider other)
+{
+    if (other.CompareTag("Player"))
+    {
+        OnCursorEnter();
+    }
+}
+
+private void OnTriggerExit(Collider other)
+{
+    if (other.CompareTag("Player"))
+    {
+        OnCursorExit();
+    }
+}
 }

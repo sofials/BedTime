@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class GlobalEffectsManager : MonoBehaviour
 {
@@ -18,25 +19,40 @@ public class GlobalEffectsManager : MonoBehaviour
     
     private bool effectsStopped = false;
     private bool effectsStarted = false;
-
     void Start()
     {
+        // IMPORTANTE: Disiscriviti prima di iscriverti per evitare duplicati
+        Npc_village.OnFirstSlowdownUsed -= OnFirstSlowdownTriggered;
+
+        // Reset stato interno a ogni scena
+        effectsStopped = false;
+        effectsStarted = false;
+
         // Iscriviti all'evento del primo slowdown
         Npc_village.OnFirstSlowdownUsed += OnFirstSlowdownTriggered;
-        
-        // Avvia automaticamente gli effetti se richiesto
-        if (autoStartEffects)
+
+        // NUOVO: Controlla se il slowdown è già stato usato
+        if (Npc_village.HasFirstSlowdownBeenUsed())
         {
-            // Piccolo delay per assicurarsi che tutto sia inizializzato
+            if (debugMode)
+                Debug.Log("GlobalEffectsManager: Slowdown già usato in precedenza, fermo subito gli effetti");
+            StopGlobalEffects();
+        }
+        else if (autoStartEffects)
+        {
             Invoke(nameof(StartAllEffects), 0.1f);
         }
-        
+
         if (debugMode)
         {
             Debug.Log($"GlobalEffectsManager: Inizializzato - {globalCFXREffects.Count} effetti CFXR, {globalAudioSources.Count} audio. Auto-start: {autoStartEffects}");
         }
     }
-
+void Awake()
+{
+    // Pulisci eventuali iscrizioni precedenti all'avvio
+    Npc_village.OnFirstSlowdownUsed -= OnFirstSlowdownTriggered;
+}
     void OnDestroy()
     {
         // Disiscriviti dall'evento per evitare memory leaks
@@ -67,7 +83,7 @@ public class GlobalEffectsManager : MonoBehaviour
 
         effectsStarted = true;
         effectsStopped = false; // Reset del flag di stop
-        
+
         if (debugMode)
         {
             Debug.Log("GlobalEffectsManager: Avvio tutti gli effetti...");
@@ -114,7 +130,56 @@ public class GlobalEffectsManager : MonoBehaviour
             Debug.Log($"GlobalEffectsManager: ✓ AVVIATI {cfxrStarted} effetti CFXR e {audioStarted} audio sources.");
         }
     }
+void OnEnable()
+{
+    // Ascolta i cambi scena
+    SceneManager.sceneUnloaded += OnSceneUnloaded;
+    SceneManager.sceneLoaded += OnSceneLoaded;
+    
+    // NUOVO: Ricontrolla lo stato quando l'oggetto viene riabilitato
+    if (Npc_village.HasFirstSlowdownBeenUsed() && !effectsStopped)
+    {
+        StopGlobalEffects();
+    }
+}
+    private void OnDisable()
+    {
+        // Rimuovi i listener per sicurezza
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+/// <summary>
+/// Quando una scena viene scaricata, ferma gli effetti globali
+/// </summary>
+private void OnSceneUnloaded(Scene scene)
+{
+    if (debugMode)
+        Debug.Log($"GlobalEffectsManager: Scena '{scene.name}' scaricata. Fermiamo effetti globali.");
+    
+    StopGlobalEffects();
+}
 
+
+/// <summary>
+/// Quando una nuova scena viene caricata, resetta lo stato (e opzionalmente riavvia gli effetti)
+/// </summary>
+private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+{
+    if (debugMode)
+        Debug.Log($"GlobalEffectsManager: Nuova scena caricata: '{scene.name}'. Resetto stato interno.");
+
+    effectsStopped = false;
+    effectsStarted = false;
+
+    // CRITICO: Resetta il flag statico del slowdown quando la scena viene ricaricata
+    Npc_village.ResetSlowdownSystem();
+    
+    if (debugMode)
+        Debug.Log("GlobalEffectsManager: Sistema slowdown resettato per il reload della scena.");
+
+    if (autoStartEffects)
+        Invoke(nameof(StartAllEffects), 0.1f);
+}
     /// <summary>
     /// Ferma tutti gli effetti globali quando viene usato il primo slowdown
     /// </summary>

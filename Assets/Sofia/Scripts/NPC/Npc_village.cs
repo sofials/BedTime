@@ -1310,7 +1310,13 @@ public GameObject FBXSostituto => fbxSostituto;
             if (debugMode) Debug.Log($"NPC {gameObject.name}: Rimosso dalla lista al destroy");
         }
     }
-
+/// <summary>
+/// Verifica se il slowdown è già stato usato (utile per controlli esterni)
+/// </summary>
+public static bool HasFirstSlowdownBeenUsed()
+{
+    return slowdownAlreadyUsed;
+}
     public void RestartMovement()
 {
     if (debugMode) Debug.Log($"NPC {gameObject.name}: Riavvio movimento");

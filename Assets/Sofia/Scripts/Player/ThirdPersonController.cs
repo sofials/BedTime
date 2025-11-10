@@ -1028,39 +1028,20 @@ public void PlayHitSound()
     // ✅ UPDATE OTTIMIZZATO CON GESTIONE CAMERA DINAMICA
     private void Update()
     {
-        // 0. ✅ AGGIORNA CAMERA ATTIVA (se auto-detect è abilitato)
+        // SOLO INPUT E ANIMAZIONI qui
         UpdateActiveCamera();
         UpdateCurrentCameraSettings();
-        
-        // 1. RILEVAMENTO E AGGIORNAMENTO PIATTAFORME
-        DetectAndUpdatePlatform();
-        
-        // 2. Gestisci input e logica
-        UpdateJumpTimers();
-        HandleJumpInput();
-        HandleLedgeGrab();
-        HandleJump();
-        HandleAttackVelocity();
         HandleFootstepAudio();
-        
-        // 3. Calcola movimento del player
-        HandleMovement();
-        
-        // 4. ✅ APPLICA TUTTO IL MOVIMENTO INSIEME
-        ApplyAllMovement();
-        
-        // 5. Decay dei push esterni
-        externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.deltaTime * pushRecoverySpeed);
-        
-        // 6. Update stati finali
-        UpdateGroundedStateForPlatforms();
-        CheckAndFixStuckJumpAnimation();
-    
-        HandleFalling();
-        CheckForLedgeRelease(); 
-        HandleAirControl();
         HandleSprintFX();
+        CheckAndFixStuckJumpAnimation();
+
+        // Salva l'input per usarlo in FixedUpdate
+        cachedMoveInput = moveInput;
+        cachedJumpInput = jumpInput;
     }
+
+private Vector2 cachedMoveInput;
+private bool cachedJumpInput;
     private void CheckAndFixStuckJumpAnimation()
     {
         bool isJumpAnimActive = _animator.GetBool(JumpHash) || _animator.GetBool(DoubleJumpHash);
@@ -1913,9 +1894,9 @@ private void ApplyAllMovement()
     
     // 2. Movimento player (invariato)
     Vector3 playerMovement = Vector3.zero;
-    playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.deltaTime;
-    playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.deltaTime;
-    playerMovement.y = velocity.y * Time.deltaTime;
+    playerMovement.x = (playerVelocity.x + externalPush.x + attackVelocity.x) * Time.fixedDeltaTime;
+    playerMovement.z = (playerVelocity.z + externalPush.z + attackVelocity.z) * Time.fixedDeltaTime;
+    playerMovement.y = velocity.y * Time.fixedDeltaTime;
     
     totalMovement += playerMovement;
     
@@ -2360,10 +2341,9 @@ private string GetDominantTerrainTextureType(Terrain terrain, Vector3 worldPosit
 
 private void UpdateJumpTimers()
 {
-    // Usa Time.fixedDeltaTime per consistenza cross-platform
+    // ✅ USA SEMPRE fixedDeltaTime per i timer fisici
     float deltaTime = Time.fixedDeltaTime;
     
-    // COYOTE TIME
     if (controller.isGrounded)
     {
         coyoteTimeCounter = coyoteTime;
@@ -2371,18 +2351,15 @@ private void UpdateJumpTimers()
     else if (coyoteTimeCounter > 0f)
     {
         coyoteTimeCounter -= deltaTime;
-        if (coyoteTimeCounter < 0f) coyoteTimeCounter = 0f;
+        coyoteTimeCounter = Mathf.Max(0f, coyoteTimeCounter);
     }
 
-    // JUMP BUFFER
     if (jumpBufferCounter > 0f)
     {
         jumpBufferCounter -= deltaTime;
-        if (jumpBufferCounter < 0f) jumpBufferCounter = 0f;
+        jumpBufferCounter = Mathf.Max(0f, jumpBufferCounter);
     }
-}
-
-   private bool TryJump()
+}   private bool TryJump()
 {
     if (!isJumpEnabled) return false;
     
@@ -2476,12 +2453,12 @@ float v = processedInput.y;
         inputMagnitude = 1f;
     }
     
-    smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.deltaTime * 5f);
+    smoothInputMagnitude = Mathf.Lerp(smoothInputMagnitude, inputMagnitude, Time.fixedDeltaTime * 5f);
 
     if (inputMagnitude < 0.1f)
     {
         playerVelocity = Vector3.zero;
-        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.deltaTime);
+        _animator.SetFloat(SpeedHash, 0f, 0.1f, Time.fixedDeltaTime);
         return;
     }
 
@@ -2522,7 +2499,7 @@ float v = processedInput.y;
     // ✅ AGGIORNA ANIMATORE
     Vector3 totalVelocity = playerVelocity + attackVelocity;
     float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
-    _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.deltaTime);
+    _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.fixedDeltaTime);
     
     // ⭐ DEBUG MIGLIORATO: Mostra le informazioni più importanti
     if (debugCameraChanges && inputMagnitude > 0.1f && Time.frameCount % 30 == 0)
@@ -2764,20 +2741,23 @@ private void UpdateGroundedStateForPlatforms()
     }
 
     private void ApplyGravity()
+{
+    // ✅ USA fixedDeltaTime invece di deltaTime
+    float dt = Time.fixedDeltaTime;
+    
+    if (velocity.y < 0)
     {
-        if (velocity.y < 0)
-        {
-            velocity.y += gravity * 2.5f * Time.deltaTime;
-        }
-        else if (velocity.y > 0 && !isHoldingJump)
-        {
-            velocity.y += gravity * 2f * Time.deltaTime;
-        }
-        else
-        {
-            velocity.y += gravity * Time.deltaTime;
-        }
+        velocity.y += gravity * 2.5f * dt;
     }
+    else if (velocity.y > 0 && !isHoldingJump)
+    {
+        velocity.y += gravity * 2f * dt;
+    }
+    else
+    {
+        velocity.y += gravity * dt;
+    }
+}
 
     private void HandleSprintFX()
     {
@@ -3376,29 +3356,48 @@ private void UpdateCurrentCameraSettings()
     }
 }
 
-private Vector2 GetProcessedMoveInput()
-{
-    Vector2 processedInput = moveInput;
-    
-    if (enableMovementInversion && currentCameraSettings != null)
+    private Vector2 GetProcessedMoveInput()
     {
-        if (currentCameraSettings.invertForwardBackward)
+        Vector2 processedInput = moveInput;
+
+        if (enableMovementInversion && currentCameraSettings != null)
         {
-            processedInput.y = -processedInput.y;
+            if (currentCameraSettings.invertForwardBackward)
+            {
+                processedInput.y = -processedInput.y;
+            }
+
+            if (currentCameraSettings.invertLeftRight)
+            {
+                processedInput.x = -processedInput.x;
+            }
+
+            if (debugMovementInversion && processedInput != moveInput && Time.frameCount % 30 == 0)
+            {
+                Debug.Log($"[Movement] Input: {moveInput} → {processedInput}");
+            }
         }
-        
-        if (currentCameraSettings.invertLeftRight)
-        {
-            processedInput.x = -processedInput.x;
-        }
-        
-        if (debugMovementInversion && processedInput != moveInput && Time.frameCount % 30 == 0)
-        {
-            Debug.Log($"[Movement] Input: {moveInput} → {processedInput}");
-        }
+
+        return processedInput;
     }
+private void FixedUpdate()
+{
+    // TUTTA LA FISICA QUI
+    DetectAndUpdatePlatform();
+    UpdateJumpTimers();
+    HandleJumpInput();
+    HandleLedgeGrab();
+    HandleJump();
+    HandleAttackVelocity();
+    HandleMovement();
+    ApplyAllMovement();
+    HandleFalling();
+    CheckForLedgeRelease();
+    HandleAirControl();
+    UpdateGroundedStateForPlatforms();
     
-    return processedInput;
+    // Decay dei push esterni
+    externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.fixedDeltaTime * pushRecoverySpeed);
 }
 
 [ContextMenu("Auto Setup Current Cameras")]
