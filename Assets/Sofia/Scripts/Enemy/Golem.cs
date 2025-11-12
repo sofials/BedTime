@@ -5,37 +5,55 @@ using System.Collections.Generic;
 
 public class Golem : MonoBehaviour
 {
+    // ============ STATE MACHINE ============
+    public enum GolemState
+    {
+        Idle,
+        Moving,
+        MeleeAttacking,
+        RangedAttacking,
+        Hit,
+        Dead
+    }
+    
+    private GolemState currentState = GolemState.Idle;
+    private GolemState previousState = GolemState.Idle;
+    
+    // ============ REFERENCES ============
     public Transform player;
     public NavMeshAgent agent;
-
+    public float baseSpeed = 10f;
+    
     [Header("Vision Settings")]
     public float viewRadius = 300f;
     public float viewAngle = 360f;
     public LayerMask playerMask;
     public LayerMask obstacleMask;
+    
     [Header("Death Settings")]
-[Tooltip("Oggetto figlio da attivare quando il Golem muore")]
-public GameObject deathActivationObject;
+    [Tooltip("Oggetto figlio da attivare quando il Golem muore")]
+    public GameObject deathActivationObject;
+    
     [Header("Attack Settings")]
     public float meleeRange = 20f;
     public float rangedRange = 280f;
     public float meleeCooldown = 2f;
     public float rangedCooldown = 3f;
-
+    
     private float meleeTimer = 0f;
     private float rangedTimer = 0f;
-
+    
     [Header("Attack Effects")]
     public float damage = 20f;
     public float pushForce = 5f;
-
+    
     [Header("Projectile Settings")]
     public GameObject projectilePrefab;
     public Transform projectileSpawnPoint;
-
+    
     [Header("Animation")]
     public Animator animator;
-
+    
     [Header("Audio Settings")]
     [Space(5)]
     [Tooltip("AudioSource per i suoni di attacco")]
@@ -52,17 +70,14 @@ public GameObject deathActivationObject;
     [Range(0f, 1f)]
     [Tooltip("Volume per i suoni di attacco")]
     public float attackVolume = 1f;
-
+    
     [Header("Stats")]
     public float maxHealth = 30f;
     private float currentHealth;
     private bool isDead = false;
-
+    
     private bool playerVisible = false;
-
-    private bool isMeleeAttacking = false;
-    private bool isRangedAttacking = false;
-
+    
     [Header("Slowdown")]
     public bool isSlow = false;
     public float slowFactor = 0.5f;
@@ -72,7 +87,7 @@ public GameObject deathActivationObject;
     [Header("Slowdown Custom Duration")]
     [Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
     public float customSlowdownDuration = 15f;
-
+    
     [Header("FX & Material System")]
     public Renderer Renderer;
     [SerializeField] private CFXR_EffectController slowdownEffect;
@@ -84,25 +99,32 @@ public GameObject deathActivationObject;
     [SerializeField] private float hdrMultiplier = 3f;
     [Tooltip("Se true, mantiene anche il tint del Base Color oltre all'emission")]
     [SerializeField] private bool applyColorTint = true;
-
+    
     private bool patinaActive = false;
     private Coroutine fxCoroutine;
     private Coroutine slowCoroutine;
     private Coroutine blinkCoroutine;
     
     [SerializeField] private float blinkDurationBeforeEnd = 2f;
-
+    
     // Sistema gestione materiali unificato
     private Dictionary<Material, Material> materialInstances = new Dictionary<Material, Material>();
     private Dictionary<Material, Color> originalBaseColors = new Dictionary<Material, Color>();
     private Dictionary<Material, Color> originalEmissionColors = new Dictionary<Material, Color>();
     private Material[] originalMaterials = null;
     private bool materialsInitialized = false;
-
+    
     private int deadLayer;
     private float attackTimeout = 3f;
     private float attackTimer = 0f;
-
+    
+    // ============ NUOVE VARIABILI PER FIX ============
+    private float rotationSpeed = 5f;
+    private bool hasValidPath = false;
+    private float stateValidationInterval = 0.1f;
+    private Coroutine stateValidationCoroutine;
+    
+    // ============ INITIALIZATION ============
     private void Start()
     {
         currentHealth = maxHealth;
@@ -110,27 +132,30 @@ public GameObject deathActivationObject;
         
         InitializeMaterialSystem();
         InitializeAudioSystem();
-
+        
         if (slowdownEffect != null)
             slowdownEffect.gameObject.SetActive(false);
+        
+        // Inizia la validazione dello stato
+        stateValidationCoroutine = StartCoroutine(ValidateStateRoutine());
+        
+        // Imposta stato iniziale
+        ChangeState(GolemState.Idle);
     }
-
+    
     private void InitializeAudioSystem()
     {
-        // Se non è stato assegnato un AudioSource, cerca di crearne uno automaticamente
         if (attackAudioSource == null)
         {
             attackAudioSource = GetComponent<AudioSource>();
             
-            // Se non esiste, creane uno
             if (attackAudioSource == null)
             {
                 attackAudioSource = gameObject.AddComponent<AudioSource>();
                 Debug.Log($"[Golem] AudioSource creato automaticamente per {gameObject.name}");
             }
         }
-
-        // Configura l'AudioSource se esiste
+        
         if (attackAudioSource != null)
         {
             attackAudioSource.playOnAwake = false;
@@ -138,7 +163,7 @@ public GameObject deathActivationObject;
             attackAudioSource.volume = attackVolume;
         }
     }
-
+    
     private void InitializeMaterialSystem()
     {
         if (Renderer == null)
@@ -147,7 +172,6 @@ public GameObject deathActivationObject;
             return;
         }
         
-        // Salva i colori originali dei materiali SHARED (non istanze)
         foreach (Material mat in Renderer.sharedMaterials)
         {
             if (mat != null)
@@ -161,149 +185,256 @@ public GameObject deathActivationObject;
         
         Debug.Log($"[Golem] Sistema materiali inizializzato per {gameObject.name}");
     }
-
+    
+    // ============ STATE MACHINE CORE ============
+    private void ChangeState(GolemState newState)
+    {
+        // Non permettere cambi di stato se morto (eccetto per andare a Dead)
+        if (isDead && newState != GolemState.Dead) return;
+        
+        // Se stiamo già in questo stato, non fare nulla
+        if (currentState == newState) return;
+        
+        Debug.Log($"[Golem] Cambio stato: {currentState} -> {newState}");
+        
+        // Cleanup stato precedente
+        ExitState(currentState);
+        
+        previousState = currentState;
+        currentState = newState;
+        attackTimer = 0f;
+        
+        // Setup nuovo stato
+        EnterState(newState);
+    }
+    
+    private void ExitState(GolemState state)
+    {
+        switch (state)
+        {
+            case GolemState.MeleeAttacking:
+            case GolemState.RangedAttacking:
+                if (agent != null && agent.enabled && agent.isOnNavMesh)
+                {
+                    agent.isStopped = false;
+                }
+                break;
+                
+            case GolemState.Moving:
+                animator.SetBool("isWalking", false);
+                break;
+        }
+    }
+    
+    private void EnterState(GolemState state)
+    {
+        switch (state)
+        {
+            case GolemState.Idle:
+                animator.SetBool("isWalking", false);
+                if (agent != null && agent.enabled && agent.isOnNavMesh)
+                {
+                    agent.isStopped = true;
+                }
+                break;
+                
+            case GolemState.Moving:
+                animator.SetBool("isWalking", true);
+                break;
+                
+            case GolemState.MeleeAttacking:
+                StopMovement();
+                animator.SetTrigger("AttackMelee");
+                meleeTimer = meleeCooldown;
+                break;
+                
+            case GolemState.RangedAttacking:
+                StopMovement();
+                animator.SetTrigger("AttackRanged");
+                rangedTimer = rangedCooldown;
+                break;
+                
+            case GolemState.Hit:
+                StopMovement();
+                animator.SetTrigger("Hit");
+                break;
+                
+            case GolemState.Dead:
+                HandleDeath();
+                break;
+        }
+    }
+    
+    // ============ UPDATE LOOP ============
     private void Update()
     {
         if (isDead || player == null) return;
-
-        meleeTimer -= Time.deltaTime;
-        rangedTimer -= Time.deltaTime;
-
-        // Forza reset se l'attacco dura troppo
-        if (isMeleeAttacking || isRangedAttacking)
+        
+        // Decrementa timer solo quando non in attacco
+        if (currentState != GolemState.MeleeAttacking && currentState != GolemState.RangedAttacking)
         {
-            attackTimer += Time.deltaTime;
-            if (attackTimer > attackTimeout)
-            {
-                isMeleeAttacking = false;
-                isRangedAttacking = false;
-                attackTimer = 0f;
-            }
-            return;
+            meleeTimer = Mathf.Max(0, meleeTimer - Time.deltaTime);
+            rangedTimer = Mathf.Max(0, rangedTimer - Time.deltaTime);
         }
-        else
+        
+        // Gestisci stato corrente
+        switch (currentState)
         {
-            attackTimer = 0f;
+            case GolemState.Dead:
+                return;
+                
+            case GolemState.Hit:
+                // Aspetta che l'animazione finisca (gestito da animation event)
+                return;
+                
+            case GolemState.MeleeAttacking:
+            case GolemState.RangedAttacking:
+                // Controlla timeout
+                attackTimer += Time.deltaTime;
+                if (attackTimer > attackTimeout)
+                {
+                    Debug.LogWarning($"[Golem] Attack timeout raggiunto, reset forzato");
+                    ChangeState(GolemState.Idle);
+                }
+                
+                // Mantieni rotazione verso il player durante l'attacco
+                RotateTowardsPlayer();
+                return;
+                
+            case GolemState.Idle:
+            case GolemState.Moving:
+                HandleCombatDecision();
+                break;
         }
+    }
 
+    private void HandleCombatDecision()
+    {
         UpdatePlayerVisibility();
-
         float dist = Vector3.Distance(transform.position, player.position);
 
-        Vector3 dir = (player.position - transform.position).normalized;
-        dir.y = 0;
-        if (dir != Vector3.zero)
-            transform.rotation = Quaternion.LookRotation(dir);
+        if (playerVisible)
+        {
+            RotateTowardsPlayer();
+        }
 
         if (!playerVisible)
         {
+            // Player non visibile, muoviti verso di lui
+            if (currentState != GolemState.Moving)
+            {
+                ChangeState(GolemState.Moving);
+            }
             MoveTowardsPlayer();
-            return;
+            return; // ✅ IMPORTANTE: Esci subito
         }
 
-        if (dist <= meleeRange && meleeTimer <= 0f)
-            DoMeleeAttack();
-        else if (dist <= rangedRange && rangedTimer <= 0f)
-            DoRangedAttack();
+        // ✅ FIX 1: PRIORITÀ DEGLI ATTACCHI - Melee ha precedenza se in range
+        if (dist <= meleeRange)
+        {
+            // Siamo in range melee
+            if (meleeTimer <= 0f)
+            {
+                ChangeState(GolemState.MeleeAttacking);
+            }
+            else
+            {
+                // Cooldown melee attivo, fermati e aspetta
+                if (currentState != GolemState.Idle)
+                {
+                    ChangeState(GolemState.Idle);
+                }
+            }
+        }
+        else if (dist <= rangedRange)
+        {
+            // Siamo in range ranged ma fuori da melee
+            if (rangedTimer <= 0f)
+            {
+                ChangeState(GolemState.RangedAttacking);
+            }
+            else
+            {
+                // Cooldown ranged attivo, avvicinati per melee
+                if (currentState != GolemState.Moving)
+                {
+                    ChangeState(GolemState.Moving);
+                }
+                MoveTowardsPlayer();
+            }
+        }
         else
-            MoveTowardsPlayer();
+        {
+            // Player visibile ma troppo lontano per attaccare, fermati
+            if (currentState != GolemState.Idle)
+            {
+                ChangeState(GolemState.Idle);
+            }
+        }
     }
-
-    private void DoMeleeAttack()
+    private void RotateTowardsPlayer()
     {
-        StopAndFacePlayer();
-        isMeleeAttacking = true;
-        meleeTimer = meleeCooldown;
-        animator.SetTrigger("AttackMelee");
+        Vector3 dir = (player.position - transform.position).normalized;
+        dir.y = 0;
+        if (dir != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSpeed);
+        }
     }
-
-    private void DoRangedAttack()
-    {
-        StopAndFacePlayer();
-        isRangedAttacking = true;
-        rangedTimer = rangedCooldown;
-        animator.SetTrigger("AttackRanged");
-    }
-
-    // ===== METODI AUDIO PER ANIMATION EVENTS =====
     
-    /// <summary>
-    /// Riproduce il suono dell'attacco corpo a corpo.
-    /// Chiamare questo metodo da Animation Event nell'animazione di attacco melee.
-    /// </summary>
-    public void PlayMeleeAttackSound()
+   private void StopMovement()
+{
+    if (agent != null && agent.enabled && agent.isOnNavMesh)
     {
-        if (attackAudioSource != null && meleeAttackClip != null)
-        {
-            attackAudioSource.clip = meleeAttackClip;
-            attackAudioSource.volume = attackVolume;
-            attackAudioSource.Play();
-            Debug.Log($"[Golem] Riprodotto suono attacco melee");
-        }
-        else
-        {
-            Debug.LogWarning($"[Golem] Impossibile riprodurre suono melee: AudioSource={attackAudioSource != null}, Clip={meleeAttackClip != null}");
-        }
+        agent.isStopped = true;
+        agent.ResetPath(); // ✅ Aggiungi questo per pulire il path
+        agent.velocity = Vector3.zero;
     }
-
-    /// <summary>
-    /// Riproduce il suono dell'attacco a distanza.
-    /// Chiamare questo metodo da Animation Event nell'animazione di attacco ranged.
-    /// </summary>
-    public void PlayRangedAttackSound()
-    {
-        if (attackAudioSource != null && rangedAttackClip != null)
-        {
-            attackAudioSource.clip = rangedAttackClip;
-            attackAudioSource.volume = attackVolume;
-            attackAudioSource.Play();
-            Debug.Log($"[Golem] Riprodotto suono attacco ranged");
-        }
-        else
-        {
-            Debug.LogWarning($"[Golem] Impossibile riprodurre suono ranged: AudioSource={attackAudioSource != null}, Clip={rangedAttackClip != null}");
-        }
-    }
-
-    /// <summary>
-    /// Metodo generico per riprodurre un suono di attacco.
-    /// Utile se vuoi usare lo stesso metodo per entrambi i tipi di attacco.
-    /// </summary>
-    /// <param name="useRanged">Se true, usa il clip ranged, altrimenti usa quello melee</param>
-    public void PlayAttackSound(bool useRanged = false)
-    {
-        if (useRanged)
-            PlayRangedAttackSound();
-        else
-            PlayMeleeAttackSound();
-    }
-
-    // ================================================
-
-    private void StopAndFacePlayer()
-    {
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-            agent.isStopped = true;
-
-        animator.SetBool("isWalking", false);
-    }
-
+    animator.SetBool("isWalking", false);
+}
+    
     private void MoveTowardsPlayer()
+{
+    if (agent == null || !agent.enabled || !agent.isOnNavMesh)
     {
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-        {
-            agent.isStopped = false;
-            agent.speed = isSlow ? 3f * slowFactor : 3f;
-            agent.SetDestination(player.position);
-        }
-
-        animator.SetBool("isWalking", true);
+        animator.SetBool("isWalking", false);
+        return;
     }
-
+    
+    agent.isStopped = false;
+    agent.speed = isSlow ? baseSpeed * slowFactor : baseSpeed;
+    
+    // Imposta destinazione
+    bool pathSet = agent.SetDestination(player.position);
+    
+    if (pathSet)
+    {
+        // ✅ FIX 3: SINCRONIZZA ANIMAZIONE CON MOVIMENTO REALE
+        // Controlla se l'agent si sta effettivamente muovendo
+        float currentSpeed = agent.velocity.magnitude;
+        bool isActuallyMoving = currentSpeed > 0.1f && !agent.isStopped && agent.hasPath;
+        
+        animator.SetBool("isWalking", isActuallyMoving);
+        
+        // Debug per capire cosa succede
+        if (!isActuallyMoving && currentState == GolemState.Moving)
+        {
+            Debug.LogWarning($"[Golem] In stato Moving ma non si muove! Speed={currentSpeed}, HasPath={agent.hasPath}, PathStatus={agent.pathStatus}");
+        }
+    }
+    else
+    {
+        // Path non valido
+        animator.SetBool("isWalking", false);
+        Debug.LogWarning($"[Golem] Impossibile impostare path verso player");
+    }
+}
     private void UpdatePlayerVisibility()
     {
         playerVisible = false;
         Collider[] hits = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
+        
         foreach (var hit in hits)
         {
             Vector3 dirToPlayer = (hit.transform.position - transform.position).normalized;
@@ -318,18 +449,27 @@ public GameObject deathActivationObject;
             }
         }
     }
-
+    
+    // ============ ANIMATION EVENTS (CHIAMATI DA ANIMATOR) ============
     public void EnemyAttackHitbox()
     {
+        // Valida che siamo ancora in stato melee
+        if (currentState != GolemState.MeleeAttacking)
+        {
+            Debug.LogWarning("[Golem] Melee hitbox chiamato ma non in stato melee!");
+            return;
+        }
+        
         if (isDead) return;
-
+        
+        // Calcola danno
         Collider[] hits = Physics.OverlapBox(
             transform.position + transform.forward * (meleeRange * 0.5f),
             new Vector3(10f, 10f, 10f),
             transform.rotation,
             LayerMask.GetMask("PlayerHurtbox")
         );
-
+        
         foreach (var hit in hits)
         {
             if (hit.gameObject.CompareTag("PlayerHurtbox"))
@@ -342,42 +482,139 @@ public GameObject deathActivationObject;
                 }
             }
         }
-
-        isMeleeAttacking = false;
+        
+        // Torna a Idle dopo aver fatto danno
+        ChangeState(GolemState.Idle);
     }
-
+    
     public void SpawnProjectile()
     {
+        // Valida che siamo ancora in stato ranged
+        if (currentState != GolemState.RangedAttacking)
+        {
+            Debug.LogWarning("[Golem] Spawn projectile chiamato ma non in stato ranged!");
+            return;
+        }
+        
         if (isDead || projectilePrefab == null || projectileSpawnPoint == null) return;
-
+        
         GameObject proj = Instantiate(projectilePrefab, projectileSpawnPoint.position, Quaternion.identity);
         Golem_Projectile projectile = proj.GetComponent<Golem_Projectile>();
-
+        
         if (projectile != null)
             projectile.Initialize(player.position);
     }
-
+    
     public void EndRangedAttack()
     {
-        isRangedAttacking = false;
+        if (currentState != GolemState.RangedAttacking)
+        {
+            Debug.LogWarning("[Golem] EndRangedAttack chiamato ma non in stato ranged!");
+            return;
+        }
+        ChangeState(GolemState.Idle);
     }
-
+    
+    public void EndHit()
+    {
+        if (currentState != GolemState.Hit)
+        {
+            Debug.LogWarning("[Golem] EndHit chiamato ma non in stato Hit!");
+            return;
+        }
+        ChangeState(GolemState.Idle);
+    }
+    
+    // ============ AUDIO METHODS ============
+    public void PlayMeleeAttackSound()
+    {
+        if (attackAudioSource != null && meleeAttackClip != null)
+        {
+            attackAudioSource.clip = meleeAttackClip;
+            attackAudioSource.volume = attackVolume;
+            attackAudioSource.Play();
+            Debug.Log($"[Golem] Riprodotto suono attacco melee");
+        }
+    }
+    
+    public void PlayRangedAttackSound()
+    {
+        if (attackAudioSource != null && rangedAttackClip != null)
+        {
+            attackAudioSource.clip = rangedAttackClip;
+            attackAudioSource.volume = attackVolume;
+            attackAudioSource.Play();
+            Debug.Log($"[Golem] Riprodotto suono attacco ranged");
+        }
+    }
+    
+    // ============ DAMAGE & DEATH ============
     public void TakeDamage(float amount)
     {
         if (isDead) return;
-
+        
         currentHealth -= amount;
-        Debug.Log($"Golem ha subito {amount} danni. Vita rimanente: {currentHealth}");
-
-        isMeleeAttacking = false;
-        isRangedAttacking = false;
-
+        Debug.Log($"[Golem] Ha subito {amount} danni. Vita rimanente: {currentHealth}");
+        
         if (currentHealth <= 0)
-            Die();
+        {
+            ChangeState(GolemState.Dead);
+        }
         else
-            animator.SetTrigger("Hit");
+        {
+            ChangeState(GolemState.Hit);
+        }
     }
-
+    
+    private void HandleDeath()
+    {
+        isDead = true;
+        
+        // CRITICO: Disabilita completamente il NavMeshAgent
+        if (agent != null)
+        {
+            agent.enabled = false;
+        }
+        
+        // Disabilita questo script per sicurezza
+        enabled = false;
+        
+        // Cleanup overlay
+        if (patinaActive)
+        {
+            SetOverlayActive(false);
+        }
+        
+        // Ferma tutte le coroutine
+        StopAllCoroutines();
+        
+        // Attiva oggetto morte
+        if (deathActivationObject != null)
+        {
+            deathActivationObject.SetActive(true);
+            Debug.Log($"[Golem] Oggetto {deathActivationObject.name} attivato alla morte");
+        }
+        
+        // Trigger animazione morte
+        animator.SetTrigger("Die");
+        
+        // Disabilita colliders
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        foreach (var col in colliders)
+        {
+            if (col.CompareTag("GolemHurtbox"))
+            {
+                col.enabled = false;
+            }
+        }
+    }
+    
+    private void Die()
+    {
+        ChangeState(GolemState.Dead);
+    }
+    
+    // ============ SLOWDOWN SYSTEM ============
     public void StartSlow(float duration, SlowdownAbility sourceAbility)
     {
         if (isSlow)
@@ -389,48 +626,47 @@ public GameObject deathActivationObject;
         {
             SetSlow(true);
         }
-
+        
         activeSlowdownAbility = sourceAbility;
         slowCoroutine = StartCoroutine(SlowDurationRoutine(duration));
     }
-
+    
     private IEnumerator SlowDurationRoutine(float duration)
     {
         float normalDuration = duration - blinkDurationBeforeEnd;
-
+        
         if (normalDuration > 0)
             yield return new WaitForSeconds(normalDuration);
-
+        
         if (blinkCoroutine != null)
             StopCoroutine(blinkCoroutine);
         blinkCoroutine = StartCoroutine(BlinkOverlayWhileSlow());
-
+        
         yield return new WaitForSeconds(blinkDurationBeforeEnd);
-
+        
         SetSlow(false);
         activeSlowdownAbility = null;
         slowCoroutine = null;
-
+        
         if (blinkCoroutine != null)
         {
             StopCoroutine(blinkCoroutine);
             blinkCoroutine = null;
         }
     }
-
+    
     private bool slowdownEffectPlayedThisCycle = false;
-
+    
     public void SetSlow(bool value)
     {
-        if (value == isSlow)
-            return;
-
+        if (value == isSlow) return;
+        
         isSlow = value;
-
+        
         if (isSlow)
         {
             SetOverlayActive(true);
-
+            
             if (!slowdownEffectPlayedThisCycle && slowdownEffect != null)
             {
                 if (fxCoroutine != null)
@@ -438,34 +674,36 @@ public GameObject deathActivationObject;
                 fxCoroutine = StartCoroutine(PlayEffectOnce());
                 slowdownEffectPlayedThisCycle = true;
             }
-
-            if (agent != null)
+            
+            if (agent != null && agent.enabled)
                 agent.speed = 3f * slowFactor;
-
+            
             animator.speed = animationSlowFactor;
         }
         else
         {
             SetOverlayActive(false);
-
+            
             if (slowdownEffect != null)
             {
                 slowdownEffect.StopEffect();
                 slowdownEffect.gameObject.SetActive(false);
             }
-
-            if (agent != null)
+            
+            if (agent != null && agent.enabled)
                 agent.speed = 3f;
-
+            
             animator.speed = 1f;
             slowdownEffectPlayedThisCycle = false;
-
-            // Reset attacchi bloccati
-            isMeleeAttacking = false;
-            isRangedAttacking = false;
+            
+            // Se eravamo in attacco quando il slow è finito, torna a idle
+            if (currentState == GolemState.MeleeAttacking || currentState == GolemState.RangedAttacking)
+            {
+                ChangeState(GolemState.Idle);
+            }
         }
     }
-
+    
     private IEnumerator PlayEffectOnce()
     {
         slowdownEffect.gameObject.SetActive(true);
@@ -475,207 +713,207 @@ public GameObject deathActivationObject;
         slowdownEffect.gameObject.SetActive(false);
         fxCoroutine = null;
     }
-
+    
+    // ============ MATERIAL OVERLAY SYSTEM ============
     private IEnumerator BlinkOverlayWhileSlow()
     {
         if (Renderer == null) yield break;
-
+        
         bool state = true;
         float blinkRate = 0.2f;
-
+        
         while (isSlow)
         {
             SetOverlayActive(state);
             state = !state;
             yield return new WaitForSeconds(blinkRate);
         }
-
+        
         SetOverlayActive(false);
     }
-
+    
     public void SetOverlayActive(bool active)
     {
-        Debug.Log($"[Golem] *** SetOverlayActive({active}) chiamato su {gameObject.name} ***");
-        
-        if (Renderer == null) 
-        {
-            Debug.LogWarning($"[Golem] Renderer nullo su {gameObject.name}");
-            return;
-        }
-        
-        Debug.Log($"[Golem] Renderer OK, chiamando SetEmissiveOverlay({active})");
+        if (Renderer == null) return;
         SetEmissiveOverlay(active);
     }
-
+    
     private void SetEmissiveOverlay(bool active)
     {
-        Debug.Log($"[Golem] SetEmissiveOverlay({active}) - inizio processing su {gameObject.name}");
+        if (Renderer == null) return;
         
-        if (Renderer == null) 
-        {
-            Debug.LogWarning($"[Golem] Renderer nullo su {gameObject.name}");
-            return;
-        }
-        
-        // INIZIALIZZA i materiali originali solo la prima volta
         if (!materialsInitialized)
         {
-            originalMaterials = Renderer.sharedMaterials; // USA sharedMaterials per ottenere gli originali
+            originalMaterials = Renderer.sharedMaterials;
             materialsInitialized = true;
-            Debug.Log($"[Golem] Materiali originali salvati: {originalMaterials.Length}");
         }
-
+        
         if (active)
         {
-            // ATTIVAZIONE: Crea istanze e applica effetto
             Material[] newMaterials = new Material[originalMaterials.Length];
-            bool materialsChanged = false;
             
-            Debug.Log($"[Golem] ATTIVANDO overlay - creando istanze materiali");
-
             for (int i = 0; i < originalMaterials.Length; i++)
             {
                 Material originalMat = originalMaterials[i];
-                if (originalMat == null) 
+                if (originalMat == null)
                 {
                     newMaterials[i] = null;
                     continue;
                 }
-
-                Debug.Log($"[Golem] ATTIVANDO - Processando materiale {i}: {originalMat.name}");
-
+                
                 Material instanceMat;
-
-                // Crea istanza del materiale SOLO se non esiste ancora
+                
                 if (!materialInstances.ContainsKey(originalMat))
                 {
                     Material newInstance = new Material(originalMat);
                     materialInstances[originalMat] = newInstance;
                     instanceMat = newInstance;
-                    materialsChanged = true;
-                    Debug.Log($"[Golem] Creata NUOVA istanza per materiale {originalMat.name}");
                 }
                 else
                 {
-                    // Usa l'istanza esistente
                     instanceMat = materialInstances[originalMat];
-                    Debug.Log($"[Golem] Usando istanza ESISTENTE per materiale {originalMat.name}");
                 }
-
-                // EMISSION LUMINOSO (principale)
+                
                 if (instanceMat.HasProperty("_EmissionColor"))
                 {
-                    // Calcola colore emission HDR per massima luminosità
                     Color hdrEmission = overlayColor * overlayIntensity * hdrMultiplier;
                     instanceMat.SetColor("_EmissionColor", hdrEmission);
-                    
-                    // Abilita emission
                     instanceMat.EnableKeyword("_EMISSION");
-                    
-                    // Forza il material a essere emission-enabled
                     instanceMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-                    
-                    Debug.Log($"[Golem] Emission attivata con colore {hdrEmission}");
                 }
-
-                // BASE COLOR TINT (opzionale, per colorare anche la texture)
+                
                 if (applyColorTint && instanceMat.HasProperty("_BaseColor"))
                 {
                     if (originalBaseColors.ContainsKey(originalMat))
                     {
                         Color originalColor = originalBaseColors[originalMat];
-                        // Mescola il colore originale con l'overlay
                         Color tintedColor = Color.Lerp(originalColor, originalColor * overlayColor, 0.3f);
                         tintedColor.a = originalColor.a;
                         instanceMat.SetColor("_BaseColor", tintedColor);
-                        Debug.Log($"[Golem] BaseColor tint applicato");
                     }
                 }
-
+                
                 newMaterials[i] = instanceMat;
-                materialsChanged = true;
             }
-
-            if (materialsChanged)
-            {
-                Renderer.materials = newMaterials;
-                Debug.Log($"[Golem] Materiali istanza applicati al renderer");
-            }
+            
+            Renderer.materials = newMaterials;
         }
         else
         {
-            // DISATTIVAZIONE: Ripristina materiali originali SHARED
-            Debug.Log($"[Golem] DISATTIVANDO overlay - ripristinando materiali SHARED originali");
-            
-            // IMPORTANTE: Torna ai materiali SHARED originali, non alle istanze
             Renderer.materials = originalMaterials;
-            
-            Debug.Log($"[Golem] Materiali SHARED originali ripristinati nel renderer");
         }
         
         patinaActive = active;
-        Debug.Log($"[Golem] SetEmissiveOverlay completato - patinaActive = {patinaActive}");
     }
-
-    public void EndHit()
+    
+    // ============ STATE VALIDATION ============
+    private IEnumerator ValidateStateRoutine()
     {
-        isMeleeAttacking = false;
-        isRangedAttacking = false;
-    }
-
-    private void Die()
-{
-    isDead = true;
-    animator.SetTrigger("Die");
-
-    // Cleanup overlay al momento della morte
-    if (patinaActive)
-    {
-        SetOverlayActive(false);
-    }
-
-    // NUOVA FUNZIONALITÀ: Attiva l'oggetto figlio specificato
-    if (deathActivationObject != null)
-    {
-        deathActivationObject.SetActive(true);
-        Debug.Log($"[Golem] Oggetto {deathActivationObject.name} attivato alla morte di {gameObject.name}");
-    }
-    else
-    {
-        Debug.LogWarning($"[Golem] Nessun oggetto di attivazione morte assegnato per {gameObject.name}");
-    }
-
-    if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
-        agent.isStopped = true;
-
-    Collider[] colliders = GetComponentsInChildren<Collider>();
-    foreach (var col in colliders)
-    {
-        if (col.CompareTag("GolemHurtbox"))
+        while (!isDead)
         {
-            col.isTrigger = false;
+            yield return new WaitForSeconds(stateValidationInterval);
+            
+            // Validazione continua dello stato
+            if (!isDead)
+            {
+                ValidateCurrentState();
+            }
+        }
+    }
+    
+    private void ValidateCurrentState()
+{
+    if (agent == null || !agent.enabled) return;
+    
+    AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+    
+    // Controlla sync tra animator e movimento reale
+    bool animatorIsWalking = animator.GetBool("isWalking");
+    bool agentIsMoving = agent.velocity.magnitude > 0.1f && !agent.isStopped;
+    bool shouldBeWalking = currentState == GolemState.Moving && agentIsMoving;
+    
+    if (animatorIsWalking != shouldBeWalking)
+    {
+        Debug.LogWarning($"[Golem] Animator desync! AnimWalk={animatorIsWalking}, ShouldWalk={shouldBeWalking}, State={currentState}, AgentSpeed={agent.velocity.magnitude}");
+        animator.SetBool("isWalking", shouldBeWalking);
+    }
+    
+    // ✅ FIX 5: GESTISCI AGENT BLOCCATO
+    if (currentState == GolemState.Moving && agent.isOnNavMesh)
+    {
+        // Se dovremmo muoverci ma siamo fermi da troppo tempo
+        if (agent.velocity.magnitude < 0.1f && !agent.isStopped)
+        {
+            // Controlla se il path è completato o invalido
+            if (!agent.pathPending)
+            {
+                if (agent.remainingDistance <= agent.stoppingDistance)
+                {
+                    // Siamo arrivati a destinazione, aggiorna
+                    if (agent.hasPath || agent.velocity.sqrMagnitude == 0f)
+                    {
+                        Debug.Log("[Golem] Destinazione raggiunta, ricalcolo path");
+                        agent.SetDestination(player.position);
+                    }
+                }
+                else if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+                {
+                    // Path invalido, reset
+                    Debug.LogWarning($"[Golem] Path invalido, reset");
+                    agent.ResetPath();
+                    agent.SetDestination(player.position);
+                }
+            }
         }
     }
 }
-
+    
+    // ============ CLEANUP ============
+    private void OnDestroy()
+    {
+        // CRITICO: Cleanup delle istanze dei materiali
+        foreach (var kvp in materialInstances)
+        {
+            if (kvp.Value != null)
+            {
+                DestroyImmediate(kvp.Value);
+            }
+        }
+        materialInstances.Clear();
+        
+        // Stop tutte le coroutine
+        if (stateValidationCoroutine != null)
+        {
+            StopCoroutine(stateValidationCoroutine);
+        }
+    }
+    
+    // ============ DEBUG ============
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, meleeRange);
-
+        
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(transform.position, rangedRange);
-
+        
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, viewRadius);
-
+        
         Vector3 viewAngleA = DirFromAngle(-viewAngle / 2);
         Vector3 viewAngleB = DirFromAngle(viewAngle / 2);
         Gizmos.color = Color.white;
         Gizmos.DrawLine(transform.position, transform.position + viewAngleA * viewRadius);
         Gizmos.DrawLine(transform.position, transform.position + viewAngleB * viewRadius);
+        
+        // Debug current state
+        if (Application.isPlaying)
+        {
+            Vector3 statePos = transform.position + Vector3.up * 3f;
+            UnityEditor.Handles.Label(statePos, $"State: {currentState}");
+        }
     }
-
+    
     private Vector3 DirFromAngle(float angleDegrees)
     {
         angleDegrees += transform.eulerAngles.y;

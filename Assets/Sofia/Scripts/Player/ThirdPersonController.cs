@@ -142,6 +142,12 @@ private Coroutine climbHeightCoroutine;
     [Header("Footstep Audio")]
     [SerializeField] private AudioSource footstepAudioSource;
     // ✅ NUOVO: Configurazione Terrain Paint Texture Detection
+    [Header("Lava Death System")]
+[SerializeField] private LayerMask lavaLayer; // Assegna il layer "Lava" nell'Inspector
+[SerializeField] private bool enableLavaDeath = true;
+[SerializeField] private float lavaCheckRadius = 0.6f;
+[SerializeField] private bool debugLavaDeath = false;
+private bool isDyingFromLava = false;
 [Header("Terrain Texture Detection")]
 [SerializeField] private string terrainLayerName = "SquareVillage"; // Layer del terrain da controllare
 [SerializeField] private int[] grassTextureIndices = { 0 }; // ← Indici delle Paint Texture erba (es: 0, 2, 4)
@@ -2867,7 +2873,9 @@ private void HandleAirControl()
     playerVelocity += tempVector3;
 }
     public void Respawn()
-{
+    {
+      isDyingFromLava = false;
+    StopAllCoroutines(); 
     // ✅ ASSICURATI CHE IL CHARACTERCONTROLLER SIA ABILITATO
     if (!controller.enabled)
     {
@@ -3395,6 +3403,7 @@ private void FixedUpdate()
     CheckForLedgeRelease();
     HandleAirControl();
     UpdateGroundedStateForPlatforms();
+    CheckLavaCollision();
     
     // Decay dei push esterni
     externalPush = Vector3.Lerp(externalPush, Vector3.zero, Time.fixedDeltaTime * pushRecoverySpeed);
@@ -3429,25 +3438,162 @@ public void AutoSetupCurrentCameras()
     Debug.Log($"[Movement] Setup completato: {cameraSettings.Count} camere");
 }
     private void OnDestroy()
-{
-    // ✅ FERMA LA COROUTINE DI CLIMBING
-    if (climbHeightCoroutine != null)
     {
-        StopCoroutine(climbHeightCoroutine);
-        climbHeightCoroutine = null;
+        // ✅ FERMA LA COROUTINE DI CLIMBING
+        if (climbHeightCoroutine != null)
+        {
+            StopCoroutine(climbHeightCoroutine);
+            climbHeightCoroutine = null;
+        }
+
+        // Cleanup esistente
+        if (controls != null)
+        {
+            controls.Gameplay.Move.performed -= OnMovePerformed;
+            controls.Gameplay.Move.canceled -= OnMoveCanceled;
+            controls.Gameplay.Sprint.performed -= OnSprintPerformed;
+            controls.Gameplay.Sprint.canceled -= OnSprintCanceled;
+            controls.Gameplay.Jump.started -= OnJumpStarted;
+            controls.Gameplay.Jump.canceled -= OnJumpCanceled;
+            controls.Dispose();
+        }
+    }
+/// <summary>
+/// Controlla se il player sta toccando lava
+/// </summary>
+private void CheckLavaCollision()
+{
+    if (!enableLavaDeath || isDyingFromLava) return;
+    
+    // Multi-point check per rilevare lava anche sui bordi del character
+    Vector3[] checkPoints = {
+        transform.position,
+        transform.position + transform.forward * 0.3f,
+        transform.position - transform.forward * 0.3f,
+        transform.position + transform.right * 0.3f,
+        transform.position - transform.right * 0.3f
+    };
+    
+    foreach (Vector3 point in checkPoints)
+    {
+        // OverlapSphere per rilevare collider lava nelle vicinanze
+        Collider[] hitColliders = Physics.OverlapSphere(point, lavaCheckRadius, lavaLayer);
+        
+        if (hitColliders.Length > 0)
+        {
+            if (debugLavaDeath)
+            {
+                Debug.Log($"[Lava] ☠️ LAVA RILEVATA! Collider: {hitColliders[0].gameObject.name}");
+            }
+            
+            TriggerLavaDeath();
+            return;
+        }
+    }
+}
+
+/// <summary>
+/// Attiva la morte da lava con animazione
+/// </summary>
+private void TriggerLavaDeath()
+{
+    if (isDyingFromLava) return;
+    
+    isDyingFromLava = true;
+    
+    if (debugLavaDeath)
+    {
+        Debug.Log("[Lava] ☠️ MORTE DA LAVA ATTIVATA!");
     }
     
-    // Cleanup esistente
-    if (controls != null)
+    // Blocca movimento
+    IsMovementLocked = true;
+    
+    // Ferma tutto
+    velocity = Vector3.zero;
+    playerVelocity = Vector3.zero;
+    attackVelocity = Vector3.zero;
+    externalPush = Vector3.zero;
+    
+    // Sgancia da piattaforme
+    DetachFromCurrentPlatform();
+    
+    // Ferma effetti
+    if (sprintFX) sprintFX.StopEffect();
+    StopFootstepAudio();
+    
+    // Azzera salute
+    currentHealth = 0;
+    UpdateHealthUI();
+    
+    // Riproduci suono hit (opzionale)
+    PlayHitSound();
+    
+    // ✅ TRIGGER ANIMAZIONE MORTE
+    // Usa HitReal per morte drammatica, o Hit per morte rapida
+    if (ShouldPlayHitReal())
     {
-        controls.Gameplay.Move.performed -= OnMovePerformed;
-        controls.Gameplay.Move.canceled -= OnMoveCanceled;
-        controls.Gameplay.Sprint.performed -= OnSprintPerformed;
-        controls.Gameplay.Sprint.canceled -= OnSprintCanceled;
-        controls.Gameplay.Jump.started -= OnJumpStarted;
-        controls.Gameplay.Jump.canceled -= OnJumpCanceled;
-        controls.Dispose();
+        _animator.SetTrigger(HitRealHash);
+        
+        if (debugLavaDeath)
+            Debug.Log("[Lava] Animazione: HitReal (morte drammatica)");
     }
+    else
+    {
+        _animator.SetTrigger(HitHash);
+        
+        if (debugLavaDeath)
+            Debug.Log("[Lava] Animazione: Hit (morte rapida)");
+    }
+    
+    // Avvia respawn dopo un delay
+    StartCoroutine(RespawnAfterLavaDeath());
+}
+
+/// <summary>
+/// Gestisce il respawn dopo la morte da lava
+/// </summary>
+private IEnumerator RespawnAfterLavaDeath()
+{
+    // Aspetta che l'animazione di morte finisca
+    // Se usi HitReal, aspetta di più; se usi Hit, respawn veloce
+    float deathDelay = ShouldPlayHitReal() ? 2f : 0.5f;
+    
+    yield return new WaitForSeconds(deathDelay);
+    
+    if (debugLavaDeath)
+    {
+        Debug.Log($"[Lava] Respawn dopo {deathDelay}s di morte");
+    }
+    
+    // Resetta flag
+    isDyingFromLava = false;
+    
+    // Esegui respawn normale
+    Respawn();
+    
+    // Ripristina salute
+    currentHealth = MaxHealth;
+    UpdateHealthUI();
+    
+    // Sblocca movimento
+    IsMovementLocked = false;
+}
+
+/// <summary>
+/// Forza il respawn immediato (per casi speciali)
+/// </summary>
+public void ForceRespawnFromLava()
+{
+    StopAllCoroutines();
+    isDyingFromLava = false;
+    Respawn();
+    currentHealth = MaxHealth;
+    UpdateHealthUI();
+    IsMovementLocked = false;
+    
+    if (debugLavaDeath)
+        Debug.Log("[Lava] Respawn forzato");
 }
 // Replace the OnDrawGizmosSelected method (around line 3020-3070):
 
