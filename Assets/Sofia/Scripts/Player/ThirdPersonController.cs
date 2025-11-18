@@ -144,7 +144,7 @@ private Coroutine climbHeightCoroutine;
     // ✅ NUOVO: Configurazione Terrain Paint Texture Detection
     [Header("Lava Death System")]
 [SerializeField] private LayerMask lavaLayer; // Assegna il layer "Lava" nell'Inspector
-[SerializeField] private bool enableLavaDeath = true;
+[SerializeField] private bool enableLavaDeath = false;
 [SerializeField] private float lavaCheckRadius = 0.6f;
 [SerializeField] private bool debugLavaDeath = false;
 private bool isDyingFromLava = false;
