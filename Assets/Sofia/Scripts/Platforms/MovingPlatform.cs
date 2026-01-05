@@ -104,49 +104,49 @@ public class MovingPlatform : MonoBehaviour
         lastPosition = transform.position;
     }
 
-    void Update()
+ void FixedUpdate()
+{
+    currentDistance += speed * speedMultiplier * direction * Time.fixedDeltaTime;
+
+    if (pingPong)
     {
-        currentDistance += speed * speedMultiplier * direction * Time.deltaTime;
-
-        if (pingPong)
+        if (currentDistance >= totalLength)
         {
-            if (currentDistance >= totalLength)
-            {
-                currentDistance = totalLength;
-                direction = -1;
-            }
-            else if (currentDistance <= 0)
-            {
-                currentDistance = 0;
-                direction = 1;
-            }
+            currentDistance = totalLength;
+            direction = -1;
         }
-        else
+        else if (currentDistance <= 0)
         {
-            currentDistance %= totalLength;
+            currentDistance = 0;
+            direction = 1;
         }
-
-        Vector3 newPosition = GetPositionAtDistance(currentDistance);
-        deltaMovement = newPosition - lastPosition;
-
-        transform.position = newPosition;
-
-        if (enableRotation)
-        {
-            Vector3 tangent = GetTangentAtDistance(currentDistance);
-            if (tangent != Vector3.zero)
-            {
-                if (direction < 0)
-                {
-                    tangent = -tangent;
-                }
-                
-                UpdateRotation(tangent);
-            }
-        }
-
-        lastPosition = newPosition;
     }
+    else
+    {
+        currentDistance %= totalLength;
+    }
+
+    Vector3 newPosition = GetPositionAtDistance(currentDistance);
+    deltaMovement = newPosition - lastPosition;
+
+    transform.position = newPosition;
+
+    if (enableRotation)
+    {
+        Vector3 tangent = GetTangentAtDistance(currentDistance);
+        if (tangent != Vector3.zero)
+        {
+            if (direction < 0)
+            {
+                tangent = -tangent;
+            }
+            
+            UpdateRotation(tangent);
+        }
+    }
+
+    lastPosition = newPosition;
+}
 
     void SampleSpline()
     {

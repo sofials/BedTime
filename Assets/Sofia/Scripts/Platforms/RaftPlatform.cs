@@ -7,7 +7,9 @@ using System.Collections;
 
 [System.Serializable]
 public class RaftSettings
-{
+
+{   
+
     [Header("Movement")]
     public float speed = 10f;
     [Range(0.1f, 5f)] public float accelerationTime = 2f;
@@ -47,6 +49,7 @@ public class RaftSettings
     [Range(0.1f, 10f)] public float minimumTriggerTime = 0f;
     [Range(0f, 2f)] public float accidentalPreventionTime = 0.1f;
 }
+
 
 public enum RaftState 
 {
@@ -100,6 +103,8 @@ public class RaftPlatform : MonoBehaviour
     // FIX: Better terminal state tracking
     private bool justArrivedAtTerminal = false;
     private float terminalArrivalTime = 0f;
+    // Aggiungi dopo le altre variabili private
+private Rigidbody rb;
 
     // Position tracking
     private Vector3 lastPosition;
@@ -174,51 +179,72 @@ public class RaftPlatform : MonoBehaviour
     private int _exitEvents = 0;
     private List<float> _speedSamples = new List<float>(60);
 
-    void Start()
-    {
-        SyncSettingsFromSerializedFields();
-
-        if (!ValidateConfiguration())
-        {
-            Debug.LogError($"[RaftPlatform] {gameObject.name}: Configurazione non valida, componente disabilitato");
-            enabled = false;
-            return;
-        }
-
-        SampleSpline();
-        InitializePositions();
-        SetupCheckpointIntegration();
-
-        _currentState = RaftState.WaitingAtTerminal;
-        justArrivedAtTerminal = false; // Start clean
-
-        if (debugRespawnSystem)
-        {
-            Debug.Log($"[RaftPlatform] {gameObject.name} inizializzato correttamente");
-        }
-        // Registra per notifiche respawn
-ThirdPersonController playerController = FindFirstObjectByType<ThirdPersonController>();
-if (playerController != null)
+  void Start()
 {
-    playerController.OnPlayerRespawned.AddListener((pos, rot) => OnPlayerRespawnedNotification(lastKnownPlayerPosition, pos));
-}
-    }
+    SyncSettingsFromSerializedFields();
 
-    void Update()
+    if (!ValidateConfiguration())
     {
-        if (Time.time - _lastValidationTime > VALIDATION_INTERVAL)
-        {
-            _lastValidationTime = Time.time;
-            if (!ValidateRuntimeState())
-                return;
-        }
-
-        HandleStateMachine();
-        CheckForPlayerRespawn(); // FIX: This needs to be more aggressive
-        HandleRespawnDetection();
-        CheckForAccidentalActivation();
-        CollectTelemetryData();
+        Debug.LogError($"[RaftPlatform] {gameObject.name}: Configurazione non valida, componente disabilitato");
+        enabled = false;
+        return;
     }
+
+    // ✅ NUOVO: Setup Rigidbody per movimento fluido
+    SetupRigidbody();
+
+    SampleSpline();
+    InitializePositions();
+    SetupCheckpointIntegration();
+
+    _currentState = RaftState.WaitingAtTerminal;
+    justArrivedAtTerminal = false;
+
+    if (debugRespawnSystem)
+    {
+        Debug.Log($"[RaftPlatform] {gameObject.name} inizializzato correttamente");
+    }
+    
+    // Registra per notifiche respawn
+    ThirdPersonController playerController = FindFirstObjectByType<ThirdPersonController>();
+    if (playerController != null)
+    {
+        playerController.OnPlayerRespawned.AddListener((pos, rot) => OnPlayerRespawnedNotification(lastKnownPlayerPosition, pos));
+    }
+}
+
+// ✅ NUOVO METODO
+private void SetupRigidbody()
+{
+    rb = GetComponent<Rigidbody>();
+    if (rb == null)
+    {
+        rb = gameObject.AddComponent<Rigidbody>();
+    }
+    
+    rb.isKinematic = true;
+    rb.interpolation = RigidbodyInterpolation.Interpolate;
+    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+    rb.useGravity = false;
+    // AGGIUNGI QUESTA LINEA:
+    rb.angularDamping = 0.05f; // Come la MovingPlatform
+}
+void Update()
+{
+    // SOLO controlli non-fisici qui
+    if (Time.time - _lastValidationTime > VALIDATION_INTERVAL)
+    {
+        _lastValidationTime = Time.time;
+        if (!ValidateRuntimeState())
+            return;
+    }
+
+    // Logica di stato e rilevamento (non movimento)
+    CheckForPlayerRespawn();
+    HandleRespawnDetection();
+    CheckForAccidentalActivation();
+    CollectTelemetryData();
+}
 
     #region Configuration & Validation
     
@@ -277,17 +303,27 @@ if (playerController != null)
         return true;
     }
 
-    private void InitializePositions()
+   private void InitializePositions()
+{
+    startDistance = 0f;
+    endDistance = GetDistanceAtT(1f / (splineContainer.Spline.Count - 1));
+    currentDistance = startDistance;
+    
+    Vector3 startPosition = GetPositionAtDistance(startDistance);
+    
+    // ✅ USA MovePosition se disponibile
+    if (rb != null)
     {
-        startDistance = 0f;
-        endDistance = GetDistanceAtT(1f / (splineContainer.Spline.Count - 1));
-        currentDistance = startDistance;
-        
-        Vector3 startPosition = GetPositionAtDistance(startDistance);
-        transform.position = startPosition;
-        lastPosition = startPosition;
-        lastKnownPlayerPosition = startPosition;
+        rb.MovePosition(startPosition);
     }
+    else
+    {
+        transform.position = startPosition;
+    }
+    
+    lastPosition = startPosition;
+    lastKnownPlayerPosition = startPosition;
+}
 
     #endregion
 
@@ -359,55 +395,39 @@ private void HandleWaitingAtTerminal()
     }
 
     private void HandleMoving()
-    {
-        UpdateMovementSmooth();
+{
+    UpdateMovementSmooth();
 
-        // FIX: Check immediato per uscita player durante movimento
-        if (playerController == null && !playerJustReturnedToTerminal)
+    // FIX: Check immediato per uscita player durante movimento
+    if (playerController == null && !playerJustReturnedToTerminal)
+    {
+        float timeSinceStart = Time.time - lastMovementStartTime;
+        if (debugActivationSystem)
         {
-            float timeSinceStart = Time.time - lastMovementStartTime;
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Player assente durante movimento (tempo: {timeSinceStart:F2}s)");
+        }
+
+        if (timeSinceStart < settings.falseStartDetectionTime)
+        {
             if (debugActivationSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player assente durante movimento (tempo: {timeSinceStart:F2}s)");
+                Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA rilevata!");
             }
-
-            // Se il player è uscito poco dopo l'inizio, è una falsa partenza
-            if (timeSinceStart < settings.falseStartDetectionTime)
-            { if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA rilevata!");
-                }
-                HandleFalseStart();
-                return;
-            }
-            // Se il player è uscito dopo un po', torna comunque al terminal più vicino al player
-            else if (timeSinceStart < settings.accidentalActivationCheckTime)
+            HandleFalseStart();
+            return;
+        }
+        else if (timeSinceStart < settings.accidentalActivationCheckTime)
+        {
+            if (debugActivationSystem)
             {
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito durante movimento dopo {timeSinceStart:F2}s, torno al terminal");
-                }
-                HandleEarlyExit();
-                return;
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito durante movimento dopo {timeSinceStart:F2}s, torno al terminal");
             }
+            HandleEarlyExit();
+            return;
         }
+    }
 
-        if (playerController != null)
-        {
-            lastDirectionWithPlayer = direction;
-            wasMovingBeforeExit = true;
-        }
-
-        // Check terminal reached
-        if (direction == 1 && currentDistance >= endDistance)
-        {
-            ReachTerminal(endDistance);
-        }
-        else if (direction == -1 && currentDistance <= startDistance)
-        {
-            ReachTerminal(startDistance);
-        }
-         if (playerController != null)
+    if (playerController != null)
     {
         lastDirectionWithPlayer = direction;
         wasMovingBeforeExit = true;
@@ -422,7 +442,8 @@ private void HandleWaitingAtTerminal()
     {
         ReachTerminal(startDistance);
     }
-    }
+    
+}
 private void HandleEarlyExit()
 {
     Vector3 playerPosition;
@@ -637,24 +658,36 @@ private void HandleFalseStart()
 
     #region Movement System
 
-    private void UpdateMovementSmooth()
+  private void UpdateMovementSmooth()
+{
+    float accelerationRate = _targetSpeedRatio > _currentSpeedRatio ? 
+        1f / settings.accelerationTime : 1f / settings.decelerationTime;
+    
+    _currentSpeedRatio = Mathf.MoveTowards(_currentSpeedRatio, _targetSpeedRatio, 
+        accelerationRate * Time.fixedDeltaTime);
+    
+    float smoothedSpeed = settings.speed * speedMultiplier * 
+        accelerationCurve.Evaluate(_currentSpeedRatio);
+    
+    currentDistance += smoothedSpeed * direction * Time.fixedDeltaTime;
+    
+    Vector3 newPosition = GetPositionAtDistance(currentDistance);
+    
+    // CORREZIONE: Calcola delta DOPO aver ottenuto la nuova posizione
+    // ma PRIMA di muovere
+    deltaMovement = newPosition - transform.position; // USA transform.position, NON lastPosition
+    
+    if (rb != null)
     {
-        float accelerationRate = _targetSpeedRatio > _currentSpeedRatio ? 
-            1f / settings.accelerationTime : 1f / settings.decelerationTime;
-        
-        _currentSpeedRatio = Mathf.MoveTowards(_currentSpeedRatio, _targetSpeedRatio, 
-            accelerationRate * Time.deltaTime);
-        
-        float smoothedSpeed = settings.speed * speedMultiplier * 
-            accelerationCurve.Evaluate(_currentSpeedRatio);
-        
-        currentDistance += smoothedSpeed * direction * Time.deltaTime;
-        
-        Vector3 newPosition = GetPositionAtDistance(currentDistance);
-        deltaMovement = newPosition - lastPosition;
-        transform.position = newPosition;
-        lastPosition = newPosition;
+        rb.MovePosition(newPosition);
     }
+    else
+    {
+        transform.position = newPosition;
+    }
+    
+    lastPosition = newPosition;
+}
 
 private void ReachTerminal(float terminalDistance)
 {
@@ -726,6 +759,11 @@ private void ReachTerminal(float terminalDistance)
         // Dopo 10 secondi di movimento normale, disabilita il controllo
         settings.enableAccidentalDetection = false;
     }
+}
+void FixedUpdate()
+{
+    // TUTTA LA FISICA E IL MOVIMENTO QUI
+    HandleStateMachine();
 }
     private void StartMovement()
     {
@@ -1297,24 +1335,24 @@ private IEnumerator DelayedReturnCheck(Vector3 playerPosition)
 {
     yield return new WaitForSeconds(0.5f);
     
-    // Verifica se il player è ancora lontano e se non è salito nel frattempo
     if (playerController == null && 
         _currentState == RaftState.Moving && 
-        !playerJustExited) // Assicurati che non sia semplicemente uscito normalmente
+        !playerJustExited)
     {
-        float currentDistance = Vector3.Distance(transform.position, playerPosition);
-        if (currentDistance > settings.returnToTerminalRadius)
+        // ✅ FIX: Rinomina per evitare conflitto con il campo 'currentDistance'
+        float distanceToPlayer = Vector3.Distance(transform.position, playerPosition);
+        if (distanceToPlayer > settings.returnToTerminalRadius)
         {
             if (debugRespawnSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Confermato player lontano ({currentDistance:F1}m), avvio ritorno");
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Confermato player lontano ({distanceToPlayer:F1}m), avvio ritorno");
             }
             
             StartReturningBasedOnMode(playerPosition);
         }
         else if (debugRespawnSystem)
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Player ora abbastanza vicino ({currentDistance:F1}m), continuo movimento normale");
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Player ora abbastanza vicino ({distanceToPlayer:F1}m), continuo movimento normale");
         }
     }
     else if (debugRespawnSystem && playerController != null)
@@ -1369,27 +1407,37 @@ private IEnumerator DelayedReturnCheck(Vector3 playerPosition)
     }
 
     [ContextMenu("Reset to Start Position")]
-    public void ResetToStartPosition()
+public void ResetToStartPosition()
+{
+    if (sampledPoints.Count == 0)
     {
-        if (sampledPoints.Count == 0)
-        {
-            SampleSpline();
-        }
-        
-        currentDistance = startDistance;
-        Vector3 startPosition = GetPositionAtDistance(startDistance);
-        transform.position = startPosition;
-        lastPosition = startPosition;
-        
-        ChangeState(RaftState.WaitingAtTerminal);
-        ResetActivationTimer();
-        ResetPlayerState();
-        
-        if (debugRespawnSystem)
-        {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Zattera riposizionata manualmente all'inizio");
-        }
+        SampleSpline();
     }
+    
+    currentDistance = startDistance;
+    Vector3 startPosition = GetPositionAtDistance(startDistance);
+    
+    // ✅ FIX: USA MovePosition se Rigidbody disponibile
+    if (rb != null)
+    {
+        rb.MovePosition(startPosition);
+    }
+    else
+    {
+        transform.position = startPosition;
+    }
+    
+    lastPosition = startPosition;
+    
+    ChangeState(RaftState.WaitingAtTerminal);
+    ResetActivationTimer();
+    ResetPlayerState();
+    
+    if (debugRespawnSystem)
+    {
+        Debug.Log($"[RaftPlatform] {gameObject.name}: Zattera riposizionata manualmente all'inizio");
+    }
+}
 
     [ContextMenu("Force Validation")]
     public void ForceValidation()

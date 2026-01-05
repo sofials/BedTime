@@ -1822,42 +1822,29 @@ private void AttachToPlatform(Transform platform)
     {
         platformDeltaPosition = Vector3.zero;
         platformDeltaRotation = Quaternion.identity;
-        platformMovementStabilized = false;
         return;
     }
 
     Vector3 currentPlatformPos = currentPlatform.position;
     Quaternion currentPlatformRot = currentPlatform.rotation;
     
+    // Calcola delta SENZA damping - il movimento deve essere 1:1
     platformDeltaPosition = currentPlatformPos - lastPlatformPosition;
     platformDeltaRotation = currentPlatformRot * Quaternion.Inverse(lastPlatformRotation);
     
-    // STABILIZZAZIONE MENO AGGRESSIVA
-    if (platformDeltaPosition.magnitude < 0.001f) // Ridotto da 0.003f
+    // Solo soglia minima per rumore numerico
+    if (platformDeltaPosition.sqrMagnitude < 0.0000001f)
     {
         platformDeltaPosition = Vector3.zero;
     }
-    else
-    {
-        // Damping meno aggressivo
-        platformDeltaPosition *= 0.95f; // Era 0.9f
-        
-        // Damping verticale meno aggressivo
-        platformDeltaPosition.y *= 0.8f; // Era 0.5f
-    }
     
-    if (Quaternion.Angle(platformDeltaRotation, Quaternion.identity) < 0.1f) // Ridotto da 0.2f
+    if (Quaternion.Angle(platformDeltaRotation, Quaternion.identity) < 0.01f)
     {
         platformDeltaRotation = Quaternion.identity;
     }
     
     lastPlatformPosition = currentPlatformPos;
     lastPlatformRotation = currentPlatformRot;
-    
-    if (debugPlatformMovement && platformDeltaPosition.magnitude > 0.0005f) // Soglia ridotta
-    {
-        Debug.Log($"[Platform] Delta meno aggressivo - Pos: {platformDeltaPosition} Mag: {platformDeltaPosition.magnitude:F4}");
-    }
 }
 
 
@@ -1963,6 +1950,10 @@ private void ExecuteJump(bool isFirstJump)
 
 private Vector3 ApplyPlatformMovement()
 {
+      if (debugPlatformMovement && currentPlatform != null)
+    {
+        Debug.Log($"[Platform Debug] Delta: {platformDeltaPosition} | Mag: {platformDeltaPosition.magnitude:F4} | Platform: {currentPlatform.name}");
+    }
     Vector3 totalPlatformMovement = Vector3.zero;
     
     // A) MOVIMENTO ORIZZONTALE - Sempre al 100%
@@ -1970,35 +1961,16 @@ private Vector3 ApplyPlatformMovement()
     horizontalMovement.y = 0f;
     totalPlatformMovement += horizontalMovement;
     
-    // B) MOVIMENTO VERTICALE OTTIMIZZATO PER VELOCITÀ ALTE
+    // B) MOVIMENTO VERTICALE - SEMPLIFICATO per evitare jitter
     if (!disableVerticalFollowing)
     {
         float verticalDelta = platformDeltaPosition.y;
         
-        // Soglia molto più bassa per velocità alte (20 unità/sec = 0.33 per frame a 60fps)
-        if (useVerticalDeadZone && Mathf.Abs(verticalDelta) <= verticalDeadZone)
+        // Applica direttamente senza smoothing eccessivo
+        if (Mathf.Abs(verticalDelta) > 0.0001f)
         {
-            verticalDelta = 0f;
-        }
-        
-        // Smoothing condizionale: NON applicare per movimenti grandi
-        if (platformVerticalSmoothing > 0f && Mathf.Abs(verticalDelta) < 0.5f) // Solo per movimenti piccoli
-        {
-            verticalDelta = Mathf.Lerp(0f, verticalDelta, Time.deltaTime * platformVerticalSmoothing);
-        }
-        // Per movimenti grandi (piattaforme veloci), applica direttamente senza smoothing
-        
-        // Soglia molto più bassa per piattaforme veloci
-        if (currentRaftPlatform != null || Mathf.Abs(verticalDelta) >= platformVerticalThreshold)
-        {
-            // Multiplier al 100% per seguire completamente la piattaforma
-            verticalDelta *= platformVerticalMultiplier;
-            
-            // Max speed deve essere maggiore della velocità massima della piattaforma
-            verticalDelta = Mathf.Clamp(verticalDelta, -platformVerticalMaxSpeed, platformVerticalMaxSpeed);
-            
-            // Applica sempre se siamo su una piattaforma valida
-            if (controller.isGrounded || IsPlatformValidLoose())
+            // Segui la piattaforma direttamente quando grounded
+            if (controller.isGrounded || currentPlatform != null)
             {
                 totalPlatformMovement.y = verticalDelta;
             }
@@ -2020,15 +1992,8 @@ private Vector3 ApplyPlatformMovement()
         totalPlatformMovement += rotationMovement;
     }
     
-    if (debugPlatformMovement && totalPlatformMovement.magnitude > 0.001f)
-    {
-        float platformSpeed = totalPlatformMovement.magnitude / Time.deltaTime;
-        Debug.Log($"[Platform] Movimento veloce: V{totalPlatformMovement.y:F3} Speed{platformSpeed:F1}u/s Raw{platformDeltaPosition.y:F4}");
-    }
-    
     return totalPlatformMovement;
 }
-
     private void HandleFootstepAudio()
     {
         bool isMoving = playerVelocity.sqrMagnitude > 0.1f;

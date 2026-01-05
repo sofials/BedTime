@@ -36,6 +36,10 @@ public class CollectiblesManager : MonoBehaviour
     public UnityEvent<int, int> OnPresentCountChanged; // collected, total
     public UnityEvent<string> OnPresentCollected; // present name
     public UnityEvent OnAllPresentsCollected;
+    [Header("Debug Shortcuts")]
+[SerializeField] private KeyCode debugCollectKey = KeyCode.F9;
+[SerializeField] private bool enableDebugShortcuts = true;
+
     
     [Header("Memory Events")]
     public UnityEvent<int, int> OnMemoryCountChanged; // collected, total
@@ -858,7 +862,36 @@ private System.Collections.IEnumerator ConnectToUISystemsCoroutine()
         // Aggiorna UI specifiche
         UpdateCollectiblesUI();
     }
+    private void Update()
+{
+    if (!enableDebugShortcuts) return;
     
+    if (Input.GetKeyDown(debugCollectKey))
+    {
+        DebugCollectFirstTwoPresents();
+    }
+}
+[ContextMenu("🎁 Debug: Collect Present1 & Present2")]
+public void DebugCollectFirstTwoPresents()
+{
+    string[] targetNames = { "Present1", "Present2" };
+    Presents[] allPresents = FindObjectsByType<Presents>(FindObjectsSortMode.None);
+    
+    foreach (string targetName in targetNames)
+    {
+        foreach (var present in allPresents)
+        {
+            if (present != null && 
+                !present.IsCollected() && 
+                (present.name == targetName || present.GetName() == targetName))
+            {
+                present.CollectItem();
+                Debug.Log($"[CollectiblesManager] 🎁 Debug: Raccolto {present.GetName()}");
+                break;
+            }
+        }
+    }
+}
   private void UpdateCollectiblesUI()
 {
     if (collectiblesUI != null)
