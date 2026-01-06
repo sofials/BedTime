@@ -372,7 +372,11 @@ public void ConfigureAbilities()
 /// </summary>
 public void EnableAbilityFromInspector(string abilityName)
 {
-    EnableAbility(abilityName);
+    Debug.Log($"[AbilitiesManager] EnableAbilityFromInspector chiamato con: '{abilityName}'");
+    Debug.Log($"[AbilitiesManager] Abilità nel lookup: {string.Join(", ", abilityLookup.Keys)}");
+    
+    bool result = EnableAbility(abilityName);
+    Debug.Log($"[AbilitiesManager] Risultato EnableAbility: {result}");
 }
 
 /// <summary>

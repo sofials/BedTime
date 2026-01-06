@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Events;
+ using System.Collections;
 
 public class TeleportBase : MonoBehaviour
 {
@@ -122,19 +123,48 @@ public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezio
     /// <summary>
     /// Attiva l'intero GameObject del teleport dall'esterno
     /// </summary>
-    public void EnableObject()
+   public void EnableObject()
+{
+    if (!gameObject.activeInHierarchy)
     {
-        if (!gameObject.activeInHierarchy)
+        gameObject.SetActive(true);
+        OnObjectEnabled?.Invoke();
+        
+        // NUOVO: Controlla se il player è già dentro il trigger
+        StartCoroutine(CheckForPlayerInside());
+        
+        if (showDebugLogs)
         {
-            gameObject.SetActive(true);
-            OnObjectEnabled?.Invoke();
-            
-            if (showDebugLogs)
+            Debug.Log($"TeleportBase GameObject '{gameObject.name}' attivato");
+        }
+    }
+}
+private IEnumerator CheckForPlayerInside()
+{
+    yield return new WaitForFixedUpdate(); // Aspetta che la fisica si aggiorni
+    
+    Collider col = GetComponent<Collider>();
+    if (col != null)
+    {
+        // Trova tutti i collider dentro il trigger
+        Collider[] overlapping = Physics.OverlapBox(
+            col.bounds.center, 
+            col.bounds.extents, 
+            transform.rotation
+        );
+        
+        foreach (var other in overlapping)
+        {
+            if (other.CompareTag("Player"))
             {
-                Debug.Log($"TeleportBase GameObject '{gameObject.name}' attivato");
+                OnCursorEnter();
+                if (showDebugLogs)
+                    Debug.Log($"Player trovato già dentro '{gameObject.name}' dopo attivazione!");
+                break;
             }
         }
     }
+}
     
     /// <summary>
     /// Disattiva l'intero GameObject del teleport dall'esterno
