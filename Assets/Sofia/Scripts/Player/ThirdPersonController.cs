@@ -2839,6 +2839,12 @@ private void HandleAirControl()
 }
     public void Respawn()
     {
+        // ✅ ANNULLA PIAZZAMENTO PIATTAFORMA IN CORSO
+    PlatformSpawnerForwardAbility platformAbility = GetComponent<PlatformSpawnerForwardAbility>();
+    if (platformAbility != null)
+    {
+        platformAbility.CancelPlacement();
+    }
       isDyingFromLava = false;
     StopAllCoroutines(); 
     // ✅ ASSICURATI CHE IL CHARACTERCONTROLLER SIA ABILITATO
@@ -3465,6 +3471,11 @@ private void TriggerLavaDeath()
     if (isDyingFromLava) return;
     
     isDyingFromLava = true;
+      PlatformSpawnerForwardAbility platformAbility = GetComponent<PlatformSpawnerForwardAbility>();
+    if (platformAbility != null)
+    {
+        platformAbility.CancelPlacement();
+    }
     
     if (debugLavaDeath)
     {

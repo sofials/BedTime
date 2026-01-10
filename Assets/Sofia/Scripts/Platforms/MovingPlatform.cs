@@ -148,7 +148,7 @@ public class MovingPlatform : MonoBehaviour
     lastPosition = newPosition;
 }
 
-    void SampleSpline()
+    public void SampleSpline()
     {
         sampledPoints.Clear();
         sampledTangents.Clear();

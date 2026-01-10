@@ -310,8 +310,19 @@ private void InitializeSpawner()
             Vector3 localPos = spline.EvaluatePosition(t);
             Vector3 worldPos = setting.splineContainer.transform.TransformPoint(localPos);
 
-            GameObject newGem = Instantiate(gemPrefab, worldPos, gemPrefab.transform.rotation);
-            spawnedGems[splineIndex][i] = newGem;
+            GameObject newGem = Instantiate(gemPrefab, worldPos, gemPrefab.transform.rotation, setting.splineContainer.transform);
+
+// Forza la scala world originale del prefab
+Vector3 originalScale = gemPrefab.transform.lossyScale;
+Transform parent = newGem.transform.parent;
+Vector3 parentScale = parent != null ? parent.lossyScale : Vector3.one;
+newGem.transform.localScale = new Vector3(
+    originalScale.x / parentScale.x,
+    originalScale.y / parentScale.y,
+    originalScale.z / parentScale.z
+);
+
+spawnedGems[splineIndex][i] = newGem;
         }
     }
 

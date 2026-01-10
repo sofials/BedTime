@@ -4,14 +4,129 @@ using System.Collections;
 using System.Collections.Generic;
 
 /// <summary>
-/// Trigger principale che coordina audio, dissolve e camera shake
+/// Definisce come un oggetto deve muoversi durante il terremoto
+/// </summary>
+[System.Serializable]
+public class ObjectMovement
+{
+    public GameObject targetObject;
+    
+    [Header("Tipo di Movimento")]
+    [Tooltip("Se true, usa la posizione finale assoluta. Se false, usa l'offset relativo.")]
+    public bool useAbsolutePosition = false;
+    
+    [Header("Offset Relativo (se useAbsolutePosition = false)")]
+    [Tooltip("Quanto spostare l'oggetto rispetto alla posizione attuale")]
+    public Vector3 movementOffset = Vector3.zero;
+    
+    [Header("Posizione Finale (se useAbsolutePosition = true)")]
+    [Tooltip("La posizione finale dove l'oggetto deve arrivare")]
+    public Vector3 targetPosition = Vector3.zero;
+    
+    [Header("Timing")]
+    [Tooltip("Ritardo prima di iniziare il movimento (in secondi)")]
+    public float startDelay = 0f;
+    [Tooltip("Durata del movimento (in secondi). Se 0, usa la durata del terremoto")]
+    public float duration = 0f;
+    
+    [Header("Easing")]
+    [Tooltip("Curva di animazione per il movimento")]
+    public AnimationCurve movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    
+    [Header("Spazio")]
+    [Tooltip("Se true, il movimento è in world space. Se false, in local space.")]
+    public bool useWorldSpace = true;
+    
+    [Header("Gestione Figli")]
+    [Tooltip("Se true, forza i Rigidbody dei figli a kinematic durante il movimento")]
+    public bool forceChildrenFollow = false;
+    [Tooltip("Se true, include anche i figli dei figli (ricorsivo)")]
+    public bool includeNestedChildren = true;
+    
+    [Header("Gestione Speciale Spline")]
+    [Tooltip("Se true, ri-campiona le spline dopo il movimento")]
+    public bool resampleSplineAfterMove = false;
+    [Tooltip("MovingPlatform da ri-campionare dopo il movimento (assegna direttamente)")]
+    public MonoBehaviour[] movingPlatformsToResample;
+    [Tooltip("GemSpawnerSpline da reinizializzare dopo il movimento (assegna direttamente)")]
+    public MonoBehaviour[] gemSpawnersToReinitialize;
+    
+    [Header("Oggetti Spawnati da Muovere")]
+    [Tooltip("Se true, sposta anche le gemme/oggetti spawnati insieme")]
+    public bool moveSpawnedObjectsWithSpline = false;
+    [Tooltip("Tag degli oggetti spawnati da muovere insieme (es. 'Gem')")]
+    public string spawnedObjectsTag = "Gem";
+    [Tooltip("Raggio di ricerca per oggetti spawnati vicino alla spline")]
+    public float spawnedObjectsSearchRadius = 50f;
+    
+    // Stato interno (non visibile nell'inspector)
+    [HideInInspector] public Vector3 startPosition;
+    [HideInInspector] public Vector3 calculatedEndPosition;
+    [HideInInspector] public bool isMoving = false;
+    [HideInInspector] public List<ChildTransformData> savedChildData = new List<ChildTransformData>();
+    [HideInInspector] public List<SpawnedObjectData> spawnedObjectsData = new List<SpawnedObjectData>();
+}
+
+/// <summary>
+/// Salva i dati di un transform figlio per il ripristino
+/// </summary>
+[System.Serializable]
+public class ChildTransformData
+{
+    public Transform child;
+    public Transform originalParent;
+    public Vector3 originalLocalPosition;
+    public Quaternion originalLocalRotation;
+    public Vector3 originalLocalScale;
+    public Rigidbody rigidbody;
+    public bool wasKinematic;
+    public Animator animator;
+    public bool animatorWasEnabled;
+}
+
+/// <summary>
+/// Salva i dati degli oggetti spawnati per muoverli insieme
+/// </summary>
+[System.Serializable]
+public class SpawnedObjectData
+{
+    public Transform spawnedObject;
+    public Vector3 offsetFromParent; // Offset rispetto al parent della spline
+}
+
+/// <summary>
+/// Definisce gli oggetti da attivare al termine di tutti i movimenti, con audio opzionale
+/// </summary>
+[System.Serializable]
+public class PostMovementActivation
+{
+    [Header("Oggetti da Attivare")]
+    public GameObject[] objectsToActivate;
+    
+    [Header("Audio")]
+    [Tooltip("Audio da riprodurre quando gli oggetti vengono attivati")]
+    public AudioClip activationAudio;
+    [Range(0f, 1f)]
+    public float audioVolume = 1f;
+    [Tooltip("Se true, l'audio è spazializzato 3D. Se false, è 2D.")]
+    public bool spatializedAudio = false;
+    [Tooltip("Posizione dove riprodurre l'audio 3D (se vuoto, usa la posizione del primo oggetto attivato)")]
+    public Transform audioSourcePosition;
+    
+    [Header("Timing")]
+    [Tooltip("Ritardo dopo la fine dei movimenti prima di attivare gli oggetti")]
+    public float activationDelay = 0f;
+}
+
+/// <summary>
+/// Trigger principale che coordina audio, dissolve, camera shake e movimento oggetti
 /// Supporta multipli oggetti e materiali per il dissolve
 /// Può essere usato sia con trigger che manualmente tramite chiamata di metodo
 /// </summary>
 public class DreamWaveTrigger : MonoBehaviour
 {
     [Header("Trigger Settings")]
-    [SerializeField] private bool useTriggerCollider = true; // Nuovo campo per abilitare/disabilitare il trigger
+    [SerializeField] private bool useTriggerCollider = true;
     [SerializeField] private bool onlyTriggerOnce = true;
     
     [Header("Earthquake Settings")]
@@ -27,8 +142,8 @@ public class DreamWaveTrigger : MonoBehaviour
     [Header("Camera Shake Integration")]
     [SerializeField] private EarthquakeShake earthquakeShakeController;
     [SerializeField] private bool enableCameraShake = true;
-    [SerializeField] private float shakeDelay = 0f; // Ritardo prima di iniziare shake
-    [SerializeField] private float shakeStopDelay = 1f; // Ritardo dopo dissolve per fermare shake
+    [SerializeField] private float shakeDelay = 0f;
+    [SerializeField] private float shakeStopDelay = 1f;
     
     [Header("Material Dissolve Effect")]
     [SerializeField] private GameObject[] objectsToDissolve;
@@ -38,11 +153,20 @@ public class DreamWaveTrigger : MonoBehaviour
     [SerializeField] private AnimationCurve dissolveCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
     [SerializeField] private bool debugDissolve = false;
     
+    [Header("Object Movement During Earthquake")]
+    [SerializeField] private bool enableObjectMovement = false;
+    [SerializeField] private ObjectMovement[] objectsToMove;
+    [SerializeField] private bool debugMovement = false;
+    
+    [Header("Post-Movement Activation")]
+    [Tooltip("Oggetti da attivare al termine di TUTTI i movimenti")]
+    [SerializeField] private PostMovementActivation postMovementActivation;
+    
     [Header("Object Activation/Deactivation")]
     [SerializeField] private GameObject[] objectsToActivate;
-    [SerializeField] private float activationDelay = 0f; // Ritardo prima di attivare gli oggetti
+    [SerializeField] private float activationDelay = 0f;
     [SerializeField] private GameObject[] objectsToDeactivate;
-    [SerializeField] private float deactivationDelay = 0f; // Ritardo prima di disattivare gli oggetti
+    [SerializeField] private float deactivationDelay = 0f;
     
     [Header("Debug")]
     [SerializeField] private bool debugMode = false;
@@ -52,9 +176,13 @@ public class DreamWaveTrigger : MonoBehaviour
     private bool hasTriggered = false;
     private bool isAudioPlaying = false;
     private bool isDissolving = false;
+    private bool isMovingObjects = false;
     private Coroutine mainCoroutine;
     private Coroutine dissolveCoroutine;
+    private List<Coroutine> movementCoroutines = new List<Coroutine>();
     private List<Material> validMaterials = new List<Material>();
+    private int activeMovementsCount = 0;
+    private Coroutine postMovementCoroutine;
 
     private void Awake()
     {
@@ -62,11 +190,11 @@ public class DreamWaveTrigger : MonoBehaviour
         SetupAudioSource();
         SetupDissolveMaterials();
         FindShakeController();
+        InitializeMovementCurves();
     }
 
     private void SetupTrigger()
     {
-        // Setup del trigger solo se abilitato
         if (useTriggerCollider)
         {
             BoxCollider boxCollider = GetComponent<BoxCollider>();
@@ -79,7 +207,6 @@ public class DreamWaveTrigger : MonoBehaviour
         }
         else
         {
-            // Se il trigger è disabilitato, rimuovi o disabilita il BoxCollider se presente
             BoxCollider boxCollider = GetComponent<BoxCollider>();
             if (boxCollider != null && boxCollider.isTrigger)
             {
@@ -155,10 +282,22 @@ public class DreamWaveTrigger : MonoBehaviour
         if (debugDissolve)
             Debug.Log($"[DreamWaveTrigger] {validMaterials.Count} materiali validi trovati per il dissolve");
     }
+    
+    private void InitializeMovementCurves()
+    {
+        if (objectsToMove == null) return;
+        
+        foreach (var movement in objectsToMove)
+        {
+            if (movement.movementCurve == null || movement.movementCurve.keys.Length == 0)
+            {
+                movement.movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+            }
+        }
+    }
 
     private void OnTriggerEnter(Collider other)
     {
-        // Funziona solo se il trigger è abilitato
         if (!useTriggerCollider) return;
         if (!other.CompareTag("Player")) return;
         if (onlyTriggerOnce && hasTriggered) return;
@@ -181,13 +320,8 @@ public class DreamWaveTrigger : MonoBehaviour
     // METODI PUBBLICI PER ATTIVAZIONE MANUALE
     // ========================
     
-    /// <summary>
-    /// Attiva la sequenza manualmente senza bisogno del trigger
-    /// Utile per eventi come la raccolta di un regalo
-    /// </summary>
     public void TriggerSequenceManually()
     {
-        // Verifica se può essere attivato
         if (onlyTriggerOnce && hasTriggered)
         {
             if (debugMode)
@@ -202,7 +336,6 @@ public class DreamWaveTrigger : MonoBehaviour
             return;
         }
         
-        // Trova automaticamente il player controller se non è già impostato
         if (playerController == null)
         {
             ThirdPersonController controller = FindFirstObjectByType<ThirdPersonController>();
@@ -223,12 +356,8 @@ public class DreamWaveTrigger : MonoBehaviour
         StartSequence();
     }
     
-    /// <summary>
-    /// Versione alternativa che accetta un riferimento specifico al player controller
-    /// </summary>
     public void TriggerSequenceManually(ThirdPersonController specificPlayerController)
     {
-        // Verifica se può essere attivato
         if (onlyTriggerOnce && hasTriggered)
         {
             if (debugMode)
@@ -276,14 +405,12 @@ public class DreamWaveTrigger : MonoBehaviour
         // FASE 1: AVVIO
         // ========================
         
-        // Disabilita movimento del player
         if (disablePlayerMovement && playerController != null)
         {
             playerController.IsMovementLocked = true;
             if (debugMode) Debug.Log("[DreamWaveTrigger] Movimento player disabilitato");
         }
         
-        // Avvia audio principale
         if (audioSource != null && mainAudio != null)
         {
             audioSource.clip = mainAudio;
@@ -293,7 +420,7 @@ public class DreamWaveTrigger : MonoBehaviour
             if (debugMode) Debug.Log("[DreamWaveTrigger] Audio principale avviato");
         }
         
-        // ✅ AVVIA CAMERA SHAKE (con eventuale ritardo)
+        // ✅ AVVIA CAMERA SHAKE
         if (enableCameraShake && earthquakeShakeController != null)
         {
             if (shakeDelay > 0)
@@ -302,6 +429,12 @@ public class DreamWaveTrigger : MonoBehaviour
             }
             earthquakeShakeController.StartShake();
             if (debugMode) Debug.Log("[DreamWaveTrigger] Camera shake avviato");
+        }
+        
+        // ✅ AVVIA MOVIMENTO OGGETTI
+        if (enableObjectMovement && objectsToMove != null && objectsToMove.Length > 0)
+        {
+            StartObjectMovements();
         }
         
         // ✅ AVVIA DISSOLVE
@@ -328,6 +461,709 @@ public class DreamWaveTrigger : MonoBehaviour
         
         EndSequence();
     }
+    
+    // ========================
+    // SISTEMA DI MOVIMENTO OGGETTI
+    // ========================
+    
+    private void StartObjectMovements()
+    {
+        if (objectsToMove == null) return;
+        
+        isMovingObjects = true;
+        movementCoroutines.Clear();
+        activeMovementsCount = 0;
+        
+        foreach (var movement in objectsToMove)
+        {
+            if (movement.targetObject != null)
+            {
+                activeMovementsCount++;
+                Coroutine coroutine = StartCoroutine(MoveObject(movement));
+                movementCoroutines.Add(coroutine);
+            }
+        }
+        
+        if (debugMovement)
+            Debug.Log($"[DreamWaveTrigger] Avviato movimento per {activeMovementsCount} oggetti");
+    }
+    
+    private void OnMovementCompleted()
+    {
+        activeMovementsCount--;
+        
+        if (debugMovement)
+            Debug.Log($"[DreamWaveTrigger] Movimento completato. Rimanenti: {activeMovementsCount}");
+        
+        // Quando tutti i movimenti sono completati
+        if (activeMovementsCount <= 0)
+        {
+            isMovingObjects = false;
+            
+            if (debugMovement)
+                Debug.Log("[DreamWaveTrigger] Tutti i movimenti completati!");
+            
+            // Avvia l'attivazione post-movimento
+            if (postMovementActivation != null && 
+                postMovementActivation.objectsToActivate != null && 
+                postMovementActivation.objectsToActivate.Length > 0)
+            {
+                postMovementCoroutine = StartCoroutine(ExecutePostMovementActivation());
+            }
+        }
+    }
+    
+    private IEnumerator ExecutePostMovementActivation()
+    {
+        // Attendi il delay se specificato
+        if (postMovementActivation.activationDelay > 0)
+        {
+            yield return new WaitForSeconds(postMovementActivation.activationDelay);
+        }
+        
+        // Attiva tutti gli oggetti
+        foreach (GameObject obj in postMovementActivation.objectsToActivate)
+        {
+            if (obj != null)
+            {
+                obj.SetActive(true);
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Post-movimento: Oggetto '{obj.name}' attivato");
+            }
+        }
+        
+        // Riproduci audio se presente
+        if (postMovementActivation.activationAudio != null)
+        {
+            PlayPostMovementAudio();
+        }
+        
+        postMovementCoroutine = null;
+        
+        if (debugMovement)
+            Debug.Log("[DreamWaveTrigger] Attivazione post-movimento completata");
+    }
+    
+    private void PlayPostMovementAudio()
+    {
+        // Determina la posizione dell'audio
+        Vector3 audioPosition = transform.position;
+        
+        if (postMovementActivation.audioSourcePosition != null)
+        {
+            audioPosition = postMovementActivation.audioSourcePosition.position;
+        }
+        else if (postMovementActivation.objectsToActivate != null && 
+                 postMovementActivation.objectsToActivate.Length > 0 &&
+                 postMovementActivation.objectsToActivate[0] != null)
+        {
+            audioPosition = postMovementActivation.objectsToActivate[0].transform.position;
+        }
+        
+        if (postMovementActivation.spatializedAudio)
+        {
+            // Audio 3D spazializzato
+            AudioSource.PlayClipAtPoint(
+                postMovementActivation.activationAudio, 
+                audioPosition, 
+                postMovementActivation.audioVolume
+            );
+            
+            if (debugMovement)
+                Debug.Log($"[DreamWaveTrigger] Audio 3D riprodotto a {audioPosition}");
+        }
+        else
+        {
+            // Audio 2D - crea una sorgente temporanea
+            GameObject tempAudio = new GameObject("PostMovementAudio");
+            AudioSource tempSource = tempAudio.AddComponent<AudioSource>();
+            tempSource.clip = postMovementActivation.activationAudio;
+            tempSource.volume = postMovementActivation.audioVolume;
+            tempSource.spatialBlend = 0f; // 2D
+            tempSource.Play();
+            
+            // Distruggi dopo la riproduzione
+            Destroy(tempAudio, postMovementActivation.activationAudio.length + 0.1f);
+            
+            if (debugMovement)
+                Debug.Log("[DreamWaveTrigger] Audio 2D riprodotto");
+        }
+    }
+    
+    private IEnumerator MoveObject(ObjectMovement movement)
+    {
+        if (movement.targetObject == null) yield break;
+        
+        // Attendi il delay iniziale
+        if (movement.startDelay > 0)
+        {
+            yield return new WaitForSeconds(movement.startDelay);
+        }
+        
+        movement.isMoving = true;
+        
+        // ✅ PREPARA I FIGLI SE RICHIESTO
+        if (movement.forceChildrenFollow)
+        {
+            PrepareChildrenForMovement(movement);
+        }
+        
+        // Calcola posizioni
+        if (movement.useWorldSpace)
+        {
+            movement.startPosition = movement.targetObject.transform.position;
+            
+            if (movement.useAbsolutePosition)
+            {
+                movement.calculatedEndPosition = movement.targetPosition;
+            }
+            else
+            {
+                movement.calculatedEndPosition = movement.startPosition + movement.movementOffset;
+            }
+        }
+        else
+        {
+            movement.startPosition = movement.targetObject.transform.localPosition;
+            
+            if (movement.useAbsolutePosition)
+            {
+                movement.calculatedEndPosition = movement.targetPosition;
+            }
+            else
+            {
+                movement.calculatedEndPosition = movement.startPosition + movement.movementOffset;
+            }
+        }
+        
+        // Determina la durata
+        float duration = movement.duration > 0 ? movement.duration : earthquakeDuration;
+        
+        if (debugMovement)
+        {
+            string spaceType = movement.useWorldSpace ? "World" : "Local";
+            string posType = movement.useAbsolutePosition ? "Assoluta" : "Relativa";
+            Debug.Log($"[DreamWaveTrigger] Movimento '{movement.targetObject.name}': " +
+                      $"{movement.startPosition} -> {movement.calculatedEndPosition} " +
+                      $"({spaceType} Space, Posizione {posType}, Durata: {duration}s)" +
+                      (movement.forceChildrenFollow ? $" [+{movement.savedChildData.Count} figli forzati]" : ""));
+        }
+        
+        // Esegui il movimento
+        float elapsedTime = 0f;
+        
+        while (elapsedTime < duration)
+        {
+            if (movement.targetObject == null) yield break;
+            
+            float normalizedTime = elapsedTime / duration;
+            float curveValue = movement.movementCurve.Evaluate(normalizedTime);
+            
+            Vector3 newPosition = Vector3.Lerp(movement.startPosition, movement.calculatedEndPosition, curveValue);
+            
+            // Calcola il delta per gli oggetti spawnati
+            Vector3 previousPosition = movement.useWorldSpace 
+                ? movement.targetObject.transform.position 
+                : movement.targetObject.transform.localPosition;
+            
+            if (movement.useWorldSpace)
+            {
+                movement.targetObject.transform.position = newPosition;
+            }
+            else
+            {
+                movement.targetObject.transform.localPosition = newPosition;
+            }
+            
+            // ✅ MUOVI ANCHE GLI OGGETTI SPAWNATI
+            if (movement.moveSpawnedObjectsWithSpline && movement.spawnedObjectsData.Count > 0)
+            {
+                Vector3 delta = newPosition - previousPosition;
+                foreach (var spawnedData in movement.spawnedObjectsData)
+                {
+                    if (spawnedData.spawnedObject != null)
+                    {
+                        spawnedData.spawnedObject.position += delta;
+                    }
+                }
+            }
+            
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+        
+        // Assicura posizione finale esatta
+        if (movement.targetObject != null)
+        {
+            if (movement.useWorldSpace)
+            {
+                movement.targetObject.transform.position = movement.calculatedEndPosition;
+            }
+            else
+            {
+                movement.targetObject.transform.localPosition = movement.calculatedEndPosition;
+            }
+        }
+        
+        // ✅ RIPRISTINA I FIGLI SE ERANO STATI PREPARATI
+        if (movement.forceChildrenFollow)
+        {
+            RestoreChildrenAfterMovement(movement);
+        }
+        
+        movement.isMoving = false;
+        
+        if (debugMovement)
+            Debug.Log($"[DreamWaveTrigger] Movimento completato per '{movement.targetObject?.name}'");
+        
+        // Notifica il completamento
+        OnMovementCompleted();
+    }
+    
+    /// <summary>
+    /// Prepara i figli per il movimento forzando il kinematic sui rigidbody
+    /// </summary>
+    private void PrepareChildrenForMovement(ObjectMovement movement)
+    {
+        movement.savedChildData.Clear();
+        movement.spawnedObjectsData.Clear();
+        
+        Transform[] children;
+        
+        if (movement.includeNestedChildren)
+        {
+            // Prendi tutti i figli ricorsivamente
+            children = movement.targetObject.GetComponentsInChildren<Transform>(true);
+        }
+        else
+        {
+            // Prendi solo i figli diretti
+            children = new Transform[movement.targetObject.transform.childCount];
+            for (int i = 0; i < movement.targetObject.transform.childCount; i++)
+            {
+                children[i] = movement.targetObject.transform.GetChild(i);
+            }
+        }
+        
+        foreach (Transform child in children)
+        {
+            // Salta il parent stesso
+            if (child == movement.targetObject.transform) continue;
+            
+            var data = new ChildTransformData
+            {
+                child = child,
+                originalParent = child.parent,
+                originalLocalPosition = child.localPosition,
+                originalLocalRotation = child.localRotation,
+                originalLocalScale = child.localScale
+            };
+            
+            // Gestisci Rigidbody - forza kinematic per evitare problemi
+            Rigidbody rb = child.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                data.rigidbody = rb;
+                data.wasKinematic = rb.isKinematic;
+                rb.isKinematic = true;
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Rigidbody di '{child.name}' impostato a kinematic");
+            }
+            
+            // Gestisci Animator - disabilita temporaneamente se applica root motion o modifica transform
+            Animator anim = child.GetComponent<Animator>();
+            if (anim != null)
+            {
+                data.animator = anim;
+                data.animatorWasEnabled = anim.enabled;
+                
+                // Disabilita solo se l'animator potrebbe interferire
+                if (anim.applyRootMotion || anim.updateMode == AnimatorUpdateMode.Fixed)
+                {
+                    anim.enabled = false;
+                    if (debugMovement)
+                        Debug.Log($"[DreamWaveTrigger] Animator di '{child.name}' disabilitato temporaneamente");
+                }
+            }
+            
+            movement.savedChildData.Add(data);
+        }
+        
+        // ✅ DISABILITA FLOATING SU TUTTI I COLLECTIBLES durante il movimento
+        DisableFloatingOnCollectibles(movement.targetObject);
+        
+        // ✅ GESTIONE OGGETTI SPAWNATI (gemme, etc.)
+        if (movement.moveSpawnedObjectsWithSpline && !string.IsNullOrEmpty(movement.spawnedObjectsTag))
+        {
+            PrepareSpawnedObjects(movement);
+        }
+        
+        if (debugMovement)
+            Debug.Log($"[DreamWaveTrigger] Preparati {movement.savedChildData.Count} figli + {movement.spawnedObjectsData.Count} oggetti spawnati per il movimento di '{movement.targetObject.name}'");
+    }
+    
+    /// <summary>
+    /// Disabilita temporaneamente il floating sui Collectibles per permettere il movimento
+    /// </summary>
+    private void DisableFloatingOnCollectibles(GameObject target)
+    {
+        if (target == null) return;
+        
+        Collectibles[] allCollectibles = target.GetComponentsInChildren<Collectibles>(true);
+        
+        foreach (Collectibles collectible in allCollectibles)
+        {
+            if (collectible != null)
+            {
+                // Usa reflection per disabilitare enableFloating
+                var field = collectible.GetType().GetField("enableFloating", 
+                    System.Reflection.BindingFlags.NonPublic | 
+                    System.Reflection.BindingFlags.Public | 
+                    System.Reflection.BindingFlags.Instance);
+                
+                if (field == null)
+                {
+                    field = typeof(Collectibles).GetField("enableFloating", 
+                        System.Reflection.BindingFlags.NonPublic | 
+                        System.Reflection.BindingFlags.Public | 
+                        System.Reflection.BindingFlags.Instance);
+                }
+                
+                if (field != null)
+                {
+                    field.SetValue(collectible, false);
+                    if (debugMovement)
+                        Debug.Log($"[DreamWaveTrigger] ✅ Floating disabilitato per '{collectible.name}'");
+                }
+            }
+        }
+        
+        // Fai lo stesso per le Gem
+        Gem[] allGems = target.GetComponentsInChildren<Gem>(true);
+        
+        foreach (Gem gem in allGems)
+        {
+            if (gem != null)
+            {
+                // Le Gem non hanno enableFloating ma aggiornano sempre la Y in Update
+                // Non possiamo disabilitarle facilmente, ma l'aggiornamento di startPos dovrebbe bastare
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Gem '{gem.name}' trovata (startPos sarà aggiornato dopo movimento)");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Trova e prepara gli oggetti spawnati (es. gemme) per muoverli insieme alla spline
+    /// </summary>
+    private void PrepareSpawnedObjects(ObjectMovement movement)
+    {
+        // Trova tutti gli oggetti con il tag specificato
+        GameObject[] taggedObjects = GameObject.FindGameObjectsWithTag(movement.spawnedObjectsTag);
+        
+        Vector3 parentPos = movement.targetObject.transform.position;
+        
+        foreach (GameObject obj in taggedObjects)
+        {
+            if (obj == null) continue;
+            
+            // Controlla se l'oggetto è nel raggio di ricerca
+            float distance = Vector3.Distance(obj.transform.position, parentPos);
+            if (distance <= movement.spawnedObjectsSearchRadius)
+            {
+                var data = new SpawnedObjectData
+                {
+                    spawnedObject = obj.transform,
+                    offsetFromParent = obj.transform.position - parentPos
+                };
+                
+                movement.spawnedObjectsData.Add(data);
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Oggetto spawnato '{obj.name}' aggiunto al movimento (distanza: {distance:F1})");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Ripristina i figli dopo il movimento
+    /// </summary>
+    private void RestoreChildrenAfterMovement(ObjectMovement movement)
+    {
+        foreach (var data in movement.savedChildData)
+        {
+            if (data.child == null) continue;
+            
+            // Ripristina il Rigidbody allo stato originale
+            if (data.rigidbody != null)
+            {
+                data.rigidbody.isKinematic = data.wasKinematic;
+                
+                if (debugMovement && !data.wasKinematic)
+                    Debug.Log($"[DreamWaveTrigger] Rigidbody di '{data.child.name}' ripristinato a non-kinematic");
+            }
+            
+            // Ripristina l'Animator allo stato originale
+            if (data.animator != null && data.animatorWasEnabled && !data.animator.enabled)
+            {
+                data.animator.enabled = true;
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Animator di '{data.child.name}' riabilitato");
+            }
+        }
+        
+        movement.savedChildData.Clear();
+        
+        // ✅ RI-CAMPIONA LA SPLINE SE RICHIESTO (per MovingPlatform)
+        if (movement.resampleSplineAfterMove)
+        {
+            ResampleSplineOnTarget(movement.targetObject);
+        }
+        
+        if (debugMovement)
+            Debug.Log($"[DreamWaveTrigger] Figli ripristinati per '{movement.targetObject?.name}'");
+    }
+    
+    /// <summary>
+    /// Ri-campiona tutte le spline su MovingPlatform o GemSpawnerSpline nei figli
+    /// </summary>
+    private void ResampleSplineOnTarget(GameObject target)
+    {
+        if (target == null) return;
+        
+        // ✅ TROVA TUTTE LE MovingPlatform nei figli (ricorsivo)
+        MovingPlatform[] allPlatforms = target.GetComponentsInChildren<MovingPlatform>(true);
+        
+        foreach (MovingPlatform platform in allPlatforms)
+        {
+            if (platform != null)
+            {
+                platform.SendMessage("SampleSpline", SendMessageOptions.DontRequireReceiver);
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Richiesto re-sample spline per MovingPlatform '{platform.name}'");
+            }
+        }
+        
+        if (debugMovement && allPlatforms.Length > 0)
+            Debug.Log($"[DreamWaveTrigger] Ri-campionate {allPlatforms.Length} MovingPlatform");
+        
+        // ✅ TROVA TUTTI I GemSpawnerSpline nei figli (ricorsivo)
+        GemSpawnerSpline[] allSpawners = target.GetComponentsInChildren<GemSpawnerSpline>(true);
+        
+        foreach (GemSpawnerSpline spawner in allSpawners)
+        {
+            if (spawner != null)
+            {
+                // NON chiamiamo più ForceReinitialize perché le gemme sono già state mosse
+                // insieme al parent durante il movimento
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] GemSpawnerSpline '{spawner.name}' trovato (gemme già spostate con parent)");
+            }
+        }
+        
+        if (debugMovement && allSpawners.Length > 0)
+            Debug.Log($"[DreamWaveTrigger] Trovati {allSpawners.Length} GemSpawnerSpline");
+        
+        // ✅ AGGIORNA startPos DI TUTTE LE GEM nei figli (ricorsivo)
+        UpdateAllGemsInScene(target);
+        
+        // ✅ AGGIORNA startPos PER TUTTI I COLLECTIBLES (Memories, etc.) nei figli
+        UpdateCollectiblesStartPosition(target);
+    }
+    
+    /// <summary>
+    /// Aggiorna le gemme che sono figli del target (già spostate col parent)
+    /// </summary>
+    private void UpdateAllGemsInScene(GameObject target)
+    {
+        if (target == null) return;
+        
+        // Cerca SOLO le gemme nei figli del target
+        Gem[] gemsInChildren = target.GetComponentsInChildren<Gem>(true);
+        
+        foreach (Gem gem in gemsInChildren)
+        {
+            if (gem != null)
+            {
+                UpdateStartPositionViaReflection(gem, "startPos");
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] ✅ Aggiornato startPos per Gem '{gem.name}'");
+            }
+        }
+        
+        if (debugMovement && gemsInChildren.Length > 0)
+            Debug.Log($"[DreamWaveTrigger] Aggiornate {gemsInChildren.Length} Gem nei figli di '{target.name}'");
+    }
+    
+    /// <summary>
+    /// Aggiorna la startPos di tutti i Collectibles (Memories, etc.) nei figli dopo il movimento
+    /// </summary>
+    private void UpdateCollectiblesStartPosition(GameObject target)
+    {
+        if (target == null) return;
+        
+        // Cerca Collectibles (classe base)
+        Collectibles[] allCollectibles = target.GetComponentsInChildren<Collectibles>(true);
+        
+        foreach (Collectibles collectible in allCollectibles)
+        {
+            if (collectible != null)
+            {
+                UpdateStartPositionViaReflection(collectible, "startY");
+                UpdateStartPositionViaReflection(collectible, "startPosition");
+                UpdateStartPositionViaReflection(collectible, "startPos");
+                UpdateStartPositionViaReflection(collectible, "originalPosition");
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Aggiornata posizione per Collectible '{collectible.name}'");
+            }
+        }
+        
+        // Cerca anche Memories specificamente
+        Memories[] allMemories = target.GetComponentsInChildren<Memories>(true);
+        
+        foreach (Memories memory in allMemories)
+        {
+            if (memory != null)
+            {
+                UpdateStartPositionViaReflection(memory, "startY");
+                UpdateStartPositionViaReflection(memory, "startPosition");
+                UpdateStartPositionViaReflection(memory, "startPos");
+                UpdateStartPositionViaReflection(memory, "originalPosition");
+                
+                if (debugMovement)
+                    Debug.Log($"[DreamWaveTrigger] Aggiornata posizione per Memory '{memory.name}'");
+            }
+        }
+        
+        if (debugMovement && (allCollectibles.Length > 0 || allMemories.Length > 0))
+            Debug.Log($"[DreamWaveTrigger] Aggiornati {allCollectibles.Length} Collectibles e {allMemories.Length} Memories");
+    }
+    
+    /// <summary>
+    /// Usa reflection per aggiornare un campo Vector3 o float di posizione
+    /// </summary>
+    private void UpdateStartPositionViaReflection(MonoBehaviour target, string fieldName)
+    {
+        if (target == null) return;
+        
+        System.Type type = target.GetType();
+        
+        // Cerca in questa classe e nelle classi base
+        while (type != null && type != typeof(MonoBehaviour))
+        {
+            // ✅ BINDING FLAGS COMPLETI per trovare campi protected, private e public
+            System.Reflection.FieldInfo field = type.GetField(fieldName, 
+                System.Reflection.BindingFlags.NonPublic | 
+                System.Reflection.BindingFlags.Public | 
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.FlattenHierarchy);
+            
+            if (field != null)
+            {
+                if (field.FieldType == typeof(Vector3))
+                {
+                    Vector3 oldValue = (Vector3)field.GetValue(target);
+                    Vector3 newValue = target.transform.position;
+                    field.SetValue(target, newValue);
+                    
+                    if (debugMovement)
+                        Debug.Log($"[DreamWaveTrigger] ✅ Campo '{fieldName}' (Vector3) aggiornato: {oldValue} -> {newValue} per '{target.name}'");
+                    return;
+                }
+                else if (field.FieldType == typeof(float))
+                {
+                    // Per campi come startY, aggiorna con la Y corrente
+                    float oldValue = (float)field.GetValue(target);
+                    float newValue = target.transform.position.y;
+                    field.SetValue(target, newValue);
+                    
+                    if (debugMovement)
+                        Debug.Log($"[DreamWaveTrigger] ✅ Campo '{fieldName}' (float) aggiornato: {oldValue} -> {newValue} per '{target.name}'");
+                    return;
+                }
+            }
+            
+            type = type.BaseType;
+        }
+        
+        // ✅ FALLBACK: Prova anche con GetFields su tutta la gerarchia
+        type = target.GetType();
+        while (type != null && type != typeof(UnityEngine.Object))
+        {
+            var allFields = type.GetFields(
+                System.Reflection.BindingFlags.NonPublic | 
+                System.Reflection.BindingFlags.Public | 
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.DeclaredOnly);
+            
+            foreach (var field in allFields)
+            {
+                if (field.Name == fieldName)
+                {
+                    if (field.FieldType == typeof(Vector3))
+                    {
+                        Vector3 oldValue = (Vector3)field.GetValue(target);
+                        Vector3 newValue = target.transform.position;
+                        field.SetValue(target, newValue);
+                        
+                        if (debugMovement)
+                            Debug.Log($"[DreamWaveTrigger] ✅ Campo '{fieldName}' (Vector3) trovato con fallback: {oldValue} -> {newValue} per '{target.name}'");
+                        return;
+                    }
+                    else if (field.FieldType == typeof(float))
+                    {
+                        float oldValue = (float)field.GetValue(target);
+                        float newValue = target.transform.position.y;
+                        field.SetValue(target, newValue);
+                        
+                        if (debugMovement)
+                            Debug.Log($"[DreamWaveTrigger] ✅ Campo '{fieldName}' (float) trovato con fallback: {oldValue} -> {newValue} per '{target.name}'");
+                        return;
+                    }
+                }
+            }
+            
+            type = type.BaseType;
+        }
+        
+        if (debugMovement)
+            Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Campo '{fieldName}' non trovato per '{target.name}' ({target.GetType().Name})");
+    }
+    
+    private void StopAllMovements()
+    {
+        foreach (var coroutine in movementCoroutines)
+        {
+            if (coroutine != null)
+            {
+                StopCoroutine(coroutine);
+            }
+        }
+        movementCoroutines.Clear();
+        
+        if (postMovementCoroutine != null)
+        {
+            StopCoroutine(postMovementCoroutine);
+            postMovementCoroutine = null;
+        }
+        
+        if (objectsToMove != null)
+        {
+            foreach (var movement in objectsToMove)
+            {
+                movement.isMoving = false;
+            }
+        }
+        
+        activeMovementsCount = 0;
+        isMovingObjects = false;
+    }
 
     private IEnumerator DissolveObjects()
     {
@@ -344,13 +1180,11 @@ public class DreamWaveTrigger : MonoBehaviour
             duration = Mathf.Min(dissolveDuration, mainAudio.length);
         }
         
-        // Loop di dissolve
         while (elapsedTime < duration)
         {
             float normalizedTime = elapsedTime / duration;
             float dissolveValue = dissolveCurve.Evaluate(normalizedTime);
             
-            // ✅ APPLICA DISSOLVE A TUTTI I MATERIALI VALIDI
             foreach (Material material in validMaterials)
             {
                 if (material != null)
@@ -359,10 +1193,8 @@ public class DreamWaveTrigger : MonoBehaviour
                 }
             }
             
-            // ✅ DISATTIVA OGGETTI QUANDO DISSOLVE RAGGIUNGE ~95% (più istantaneo)
             if (!objectsDeactivated && dissolveValue >= 0.95f)
             {
-                // Disattiva tutti gli oggetti da dissolvere
                 if (objectsToDissolve != null)
                 {
                     foreach (GameObject obj in objectsToDissolve)
@@ -375,7 +1207,6 @@ public class DreamWaveTrigger : MonoBehaviour
                     }
                 }
                 
-                // ✅ ATTIVA TRIGGER FALLING IMMEDIATAMENTE
                 if (playerController != null)
                 {
                     Animator playerAnimator = playerController.GetComponent<Animator>();
@@ -390,7 +1221,6 @@ public class DreamWaveTrigger : MonoBehaviour
                     }
                 }
                 
-                // ✅ DISATTIVA OGGETTI SPECIFICATI (con eventuale delay)
                 if (objectsToDeactivate != null && objectsToDeactivate.Length > 0)
                 {
                     if (deactivationDelay > 0)
@@ -403,7 +1233,6 @@ public class DreamWaveTrigger : MonoBehaviour
                     }
                 }
                 
-                // ✅ ATTIVA OGGETTI SPECIFICATI (con eventuale delay)
                 if (objectsToActivate != null && objectsToActivate.Length > 0)
                 {
                     if (activationDelay > 0)
@@ -424,7 +1253,6 @@ public class DreamWaveTrigger : MonoBehaviour
             yield return null;
         }
         
-        // Dissolve completato - assicura valori finali
         foreach (Material material in validMaterials)
         {
             if (material != null)
@@ -433,10 +1261,8 @@ public class DreamWaveTrigger : MonoBehaviour
             }
         }
         
-        // ✅ FALLBACK: Se gli oggetti non sono ancora stati gestiti, fallo ora
         if (!objectsDeactivated)
         {
-            // Disattiva oggetti
             if (objectsToDissolve != null)
             {
                 foreach (GameObject obj in objectsToDissolve)
@@ -449,7 +1275,6 @@ public class DreamWaveTrigger : MonoBehaviour
                 }
             }
             
-            // Attiva trigger falling come fallback
             if (playerController != null)
             {
                 Animator playerAnimator = playerController.GetComponent<Animator>();
@@ -460,7 +1285,6 @@ public class DreamWaveTrigger : MonoBehaviour
                 }
             }
             
-            // ✅ DISATTIVA OGGETTI COME FALLBACK
             if (objectsToDeactivate != null && objectsToDeactivate.Length > 0)
             {
                 if (deactivationDelay > 0)
@@ -473,7 +1297,6 @@ public class DreamWaveTrigger : MonoBehaviour
                 }
             }
             
-            // ✅ ATTIVA OGGETTI COME FALLBACK
             if (objectsToActivate != null && objectsToActivate.Length > 0)
             {
                 if (activationDelay > 0)
@@ -489,7 +1312,6 @@ public class DreamWaveTrigger : MonoBehaviour
             if (debugDissolve) Debug.Log("[DreamWaveTrigger] Oggetti gestiti (fallback finale)");
         }
         
-        // ✅ FERMA SHAKE DOPO IL DISSOLVE (con ritardo)
         if (enableCameraShake && earthquakeShakeController != null)
         {
             if (shakeStopDelay > 0)
@@ -507,7 +1329,6 @@ public class DreamWaveTrigger : MonoBehaviour
             Debug.Log("[DreamWaveTrigger] Dissolve completato e shake fermato");
     }
 
-    // ✅ METODI HELPER PER ATTIVAZIONE/DISATTIVAZIONE OGGETTI
     private void ActivateObjects()
     {
         if (objectsToActivate != null)
@@ -563,33 +1384,30 @@ public class DreamWaveTrigger : MonoBehaviour
         if (debugMode)
             Debug.Log("[DreamWaveTrigger] Sequenza terminata");
         
-        // Riabilita movimento del player
         if (disablePlayerMovement && playerController != null)
         {
             playerController.IsMovementLocked = false;
             if (debugMode) Debug.Log("[DreamWaveTrigger] Movimento player riabilitato");
         }
         
-        // Ferma audio
         if (audioSource != null)
         {
             audioSource.Stop();
         }
         
-        // Assicura che lo shake sia fermato
         if (enableCameraShake && earthquakeShakeController != null && earthquakeShakeController.IsShaking)
         {
             earthquakeShakeController.StopShake();
         }
         
-        // Reset stati
         isAudioPlaying = false;
+        isMovingObjects = false;
         mainCoroutine = null;
         playerController = null;
     }
 
     // ========================
-    // METODI PUBBLICI LEGACY (mantenuti per compatibilità)
+    // METODI PUBBLICI LEGACY
     // ========================
     
     [System.Obsolete("Usa TriggerSequenceManually() invece")]
@@ -612,6 +1430,8 @@ public class DreamWaveTrigger : MonoBehaviour
             dissolveCoroutine = null;
         }
         
+        StopAllMovements();
+        
         if (isAudioPlaying)
         {
             isAudioPlaying = false;
@@ -629,13 +1449,13 @@ public class DreamWaveTrigger : MonoBehaviour
     {
         hasTriggered = false;
         ResetDissolveValues();
+        ResetObjectPositions();
         if (debugMode)
             Debug.Log("[DreamWaveTrigger] Trigger resettato");
     }
     
     public void ResetDissolveValues()
     {
-        // Reset materiali
         foreach (Material material in validMaterials)
         {
             if (material != null)
@@ -644,7 +1464,6 @@ public class DreamWaveTrigger : MonoBehaviour
             }
         }
         
-        // Riattiva oggetti da dissolvere
         if (objectsToDissolve != null)
         {
             foreach (GameObject obj in objectsToDissolve)
@@ -656,7 +1475,6 @@ public class DreamWaveTrigger : MonoBehaviour
             }
         }
         
-        // ✅ RESET ANCHE GLI OGGETTI DA ATTIVARE E DISATTIVARE
         if (objectsToActivate != null)
         {
             foreach (GameObject obj in objectsToActivate)
@@ -683,12 +1501,53 @@ public class DreamWaveTrigger : MonoBehaviour
             Debug.Log("[DreamWaveTrigger] Valori dissolve resettati e oggetti ripristinati");
     }
     
+    /// <summary>
+    /// Resetta gli oggetti alle loro posizioni iniziali salvate
+    /// </summary>
+    public void ResetObjectPositions()
+    {
+        if (objectsToMove != null)
+        {
+            foreach (var movement in objectsToMove)
+            {
+                if (movement.targetObject != null && movement.startPosition != Vector3.zero)
+                {
+                    if (movement.useWorldSpace)
+                    {
+                        movement.targetObject.transform.position = movement.startPosition;
+                    }
+                    else
+                    {
+                        movement.targetObject.transform.localPosition = movement.startPosition;
+                    }
+                    
+                    if (debugMovement)
+                        Debug.Log($"[DreamWaveTrigger] Posizione resettata per '{movement.targetObject.name}'");
+                }
+            }
+        }
+        
+        // Resetta anche gli oggetti attivati post-movimento
+        if (postMovementActivation != null && postMovementActivation.objectsToActivate != null)
+        {
+            foreach (GameObject obj in postMovementActivation.objectsToActivate)
+            {
+                if (obj != null)
+                {
+                    obj.SetActive(false);
+                    if (debugMovement)
+                        Debug.Log($"[DreamWaveTrigger] Oggetto post-movimento '{obj.name}' disattivato");
+                }
+            }
+        }
+    }
+    
     // ✅ METODI DI UTILITÀ PER GESTIRE ARRAY DINAMICAMENTE
     public void AddObjectToDissolve(GameObject obj)
     {
         if (obj == null) return;
         
-        var list = new System.Collections.Generic.List<GameObject>();
+        var list = new List<GameObject>();
         if (objectsToDissolve != null)
             list.AddRange(objectsToDissolve);
         
@@ -704,7 +1563,7 @@ public class DreamWaveTrigger : MonoBehaviour
     {
         if (material == null) return;
         
-        var list = new System.Collections.Generic.List<Material>();
+        var list = new List<Material>();
         if (materialsToDissolve != null)
             list.AddRange(materialsToDissolve);
         
@@ -713,7 +1572,6 @@ public class DreamWaveTrigger : MonoBehaviour
             list.Add(material);
             materialsToDissolve = list.ToArray();
             
-            // Aggiorna anche la lista dei materiali validi
             if (material.HasProperty(dissolvePropertyName))
             {
                 material.SetFloat(dissolvePropertyName, 0f);
@@ -734,7 +1592,7 @@ public class DreamWaveTrigger : MonoBehaviour
     {
         if (obj == null) return;
         
-        var list = new System.Collections.Generic.List<GameObject>();
+        var list = new List<GameObject>();
         if (objectsToActivate != null)
             list.AddRange(objectsToActivate);
         
@@ -750,7 +1608,7 @@ public class DreamWaveTrigger : MonoBehaviour
     {
         if (obj == null) return;
         
-        var list = new System.Collections.Generic.List<GameObject>();
+        var list = new List<GameObject>();
         if (objectsToDeactivate != null)
             list.AddRange(objectsToDeactivate);
         
@@ -762,9 +1620,64 @@ public class DreamWaveTrigger : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// Aggiunge un nuovo movimento oggetto alla lista
+    /// </summary>
+    public void AddObjectMovement(ObjectMovement movement)
+    {
+        if (movement == null || movement.targetObject == null) return;
+        
+        var list = new List<ObjectMovement>();
+        if (objectsToMove != null)
+            list.AddRange(objectsToMove);
+        
+        list.Add(movement);
+        objectsToMove = list.ToArray();
+        
+        if (debugMovement) 
+            Debug.Log($"[DreamWaveTrigger] Movimento per '{movement.targetObject.name}' aggiunto");
+    }
+    
+    /// <summary>
+    /// Crea e aggiunge un movimento con offset relativo
+    /// </summary>
+    public void AddRelativeMovement(GameObject obj, Vector3 offset, float duration = 0f, float delay = 0f)
+    {
+        var movement = new ObjectMovement
+        {
+            targetObject = obj,
+            useAbsolutePosition = false,
+            movementOffset = offset,
+            duration = duration,
+            startDelay = delay,
+            movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f)
+        };
+        
+        AddObjectMovement(movement);
+    }
+    
+    /// <summary>
+    /// Crea e aggiunge un movimento con posizione assoluta finale
+    /// </summary>
+    public void AddAbsoluteMovement(GameObject obj, Vector3 targetPos, float duration = 0f, float delay = 0f)
+    {
+        var movement = new ObjectMovement
+        {
+            targetObject = obj,
+            useAbsolutePosition = true,
+            targetPosition = targetPos,
+            duration = duration,
+            startDelay = delay,
+            movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f)
+        };
+        
+        AddObjectMovement(movement);
+    }
+    
     // Proprietà pubbliche
     public bool IsAudioPlaying => isAudioPlaying;
     public bool IsDissolving => isDissolving;
+    public bool IsMovingObjects => isMovingObjects;
     public bool HasTriggered => hasTriggered;
     public bool UseTriggerCollider => useTriggerCollider;
     public int DissolveObjectsCount => objectsToDissolve?.Length ?? 0;
@@ -772,6 +1685,8 @@ public class DreamWaveTrigger : MonoBehaviour
     public int ValidMaterialsCount => validMaterials.Count;
     public int ActivateObjectsCount => objectsToActivate?.Length ?? 0;
     public int DeactivateObjectsCount => objectsToDeactivate?.Length ?? 0;
+    public int MovingObjectsCount => objectsToMove?.Length ?? 0;
+    public int PostMovementActivationCount => postMovementActivation?.objectsToActivate?.Length ?? 0;
     
     private void OnDestroy() => StopSequence();
     private void OnDisable() => StopSequence();
@@ -791,15 +1706,27 @@ public class DreamWaveTrigger : MonoBehaviour
             dissolveCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
         }
         
-        // Riconvalida i materiali quando si modificano nell'inspector
+        // Inizializza le curve di movimento se necessario
+        if (objectsToMove != null)
+        {
+            foreach (var movement in objectsToMove)
+            {
+                if (movement != null)
+                {
+                    movement.startDelay = Mathf.Max(0f, movement.startDelay);
+                    movement.duration = Mathf.Max(0f, movement.duration);
+                    
+                    if (movement.movementCurve == null || movement.movementCurve.keys.Length == 0)
+                    {
+                        movement.movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+                    }
+                }
+            }
+        }
+        
         if (Application.isPlaying)
         {
             SetupDissolveMaterials();
-        }
-        
-        // Aggiorna il setup del trigger quando cambia l'impostazione
-        if (Application.isPlaying)
-        {
             SetupTrigger();
         }
     }

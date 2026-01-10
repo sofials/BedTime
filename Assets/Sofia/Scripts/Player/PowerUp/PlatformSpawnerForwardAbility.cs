@@ -7,42 +7,50 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     [Header("Platform Spawner")]
     public GameObject platformPrefab;
     public GameObject ghostPrefab;
-    public float forwardDistance  = 2f;
-    public float verticalOffset   = 0f;
+    public float forwardDistance  = 50f;
+    public float verticalOffset   = 10f;
     public float checkRadius      = 0.4f;
     public LayerMask obstacleMask;
+    
+    [Header("Vertical Placement")]
+    [Tooltip("Quanto si alza/abbassa la piattaforma guardando su/giù")]
+    public float verticalSensitivity = 80f;
+    [Tooltip("Altezza massima sopra il giocatore")]
+    public float maxHeightOffset = 500f;
+    [Tooltip("Altezza minima sotto il giocatore")]
+    public float minHeightOffset = -50f;
 
     public override int powerCost => 75;
 
     [Header("References")]
     public Transform footTarget;
-    [SerializeField] private Transform cameraTransform; // Make this assignable in inspector
+    [SerializeField] private Transform cameraTransform;
 
     private GameObject currentGhost;
-    private GameObject currentPlatform; // AGGIUNTA: traccia la piattaforma attuale
+    private GameObject currentPlatform;
     private bool       placing = false;
 
     private Vector3    lastForwardDirection;
     private Vector3    currentGhostVelocity;
     private Quaternion targetRotation;
+    private float      fixedBaseHeight; // ✅ Altezza fissa salvata all'attivazione
     private const float rotationSmoothSpeed   = 15f;
     private const float updateAngleThreshold  = 10f;
 
     private PlayerControls controls;
     private bool confirmPressed;
 
-    private float activationClipLength = 0.5f; // durata suono attivazione (modifica se serve)
+    private float activationClipLength = 0.5f;
 
     protected override void Awake()
     {
-        base.Awake(); // importante per AudioSource
+        base.Awake();
         controls = new PlayerControls();
         controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
         controls.Enable();
 
-        effectIconIndex = 3; // slot icona dedicato
+        effectIconIndex = 3;
         
-        // Try to find camera in Awake if not assigned
         if (cameraTransform == null)
         {
             Camera mainCamera = Camera.main;
@@ -52,7 +60,6 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             }
             else
             {
-                // Fallback: find any camera
                 Camera anyCamera = Object.FindFirstObjectByType<Camera>();
                 if (anyCamera != null)
                 {
@@ -65,7 +72,6 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     private void Start()
     {
-        // Final attempt to find camera if still null
         if (cameraTransform == null)
         {
             Camera mainCamera = Camera.main;
@@ -75,19 +81,43 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             }
             else
             {
-                Debug.LogError("No camera found! Please assign a camera transform in the inspector or ensure there's a MainCamera in the scene.");
-                enabled = false; // Disable this component to prevent further errors
+                Debug.LogError("No camera found! Please assW  a camera transform in the inspector or ensure there's a MainCamera in the scene.");
+                enabled = false;
                 return;
             }
         }
     }
-
+/// <summary>
+/// Cancella il processo di piazzamento in corso (chiamato al respawn/morte)
+/// </summary>
+public void CancelPlacement()
+{
+    if (placing || currentGhost != null)
+    {
+        Debug.Log("[PlatformSpawnerForwardAbility] ❌ Piazzamento annullato (morte/respawn)");
+        
+        if (currentGhost != null)
+        {
+            Destroy(currentGhost);
+            currentGhost = null;
+        }
+        
+        placing = false;
+        IsActive = false;
+        confirmPressed = false;
+    }
+}
     protected override void Update()
     {
         base.Update();
 
-        if (!placing || currentGhost == null || cameraTransform == null) return;
+       if (!placing || currentGhost == null || cameraTransform == null) return;
 
+       if (!IsEnabled)
+    {
+        Deactivate();
+        return;
+    }
         Vector3 camForward = GetCameraForwardFlat();
         float angle = Vector3.Angle(lastForwardDirection, camForward);
 
@@ -122,13 +152,11 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             return;
         }
 
-        // MODIFICA: Distruggi la piattaforma precedente prima di crearne una nuova
         DestroyCurrentPlatform();
 
         Destroy(currentGhost);
         currentGhost = null;
 
-        // MODIFICA: Salva il riferimento alla nuova piattaforma
         currentPlatform = Instantiate(platformPrefab, targetPos, targetRotation);
 
         powerUpScript.SpendPower(powerCost);
@@ -136,115 +164,104 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     }
 
     public override void TryActivate()
-{
-    Debug.Log("\n=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG START ===");
-    Debug.Log($"IsEnabled: {IsEnabled}");
-    Debug.Log($"GetDisableReason(): {GetDisableReason()}");
-    Debug.Log($"IsActive: {IsActive}");
-    Debug.Log($"powerUpScript null: {powerUpScript == null}");
-    if (powerUpScript != null)
-        Debug.Log($"HasEnoughPower({powerCost}): {powerUpScript.HasEnoughPower(powerCost)}");
-
-    // Prima controlla se l'abilità è abilitata a livello di sistema
-    if (!IsEnabled)
     {
-        string reason = GetDisableReason();
-        Debug.LogWarning($"[PlatformSpawnerForwardAbility] Abilità disabilitata: {reason}");
+        Debug.Log("\n=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG START ===");
+        Debug.Log($"IsEnabled: {IsEnabled}");
+        Debug.Log($"GetDisableReason(): {GetDisableReason()}");
+        Debug.Log($"IsActive: {IsActive}");
+        Debug.Log($"powerUpScript null: {powerUpScript == null}");
+        if (powerUpScript != null)
+            Debug.Log($"HasEnoughPower({powerCost}): {powerUpScript.HasEnoughPower(powerCost)}");
 
-        // SE L'ABILITÀ NON È PERMESSA NEL LIVELLO, NON FARE ASSOLUTAMENTE NIENTE
-        if (reason.Contains("non permessa in questo livello"))
+        if (!IsEnabled)
         {
-            Debug.Log("[PlatformSpawnerForwardAbility] Abilità non permessa nel livello - nessun feedback, nessuna UI");
-            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (silent exit) ===\n");
-            return; // Esce silenziosamente - NO suoni, NO UI, NO coroutines
-        }
-        Debug.Log("[PlatformSpawnerForwardAbility] Altri tipi di disabilitazione - riproduce failure sound");
+            string reason = GetDisableReason();
+            Debug.LogWarning($"[PlatformSpawnerForwardAbility] Abilità disabilitata: {reason}");
 
-        // Solo per altri tipi di disabilitazione (abilità disabilitata manualmente)
-        if (failureSound != null && audioSource != null)
+            if (reason.Contains("non permessa in questo livello"))
+            {
+                Debug.Log("[PlatformSpawnerForwardAbility] Abilità non permessa nel livello - nessun feedback, nessuna UI");
+                Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (silent exit) ===\n");
+                return;
+            }
+            Debug.Log("[PlatformSpawnerForwardAbility] Altri tipi di disabilitazione - riproduce failure sound");
+
+            if (failureSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(failureSound);
+                Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per abilità disabilitata");
+            }
+
+            if (PlayerUI.Instance != null)
+            {
+                PlayerUI.Instance.PulseIconAt(effectIconIndex);
+            }
+
+            return;
+        }
+
+        if (IsActive)
         {
-            audioSource.PlayOneShot(failureSound);
-            Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per abilità disabilitata");
+            Debug.Log("[PlatformSpawnerForwardAbility] Già attiva - disattivazione");
+            Deactivate();
+            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (deactivated) ===\n");
+            return;
         }
 
-        // UI pulse solo per disabilitazioni manuali, NON per restrizioni di livello
+        if (powerUpScript == null || !powerUpScript.HasEnoughPower(powerCost))
+        {
+            Debug.LogWarning("[PlatformSpawnerForwardAbility] Energia insufficiente o PowerUp script mancante");
+            
+            if (failureSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(failureSound);
+                Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per energia insufficiente");
+            }
+            
+            if (PlayerUI.Instance != null)
+            {
+                PlayerUI.Instance.PulseIconAt(effectIconIndex);
+            }
+            
+            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no energy) ===\n");
+            return;
+        }
+
+        if (cameraTransform == null)
+        {
+            Debug.LogWarning("[PlatformSpawnerForwardAbility] Camera non disponibile");
+            
+            if (failureSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(failureSound);
+            }
+            
+            if (PlayerUI.Instance != null)
+            {
+                PlayerUI.Instance.PulseIconAt(effectIconIndex);
+            }
+            
+            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no camera) ===\n");
+            return;
+        }
+
+        Debug.Log("[PlatformSpawnerForwardAbility] Attivazione abilità");
+        
+        Activate();
+        
+        if (activationSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(activationSound);
+            Debug.Log("[PlatformSpawnerForwardAbility] Audio di attivazione riprodotto");
+        }
+
         if (PlayerUI.Instance != null)
         {
             PlayerUI.Instance.PulseIconAt(effectIconIndex);
         }
-
-        return;
-    }
-
-    // Se è già attiva, disattiva (toggle behavior)
-    if (IsActive)
-    {
-        Debug.Log("[PlatformSpawnerForwardAbility] Già attiva - disattivazione");
-        Deactivate();
-        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (deactivated) ===\n");
-        return;
-    }
-
-    // Controlla energia
-    if (powerUpScript == null || !powerUpScript.HasEnoughPower(powerCost))
-    {
-        Debug.LogWarning("[PlatformSpawnerForwardAbility] Energia insufficiente o PowerUp script mancante");
         
-        // Suona failure sound per energia insufficiente
-        if (failureSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(failureSound);
-            Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per energia insufficiente");
-        }
-        
-        if (PlayerUI.Instance != null)
-        {
-            PlayerUI.Instance.PulseIconAt(effectIconIndex);
-        }
-        
-        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no energy) ===\n");
-        return;
+        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (activated) ===\n");
     }
-
-    // Verifica se la camera è disponibile
-    if (cameraTransform == null)
-    {
-        Debug.LogWarning("[PlatformSpawnerForwardAbility] Camera non disponibile");
-        
-        if (failureSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(failureSound);
-        }
-        
-        if (PlayerUI.Instance != null)
-        {
-            PlayerUI.Instance.PulseIconAt(effectIconIndex);
-        }
-        
-        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no camera) ===\n");
-        return;
-    }
-
-    // Se arriviamo qui, tutto è OK - attiva l'abilità
-    Debug.Log("[PlatformSpawnerForwardAbility] Attivazione abilità");
-    
-    // Chiama Activate() direttamente (non base.TryActivate() per evitare doppio controllo)
-    Activate();
-    
-    // Suona activation sound
-    if (activationSound != null && audioSource != null)
-    {
-        audioSource.PlayOneShot(activationSound);
-        Debug.Log("[PlatformSpawnerForwardAbility] Audio di attivazione riprodotto");
-    }
-
-    if (PlayerUI.Instance != null)
-    {
-        PlayerUI.Instance.PulseIconAt(effectIconIndex);
-    }
-    
-    Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (activated) ===\n");
-}
 
     public override void Activate()
     {
@@ -252,6 +269,10 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
         placing = true;
         IsActive = true;
+
+        // ✅ Salva l'altezza base al momento dell'attivazione (non cambia se il player salta)
+        Vector3 basePos = footTarget ? footTarget.position : transform.position;
+        fixedBaseHeight = basePos.y + verticalOffset;
 
         lastForwardDirection = GetCameraForwardFlat();
         Vector3 spawnPos     = GetSpawnPosition(lastForwardDirection);
@@ -264,8 +285,6 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         if (drawEffect != null)
         {
             drawEffect.ResetDraw();
-
-            // Fa partire l'audio loop dopo il suono di attivazione
             StartCoroutine(StartDrawAudioAfterDelay(drawEffect));
         }
     }
@@ -284,7 +303,6 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         IsActive = false;
     }
 
-    // AGGIUNTA: Metodo per distruggere la piattaforma corrente
     private void DestroyCurrentPlatform()
     {
         if (currentPlatform != null)
@@ -297,24 +315,74 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     private Vector3 GetCameraForwardFlat()
     {
-        if (cameraTransform == null) return transform.forward; // Fallback to object's forward
+        if (cameraTransform == null) return transform.forward;
         
         Vector3 f = cameraTransform.forward;
         f.y = 0f;
         return f.normalized;
     }
 
+    /// <summary>
+    /// Calcola l'offset verticale basato sull'angolo di pitch della camera
+    /// </summary>
+    private float GetVerticalOffsetFromCamera()
+    {
+        if (cameraTransform == null) return 0f;
+        
+        // Usa l'angolo di rotazione X della camera (pitch)
+        // Quando guardi in alto, l'angolo è negativo (es. -30)
+        // Quando guardi in basso, l'angolo è positivo (es. +30)
+        float pitch = cameraTransform.eulerAngles.x;
+        
+        // Converti da 0-360 a -180/+180
+        if (pitch > 180f)
+            pitch -= 360f;
+        
+        
+        // Inverti: pitch positivo (guardi giù) = offset negativo (piattaforma scende)
+        //          pitch negativo (guardi su) = offset positivo (piattaforma sale)
+        // Dividi per un valore più piccolo per maggiore sensibilità
+        float normalizedPitch = -pitch / 45f; // Era 90, ora 45 per più sensibilità
+        
+        // Moltiplica per la sensibilità
+        float heightOffset = normalizedPitch * verticalSensitivity;
+        
+        // Clamp tra min e max
+        heightOffset = Mathf.Clamp(heightOffset, minHeightOffset, maxHeightOffset);
+        
+        return heightOffset;
+    }
+
     private Vector3 GetSpawnPosition(Vector3 dir)
     {
         Vector3 basePos = footTarget ? footTarget.position : transform.position;
-        basePos.y += verticalOffset;
-        return basePos + dir * forwardDistance;
+        
+        // Posizione orizzontale segue il player
+        Vector3 spawnPos = basePos + dir * forwardDistance;
+        
+        // ✅ L'altezza usa la base fissa (salvata all'attivazione) + offset dalla camera
+        // NON segue la Y del player quando salta
+        spawnPos.y = fixedBaseHeight + GetVerticalOffsetFromCamera();
+        
+        return spawnPos;
     }
 
     private bool CanPlacePlatform(Vector3 pos)
+{
+    bool blocked = Physics.CheckSphere(pos, checkRadius, obstacleMask);
+    
+    if (blocked)
     {
-        return !Physics.CheckSphere(pos, checkRadius, obstacleMask);
+        // Trova cosa sta bloccando
+        Collider[] hits = Physics.OverlapSphere(pos, checkRadius, obstacleMask);
+        foreach (var hit in hits)
+        {
+            Debug.LogWarning($"[Platform BLOCKED] Oggetto: {hit.gameObject.name} | Layer: {LayerMask.LayerToName(hit.gameObject.layer)} | Pos: {hit.transform.position}");
+        }
     }
+    
+    return !blocked;
+}
 
     public override bool CanActivate()
     {
@@ -326,7 +394,6 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     private void OnDestroy()
     {
-        // AGGIUNTA: Distruggi la piattaforma quando l'ability viene distrutta
         DestroyCurrentPlatform();
         
         if (controls != null)
@@ -335,4 +402,15 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             controls.Dispose();
         }
     }
+    private void OnDrawGizmos()
+{
+    if (!placing || currentGhost == null) return;
+    
+    Vector3 checkPos = currentGhost.transform.position;
+    
+    // Verde = libero, Rosso = bloccato
+    bool blocked = Physics.CheckSphere(checkPos, checkRadius, obstacleMask);
+    Gizmos.color = blocked ? Color.red : Color.green;
+    Gizmos.DrawWireSphere(checkPos, checkRadius);
+}
 }
