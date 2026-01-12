@@ -128,7 +128,17 @@ public class Slime : MonoBehaviour
         {
             int bestWaypoint = FindBestAvailableWaypoint();
             currentWaypoint = bestWaypoint;
-            agent.SetDestination(waypoints[currentWaypoint].position);
+
+            // ✅ Verifica che l'agent sia sulla NavMesh prima di impostare la destinazione
+            if (agent.isOnNavMesh)
+            {
+                agent.SetDestination(waypoints[currentWaypoint].position);
+            }
+            else
+            {
+                // Se non è sulla NavMesh, ritenta nel prossimo frame
+                StartCoroutine(SetDestinationWhenReady());
+            }
         }
 
         if (deathEffectController != null)
@@ -151,6 +161,24 @@ public class Slime : MonoBehaviour
         if (enableWarningDebug)
         {
             WarningDebugLog($"🔧 INITIALIZED - hasPlayedWarningEver: {hasPlayedWarningEver}, hasEverSeenPlayer: {hasEverSeenPlayer}");
+        }
+    }
+
+    /// <summary>
+    /// Attende che il NavMeshAgent sia sulla NavMesh prima di impostare la destinazione
+    /// </summary>
+    private IEnumerator SetDestinationWhenReady()
+    {
+        // Attendi fino a quando l'agent è sulla NavMesh
+        while (!agent.isOnNavMesh)
+        {
+            yield return null; // Aspetta il prossimo frame
+        }
+
+        // Ora che l'agent è sulla NavMesh, imposta la destinazione
+        if (waypoints != null && waypoints.Length > 0 && currentWaypoint >= 0 && currentWaypoint < waypoints.Length)
+        {
+            agent.SetDestination(waypoints[currentWaypoint].position);
         }
     }
 
