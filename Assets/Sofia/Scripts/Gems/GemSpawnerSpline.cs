@@ -25,11 +25,11 @@ public class GemSpawnerSpline : MonoBehaviour
     {
         [Header("Spline Container")]
         public SplineContainer splineContainer;
-        
+
         [Header("Spawning Settings")]
         public bool spawnOnStart = true;
         public int gemCount = 20;
-        
+
         [Header("Rotazione (opzionale)")]
         public Vector3 customRotation = new Vector3(-90f, 0f, 0f);
     }
@@ -310,19 +310,29 @@ private void InitializeSpawner()
             Vector3 localPos = spline.EvaluatePosition(t);
             Vector3 worldPos = setting.splineContainer.transform.TransformPoint(localPos);
 
-            GameObject newGem = Instantiate(gemPrefab, worldPos, gemPrefab.transform.rotation, setting.splineContainer.transform);
+            // ✅ Combina la rotazione del prefab (già X=-90) con quella custom
+            // La customRotation viene applicata IN AGGIUNTA alla rotazione del prefab
+            Quaternion prefabRotation = gemPrefab.transform.rotation;
+            Quaternion customRotation = Quaternion.Euler(setting.customRotation);
+            Quaternion finalRotation = customRotation * prefabRotation;
 
-// Forza la scala world originale del prefab
-Vector3 originalScale = gemPrefab.transform.lossyScale;
-Transform parent = newGem.transform.parent;
-Vector3 parentScale = parent != null ? parent.lossyScale : Vector3.one;
-newGem.transform.localScale = new Vector3(
-    originalScale.x / parentScale.x,
-    originalScale.y / parentScale.y,
-    originalScale.z / parentScale.z
-);
+            // ✅ FORZA SEMPRE scala world uniforme del prefab (ignora parent)
+            // Metodo: istanzia senza parent, imposta scala world, poi ri-parenta
+            GameObject newGem = Instantiate(gemPrefab, worldPos, finalRotation, null);
 
-spawnedGems[splineIndex][i] = newGem;
+            // Imposta la scala world del prefab direttamente (senza parent non c'è distorsione)
+            Vector3 prefabWorldScale = gemPrefab.transform.lossyScale;
+            newGem.transform.localScale = prefabWorldScale;
+
+            // Ora ri-parenta alla spline (la scala world rimarrà corretta)
+            newGem.transform.SetParent(setting.splineContainer.transform, true);
+
+            if (debugMode)
+            {
+                Debug.Log($"[GemSpawner] Spline {splineIndex}: Scala world forzata {prefabWorldScale}");
+            }
+
+            spawnedGems[splineIndex][i] = newGem;
         }
     }
 

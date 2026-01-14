@@ -14,6 +14,10 @@ public class TeleportBase : MonoBehaviour
     [Header("Particle System Hover")]
     [SerializeField] private new ParticleSystem particleSystem;
     [SerializeField] private Color hoverColor = Color.white;
+
+    [Header("Hover Detection")]
+    [Tooltip("Raggio per rilevare quando il player è sopra questa base (più piccolo del collider principale)")]
+    [SerializeField] private float hoverDetectionRadius = 12f;
     [Header("Teleport Connection")]
 [Tooltip("La base gemella a cui teletrasportarsi quando si è sopra questa base")]
 public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezionale
@@ -110,6 +114,15 @@ public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezio
             var main = particleSystem.main;
             main.startColor = color;
         }
+    }
+
+    /// <summary>
+    /// Controlla se il player è nel raggio di hover
+    /// </summary>
+    public bool IsPlayerInHoverRange(Vector3 playerPosition)
+    {
+        float distance = Vector3.Distance(transform.position, playerPosition);
+        return distance <= hoverDetectionRadius;
     }
     
     /// <summary>
@@ -249,19 +262,22 @@ private IEnumerator CheckForPlayerInside()
     {
         hoverColor = color;
     }
-    private void OnTriggerEnter(Collider other)
-{
-    if (other.CompareTag("Player"))
-    {
-        OnCursorEnter();
-    }
-}
 
-private void OnTriggerExit(Collider other)
-{
-    if (other.CompareTag("Player"))
+    private void OnDrawGizmosSelected()
     {
-        OnCursorExit();
+        // Mostra il raggio di hover detection
+        Gizmos.color = isHovering ? Color.green : new Color(1f, 0.5f, 0f, 0.5f); // Arancione semi-trasparente o verde se hovering
+        Gizmos.DrawWireSphere(transform.position, hoverDetectionRadius);
+
+        // Mostra anche una sfera più piccola al centro
+        Gizmos.color = isHovering ? Color.green : Color.yellow;
+        Gizmos.DrawSphere(transform.position, 0.2f);
+
+        // Se ha una base collegata, mostra una linea
+        if (linkedBase != null)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(transform.position, linkedBase.transform.position);
+        }
     }
-}
 }

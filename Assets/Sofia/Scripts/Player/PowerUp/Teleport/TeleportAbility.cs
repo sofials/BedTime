@@ -29,6 +29,8 @@ public class TeleportAbility : AbilityBase
     private AudioSource teleportFailureAudioSource;
     private bool isTeleporting = false;
 
+    private TeleportBase[] allTeleportBases; // Cache di tutte le basi
+
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
     [Header("Distance Settings")]
@@ -64,17 +66,68 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.StopEffect();
             teleportEffectController.gameObject.SetActive(false);
         }
+
+        // Trova tutte le TeleportBase nella scena
+        allTeleportBases = FindObjectsByType<TeleportBase>(FindObjectsSortMode.None);
+        Debug.Log($"[TeleportAbility] Trovate {allTeleportBases.Length} basi di teletrasporto");
     }
 
  protected override void Update()
 {
     base.Update();
 
+    // Aggiorna hover delle basi in base alla distanza
+    UpdateHoverState();
+
     if (Input.GetKeyDown(directTeleportKey))
     {
         TryActivate();
     }
 }
+
+    /// <summary>
+    /// Aggiorna lo stato hover delle basi controllando la distanza
+    /// </summary>
+    private void UpdateHoverState()
+    {
+        if (controllerGameObject == null || allTeleportBases == null) return;
+
+        Vector3 playerPos = controllerGameObject.transform.position;
+        TeleportBase closestBase = null;
+        float closestDistance = float.MaxValue;
+
+        // Trova la base più vicina nel range di hover
+        foreach (var baseObj in allTeleportBases)
+        {
+            if (baseObj == null || !baseObj.IsObjectActive) continue;
+
+            if (baseObj.IsPlayerInHoverRange(playerPos))
+            {
+                float distance = Vector3.Distance(playerPos, baseObj.transform.position);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closestBase = baseObj;
+                }
+            }
+        }
+
+        // Aggiorna hover: solo la base più vicina è in hover
+        if (closestBase != TeleportBase.currentHoveredBase)
+        {
+            // Esci dall'hover precedente
+            if (TeleportBase.currentHoveredBase != null)
+            {
+                TeleportBase.currentHoveredBase.OnCursorExit();
+            }
+
+            // Entra in hover sulla nuova base
+            if (closestBase != null)
+            {
+                closestBase.OnCursorEnter();
+            }
+        }
+    }
     
 public override bool CanActivate()
 {
