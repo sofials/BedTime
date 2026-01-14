@@ -120,7 +120,6 @@ public class Golem : MonoBehaviour
     
     // ============ NUOVE VARIABILI PER FIX ============
     private float rotationSpeed = 5f;
-    private bool hasValidPath = false;
     private float stateValidationInterval = 0.1f;
     private Coroutine stateValidationCoroutine;
     

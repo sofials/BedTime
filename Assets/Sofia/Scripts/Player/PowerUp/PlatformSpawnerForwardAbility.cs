@@ -11,6 +11,10 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     public float verticalOffset   = 10f;
     public float checkRadius      = 0.4f;
     public LayerMask obstacleMask;
+
+    [Header("Anti-Flickering")]
+    [Tooltip("Raggio ridotto per tornare valido (evita flickering)")]
+    public float checkRadiusValid = 0.35f;
     
     [Header("Vertical Placement")]
     [Tooltip("Quanto si alza/abbassa la piattaforma guardando su/giù")]
@@ -29,6 +33,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private GameObject currentGhost;
     private GameObject currentPlatform;
     private bool       placing = false;
+    private bool       wasValidLastFrame = true; // Per evitare flickering nel cambio colore
 
     private Vector3    lastForwardDirection;
     private Vector3    currentGhostVelocity;
@@ -38,7 +43,9 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private const float updateAngleThreshold  = 10f;
 
     private PlayerControls controls;
+    private bool cancelPressed;
     private bool confirmPressed;
+    private bool ignoreNextConfirm; // Ignora il primo F dell'attivazione
 
     private float activationClipLength = 0.5f;
 
@@ -46,7 +53,14 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     {
         base.Awake();
         controls = new PlayerControls();
-        controls.Gameplay.Confirm.performed += _ => confirmPressed = true;
+        controls.Gameplay.Confirm.performed += _ => cancelPressed = true; // Click destro = annulla
+        controls.Gameplay.Create.performed += _ =>
+        {
+            if (!ignoreNextConfirm)
+                confirmPressed = true;
+            else
+                ignoreNextConfirm = false; // Resetta dopo averlo ignorato
+        };
         controls.Enable();
 
         effectIconIndex = 3;
@@ -95,16 +109,16 @@ public void CancelPlacement()
     if (placing || currentGhost != null)
     {
         Debug.Log("[PlatformSpawnerForwardAbility] ❌ Piazzamento annullato (morte/respawn)");
-        
+
         if (currentGhost != null)
         {
             Destroy(currentGhost);
             currentGhost = null;
         }
-        
+
         placing = false;
         IsActive = false;
-        confirmPressed = false;
+        cancelPressed = false;
     }
 }
     protected override void Update()
@@ -118,6 +132,16 @@ public void CancelPlacement()
         Deactivate();
         return;
     }
+
+        // Gestione annullamento con click destro
+        if (cancelPressed)
+        {
+            cancelPressed = false;
+            Debug.Log("[PlatformSpawnerForwardAbility] Piazzamento annullato dall'utente (click destro)");
+            Deactivate();
+            return;
+        }
+
         Vector3 camForward = GetCameraForwardFlat();
         float angle = Vector3.Angle(lastForwardDirection, camForward);
 
@@ -137,6 +161,12 @@ public void CancelPlacement()
             currentGhost.transform.rotation, targetRotation,
             Time.deltaTime * rotationSmoothSpeed);
 
+        // ⭐ Cambia colore del ghost in base alla validità della posizione (con isteresi per evitare flickering)
+        bool isValidPosition = IsPositionValidForVisual(targetPos);
+        UpdateGhostColor(isValidPosition);
+        wasValidLastFrame = isValidPosition;
+
+        // Conferma piazzamento con F (secondo press)
         if (!confirmPressed) return;
         confirmPressed = false;
 
@@ -152,13 +182,12 @@ public void CancelPlacement()
             return;
         }
 
-        DestroyCurrentPlatform();
-
         Destroy(currentGhost);
         currentGhost = null;
 
         currentPlatform = Instantiate(platformPrefab, targetPos, targetRotation);
 
+        // Scala i soldi solo qui, quando confermiamo la piattaforma
         powerUpScript.SpendPower(powerCost);
         Deactivate();
     }
@@ -208,47 +237,33 @@ public void CancelPlacement()
             return;
         }
 
-        if (powerUpScript == null || !powerUpScript.HasEnoughPower(powerCost))
-        {
-            Debug.LogWarning("[PlatformSpawnerForwardAbility] Energia insufficiente o PowerUp script mancante");
-            
-            if (failureSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(failureSound);
-                Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per energia insufficiente");
-            }
-            
-            if (PlayerUI.Instance != null)
-            {
-                PlayerUI.Instance.PulseIconAt(effectIconIndex);
-            }
-            
-            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no energy) ===\n");
-            return;
-        }
-
+        // NON controllo energia qui - i soldi vengono scalati solo alla conferma finale (secondo F)
+        // Controllo solo che la camera sia disponibile
         if (cameraTransform == null)
         {
             Debug.LogWarning("[PlatformSpawnerForwardAbility] Camera non disponibile");
-            
+
             if (failureSound != null && audioSource != null)
             {
                 audioSource.PlayOneShot(failureSound);
             }
-            
+
             if (PlayerUI.Instance != null)
             {
                 PlayerUI.Instance.PulseIconAt(effectIconIndex);
             }
-            
+
             Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no camera) ===\n");
             return;
         }
 
-        Debug.Log("[PlatformSpawnerForwardAbility] Attivazione abilità");
-        
+        Debug.Log("[PlatformSpawnerForwardAbility] Attivazione abilità - distruzione piattaforma precedente se esiste");
+
+        // Distruggi la piattaforma precedente se esiste (primo F)
+        DestroyCurrentPlatform();
+
         Activate();
-        
+
         if (activationSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(activationSound);
@@ -259,7 +274,7 @@ public void CancelPlacement()
         {
             PlayerUI.Instance.PulseIconAt(effectIconIndex);
         }
-        
+
         Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (activated) ===\n");
     }
 
@@ -269,6 +284,7 @@ public void CancelPlacement()
 
         placing = true;
         IsActive = true;
+        ignoreNextConfirm = true; // ⭐ Ignora il primo F che ha attivato il ghost
 
         // ✅ Salva l'altezza base al momento dell'attivazione (non cambia se il player salta)
         Vector3 basePos = footTarget ? footTarget.position : transform.position;
@@ -370,7 +386,7 @@ public void CancelPlacement()
     private bool CanPlacePlatform(Vector3 pos)
 {
     bool blocked = Physics.CheckSphere(pos, checkRadius, obstacleMask);
-    
+
     if (blocked)
     {
         // Trova cosa sta bloccando
@@ -380,9 +396,67 @@ public void CancelPlacement()
             Debug.LogWarning($"[Platform BLOCKED] Oggetto: {hit.gameObject.name} | Layer: {LayerMask.LayerToName(hit.gameObject.layer)} | Pos: {hit.transform.position}");
         }
     }
-    
+
     return !blocked;
 }
+
+    /// <summary>
+    /// Controlla se la posizione è valida per il visual feedback (con isteresi per evitare flickering)
+    /// </summary>
+    private bool IsPositionValidForVisual(Vector3 pos)
+    {
+        // Se era valido nel frame precedente, usa un raggio più piccolo per diventare invalido
+        // Se era invalido nel frame precedente, usa il raggio normale per diventare valido
+        float radiusToUse = wasValidLastFrame ? checkRadius : checkRadiusValid;
+
+        bool blocked = Physics.CheckSphere(pos, radiusToUse, obstacleMask);
+        return !blocked;
+    }
+
+    /// <summary>
+    /// Cambia il colore del ghost in base alla validità della posizione
+    /// </summary>
+    private void UpdateGhostColor(bool isValid)
+    {
+        if (currentGhost == null) return;
+
+        // Cerca tutti i Renderer nel ghost e nei suoi figli
+        Renderer[] renderers = currentGhost.GetComponentsInChildren<Renderer>();
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null || renderer.material == null) continue;
+
+            if (isValid)
+            {
+                // Se la posizione è valida, rimuovi il PropertyBlock per tornare al materiale originale
+                renderer.SetPropertyBlock(null);
+            }
+            else
+            {
+                // Se la posizione NON è valida, applica un tint rosso usando MaterialPropertyBlock
+                MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock);
+
+                // Prova tutte le proprietà comuni per compatibilità con diversi shader
+                Color redTint = new Color(1f, 0.2f, 0.2f, 1f);
+
+                // Standard shader / Built-in
+                if (renderer.material.HasProperty("_Color"))
+                    propertyBlock.SetColor("_Color", redTint);
+
+                // URP Lit shader
+                if (renderer.material.HasProperty("_BaseColor"))
+                    propertyBlock.SetColor("_BaseColor", redTint);
+
+                // Emission per renderlo più visibile
+                if (renderer.material.HasProperty("_EmissionColor"))
+                    propertyBlock.SetColor("_EmissionColor", redTint * 0.5f);
+
+                renderer.SetPropertyBlock(propertyBlock);
+            }
+        }
+    }
 
     public override bool CanActivate()
     {

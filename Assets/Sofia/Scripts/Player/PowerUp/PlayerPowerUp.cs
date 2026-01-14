@@ -133,7 +133,7 @@ public class PlayerPowerUp : MonoBehaviour
 
 private void HandleAbility(AbilityBase ability)
 {
-    if (ability == null) 
+    if (ability == null)
     {
         Debug.Log("[PlayerPowerUp] Ability is null");
         return;
@@ -148,9 +148,17 @@ private void HandleAbility(AbilityBase ability)
 
     Debug.Log($"[PlayerPowerUp] Processing ability '{ability.name}'...");
 
+    // ⭐ SPECIAL CASE: PlatformSpawner gestisce il secondo F internamente
+    // Se è già attiva, NON facciamo nulla qui - l'Update della classe gestirà il piazzamento
+    if (ability == PlatformSpawnerForwardAbility && ability.IsActive)
+    {
+        Debug.Log($"[PlayerPowerUp] PlatformSpawner già attiva - il secondo F viene gestito internamente");
+        return;
+    }
+
     // Delega alla classe base PRIMA di qualsiasi altra azione
     bool actionPerformed = false;
-    
+
     if (ability.IsActive)
     {
         Debug.Log($"[PlayerPowerUp] Deactivating ability '{ability.name}'");

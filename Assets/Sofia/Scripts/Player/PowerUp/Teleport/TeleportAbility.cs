@@ -24,18 +24,6 @@ public class TeleportAbility : AbilityBase
     
     [Header("Layer Settings")]
     [SerializeField] private LayerMask teleportLayerMask = -1;
-    
-    [Header("Raycast Settings")]
-    [SerializeField] private float maxTeleportRange = 100f;
-    [SerializeField] private float playerSkipDistance = 3f;
-    
-    [Header("Detection Settings")]
-    [SerializeField] private float maxDetectionAngle = 45f;
-    [SerializeField] private float screenDetectionRadius = 200f;
-    [SerializeField] private int raycastSamples = 9;
-    [SerializeField] private bool useMultipleRaycasts = true;
-    [SerializeField] private bool useScreenAreaDetection = true;
-    [SerializeField] private int detectionFrameBuffer = 3; // NUOVO - mantieni detection per N frame
 
     private AudioSource teleportConfirmAudioSource;
     private AudioSource teleportFailureAudioSource;

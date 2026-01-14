@@ -54,21 +54,13 @@ private bool lastGroundCheckResult = false;
     [Header("Ground Stability")]
 [SerializeField] private int groundStabilityFrames = 3; // Numero di frame da mantenere grounded
 [SerializeField] private bool debugGroundStability = false;
-    [Header("Platform Smoothing")]
-[SerializeField] private float platformVerticalSmoothing = 2f; // Regolabile nell'inspector
-[SerializeField] private float platformVerticalThreshold = 0.05f; // Soglia minima per movimento verticale
 // ✅ AGGIUNGI QUESTI NUOVI PARAMETRI PER CONTROLLO FINE
 [Header("Platform Vertical Control")]
-[SerializeField] private float platformVerticalMultiplier = 1f; // ← NUOVO: Riduci da 0.3 a 0.15 (solo 15% del movimento)
-[SerializeField] private float platformVerticalMaxSpeed = 25f; // ← NUOVO: Velocità massima consentita
-[SerializeField] private bool useVerticalDeadZone = true; // ← NUOVO: Abilita zona morta
-    [SerializeField] private float verticalDeadZone = 0.005f; // ← NUOVO: Zona morta per movimenti piccoli
 [SerializeField] private bool disableVerticalFollowing = false; // NUOVO: Disabilita completamente
 
     // ✅ NUOVO SISTEMA DI GESTIONE CAMERA DINAMICA CON INTEGRAZIONE CAMERAMANAGER
     [Header("Camera Management")]
     [SerializeField] private bool autoDetectActiveCamera = true;
-    [SerializeField] private float cameraCheckInterval = 0.1f;
     [SerializeField] private bool useCameraManagerIntegration = true;
     [SerializeField] private bool debugCameraChanges = false;
     private float cameraCheckTimer = 0f;
@@ -219,7 +211,6 @@ private static readonly int ClimbHash = Animator.StringToHash("Climb");
     [SerializeField] private float maxPlatformHeight = 2f;
     [SerializeField] private bool debugPlatformMovement = false;
     private Vector3 lastFramePlatformPosition = Vector3.zero;
-private bool platformMovementStabilized = false;
     
     private Transform currentPlatform = null;
     private Vector3 lastPlatformPosition = Vector3.zero;

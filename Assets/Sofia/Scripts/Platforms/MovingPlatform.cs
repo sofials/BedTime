@@ -47,8 +47,6 @@ public class MovingPlatform : MonoBehaviour
     [SerializeField] private float overlayIntensity = 2f; // Aumentato per più luminosità
     [Tooltip("Moltiplicatore aggiuntivo per HDR emission (valori alti = più luce)")]
     [SerializeField] private float hdrMultiplier = 3f;
-    [Tooltip("Se true, mantiene anche il tint del Base Color oltre all'emission")]
-    [SerializeField] private bool applyColorTint = true;
     [Tooltip("Se false, usa solo il cambio colore base senza emission quando rallentata")]
 [SerializeField] private bool useEmissionForSlow = true;
 

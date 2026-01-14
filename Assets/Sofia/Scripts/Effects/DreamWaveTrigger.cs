@@ -2,6 +2,7 @@ using UnityEngine;
 using Unity.Cinemachine;
 using UnityEngine.AI;
 using Unity.AI.Navigation;
+using UnityEngine.Events;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -179,9 +180,13 @@ public class DreamWaveTrigger : MonoBehaviour
     [SerializeField] private GameObject[] objectsToDeactivate;
     [SerializeField] private float deactivationDelay = 0f;
     
+    [Header("Events")]
+    [Tooltip("Evento chiamato all'inizio dell'ondata onirica (per cambio camera, etc.)")]
+    public UnityEvent OnDreamWaveStarted;
+
     [Header("Debug")]
     [SerializeField] private bool debugMode = false;
-    
+
     // Componenti e stati
     private ThirdPersonController playerController;
     private bool hasTriggered = false;
@@ -400,13 +405,19 @@ public class DreamWaveTrigger : MonoBehaviour
     private void StartSequence()
     {
         if (isAudioPlaying) return;
-        
+
         hasTriggered = true;
         isAudioPlaying = true;
-        
+
         if (debugMode)
             Debug.Log($"[DreamWaveTrigger] Avvio sequenza terremoto per {earthquakeDuration} secondi");
-        
+
+        // ⭐ Invoca l'evento OnDreamWaveStarted SUBITO all'inizio
+        OnDreamWaveStarted?.Invoke();
+
+        if (debugMode)
+            Debug.Log($"[DreamWaveTrigger] Evento OnDreamWaveStarted invocato");
+
         mainCoroutine = StartCoroutine(MainSequence());
     }
 
@@ -644,203 +655,188 @@ public class DreamWaveTrigger : MonoBehaviour
             Debug.Log($"[DreamWaveTrigger] Rebake completato: {successCount} successi, {failCount} fallimenti");
 
         // ✅ RESPAWN ENEMY AGENTS: Distrugge e rispawna i nemici vicino ai loro waypoint dopo il rebake
-        StartCoroutine(RespawnEnemiesAfterRebake());
+       StartCoroutine(RespawnEnemiesAfterRebake());
     }
 
-    /// <summary>
-    /// Distrugge e rispawna i nemici vicino ai loro waypoint dopo il rebake della NavMesh
-    /// Questo approccio funziona meglio del warp/reset perché crea istanze fresche con stato pulito
-    /// </summary>
     private IEnumerator RespawnEnemiesAfterRebake()
+{
+    // Attendi un frame per permettere alla NavMesh di stabilizzarsi
+    yield return new WaitForEndOfFrame();
+    yield return new WaitForSeconds(0.3f);
+
+    if (debugMovement)
+        Debug.Log("[DreamWaveTrigger] Inizio respawn enemy agents...");
+
+    List<EnemyRespawnData> enemiesToRespawn = new List<EnemyRespawnData>();
+
+    NavMeshAgent[] allAgents = FindObjectsByType<NavMeshAgent>(FindObjectsSortMode.None);
+
+    foreach (NavMeshAgent agent in allAgents)
     {
-        // Attendi un frame per permettere alla NavMesh di stabilizzarsi
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForSeconds(0.2f);
+        if (agent == null || agent.gameObject == null)
+            continue;
 
-        if (debugMovement)
-            Debug.Log("[DreamWaveTrigger] Inizio respawn enemy agents...");
-
-        // Struttura per salvare i dati degli enemy prima della distruzione
-        List<EnemyRespawnData> enemiesToRespawn = new List<EnemyRespawnData>();
-
-        // Trova tutti i nemici con NavMeshAgent
-        NavMeshAgent[] allAgents = FindObjectsByType<NavMeshAgent>(FindObjectsSortMode.None);
-
-        foreach (NavMeshAgent agent in allAgents)
+        var slime = agent.GetComponent<Slime>();
+        if (slime != null && slime.waypoints != null && slime.waypoints.Length > 0)
         {
-            if (agent == null || agent.gameObject == null)
-                continue;
-
-            // Verifica se è un Slime
-            var slime = agent.GetComponent<Slime>();
-            if (slime != null && slime.waypoints != null && slime.waypoints.Length > 0)
+            enemiesToRespawn.Add(new EnemyRespawnData
             {
-                enemiesToRespawn.Add(new EnemyRespawnData
-                {
-                    enemyType = EnemyType.Slime,
-                    originalObject = agent.gameObject,
-                    waypoints = slime.waypoints,
-                    parent = agent.transform.parent
-                });
-                continue;
-            }
-
-            // Verifica se è un TurtleShell
-            var turtle = agent.GetComponent<TurtleShell>();
-            if (turtle != null && turtle.waypoints != null && turtle.waypoints.Length > 0)
-            {
-                enemiesToRespawn.Add(new EnemyRespawnData
-                {
-                    enemyType = EnemyType.TurtleShell,
-                    originalObject = agent.gameObject,
-                    waypoints = turtle.waypoints,
-                    parent = agent.transform.parent
-                });
-                continue;
-            }
-
-            // Verifica se è un Mushroom
-            var mushroom = agent.GetComponent<Mushroom>();
-            if (mushroom != null && mushroom.waypoints != null && mushroom.waypoints.Length > 0)
-            {
-                enemiesToRespawn.Add(new EnemyRespawnData
-                {
-                    enemyType = EnemyType.Mushroom,
-                    originalObject = agent.gameObject,
-                    waypoints = mushroom.waypoints,
-                    parent = agent.transform.parent
-                });
-                continue;
-            }
+                enemyType = EnemyType.Slime,
+                originalObject = agent.gameObject,
+                waypoints = slime.waypoints,
+                parent = agent.transform.parent
+            });
+            continue;
         }
 
-        if (debugMovement)
-            Debug.Log($"[DreamWaveTrigger] Trovati {enemiesToRespawn.Count} nemici da respawnare");
-
-        int respawnedCount = 0;
-
-        // Distruggi e rispawna ogni nemico
-        foreach (var enemyData in enemiesToRespawn)
+        var turtle = agent.GetComponent<TurtleShell>();
+        if (turtle != null && turtle.waypoints != null && turtle.waypoints.Length > 0)
         {
-            if (enemyData.waypoints == null || enemyData.waypoints.Length == 0)
-                continue;
-
-            // Trova il waypoint più vicino (che dovrebbe essere già nella nuova posizione)
-            Transform closestWaypoint = FindClosestWaypoint(enemyData.originalObject.transform.position, enemyData.waypoints);
-
-            if (closestWaypoint == null)
+            enemiesToRespawn.Add(new EnemyRespawnData
             {
-                if (debugMovement)
-                    Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Nessun waypoint trovato per '{enemyData.originalObject.name}'");
-                continue;
-            }
-
-            // Trova una posizione valida sulla NavMesh vicino al waypoint
-            // Prova con distanze crescenti: 10f, 20f, 50f
-            Vector3 spawnPosition = closestWaypoint.position;
-            NavMeshHit navHit;
-            bool foundValidPosition = false;
-
-            float[] searchDistances = { 10f, 20f, 50f };
-            foreach (float distance in searchDistances)
-            {
-                if (NavMesh.SamplePosition(closestWaypoint.position, out navHit, distance, NavMesh.AllAreas))
-                {
-                    spawnPosition = navHit.position;
-                    foundValidPosition = true;
-
-                    if (debugMovement && distance > 10f)
-                        Debug.Log($"[DreamWaveTrigger] Trovata NavMesh per '{enemyData.originalObject.name}' a distanza {distance}m");
-
-                    break;
-                }
-            }
-
-            if (!foundValidPosition)
-            {
-                if (debugMovement)
-                    Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Nessuna NavMesh valida vicino al waypoint per '{enemyData.originalObject.name}' (cercato fino a 50m)");
-                continue;
-            }
-
-            // Salva i dati necessari prima della distruzione
-            string enemyName = enemyData.originalObject.name;
-            Quaternion enemyRotation = enemyData.originalObject.transform.rotation;
-            Transform enemyParent = enemyData.parent;
-
-            // ✅ DISABILITA temporaneamente il NavMeshAgent dell'originale per evitare che il clone chiami SetDestination nel Start
-            NavMeshAgent originalAgent = enemyData.originalObject.GetComponent<NavMeshAgent>();
-            bool wasAgentEnabled = false;
-            if (originalAgent != null)
-            {
-                wasAgentEnabled = originalAgent.enabled;
-                originalAgent.enabled = false;
-            }
-
-            // ✅ IMPORTANTE: Istanzia una copia del nemico originale PRIMA di distruggerlo
-            // Questo preserva TUTTE le configurazioni (waypoints, speed, health, audio, etc.)
-            GameObject newEnemy = Instantiate(enemyData.originalObject, spawnPosition, enemyRotation, enemyParent);
-            newEnemy.name = enemyName; // Mantieni il nome originale (rimuove "(Clone)")
-
-            // Riabilita l'agent dell'originale (anche se sta per essere distrutto, per correttezza)
-            if (originalAgent != null && wasAgentEnabled)
-            {
-                originalAgent.enabled = true;
-            }
-
-            // Distruggi il vecchio nemico DOPO aver creato la copia
-            Destroy(enemyData.originalObject);
-
-            // ✅ ABILITA il NavMeshAgent del nuovo nemico e posizionalo correttamente
-            NavMeshAgent newAgent = newEnemy.GetComponent<NavMeshAgent>();
-            if (newAgent != null)
-            {
-                // Prima controlla se dobbiamo fare il warp PRIMA di abilitare l'agent
-                // Questo evita l'errore "Failed to create agent because it is not close enough to the NavMesh"
-                bool needsWarp = !newAgent.isOnNavMesh || Vector3.Distance(newAgent.transform.position, spawnPosition) > 0.1f;
-
-                if (needsWarp)
-                {
-                    // Se non è sulla NavMesh o è nella posizione sbagliata, attiva e warp
-                    newAgent.enabled = true;
-
-                    // Usa Warp per posizionarlo correttamente
-                    if (newAgent.isOnNavMesh)
-                    {
-                        newAgent.Warp(spawnPosition);
-                    }
-                    else
-                    {
-                        // Se ancora non è sulla NavMesh, prova a disabilitare, spostare e riabilitare
-                        newAgent.enabled = false;
-                        newEnemy.transform.position = spawnPosition;
-                        newAgent.enabled = true;
-                    }
-                }
-                else
-                {
-                    // È già nella posizione corretta, attiva semplicemente l'agent
-                    newAgent.enabled = true;
-                }
-
-                if (debugMovement)
-                {
-                    if (newAgent.isOnNavMesh)
-                        Debug.Log($"[DreamWaveTrigger] ✅ NavMeshAgent di '{enemyName}' attivo e sulla NavMesh");
-                    else
-                        Debug.LogWarning($"[DreamWaveTrigger] ⚠️ NavMeshAgent di '{enemyName}' attivo ma NON sulla NavMesh!");
-                }
-            }
-
-            respawnedCount++;
-
-            if (debugMovement)
-                Debug.Log($"[DreamWaveTrigger] ✅ Respawnato '{enemyName}' vicino a waypoint '{closestWaypoint.name}' alla posizione {spawnPosition}");
+                enemyType = EnemyType.TurtleShell,
+                originalObject = agent.gameObject,
+                waypoints = turtle.waypoints,
+                parent = agent.transform.parent
+            });
+            continue;
         }
 
-        if (debugMovement)
-            Debug.Log($"[DreamWaveTrigger] Respawn completato: {respawnedCount}/{enemiesToRespawn.Count} nemici respawnati");
+        var mushroom = agent.GetComponent<Mushroom>();
+        if (mushroom != null && mushroom.waypoints != null && mushroom.waypoints.Length > 0)
+        {
+            enemiesToRespawn.Add(new EnemyRespawnData
+            {
+                enemyType = EnemyType.Mushroom,
+                originalObject = agent.gameObject,
+                waypoints = mushroom.waypoints,
+                parent = agent.transform.parent
+            });
+            continue;
+        }
     }
+
+    if (debugMovement)
+        Debug.Log($"[DreamWaveTrigger] Trovati {enemiesToRespawn.Count} nemici da respawnare");
+
+    int respawnedCount = 0;
+
+    foreach (var enemyData in enemiesToRespawn)
+    {
+        if (enemyData.waypoints == null || enemyData.waypoints.Length == 0)
+            continue;
+
+        Transform closestWaypoint = FindClosestWaypoint(enemyData.originalObject.transform.position, enemyData.waypoints);
+
+        if (closestWaypoint == null)
+        {
+            if (debugMovement)
+                Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Nessun waypoint trovato per '{enemyData.originalObject.name}'");
+            continue;
+        }
+
+        // Trova posizione valida sulla NavMesh
+        Vector3 spawnPosition = closestWaypoint.position;
+        NavMeshHit navHit;
+        bool foundValidPosition = false;
+
+        float[] searchDistances = { 5f, 10f, 20f, 50f };
+        foreach (float distance in searchDistances)
+        {
+            if (NavMesh.SamplePosition(closestWaypoint.position, out navHit, distance, NavMesh.AllAreas))
+            {
+                spawnPosition = navHit.position;
+                foundValidPosition = true;
+                break;
+            }
+        }
+
+        if (!foundValidPosition)
+        {
+            if (debugMovement)
+                Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Nessuna NavMesh valida per '{enemyData.originalObject.name}'");
+            continue;
+        }
+
+        string enemyName = enemyData.originalObject.name;
+        Quaternion enemyRotation = enemyData.originalObject.transform.rotation;
+        Transform enemyParent = enemyData.parent;
+
+        // ✅ DISABILITA l'agent PRIMA di clonare per evitare che il clone parta con agent attivo
+        NavMeshAgent originalAgent = enemyData.originalObject.GetComponent<NavMeshAgent>();
+        if (originalAgent != null)
+        {
+            originalAgent.enabled = false;
+        }
+
+        // ✅ Crea il clone - sarà creato con NavMeshAgent DISABILITATO
+        GameObject newEnemy = Instantiate(enemyData.originalObject, spawnPosition, enemyRotation, enemyParent);
+        newEnemy.name = enemyName;
+
+        // Distruggi il vecchio
+        Destroy(enemyData.originalObject);
+
+        // ✅ NON TOCCARE IL NAVMESHAGENT QUI!
+        // Lo script del nemico (Slime/Mushroom/TurtleShell) ha già SetDestinationWhenReady()
+        // che gestirà l'abilitazione quando sarà pronto
+        
+        // ✅ Invece, forza la riabilitazione dopo un delay più lungo
+        StartCoroutine(EnableAgentDelayed(newEnemy, spawnPosition, enemyName));
+
+        respawnedCount++;
+    }
+
+    if (debugMovement)
+        Debug.Log($"[DreamWaveTrigger] Respawn completato: {respawnedCount}/{enemiesToRespawn.Count} nemici respawnati");
+}
+/// <summary>
+/// Abilita il NavMeshAgent dopo un delay, assicurandosi che sia sulla NavMesh
+/// </summary>
+private IEnumerator EnableAgentDelayed(GameObject enemy, Vector3 targetPosition, string enemyName)
+{
+    if (enemy == null) yield break;
+    
+    // Attendi che la fisica si stabilizzi
+    yield return new WaitForSeconds(0.5f);
+    
+    if (enemy == null) yield break;
+    
+    NavMeshAgent agent = enemy.GetComponent<NavMeshAgent>();
+    if (agent == null) yield break;
+    
+    // Verifica posizione sulla NavMesh
+    NavMeshHit hit;
+    if (NavMesh.SamplePosition(enemy.transform.position, out hit, 5f, NavMesh.AllAreas))
+    {
+        // Sposta alla posizione esatta PRIMA di abilitare
+        enemy.transform.position = hit.position;
+        
+        // Attendi un altro frame
+        yield return null;
+        
+        // Ora abilita
+        agent.enabled = true;
+        
+        // Warp se necessario
+        if (agent.isOnNavMesh)
+        {
+            agent.Warp(hit.position);
+            
+            if (debugMovement)
+                Debug.Log($"[DreamWaveTrigger] ✅ Agent '{enemyName}' abilitato con successo");
+        }
+        else
+        {
+            if (debugMovement)
+                Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Agent '{enemyName}' abilitato ma non su NavMesh");
+        }
+    }
+    else
+    {
+        if (debugMovement)
+            Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Nessuna NavMesh vicina per '{enemyName}'");
+    }
+}
 
     /// <summary>
     /// Trova il waypoint più vicino a una posizione data
@@ -1474,9 +1470,6 @@ public class DreamWaveTrigger : MonoBehaviour
             
             type = type.BaseType;
         }
-        
-        if (debugMovement)
-            Debug.LogWarning($"[DreamWaveTrigger] ⚠️ Campo '{fieldName}' non trovato per '{target.name}' ({target.GetType().Name})");
     }
     
     private void StopAllMovements()

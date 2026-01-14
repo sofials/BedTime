@@ -41,10 +41,6 @@ public class CameraManager : MonoBehaviour
     [SerializeField] private bool autoRegisterOnStart = true;
     [SerializeField] private bool findStartingCameraAutomatically = true;
 
-    [Header("Build-Specific Settings")]
-    [SerializeField] private bool useExtendedBuildWait = true;
-    [SerializeField] private float buildExtraWaitTime = 1f;
-
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogs = true;
 
@@ -61,7 +57,6 @@ public class CameraManager : MonoBehaviour
     
     // FIX: Traccia coroutine attive per prevenire duplicati
     private Coroutine initializationCoroutine = null;
-    private Coroutine buildCheckCoroutine = null;
     private int initializationRetryCount = 0;
     private const int MAX_INITIALIZATION_RETRIES = 3;
     
@@ -819,6 +814,5 @@ public class CameraManager : MonoBehaviour
         isInitializing = false;
         
         initializationCoroutine = null;
-        buildCheckCoroutine = null;
     }
 }
