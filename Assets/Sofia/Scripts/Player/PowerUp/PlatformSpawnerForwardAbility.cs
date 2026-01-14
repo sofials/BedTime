@@ -7,14 +7,20 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     [Header("Platform Spawner")]
     public GameObject platformPrefab;
     public GameObject ghostPrefab;
+    public Material ghostValidMat;     // Materiale ghost normale
+    public Material ghostInvalidMat;   // Materiale ghost rosso
+    public Material ghostOccludedMat;  // Materiale ghost quando è dentro oggetti
     public float forwardDistance  = 50f;
     public float verticalOffset   = 10f;
     public float checkRadius      = 0.4f;
     public LayerMask obstacleMask;
+    
 
     [Header("Anti-Flickering")]
-    [Tooltip("Raggio ridotto per tornare valido (evita flickering)")]
-    public float checkRadiusValid = 0.35f;
+    [Tooltip("Raggio ridotto per tornare valido (evita flickering) - deve essere MOLTO più piccolo")]
+    public float checkRadiusValid = 0.2f;
+    [Tooltip("Ritardo temporale prima di cambiare stato (debounce)")]
+    public float stateChangeDelay = 0.08f;
     
     [Header("Vertical Placement")]
     [Tooltip("Quanto si alza/abbassa la piattaforma guardando su/giù")]
@@ -33,7 +39,8 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private GameObject currentGhost;
     private GameObject currentPlatform;
     private bool       placing = false;
-    private bool       wasValidLastFrame = true; // Per evitare flickering nel cambio colore
+    private bool       wasValidLastFrame = true;    // Per evitare flickering nel cambio colore
+    private bool       wasOccludedLastFrame = false; // Per tracking stato occlusione
 
     private Vector3    lastForwardDirection;
     private Vector3    currentGhostVelocity;
@@ -46,6 +53,10 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private bool cancelPressed;
     private bool confirmPressed;
     private bool ignoreNextConfirm; // Ignora il primo F dell'attivazione
+
+
+    private Renderer ghostRenderer; // Renderer per cambiare materiale
+    private float stateTimer = 0f;  // Timer per debounce
 
     private float activationClipLength = 0.5f;
 
@@ -161,10 +172,31 @@ public void CancelPlacement()
             currentGhost.transform.rotation, targetRotation,
             Time.deltaTime * rotationSmoothSpeed);
 
-        // ⭐ Cambia colore del ghost in base alla validità della posizione (con isteresi per evitare flickering)
+        // ⭐ Gestione stato visivo del ghost (valido/invalido/occluso)
         bool isValidPosition = IsPositionValidForVisual(targetPos);
-        UpdateGhostColor(isValidPosition);
-        wasValidLastFrame = isValidPosition;
+        bool isOccluded = IsGhostOccluded(targetPos);
+
+        // Priorità: occlusione > validità (se è dentro oggetti, mostra quello stato indipendentemente dalla validità)
+        bool stateChanged = (isOccluded != wasOccludedLastFrame) ||
+                           (isValidPosition != wasValidLastFrame && !isOccluded);
+
+        // Debounce: cambia stato solo dopo un ritardo per evitare oscillazioni rapide
+        if (stateChanged)
+        {
+            stateTimer += Time.deltaTime;
+            if (stateTimer >= stateChangeDelay)
+            {
+                Debug.Log($"[PlatformSpawner] Stato cambiato - Valid: {wasValidLastFrame}->{isValidPosition}, Occluded: {wasOccludedLastFrame}->{isOccluded}");
+                UpdateGhostVisualState(isValidPosition, isOccluded);
+                wasValidLastFrame = isValidPosition;
+                wasOccludedLastFrame = isOccluded;
+                stateTimer = 0f;
+            }
+        }
+        else
+        {
+            stateTimer = 0f; // Reset timer se lo stato rimane uguale
+        }
 
         // Conferma piazzamento con F (secondo press)
         if (!confirmPressed) return;
@@ -297,6 +329,13 @@ public void CancelPlacement()
         targetRotation = Quaternion.LookRotation(lastForwardDirection);
         currentGhost.transform.rotation = targetRotation;
 
+        // Ottieni il renderer e imposta materiale valido inizialmente
+        ghostRenderer = currentGhost.GetComponentInChildren<Renderer>();
+        if (ghostRenderer != null && ghostValidMat != null)
+        {
+            ghostRenderer.material = ghostValidMat;
+        }
+
         DrawRevealEffect drawEffect = currentGhost.GetComponent<DrawRevealEffect>();
         if (drawEffect != null)
         {
@@ -304,6 +343,7 @@ public void CancelPlacement()
             StartCoroutine(StartDrawAudioAfterDelay(drawEffect));
         }
     }
+
 
     private IEnumerator StartDrawAudioAfterDelay(DrawRevealEffect drawEffect)
     {
@@ -401,60 +441,58 @@ public void CancelPlacement()
 }
 
     /// <summary>
-    /// Controlla se la posizione è valida per il visual feedback (con isteresi per evitare flickering)
+    /// Controlla se la posizione è valida per il visual feedback (con isteresi CORRETTA per evitare flickering)
     /// </summary>
     private bool IsPositionValidForVisual(Vector3 pos)
     {
-        // Se era valido nel frame precedente, usa un raggio più piccolo per diventare invalido
-        // Se era invalido nel frame precedente, usa il raggio normale per diventare valido
-        float radiusToUse = wasValidLastFrame ? checkRadius : checkRadiusValid;
+        // ✅ ISTERESI CORRETTA:
+        // Se ero VALIDO → uso raggio PICCOLO per diventare invalido (difficile perdere validità)
+        // Se ero INVALIDO → uso raggio GRANDE per tornare valido (facile riacquistare validità)
+        float radiusToUse = wasValidLastFrame ? checkRadiusValid : checkRadius;
 
         bool blocked = Physics.CheckSphere(pos, radiusToUse, obstacleMask);
         return !blocked;
     }
 
     /// <summary>
-    /// Cambia il colore del ghost in base alla validità della posizione
+    /// Controlla se il ghost è completamente dentro altri oggetti (occluso)
     /// </summary>
-    private void UpdateGhostColor(bool isValid)
+    private bool IsGhostOccluded(Vector3 pos)
     {
-        if (currentGhost == null) return;
+        // Usa un BoxCast o OverlapBox per vedere se il centro + area del ghost è dentro geometria
+        // Raggio leggermente più piccolo del ghost stesso
+        float occlusionCheckRadius = checkRadius * 0.8f;
 
-        // Cerca tutti i Renderer nel ghost e nei suoi figli
-        Renderer[] renderers = currentGhost.GetComponentsInChildren<Renderer>();
+        Collider[] hits = Physics.OverlapSphere(pos, occlusionCheckRadius, obstacleMask);
 
-        foreach (Renderer renderer in renderers)
+        // Se trova collider attorno al centro, il ghost è probabilmente dentro/attraverso oggetti
+        return hits.Length > 0;
+    }
+
+    /// <summary>
+    /// Aggiorna lo stato visivo del ghost in base a validità e occlusione
+    /// </summary>
+    private void UpdateGhostVisualState(bool isValid, bool isOccluded)
+    {
+        if (ghostRenderer == null) return;
+
+        // Priorità: occlusione > validità
+        Material targetMat;
+
+        if (isOccluded && ghostOccludedMat != null)
         {
-            if (renderer == null || renderer.material == null) continue;
+            // Ghost dentro oggetti - usa materiale occlusione
+            targetMat = ghostOccludedMat;
+        }
+        else
+        {
+            // Ghost visibile - usa materiale valido/invalido
+            targetMat = isValid ? ghostValidMat : ghostInvalidMat;
+        }
 
-            if (isValid)
-            {
-                // Se la posizione è valida, rimuovi il PropertyBlock per tornare al materiale originale
-                renderer.SetPropertyBlock(null);
-            }
-            else
-            {
-                // Se la posizione NON è valida, applica un tint rosso usando MaterialPropertyBlock
-                MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
-                renderer.GetPropertyBlock(propertyBlock);
-
-                // Prova tutte le proprietà comuni per compatibilità con diversi shader
-                Color redTint = new Color(1f, 0.2f, 0.2f, 1f);
-
-                // Standard shader / Built-in
-                if (renderer.material.HasProperty("_Color"))
-                    propertyBlock.SetColor("_Color", redTint);
-
-                // URP Lit shader
-                if (renderer.material.HasProperty("_BaseColor"))
-                    propertyBlock.SetColor("_BaseColor", redTint);
-
-                // Emission per renderlo più visibile
-                if (renderer.material.HasProperty("_EmissionColor"))
-                    propertyBlock.SetColor("_EmissionColor", redTint * 0.5f);
-
-                renderer.SetPropertyBlock(propertyBlock);
-            }
+        if (targetMat != null)
+        {
+            ghostRenderer.material = targetMat;
         }
     }
 

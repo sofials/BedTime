@@ -5,6 +5,9 @@ public class DrawRevealEffect : MonoBehaviour
     [Tooltip("Durata dell'animazione di disegno in secondi")]
     public float drawDuration = 2f;
 
+    [Tooltip("Se true, l'animazione NON parte automaticamente allo Start (utile per switch runtime)")]
+    public bool skipAutoStart = false;
+
     private Material material;
     private float timer = 0f;
     private bool isDrawing = false;
@@ -29,7 +32,16 @@ public class DrawRevealEffect : MonoBehaviour
             Debug.LogWarning("DrawRevealEffect: AudioSource non trovato!");
         }
 
-        ResetDraw();
+        // Avvia l'animazione solo se non è stato richiesto di saltarla
+        if (!skipAutoStart)
+        {
+            ResetDraw();
+        }
+        else
+        {
+            // Se skipAutoStart è true, completa istantaneamente
+            CompleteInstantly();
+        }
     }
 
     void Update()
@@ -75,6 +87,22 @@ public class DrawRevealEffect : MonoBehaviour
         if (audioSource != null && !audioSource.isPlaying)
         {
             audioSource.Play();
+        }
+    }
+
+    /// <summary>
+    /// Completa istantaneamente l'animazione di disegno (salta alla fine).
+    /// </summary>
+    public void CompleteInstantly()
+    {
+        timer = drawDuration;
+        isDrawing = false;
+        if (material != null)
+            material.SetFloat("_RevealProgress", 1f);
+
+        if (audioSource != null && audioSource.isPlaying)
+        {
+            audioSource.Stop();
         }
     }
 }
