@@ -213,21 +213,17 @@ private Rigidbody rb;
     }
 }
 
-// ✅ NUOVO METODO
+// ✅ RIMOSSO: Non usiamo più Rigidbody - movimento diretto come MovingPlatform
 private void SetupRigidbody()
 {
+    // Rimuovi eventuali Rigidbody esistenti per evitare conflitti
     rb = GetComponent<Rigidbody>();
-    if (rb == null)
+    if (rb != null)
     {
-        rb = gameObject.AddComponent<Rigidbody>();
+        Debug.Log($"[RaftPlatform] {gameObject.name}: Rigidbody rimosso - usando movimento diretto come MovingPlatform");
+        Destroy(rb);
+        rb = null;
     }
-    
-    rb.isKinematic = true;
-    rb.interpolation = RigidbodyInterpolation.Interpolate;
-    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-    rb.useGravity = false;
-    // AGGIUNGI QUESTA LINEA:
-    rb.angularDamping = 0.05f; // Come la MovingPlatform
 }
 void Update()
 {
@@ -358,25 +354,21 @@ private void HandleWaitingAtTerminal()
 {
     deltaMovement = Vector3.zero;
     _targetSpeedRatio = 0f;
-    
-    // FIX: Solo se il player è ANCORA sulla piattaforma e ha il permesso
-    if (playerController != null && playerCanActivateRaft && !playerJustExited)
+
+    // FIX: Se player è uscito al terminal, NON partire automaticamente
+    if (playerJustExited && IsAtTerminal())
+    {
+        return;
+    }
+
+    // ✅ FIX: Chiama ShouldStartMovement() anche se playerCanActivateRaft è false
+    // perché ShouldStartMovement() gestisce internamente l'attesa e riabilita playerCanActivateRaft
+    if (playerController != null && !playerJustExited)
     {
         if (ShouldStartMovement())
         {
             StartMovement();
         }
-    }
-    
-    // FIX: Se player è uscito al terminal, NON partire automaticamente
-    if (playerJustExited && IsAtTerminal())
-    {
-        // Player uscito normalmente al terminal - resta fermo
-        if (debugActivationSystem)
-        {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito al terminal - resto fermo");
-        }
-        return;
     }
 }
     private void HandleCountingActivation()
@@ -595,27 +587,32 @@ private void HandleFalseStart()
 
     private bool ShouldStartMovement()
     {
-        if (playerController == null || playerJustExited || !playerCanActivateRaft)
+        if (playerController == null || playerJustExited)
             return false;
-        
+
         float timeOnPlatform = Time.time - playerEnterTime;
         float requiredWaitTime;
-        
+
         // FIX: Better terminal wait logic
         if (justArrivedAtTerminal)
         {
             requiredWaitTime = settings.terminalWaitTime;
-            
+
             if (timeOnPlatform >= requiredWaitTime)
             {
                 justArrivedAtTerminal = false;
+                playerCanActivateRaft = true; // ✅ FIX: Riabilita dopo attesa terminal
             }
         }
         else
         {
             requiredWaitTime = settings.quickStartTime;
         }
-        
+
+        // ✅ FIX: Controlla permesso DOPO aver potenzialmente riabilitato
+        if (!playerCanActivateRaft)
+            return false;
+
         if (timeOnPlatform < requiredWaitTime)
         {
             if (debugActivationSystem)
@@ -672,11 +669,11 @@ private void HandleFalseStart()
     currentDistance += smoothedSpeed * direction * Time.fixedDeltaTime;
     
     Vector3 newPosition = GetPositionAtDistance(currentDistance);
-    
-    // CORREZIONE: Calcola delta DOPO aver ottenuto la nuova posizione
-    // ma PRIMA di muovere
-    deltaMovement = newPosition - transform.position; // USA transform.position, NON lastPosition
-    
+
+    // ✅ FIX: Calcola delta usando lastPosition (come MovingPlatform)
+    // Questo evita lo sfasamento causato dall'interpolazione del Rigidbody
+    deltaMovement = newPosition - lastPosition;
+
     if (rb != null)
     {
         rb.MovePosition(newPosition);
@@ -685,7 +682,7 @@ private void HandleFalseStart()
     {
         transform.position = newPosition;
     }
-    
+
     lastPosition = newPosition;
 }
 
@@ -706,10 +703,11 @@ private void ReachTerminal(float terminalDistance)
     {
         // Player ancora a bordo al terminal
         playerCanActivateRaft = false; // Deve aspettare il tempo di grazia del terminal
-        
+        playerEnterTime = Time.time;   // ✅ FIX: Resetta il timer per forzare l'attesa terminalWaitTime
+
         if (debugActivationSystem)
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal con player a bordo - attesa obbligatoria");
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal con player a bordo - attesa obbligatoria di {settings.terminalWaitTime}s");
         }
     }
     else

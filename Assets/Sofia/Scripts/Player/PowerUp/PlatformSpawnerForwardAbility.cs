@@ -9,9 +9,8 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     public GameObject ghostPrefab;
     public Material ghostValidMat;     // Materiale ghost normale
     public Material ghostInvalidMat;   // Materiale ghost rosso
-    public Material ghostOccludedMat;  // Materiale ghost quando è dentro oggetti
     public float forwardDistance  = 50f;
-    public float verticalOffset   = 10f;
+    public float verticalOffset   = 25f;
     public float checkRadius      = 0.4f;
     public LayerMask obstacleMask;
     
@@ -40,7 +39,6 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     private GameObject currentPlatform;
     private bool       placing = false;
     private bool       wasValidLastFrame = true;    // Per evitare flickering nel cambio colore
-    private bool       wasOccludedLastFrame = false; // Per tracking stato occlusione
 
     private Vector3    lastForwardDirection;
     private Vector3    currentGhostVelocity;
@@ -172,24 +170,18 @@ public void CancelPlacement()
             currentGhost.transform.rotation, targetRotation,
             Time.deltaTime * rotationSmoothSpeed);
 
-        // ⭐ Gestione stato visivo del ghost (valido/invalido/occluso)
+        // ⭐ Gestione stato visivo del ghost (valido/invalido)
         bool isValidPosition = IsPositionValidForVisual(targetPos);
-        bool isOccluded = IsGhostOccluded(targetPos);
-
-        // Priorità: occlusione > validità (se è dentro oggetti, mostra quello stato indipendentemente dalla validità)
-        bool stateChanged = (isOccluded != wasOccludedLastFrame) ||
-                           (isValidPosition != wasValidLastFrame && !isOccluded);
 
         // Debounce: cambia stato solo dopo un ritardo per evitare oscillazioni rapide
-        if (stateChanged)
+        if (isValidPosition != wasValidLastFrame)
         {
             stateTimer += Time.deltaTime;
             if (stateTimer >= stateChangeDelay)
             {
-                Debug.Log($"[PlatformSpawner] Stato cambiato - Valid: {wasValidLastFrame}->{isValidPosition}, Occluded: {wasOccludedLastFrame}->{isOccluded}");
-                UpdateGhostVisualState(isValidPosition, isOccluded);
+                Debug.Log($"[PlatformSpawner] Stato cambiato - Valid: {wasValidLastFrame}->{isValidPosition}");
+                UpdateGhostVisualState(isValidPosition);
                 wasValidLastFrame = isValidPosition;
-                wasOccludedLastFrame = isOccluded;
                 stateTimer = 0f;
             }
         }
@@ -455,40 +447,13 @@ public void CancelPlacement()
     }
 
     /// <summary>
-    /// Controlla se il ghost è completamente dentro altri oggetti (occluso)
+    /// Aggiorna lo stato visivo del ghost in base a validità
     /// </summary>
-    private bool IsGhostOccluded(Vector3 pos)
-    {
-        // Usa un BoxCast o OverlapBox per vedere se il centro + area del ghost è dentro geometria
-        // Raggio leggermente più piccolo del ghost stesso
-        float occlusionCheckRadius = checkRadius * 0.8f;
-
-        Collider[] hits = Physics.OverlapSphere(pos, occlusionCheckRadius, obstacleMask);
-
-        // Se trova collider attorno al centro, il ghost è probabilmente dentro/attraverso oggetti
-        return hits.Length > 0;
-    }
-
-    /// <summary>
-    /// Aggiorna lo stato visivo del ghost in base a validità e occlusione
-    /// </summary>
-    private void UpdateGhostVisualState(bool isValid, bool isOccluded)
+    private void UpdateGhostVisualState(bool isValid)
     {
         if (ghostRenderer == null) return;
 
-        // Priorità: occlusione > validità
-        Material targetMat;
-
-        if (isOccluded && ghostOccludedMat != null)
-        {
-            // Ghost dentro oggetti - usa materiale occlusione
-            targetMat = ghostOccludedMat;
-        }
-        else
-        {
-            // Ghost visibile - usa materiale valido/invalido
-            targetMat = isValid ? ghostValidMat : ghostInvalidMat;
-        }
+        Material targetMat = isValid ? ghostValidMat : ghostInvalidMat;
 
         if (targetMat != null)
         {
