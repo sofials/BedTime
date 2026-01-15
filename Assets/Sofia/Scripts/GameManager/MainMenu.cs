@@ -13,7 +13,7 @@ public class MainMenu : MonoBehaviour
     
     [Header("Video Intro")]
     [SerializeField] private VideoIntroManager videoIntroManager;
-    [SerializeField] private bool useVideoIntro = true;
+    [SerializeField] private bool useVideoIntro = false;
 
     [Header("Auto-Detection Settings")]
     [SerializeField] private bool debugMode = false;

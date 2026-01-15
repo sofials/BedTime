@@ -80,7 +80,6 @@ public class ShadowController : MonoBehaviour
     
     // Jump detection
     private ThirdPersonController playerController;
-    private bool wasGrounded = true;
     
     // Pool per ottimizzazione
     private static readonly int ColorPropertyID = Shader.PropertyToID("_Color");
@@ -215,36 +214,20 @@ public class ShadowController : MonoBehaviour
 bool IsJumping()
 {
     if (!onlyShowWhenJumping) return true; // Se il modo salto è disabilitato, sempre "saltando"
-    
+
     // Metodo 1: Usa ThirdPersonController (preferito)
+    // Usa IsActuallyJumping() che verifica se il player ha premuto il tasto di salto,
+    // non semplicemente se non è a terra (evita l'ombra su superfici inclinate)
     if (playerController != null)
     {
-        bool isGrounded = playerController.IsGrounded();
-        
-        // Enhanced jump detection: consider landing transitions
-        bool justLanded = wasGrounded == false && isGrounded == true;
-        bool justJumped = wasGrounded == true && isGrounded == false;
-        
-        wasGrounded = isGrounded; // Update the state
-        
-        // You could add special handling for landing/jumping moments here
-        if (justLanded)
-        {
-            // Optional: Add landing effects or delayed shadow hiding
-            Debug.Log("Player just landed");
-        }
-        
-        return !isGrounded;
+        return playerController.IsActuallyJumping();
     }
-    
+
     // Metodo 2: Fallback - raycast veloce verso il basso per rilevare distanza da terra
+    // Questo fallback non distingue tra salto vero e perdita di contatto, ma è meglio di niente
     Vector3 rayStart = raycastStartPoint.position;
     bool isNearGround = Physics.Raycast(rayStart, Vector3.down, jumpDetectionHeight, groundLayer);
-    
-    // Update wasGrounded for consistency
-    wasGrounded = isNearGround;
-    
-    // Se non rileva il terreno entro l'altezza specificata, considera che sta saltando
+
     return !isNearGround;
 }
     

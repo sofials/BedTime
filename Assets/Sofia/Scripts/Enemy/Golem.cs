@@ -25,18 +25,18 @@ public class Golem : MonoBehaviour
     public float baseSpeed = 10f;
     
     [Header("Vision Settings")]
-    public float viewRadius = 300f;
+    public float viewRadius = 600f;  // Deve essere >= rangedRange
     public float viewAngle = 360f;
     public LayerMask playerMask;
     public LayerMask obstacleMask;
-    
+
     [Header("Death Settings")]
     [Tooltip("Oggetto figlio da attivare quando il Golem muore")]
     public GameObject deathActivationObject;
-    
+
     [Header("Attack Settings")]
     public float meleeRange = 20f;
-    public float rangedRange = 280f;
+    public float rangedRange = 500f;  // Range attacco a distanza
     public float meleeCooldown = 2f;
     public float rangedCooldown = 3f;
     
@@ -128,18 +128,41 @@ public class Golem : MonoBehaviour
     {
         currentHealth = maxHealth;
         deadLayer = LayerMask.NameToLayer("DeadEnemy");
-        
+
+        InitializeNavMeshAgent();
         InitializeMaterialSystem();
         InitializeAudioSystem();
-        
+
         if (slowdownEffect != null)
             slowdownEffect.gameObject.SetActive(false);
-        
+
         // Inizia la validazione dello stato
         stateValidationCoroutine = StartCoroutine(ValidateStateRoutine());
-        
+
         // Imposta stato iniziale
         ChangeState(GolemState.Idle);
+    }
+
+    private void InitializeNavMeshAgent()
+    {
+        if (agent == null)
+        {
+            agent = GetComponent<NavMeshAgent>();
+            if (agent == null)
+            {
+                Debug.LogError($"[Golem] NavMeshAgent non trovato su {gameObject.name}!");
+                return;
+            }
+        }
+
+        // Assicurati che l'agent sia configurato correttamente
+        agent.speed = baseSpeed;
+        agent.angularSpeed = 120f;
+        agent.acceleration = 8f;
+        agent.stoppingDistance = 1f;
+        agent.autoBraking = true;
+
+        Debug.Log($"[Golem] NavMeshAgent inizializzato: speed={agent.speed}, isOnNavMesh={agent.isOnNavMesh}");
     }
     
     private void InitializeAudioSystem()
@@ -239,22 +262,26 @@ public class Golem : MonoBehaviour
                 
             case GolemState.Moving:
                 animator.SetBool("isWalking", true);
+                stuckTimer = 0f; // Reset quando iniziamo a muoverci
                 break;
                 
             case GolemState.MeleeAttacking:
                 StopMovement();
+                animator.SetBool("isWalking", false); // Importante: disabilita walking prima del trigger
                 animator.SetTrigger("AttackMelee");
                 meleeTimer = meleeCooldown;
                 break;
-                
+
             case GolemState.RangedAttacking:
                 StopMovement();
+                animator.SetBool("isWalking", false);
                 animator.SetTrigger("AttackRanged");
                 rangedTimer = rangedCooldown;
                 break;
-                
+
             case GolemState.Hit:
                 StopMovement();
+                animator.SetBool("isWalking", false);
                 animator.SetTrigger("Hit");
                 break;
                 
@@ -309,68 +336,97 @@ public class Golem : MonoBehaviour
 
     private void HandleCombatDecision()
     {
-        UpdatePlayerVisibility();
         float dist = Vector3.Distance(transform.position, player.position);
 
-        if (playerVisible)
-        {
-            RotateTowardsPlayer();
-        }
+        // Sempre ruota verso il player
+        RotateTowardsPlayer();
 
-        if (!playerVisible)
-        {
-            // Player non visibile, muoviti verso di lui
-            if (currentState != GolemState.Moving)
-            {
-                ChangeState(GolemState.Moving);
-            }
-            MoveTowardsPlayer();
-            return; // ✅ IMPORTANTE: Esci subito
-        }
-
-        // ✅ FIX 1: PRIORITÀ DEGLI ATTACCHI - Melee ha precedenza se in range
+        // PRIORITÀ 1: Se in range melee, attacca melee
         if (dist <= meleeRange)
         {
-            // Siamo in range melee
             if (meleeTimer <= 0f)
             {
                 ChangeState(GolemState.MeleeAttacking);
             }
             else
             {
-                // Cooldown melee attivo, fermati e aspetta
+                // Cooldown melee - fermati e aspetta
                 if (currentState != GolemState.Idle)
                 {
                     ChangeState(GolemState.Idle);
                 }
             }
+            return;
         }
-        else if (dist <= rangedRange)
+
+        // PRIORITÀ 2: Se in range ranged, attacca ranged
+        if (dist <= rangedRange)
         {
-            // Siamo in range ranged ma fuori da melee
             if (rangedTimer <= 0f)
             {
                 ChangeState(GolemState.RangedAttacking);
             }
             else
             {
-                // Cooldown ranged attivo, avvicinati per melee
-                if (currentState != GolemState.Moving)
+                // Cooldown ranged - avvicinati se possibile
+                if (CanMoveTowardsPlayer())
                 {
-                    ChangeState(GolemState.Moving);
+                    if (currentState != GolemState.Moving)
+                    {
+                        ChangeState(GolemState.Moving);
+                    }
+                    MoveTowardsPlayer();
                 }
-                MoveTowardsPlayer();
+                else
+                {
+                    // Bloccato - aspetta cooldown
+                    if (currentState != GolemState.Idle)
+                    {
+                        ChangeState(GolemState.Idle);
+                    }
+                }
             }
+            return;
+        }
+
+        // PRIORITÀ 3: Player troppo lontano - avvicinati
+        if (CanMoveTowardsPlayer())
+        {
+            if (currentState != GolemState.Moving)
+            {
+                ChangeState(GolemState.Moving);
+            }
+            MoveTowardsPlayer();
         }
         else
         {
-            // Player visibile ma troppo lontano per attaccare, fermati
+            // Bloccato - stai fermo
             if (currentState != GolemState.Idle)
             {
                 ChangeState(GolemState.Idle);
             }
         }
     }
+
+    /// <summary>
+    /// Verifica se il Golem può effettivamente muoversi verso il player.
+    /// Ritorna false solo se è veramente bloccato.
+    /// </summary>
+    private bool CanMoveTowardsPlayer()
+    {
+        if (agent == null || !agent.enabled || !agent.isOnNavMesh)
+            return false;
+
+        // Se siamo bloccati da troppo tempo, non possiamo muoverci
+        // Usa stessa soglia di MoveTowardsPlayer (1f) per evitare loop Moving->Idle->Moving
+        if (stuckTimer > 1f)
+            return false;
+
+        return true;
+    }
+
+    // Timer per rilevare se siamo bloccati
+    private float stuckTimer = 0f;
     private void RotateTowardsPlayer()
     {
         Vector3 dir = (player.position - transform.position).normalized;
@@ -397,36 +453,48 @@ public class Golem : MonoBehaviour
 {
     if (agent == null || !agent.enabled || !agent.isOnNavMesh)
     {
-        animator.SetBool("isWalking", false);
+        ChangeState(GolemState.Idle);
         return;
     }
-    
+
     agent.isStopped = false;
     agent.speed = isSlow ? baseSpeed * slowFactor : baseSpeed;
-    
+
     // Imposta destinazione
     bool pathSet = agent.SetDestination(player.position);
-    
+
     if (pathSet)
     {
-        // ✅ FIX 3: SINCRONIZZA ANIMAZIONE CON MOVIMENTO REALE
-        // Controlla se l'agent si sta effettivamente muovendo
         float currentSpeed = agent.velocity.magnitude;
-        bool isActuallyMoving = currentSpeed > 0.1f && !agent.isStopped && agent.hasPath;
-        
-        animator.SetBool("isWalking", isActuallyMoving);
-        
-        // Debug per capire cosa succede
-        if (!isActuallyMoving && currentState == GolemState.Moving)
+
+        // Traccia se siamo bloccati (velocità bassa per troppo tempo)
+        if (currentSpeed < 0.1f && agent.hasPath && agent.remainingDistance > 1f)
         {
-            Debug.LogWarning($"[Golem] In stato Moving ma non si muove! Speed={currentSpeed}, HasPath={agent.hasPath}, PathStatus={agent.pathStatus}");
+            stuckTimer += Time.deltaTime;
         }
+        else
+        {
+            stuckTimer = 0f;
+        }
+
+        // Se bloccati per più di 1 secondo, passa a Idle (siamo al bordo NavMesh)
+        if (stuckTimer > 1f)
+        {
+            Debug.Log("[Golem] Bloccato al bordo NavMesh, passo a Idle");
+            // NON resettare stuckTimer - così CanMoveTowardsPlayer() ritornerà false
+            ChangeState(GolemState.Idle);
+            return;
+        }
+
+        // Considera in movimento se ha velocità O se sta calcolando un path
+        bool isActuallyMoving = currentSpeed > 0.1f || agent.pathPending ||
+                                (agent.hasPath && agent.remainingDistance > agent.stoppingDistance);
+
+        animator.SetBool("isWalking", isActuallyMoving);
     }
     else
     {
-        // Path non valido
-        animator.SetBool("isWalking", false);
-        Debug.LogWarning($"[Golem] Impossibile impostare path verso player");
+        ChangeState(GolemState.Idle);
     }
 }
     private void UpdatePlayerVisibility()

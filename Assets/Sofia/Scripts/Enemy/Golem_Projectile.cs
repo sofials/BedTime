@@ -7,26 +7,32 @@ public class Golem_Projectile : MonoBehaviour
     public float lifetime = 5f;
     public float damage = 20f;
     public float pushForce = 10f;
-    public float velocityMultiplier = 10f; // <-- Aggiunto per velocità extra
+    public float velocityMultiplier = 1f; // Formula già calcola velocità corretta
     private Rigidbody rb;
-    public float extraGravityForce = 15f;  // forza extra verso il basso
+    public float extraGravityForce = 15f;
 
-private void FixedUpdate()
-{
-    if (rb != null)
+    [Header("Target Adjustment")]
+    [Tooltip("Offset verticale per correggere la mira (positivo = mira più alto, es. 1 per centro player)")]
+    public float targetHeightOffset = 0f;
+
+    private void FixedUpdate()
     {
-        rb.AddForce(Vector3.down * extraGravityForce, ForceMode.Acceleration);
+        if (rb != null)
+        {
+            rb.AddForce(Vector3.down * extraGravityForce, ForceMode.Acceleration);
+        }
     }
-}
-
 
     public void Initialize(Vector3 targetPosition)
     {
         rb = GetComponent<Rigidbody>();
         rb.useGravity = true;
 
+        // Applica offset per correggere l'altezza
+        Vector3 adjustedTarget = targetPosition + Vector3.up * targetHeightOffset;
+
         Vector3 launchVelocity;
-        bool success = TryCalculateArcVelocity(targetPosition, launchAngle, out launchVelocity);
+        bool success = TryCalculateArcVelocity(adjustedTarget, launchAngle, out launchVelocity);
 
         if (success)
         {
@@ -36,7 +42,7 @@ private void FixedUpdate()
         else
         {
             Debug.LogWarning("Golem_Projectile: Traiettoria non calcolabile, uso lancio diretto.");
-            rb.linearVelocity = (targetPosition - transform.position).normalized * 10f * velocityMultiplier;
+            rb.linearVelocity = (adjustedTarget - transform.position).normalized * 10f * velocityMultiplier;
         }
 
         Destroy(gameObject, lifetime);
@@ -47,7 +53,9 @@ private void FixedUpdate()
         Vector3 origin = transform.position;
         Vector3 toTarget = target - origin;
 
-        float g = Physics.gravity.y;
+        // Gravità positiva (valore assoluto + extra gravity)
+        float g = Mathf.Abs(Physics.gravity.y) + extraGravityForce;
+
         float angleRad = angleDeg * Mathf.Deg2Rad;
 
         Vector3 toTargetXZ = new Vector3(toTarget.x, 0f, toTarget.z);
@@ -57,15 +65,25 @@ private void FixedUpdate()
         float cosAngle = Mathf.Cos(angleRad);
         float sinAngle = Mathf.Sin(angleRad);
 
-        float underSqrt = (g * distance * distance) / (2 * (yOffset - Mathf.Tan(angleRad) * distance) * cosAngle * cosAngle);
+        // Formula corretta: v² = (g * d²) / (2 * cos²θ * (d * tanθ - y))
+        float numerator = g * distance * distance;
+        float denominator = 2f * cosAngle * cosAngle * (distance * Mathf.Tan(angleRad) - yOffset);
 
-        if (underSqrt < 0)
+        if (denominator <= 0)
         {
             velocity = Vector3.zero;
             return false;
         }
 
-        float speed = Mathf.Sqrt(underSqrt);
+        float speedSquared = numerator / denominator;
+
+        if (speedSquared <= 0)
+        {
+            velocity = Vector3.zero;
+            return false;
+        }
+
+        float speed = Mathf.Sqrt(speedSquared);
         velocity = toTargetXZ.normalized * speed * cosAngle + Vector3.up * speed * sinAngle;
         return true;
     }
@@ -88,5 +106,3 @@ private void FixedUpdate()
         }
     }
 }
-
-

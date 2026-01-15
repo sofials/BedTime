@@ -167,6 +167,9 @@ private Rigidbody rb;
     private bool wasMovingBeforeExit = false;
     private bool wasAtTerminalBeforeExit = false; // NEW: Track if we were at terminal before exit
 
+    // NEW: Track if player must re-board to restart at terminal
+    private bool playerMustReboardAtTerminal = false;
+
     // Performance optimization
     private const float VALIDATION_INTERVAL = 1f;
     private float _lastValidationTime;
@@ -390,14 +393,30 @@ private void HandleWaitingAtTerminal()
 {
     UpdateMovementSmooth();
 
-    // FIX: Check immediato per uscita player durante movimento
-    if (playerController == null && !playerJustReturnedToTerminal)
+    // FIX: Se il player è uscito durante il movimento (salto), aspetta che ritorni
+    // NON fermare la raft immediatamente - continua il movimento
+    if (playerController == null && wasMovingBeforeExit)
+    {
+        float timeSinceExit = Time.time - playerExitTime;
+
+        // Se il player non ritorna entro jumpIgnoreTime, considera che è caduto/morto
+        if (timeSinceExit > jumpIgnoreTime)
+        {
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player non tornato dopo {timeSinceExit:F2}s - considerato caduto, torno al terminal");
+            }
+            wasMovingBeforeExit = false;
+            HandleEarlyExit();
+            return;
+        }
+
+        // Altrimenti continua il movimento - il player potrebbe essere in aria (salto)
+    }
+    // FIX: Check per false start (uscita immediata dopo partenza, NON durante movimento normale)
+    else if (playerController == null && !wasMovingBeforeExit && !playerJustReturnedToTerminal)
     {
         float timeSinceStart = Time.time - lastMovementStartTime;
-        if (debugActivationSystem)
-        {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Player assente durante movimento (tempo: {timeSinceStart:F2}s)");
-        }
 
         if (timeSinceStart < settings.falseStartDetectionTime)
         {
@@ -422,7 +441,7 @@ private void HandleWaitingAtTerminal()
     if (playerController != null)
     {
         lastDirectionWithPlayer = direction;
-        wasMovingBeforeExit = true;
+        // NON settare wasMovingBeforeExit = true qui - viene settato in OnTriggerExit
     }
 
     // Check terminal reached
@@ -434,7 +453,7 @@ private void HandleWaitingAtTerminal()
     {
         ReachTerminal(startDistance);
     }
-    
+
 }
 private void HandleEarlyExit()
 {
@@ -590,6 +609,16 @@ private void HandleFalseStart()
         if (playerController == null || playerJustExited)
             return false;
 
+        // NEW: Se player deve scendere e risalire al terminal, non può partire
+        if (playerMustReboardAtTerminal)
+        {
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player deve scendere e risalire per ripartire");
+            }
+            return false;
+        }
+
         float timeOnPlatform = Time.time - playerEnterTime;
         float requiredWaitTime;
 
@@ -601,7 +630,7 @@ private void HandleFalseStart()
             if (timeOnPlatform >= requiredWaitTime)
             {
                 justArrivedAtTerminal = false;
-                playerCanActivateRaft = true; // ✅ FIX: Riabilita dopo attesa terminal
+                // NON riabilitare automaticamente - player deve scendere e risalire
             }
         }
         else
@@ -694,26 +723,27 @@ private void ReachTerminal(float terminalDistance)
     // FIX: Migliore gestione arrivo al terminal
     justArrivedAtTerminal = true;
     terminalArrivalTime = Time.time;
-    
+
     // FIX: Se arriviamo al terminal, fermiamo sempre
     ChangeState(RaftState.WaitingAtTerminal);
-    
-    // FIX: Se player è ancora a bordo al terminal, deve scendere o aspettare per ripartire
+
+    // FIX: Se player è ancora a bordo al terminal, DEVE scendere e risalire per ripartire
     if (playerController != null)
     {
-        // Player ancora a bordo al terminal
-        playerCanActivateRaft = false; // Deve aspettare il tempo di grazia del terminal
-        playerEnterTime = Time.time;   // ✅ FIX: Resetta il timer per forzare l'attesa terminalWaitTime
+        // Player ancora a bordo al terminal - NON può ripartire finché non scende e risale
+        playerCanActivateRaft = false;
+        playerMustReboardAtTerminal = true; // NEW: Forza il player a scendere e risalire
 
         if (debugActivationSystem)
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal con player a bordo - attesa obbligatoria di {settings.terminalWaitTime}s");
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal con player a bordo - DEVE scendere e risalire per ripartire");
         }
     }
     else
     {
         // Arrivato al terminal senza player
         ResetActivationTimer();
+        playerMustReboardAtTerminal = false;
     }
 
     wasMovingBeforeExit = false;
@@ -867,6 +897,7 @@ void FixedUpdate()
         wasMovingBeforeExit = false;
         wasAtTerminalBeforeExit = false;
         playerCanActivateRaft = false; // FIX: Reset activation permission
+        playerMustReboardAtTerminal = false;
         ResetActivationTimer();
         
         if (_currentState == RaftState.Moving || _currentState == RaftState.CountingActivation)
@@ -1469,119 +1500,119 @@ public void ResetToStartPosition()
 private void OnTriggerEnter(Collider other)
 {
     if (!other.CompareTag("Player")) return;
-    
+
     CharacterController controller;
     if (!_controllerCache.TryGetValue(other, out controller))
     {
         controller = other.GetComponent<CharacterController>();
         _controllerCache[other] = controller;
     }
-    
+
+    // FIX: Se la raft sta già muovendo e il player ritorna (da un salto), riconnetti semplicemente
+    if (_currentState == RaftState.Moving && wasMovingBeforeExit)
+    {
+        playerController = controller;
+        wasMovingBeforeExit = false;
+        lastKnownPlayerPosition = other.transform.position;
+
+        if (debugActivationSystem)
+        {
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Player ritornato da salto durante movimento - continuo normalmente");
+        }
+
+        OnPlayerBoard.Invoke();
+        return;
+    }
+
     // FIX: Handle re-entry dopo uscita al terminal
     if (playerJustExited)
     {
         float timeAway = Time.time - playerExitTime;
-        
+
         if (debugActivationSystem)
         {
             Debug.Log($"[RaftPlatform] {gameObject.name}: Player tornato dopo {timeAway:F2}s, era al terminal: {wasAtTerminalBeforeExit}");
         }
-        
+
         playerJustExited = false;
         playerController = controller;
-        
+
         // FIX: Gestione speciale per rientro dopo uscita al terminal
-        if (wasAtTerminalBeforeExit)
+        if (wasAtTerminalBeforeExit && IsAtTerminal())
         {
-            // Player aveva lasciato la piattaforma al terminal e ora torna
+            // Player era sceso al terminal e ora risale - può ripartire!
             playerEnterTime = Time.time;
-            
-            if (timeAway < settings.terminalGracePeriod)
+            justArrivedAtTerminal = false;
+            playerCanActivateRaft = true;
+            playerMustReboardAtTerminal = false; // Ha fatto il reboard richiesto
+
+            if (debugActivationSystem)
             {
-                // Rientro rapido - applica attesa terminal
-                justArrivedAtTerminal = true; // Forza attesa terminal
-                playerCanActivateRaft = false; // Deve aspettare
-                
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Rientro rapido da terminal - attesa terminal obbligatoria ({settings.terminalWaitTime}s)");
-                }
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player risalito al terminal dopo essere sceso - può ripartire!");
             }
-            else
+        }
+        else if (wasMovingBeforeExit && timeAway < 2f && !IsAtTerminal())
+        {
+            // Ritorno da salto mentre era in movimento (non al terminal)
+            direction = lastDirectionWithPlayer;
+            ChangeState(RaftState.Moving);
+            playerCanActivateRaft = true;
+
+            if (debugActivationSystem)
             {
-                // Rientro dopo più tempo - tratta come nuovo boarding
-                justArrivedAtTerminal = false;
-                playerCanActivateRaft = true;
-                
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Rientro tardivo da terminal - attivazione rapida consentita");
-                }
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Continuo movimento (ritorno da salto)");
+            }
+        }
+        else if (timeAway >= settings.respawnDetectionTime)
+        {
+            // Likely respawn - reset everything
+            ResetActivationTimer();
+            playerEnterTime = Time.time;
+            playerCanActivateRaft = true;
+            justArrivedAtTerminal = false;
+            playerMustReboardAtTerminal = false;
+
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Probabile respawn - attivazione rapida consentita");
             }
         }
         else
         {
-            // Logica esistente per rientri lontano dal terminal
-            if (wasMovingBeforeExit && _currentState != RaftState.Moving && timeAway < 2f && !IsAtTerminal())
+            // Normal return
+            playerEnterTime = Time.time;
+            playerCanActivateRaft = true;
+            justArrivedAtTerminal = false;
+
+            if (debugActivationSystem)
             {
-                // Resume movement if was moving and returns quickly (not at terminal)
-                direction = lastDirectionWithPlayer;
-                ChangeState(RaftState.Moving);
-                playerCanActivateRaft = true;
-                
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Continuo movimento (ritorno da salto)");
-                }
-            }
-            else if (timeAway >= settings.respawnDetectionTime)
-            {
-                // Likely respawn - reset everything
-                ResetActivationTimer();
-                playerEnterTime = Time.time;
-                playerCanActivateRaft = true;
-                justArrivedAtTerminal = false;
-                
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Probabile respawn - attivazione rapida consentita");
-                }
-            }
-            else
-            {
-                // Normal return
-                playerEnterTime = Time.time;
-                playerCanActivateRaft = true;
-                justArrivedAtTerminal = false;
-                
-                if (debugActivationSystem)
-                {
-                    Debug.Log($"[RaftPlatform] {gameObject.name}: Ritorno normale");
-                }
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Ritorno normale");
             }
         }
-        
+
+        lastKnownPlayerPosition = other.transform.position;
+        OnPlayerBoard.Invoke();
         return;
     }
-    
+
     // FIX: Prima salita - comportamento normale
     playerController = controller;
     playerWasOnBoard = true;
     playerJustExited = false;
     wasMovingBeforeExit = false;
     wasAtTerminalBeforeExit = false;
+    playerMustReboardAtTerminal = false;
     _boardEvents++;
-    
+
     playerEnterTime = Time.time;
-    
+
     // FIX: Se saliamo per la prima volta al terminal, permetti attivazione immediata
-    // Se saliamo durante il movimento o lontano dal terminal, permetti attivazione immediata
     playerCanActivateRaft = true;
     justArrivedAtTerminal = false; // Prima salita non richiede attesa terminal
-    
+
     lastKnownPlayerPosition = other.transform.position;
     OnPlayerBoard.Invoke();
-    
+
     if (debugActivationSystem)
     {
         Debug.Log($"[RaftPlatform] {gameObject.name}: Prima salita del player - attivazione immediata consentita");
@@ -1590,55 +1621,57 @@ private void OnTriggerEnter(Collider other)
    private void OnTriggerExit(Collider other)
 {
     if (!other.CompareTag("Player")) return;
-    
+
     CharacterController controller;
     if (_controllerCache.TryGetValue(other, out controller) && playerController == controller)
     {
         lastKnownPlayerPosition = other.transform.position;
-        
+
         playerExitTime = Time.time;
         _exitEvents++;
-        
-        // FIX: Se siamo in movimento, NON settare subito playerJustExited
-        // Lascia che HandleMoving() gestisca la logica
+
+        // FIX: Se siamo in movimento (player sta saltando), NON fermare la raft
+        // Aspetta che ritorni o che passi troppo tempo
         if (_currentState == RaftState.Moving)
         {
-            // Disconnetti il player ma NON settare playerJustExited ancora
-            playerController = null;
-            playerCanActivateRaft = false;
-            
-            // Salva i dati per la logica di ritorno
+            // NON disconnettere il player subito - potrebbe essere un salto
+            // Salva i dati per il possibile ritorno
             wasMovingBeforeExit = true;
-            wasAtTerminalBeforeExit = IsAtTerminal();
-            
+            wasAtTerminalBeforeExit = false;
+
             if (debugActivationSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito durante movimento - HandleMoving() gestirà il ritorno");
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito durante movimento (probabilmente salto) - raft continua");
             }
+
+            // NON settare playerController = null qui - lascia che la raft continui
+            // Il player verrà riconnesso in OnTriggerEnter se ritorna
+            // Se non ritorna entro jumpIgnoreTime, HandleRespawnDetection() gestirà il caso
         }
         else if (IsAtTerminal())
         {
             // Player è uscito al terminal - comportamento normale
             playerController = null;
-            playerJustExited = true; // Solo al terminal settiamo questo flag
+            playerJustExited = true;
             playerCanActivateRaft = false;
             playerWasOnBoard = false;
             wasAtTerminalBeforeExit = true;
+            playerMustReboardAtTerminal = false; // Reset - può risalire ora
             ResetActivationTimer();
-            
+
             if (debugActivationSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito normalmente al terminal");
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player sceso al terminal - può risalire per ripartire");
             }
         }
         else
         {
-            // Altri casi
+            // Altri casi (fermo ma non al terminal)
             playerController = null;
             playerJustExited = true;
             playerCanActivateRaft = false;
         }
-        
+
         OnPlayerExit.Invoke();
     }
 }

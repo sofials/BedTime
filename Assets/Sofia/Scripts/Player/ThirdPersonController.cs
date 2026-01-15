@@ -299,6 +299,21 @@ private bool isClimbing = false;
 
     public bool IsGrounded() => controller.isGrounded;
 
+    /// <summary>
+    /// Restituisce true se il player ha effettivamente premuto il tasto per saltare
+    /// e non è ancora atterrato. Utile per distinguere un vero salto dal semplice
+    /// perdere contatto col terreno (es. camminando su superfici inclinate).
+    /// </summary>
+    public bool IsActuallyJumping()
+    {
+        // Se è a terra, non sta saltando
+        if (controller.isGrounded) return false;
+
+        // Verifica se ha effettivamente eseguito un salto (jumpCount > 0 significa che ha premuto il tasto)
+        // jumpCount viene resettato a 0 quando atterra
+        return jumpCount > 0;
+    }
+
     public void AddAttackVelocity(Vector3 velocity)
     {
         attackVelocity += velocity;
