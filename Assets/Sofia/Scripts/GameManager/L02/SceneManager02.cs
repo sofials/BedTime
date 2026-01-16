@@ -24,6 +24,10 @@ public class SceneManager02 : MonoBehaviour
 [SerializeField] private Unity.Cinemachine.CinemachineCamera preferredSceneCamera;
     [Header("Abilities Management")]
     [SerializeField] private AbilitiesManager abilitiesManager;
+
+    [Header("Platform Ability Shortcut (K)")]
+    [SerializeField] private GameObject panelPlatformAbility;
+    [SerializeField] private PlatformSpawnerForwardAbility platformSpawnerAbility;
 [Header("UI Animation Settings")]
 [SerializeField] private float fadeInDuration = 0.5f;
 [SerializeField] private float displayDuration = 2f;
@@ -79,6 +83,43 @@ private bool isTitleAnimationPlaying = false;
     private void Start()
     {
           StartCoroutine(DelayedInitialization());
+    }
+
+    private void Update()
+    {
+        // Shortcut K: attiva panel platforma ability e SetLevelAllowed(true)
+        if (Input.GetKeyDown(KeyCode.K))
+        {
+            ActivatePlatformAbilityShortcut();
+        }
+    }
+
+    /// <summary>
+    /// Attiva il panel della platform ability e abilita l'abilità nel livello
+    /// </summary>
+    private void ActivatePlatformAbilityShortcut()
+    {
+        DebugLog("[SceneManager02] Shortcut K premuto - Attivazione Platform Ability");
+
+        if (panelPlatformAbility != null)
+        {
+            panelPlatformAbility.SetActive(true);
+            DebugLog("[SceneManager02] Panel Platform Ability attivato");
+        }
+        else
+        {
+            DebugLog("[SceneManager02] ⚠️ panelPlatformaAbility non assegnato nell'Inspector");
+        }
+
+        if (platformSpawnerAbility != null)
+        {
+            platformSpawnerAbility.SetLevelAllowed(true);
+            DebugLog("[SceneManager02] PlatformSpawnerAbility.SetLevelAllowed(true) chiamato");
+        }
+        else
+        {
+            DebugLog("[SceneManager02] ⚠️ platformSpawnerAbility non assegnato nell'Inspector");
+        }
     }
     // 1. NUOVO DelayedInitialization che NON configura più la camera
     private IEnumerator DelayedInitialization()
