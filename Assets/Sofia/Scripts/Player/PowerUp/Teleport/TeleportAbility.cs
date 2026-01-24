@@ -194,35 +194,40 @@ public override bool CanActivate()
         }
     }
 
-   public override void TryActivate()
+  public override void TryActivate()
 {
     Debug.Log("Tentativo teletrasporto...");
 
-    // Prima verifica: l'abilità deve essere abilitata
-    if (!IsEnabled)
-    {
-        Debug.Log("FAILURE - Abilità non abilitata");
-        return;
-    }
-
-    // Seconda verifica: deve esserci una TeleportBase inquadrata con una gemella
-    if (TeleportBase.currentHoveredBase == null || TeleportBase.currentHoveredBase.linkedBase == null)
-    {
-        Debug.Log("FAILURE - Nessuna base valida con destinazione collegata");
-        return;
-    }
-
-    // Terza verifica: controlla se può essere attivata (energia, cooldown, distanza, ecc.)
+    // Usa direttamente CanActivate() che già verifica tutto
     if (!CanActivate())
     {
-        Debug.Log($"FAILURE - {GetDisableReason()}");
-        PlayTeleportFailureSound();
+        string reason = GetDisableReason();
+        Debug.Log($"FAILURE - {reason}");
+        
+        // Suono fallimento SOLO se è un problema di energia o gameplay
+        // NON se l'abilità non è permessa nel livello
+        if (!reason.Contains("non permessa in questo livello") && 
+            !reason.Contains("nessuna base") &&
+            !reason.Contains("devi essere sopra"))
+        {
+            PlayTeleportFailureSound();
+        }
         return;
     }
 
-    // Se arriviamo qui, tutto è OK - attiva l'abilità
-    base.TryActivate();
-}  public new string GetDisableReason()
+    // Se arriviamo qui, tutto OK - attiva direttamente
+    Activate();
+    IsActive = true;
+
+    if (activationSound != null && audioSource != null)
+    {
+        audioSource.PlayOneShot(activationSound);
+    }
+
+    if (PlayerUI.Instance != null)
+        PlayerUI.Instance.PulseIconAt(effectIconIndex);
+}
+public new string GetDisableReason()
 {
     string baseReason = base.GetDisableReason();
     if (baseReason != "motivo sconosciuto") return baseReason;

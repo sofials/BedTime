@@ -35,6 +35,10 @@ public class PlatformSpawnerForwardAbility : AbilityBase
     public Transform footTarget;
     [SerializeField] private Transform cameraTransform;
 
+    [Header("Audio - Confirmation")]
+    [Tooltip("Suono riprodotto quando la piattaforma viene piazzata con successo (secondo F)")]
+    public AudioClip confirmationSound;
+
     private GameObject currentGhost;
     private GameObject currentPlatform;
     private bool       placing = false;
@@ -58,6 +62,13 @@ public class PlatformSpawnerForwardAbility : AbilityBase
 
     private float activationClipLength = 0.5f;
 
+    // ⭐ NUOVO: Flag per prevenire input multipli durante lo stesso frame
+    private bool isProcessingInput = false;
+
+    // ⭐ NUOVO: Cooldown dopo CancelPlacement per prevenire ri-attivazione durante respawn
+    private float lastCancelTime = 0f;
+    private const float CANCEL_COOLDOWN = 0.5f; // Aumentato per sicurezza durante respawn
+
     protected override void Awake()
     {
         base.Awake();
@@ -65,6 +76,9 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         controls.Gameplay.Confirm.performed += _ => cancelPressed = true; // Click destro = annulla
         controls.Gameplay.Create.performed += _ =>
         {
+            // ⭐ Previeni input multipli
+            if (isProcessingInput) return;
+            
             if (!ignoreNextConfirm)
                 confirmPressed = true;
             else
@@ -104,43 +118,81 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             }
             else
             {
-                Debug.LogError("No camera found! Please assW  a camera transform in the inspector or ensure there's a MainCamera in the scene.");
+                Debug.LogError("No camera found! Please assign a camera transform in the inspector or ensure there's a MainCamera in the scene.");
                 enabled = false;
                 return;
             }
         }
     }
-/// <summary>
-/// Cancella il processo di piazzamento in corso (chiamato al respawn/morte)
-/// </summary>
-public void CancelPlacement()
-{
-    if (placing || currentGhost != null)
-    {
-        Debug.Log("[PlatformSpawnerForwardAbility] ❌ Piazzamento annullato (morte/respawn)");
 
+    /// <summary>
+    /// Cancella il processo di piazzamento in corso (chiamato al respawn/morte)
+    /// </summary>
+    public void CancelPlacement()
+    {
+        Debug.Log("[PlatformSpawnerForwardAbility] ❌ CancelPlacement chiamato - Reset completo");
+
+        // ⭐ NUOVO: Imposta cooldown per prevenire ri-attivazione durante respawn
+        lastCancelTime = Time.time;
+
+        // Ferma eventuali coroutine audio in corso PRIMA di tutto
+        StopAllCoroutines();
+
+        // ⭐ Distruggi il ghost IMMEDIATAMENTE se esiste
         if (currentGhost != null)
         {
+            Debug.Log($"[PlatformSpawnerForwardAbility] 💀 Distruggendo ghost: {currentGhost.name}");
+
+            // ⭐ STEP 1: Nascondi SUBITO il ghost (effetto visivo immediato)
+            currentGhost.SetActive(false);
+
+            // ⭐ STEP 2: Ferma l'audio
+            DrawRevealEffect drawEffect = currentGhost.GetComponent<DrawRevealEffect>();
+            if (drawEffect != null)
+            {
+                AudioSource ghostAudio = currentGhost.GetComponent<AudioSource>();
+                if (ghostAudio != null && ghostAudio.isPlaying)
+                {
+                    ghostAudio.Stop();
+                }
+            }
+
+            // ⭐ STEP 3: Distruggi (Destroy è più sicuro di DestroyImmediate a runtime)
             Destroy(currentGhost);
             currentGhost = null;
+
+            Debug.Log("[PlatformSpawnerForwardAbility] ✅ Ghost distrutto con successo");
+        }
+        else
+        {
+            Debug.Log("[PlatformSpawnerForwardAbility] ⚠️ CancelPlacement chiamato ma currentGhost era già null!");
         }
 
+        // Reset COMPLETO di tutti gli stati
         placing = false;
         IsActive = false;
         cancelPressed = false;
+        confirmPressed = false;
+        ignoreNextConfirm = false;
+        wasValidLastFrame = true;
+        stateTimer = 0f;
+        ghostRenderer = null;
+        isProcessingInput = false;
+        
+        Debug.Log("[PlatformSpawnerForwardAbility] ✅ Reset completo eseguito");
     }
-}
+
     protected override void Update()
     {
         base.Update();
 
-       if (!placing || currentGhost == null || cameraTransform == null) return;
+        if (!placing || currentGhost == null || cameraTransform == null) return;
 
-       if (!IsEnabled)
-    {
-        Deactivate();
-        return;
-    }
+        if (!IsEnabled)
+        {
+            Deactivate();
+            return;
+        }
 
         // Gestione annullamento con click destro
         if (cancelPressed)
@@ -194,37 +246,104 @@ public void CancelPlacement()
         if (!confirmPressed) return;
         confirmPressed = false;
 
+        // ⭐ Previeni elaborazione multipla
+        if (isProcessingInput) return;
+        isProcessingInput = true;
+
         if (!powerUpScript.HasEnoughPower(powerCost))
         {
             Debug.Log("Energia insufficiente!");
+            PlayFailureSound();
+            isProcessingInput = false;
             return;
         }
 
         if (!CanPlacePlatform(targetPos))
         {
             Debug.Log("Spazio occupato!");
+            PlayFailureSound();
+            isProcessingInput = false;
             return;
         }
 
+        // ⭐ PIAZZAMENTO CONFERMATO - Distruggi ghost e crea piattaforma
         Destroy(currentGhost);
         currentGhost = null;
 
         currentPlatform = Instantiate(platformPrefab, targetPos, targetRotation);
 
+        // Nascondi il tutorial la prima volta che viene piazzata una piattaforma
+        if (PlatformTutorial.Instance != null)
+        {
+            PlatformTutorial.Instance.Hide();
+        }
+
         // Scala i soldi solo qui, quando confermiamo la piattaforma
         powerUpScript.SpendPower(powerCost);
+
+        // ⭐ NUOVO: Riproduci suono di conferma (secondo F)
+        PlayConfirmationSound();
+
         Deactivate();
+        
+        // Reset del flag dopo un breve delay per sicurezza
+        StartCoroutine(ResetInputProcessingFlag());
+    }
+
+    /// <summary>
+    /// Riproduce il suono di conferma quando la piattaforma viene piazzata
+    /// </summary>
+    private void PlayConfirmationSound()
+    {
+        if (confirmationSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(confirmationSound);
+            Debug.Log("[PlatformSpawnerForwardAbility] 🔊 Suono conferma piazzamento riprodotto");
+        }
+        else if (confirmationSound == null)
+        {
+            Debug.LogWarning("[PlatformSpawnerForwardAbility] ⚠️ confirmationSound non assegnato!");
+        }
+    }
+
+    /// <summary>
+    /// Riproduce il suono di fallimento (posizione invalida, energia insufficiente, ecc.)
+    /// </summary>
+    private void PlayFailureSound()
+    {
+        if (failureSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(failureSound);
+            Debug.Log("[PlatformSpawnerForwardAbility] 🔊 Suono fallimento riprodotto");
+        }
+    }
+
+    /// <summary>
+    /// Reset del flag di elaborazione input dopo un breve delay
+    /// </summary>
+    private IEnumerator ResetInputProcessingFlag()
+    {
+        yield return new WaitForSeconds(0.1f);
+        isProcessingInput = false;
     }
 
     public override void TryActivate()
     {
         Debug.Log("\n=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG START ===");
-        Debug.Log($"IsEnabled: {IsEnabled}");
-        Debug.Log($"GetDisableReason(): {GetDisableReason()}");
-        Debug.Log($"IsActive: {IsActive}");
-        Debug.Log($"powerUpScript null: {powerUpScript == null}");
-        if (powerUpScript != null)
-            Debug.Log($"HasEnoughPower({powerCost}): {powerUpScript.HasEnoughPower(powerCost)}");
+
+        // ⭐ NUOVO: Previeni attivazione subito dopo CancelPlacement (durante respawn)
+        if (Time.time - lastCancelTime < CANCEL_COOLDOWN)
+        {
+            Debug.Log($"[PlatformSpawnerForwardAbility] ⏳ Cooldown attivo dopo cancel - BLOCCO ATTIVAZIONE");
+            return;
+        }
+
+        // ⭐ Previeni attivazione se stiamo già elaborando input
+        if (isProcessingInput)
+        {
+            Debug.Log("[PlatformSpawnerForwardAbility] Input già in elaborazione - ignoro");
+            return;
+        }
 
         if (!IsEnabled)
         {
@@ -233,22 +352,15 @@ public void CancelPlacement()
 
             if (reason.Contains("non permessa in questo livello"))
             {
-                Debug.Log("[PlatformSpawnerForwardAbility] Abilità non permessa nel livello - nessun feedback, nessuna UI");
-                Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (silent exit) ===\n");
+                Debug.Log("[PlatformSpawnerForwardAbility] Abilità non permessa nel livello - nessun feedback");
                 return;
             }
-            Debug.Log("[PlatformSpawnerForwardAbility] Altri tipi di disabilitazione - riproduce failure sound");
 
             if (failureSound != null && audioSource != null)
-            {
                 audioSource.PlayOneShot(failureSound);
-                Debug.Log("[PlatformSpawnerForwardAbility] Audio di fallimento per abilità disabilitata");
-            }
 
             if (PlayerUI.Instance != null)
-            {
                 PlayerUI.Instance.PulseIconAt(effectIconIndex);
-            }
 
             return;
         }
@@ -257,58 +369,61 @@ public void CancelPlacement()
         {
             Debug.Log("[PlatformSpawnerForwardAbility] Già attiva - disattivazione");
             Deactivate();
-            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (deactivated) ===\n");
             return;
         }
 
-        // NON controllo energia qui - i soldi vengono scalati solo alla conferma finale (secondo F)
-        // Controllo solo che la camera sia disponibile
+        // ⭐ Controlla energia PRIMA di mostrare il ghost
+        if (powerUpScript == null || !powerUpScript.HasEnoughPower(powerCost))
+        {
+            Debug.Log($"[PlatformSpawnerForwardAbility] Energia insufficiente ({powerUpScript?.CurrentPower ?? 0}/{powerCost})");
+            
+            if (failureSound != null && audioSource != null)
+                audioSource.PlayOneShot(failureSound);
+
+            if (PlayerUI.Instance != null)
+                PlayerUI.Instance.PulseIconAt(effectIconIndex);
+
+            return;
+        }
+
         if (cameraTransform == null)
         {
             Debug.LogWarning("[PlatformSpawnerForwardAbility] Camera non disponibile");
 
             if (failureSound != null && audioSource != null)
-            {
                 audioSource.PlayOneShot(failureSound);
-            }
 
             if (PlayerUI.Instance != null)
-            {
                 PlayerUI.Instance.PulseIconAt(effectIconIndex);
-            }
 
-            Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (no camera) ===\n");
             return;
         }
 
-        Debug.Log("[PlatformSpawnerForwardAbility] Attivazione abilità - distruzione piattaforma precedente se esiste");
-
-        // Distruggi la piattaforma precedente se esiste (primo F)
+        Debug.Log("[PlatformSpawnerForwardAbility] Attivazione abilità");
         DestroyCurrentPlatform();
 
         Activate();
-
-        if (activationSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(activationSound);
-            Debug.Log("[PlatformSpawnerForwardAbility] Audio di attivazione riprodotto");
-        }
+        // ⭐ Suono matita gestito da DrawRevealEffect sul ghost prefab (PlayLoopAudio)
 
         if (PlayerUI.Instance != null)
-        {
             PlayerUI.Instance.PulseIconAt(effectIconIndex);
-        }
-
-        Debug.Log("=== [PlatformSpawnerForwardAbility] TryActivate() DEBUG END (activated) ===\n");
     }
 
     public override void Activate()
     {
+        // ⭐ NUOVO: Blocco assoluto durante cooldown dopo cancel/respawn
+        if (Time.time - lastCancelTime < CANCEL_COOLDOWN)
+        {
+            Debug.Log("[PlatformSpawnerForwardAbility] ⛔ Activate() BLOCCATO - cooldown dopo cancel attivo");
+            return;
+        }
+
         if (placing || currentGhost || cameraTransform == null) return;
 
         placing = true;
         IsActive = true;
         ignoreNextConfirm = true; // ⭐ Ignora il primo F che ha attivato il ghost
+        isProcessingInput = false; // ⭐ Reset del flag
 
         // ✅ Salva l'altezza base al momento dell'attivazione (non cambia se il player salta)
         Vector3 basePos = footTarget ? footTarget.position : transform.position;
@@ -340,15 +455,28 @@ public void CancelPlacement()
     private IEnumerator StartDrawAudioAfterDelay(DrawRevealEffect drawEffect)
     {
         yield return new WaitForSeconds(activationClipLength);
-        drawEffect.PlayLoopAudio();
+        
+        // ⭐ Verifica che siamo ancora in fase di placing prima di avviare l'audio
+        if (placing && currentGhost != null)
+        {
+            drawEffect.PlayLoopAudio();
+        }
     }
 
     public override void Deactivate()
     {
+        // ⭐ Ferma coroutine prima di distruggere
+        StopAllCoroutines();
+        
         if (currentGhost) Destroy(currentGhost);
+        currentGhost = null;
 
         placing = false;
         IsActive = false;
+        isProcessingInput = false;
+        confirmPressed = false;
+        cancelPressed = false;
+        ignoreNextConfirm = false;
     }
 
     private void DestroyCurrentPlatform()
@@ -416,21 +544,21 @@ public void CancelPlacement()
     }
 
     private bool CanPlacePlatform(Vector3 pos)
-{
-    bool blocked = Physics.CheckSphere(pos, checkRadius, obstacleMask);
-
-    if (blocked)
     {
-        // Trova cosa sta bloccando
-        Collider[] hits = Physics.OverlapSphere(pos, checkRadius, obstacleMask);
-        foreach (var hit in hits)
-        {
-            Debug.LogWarning($"[Platform BLOCKED] Oggetto: {hit.gameObject.name} | Layer: {LayerMask.LayerToName(hit.gameObject.layer)} | Pos: {hit.transform.position}");
-        }
-    }
+        bool blocked = Physics.CheckSphere(pos, checkRadius, obstacleMask);
 
-    return !blocked;
-}
+        if (blocked)
+        {
+            // Trova cosa sta bloccando
+            Collider[] hits = Physics.OverlapSphere(pos, checkRadius, obstacleMask);
+            foreach (var hit in hits)
+            {
+                Debug.LogWarning($"[Platform BLOCKED] Oggetto: {hit.gameObject.name} | Layer: {LayerMask.LayerToName(hit.gameObject.layer)} | Pos: {hit.transform.position}");
+            }
+        }
+
+        return !blocked;
+    }
 
     /// <summary>
     /// Controlla se la posizione è valida per il visual feedback (con isteresi CORRETTA per evitare flickering)
@@ -463,9 +591,16 @@ public void CancelPlacement()
 
     public override bool CanActivate()
     {
+        // ⭐ NUOVO: Previeni attivazione subito dopo CancelPlacement (durante respawn)
+        if (Time.time - lastCancelTime < CANCEL_COOLDOWN)
+        {
+            Debug.Log($"[PlatformSpawnerForwardAbility] ⏳ Cooldown attivo dopo cancel: {CANCEL_COOLDOWN - (Time.time - lastCancelTime):F2}s rimanenti");
+            return false;
+        }
+
         bool baseCanActivate = base.CanActivate();
         bool cameraAvailable = cameraTransform != null;
-        
+
         return baseCanActivate && cameraAvailable;
     }
 
@@ -479,15 +614,16 @@ public void CancelPlacement()
             controls.Dispose();
         }
     }
+
     private void OnDrawGizmos()
-{
-    if (!placing || currentGhost == null) return;
-    
-    Vector3 checkPos = currentGhost.transform.position;
-    
-    // Verde = libero, Rosso = bloccato
-    bool blocked = Physics.CheckSphere(checkPos, checkRadius, obstacleMask);
-    Gizmos.color = blocked ? Color.red : Color.green;
-    Gizmos.DrawWireSphere(checkPos, checkRadius);
-}
+    {
+        if (!placing || currentGhost == null) return;
+        
+        Vector3 checkPos = currentGhost.transform.position;
+        
+        // Verde = libero, Rosso = bloccato
+        bool blocked = Physics.CheckSphere(checkPos, checkRadius, obstacleMask);
+        Gizmos.color = blocked ? Color.red : Color.green;
+        Gizmos.DrawWireSphere(checkPos, checkRadius);
+    }
 }

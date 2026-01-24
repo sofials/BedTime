@@ -105,7 +105,11 @@ public class PostMovementActivation
 {
     [Header("Oggetti da Attivare")]
     public GameObject[] objectsToActivate;
-    
+
+    [Header("Nemici da Nascondere")]
+    [Tooltip("Nemici da nascondere IMMEDIATAMENTE quando gli oggetti vengono attivati (prima del rebake)")]
+    public GameObject[] enemiesToHide;
+
     [Header("Audio")]
     [Tooltip("Audio da riprodurre quando gli oggetti vengono attivati")]
     public AudioClip activationAudio;
@@ -115,11 +119,11 @@ public class PostMovementActivation
     public bool spatializedAudio = false;
     [Tooltip("Posizione dove riprodurre l'audio 3D (se vuoto, usa la posizione del primo oggetto attivato)")]
     public Transform audioSourcePosition;
-    
+
     [Header("Timing")]
     [Tooltip("Ritardo dopo la fine dei movimenti prima di attivare gli oggetti")]
     public float activationDelay = 0f;
-    
+
     // ✅ NavMesh Rebaking
     [Header("NavMesh Rebaking")]
     [Tooltip("Se true, effettua il rebake della NavMesh dopo il movimento")]
@@ -542,7 +546,21 @@ public class DreamWaveTrigger : MonoBehaviour
         {
             yield return new WaitForSeconds(postMovementActivation.activationDelay);
         }
-        
+
+        // ✅ NASCONDI IMMEDIATAMENTE I NEMICI (prima di tutto il resto)
+        if (postMovementActivation.enemiesToHide != null)
+        {
+            foreach (GameObject enemy in postMovementActivation.enemiesToHide)
+            {
+                if (enemy != null)
+                {
+                    enemy.SetActive(false);
+                    if (debugMovement)
+                        Debug.Log($"[DreamWaveTrigger] Post-movimento: Nemico '{enemy.name}' nascosto immediatamente");
+                }
+            }
+        }
+
         // Attiva tutti gli oggetti
         foreach (GameObject obj in postMovementActivation.objectsToActivate)
         {

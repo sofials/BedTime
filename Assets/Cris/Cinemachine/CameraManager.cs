@@ -54,11 +54,26 @@ public class CameraManager : MonoBehaviour
     private bool isInitialized = false;
     private bool isInitializing = false;
     private bool isCameraSystemReady = false;
+
+    [Header("Blend Protection")]
+    [Tooltip("Se true, blocca nuovi switch camera mentre un blend è in corso")]
+    [SerializeField] private bool blockSwitchDuringBlend = true;
+    [Tooltip("Se true, permette di forzare lo switch anche durante un blend (solo per casi speciali)")]
+    [SerializeField] private bool allowForceSwitch = true;
     
     // FIX: Traccia coroutine attive per prevenire duplicati
     private Coroutine initializationCoroutine = null;
     private int initializationRetryCount = 0;
     private const int MAX_INITIALIZATION_RETRIES = 3;
+    
+    // Build-specific settings (disponibili sempre per evitare errori di serializzazione)
+    [Header("Build Settings")]
+    [SerializeField] private bool useExtendedBuildWait = true;
+    [SerializeField] private float buildExtraWaitTime = 0.5f;
+    
+#if !UNITY_EDITOR
+    private Coroutine buildCheckCoroutine = null;
+#endif
     
     void Start()
     {
@@ -101,12 +116,6 @@ public class CameraManager : MonoBehaviour
             StartInitializationSafe();
         }
 
-#if !UNITY_EDITOR
-        if (useExtendedBuildWait)
-        {
-            StartBuildCheckSafe();
-        }
-#endif
     }
 
     private void NotifyControllersOfCameraChange(CinemachineCamera newCamera)
@@ -181,16 +190,18 @@ public class CameraManager : MonoBehaviour
         isInitializing = true;
         DebugLog("[CameraManager] Inizializzazione camera system avviata");
 
+
+        yield return new WaitForEndOfFrame();
+        yield return new WaitForEndOfFrame();
+        yield return new WaitForSeconds(0.1f);
+        
 #if !UNITY_EDITOR
+        // Attesa extra per build se abilitata
         if (useExtendedBuildWait)
         {
             yield return new WaitForSeconds(buildExtraWaitTime);
         }
 #endif
-
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForSeconds(0.1f);
 
         yield return FindCinemachineBrain();
         RegisterAllCamerasInScene();
@@ -283,7 +294,7 @@ public class CameraManager : MonoBehaviour
             {
                 brain = mainCamera.GetComponent<CinemachineBrain>();
                 
-                // FIX: Verifica che sia nella scena corretta
+                // FIX: Verifica che sia nella scena corrente
                 if (brain != null && brain.gameObject.scene != currentScene)
                 {
                     DebugLog($"[CameraManager] Brain trovato ma in scena diversa: {brain.gameObject.scene.name}");
@@ -342,7 +353,21 @@ public class CameraManager : MonoBehaviour
         DebugLog($"[CameraManager] {registered} camere registrate nella scena {currentScene.name}");
     }
 
+    /// <summary>
+    /// Controlla se il CinemachineBrain sta attualmente blendando tra due camere
+    /// </summary>
+    public bool IsBlending()
+    {
+        if (brain == null) return false;
+        return brain.IsBlending;
+    }
+
     public void SwitchCamera(CinemachineCamera newCamera)
+    {
+        SwitchCamera(newCamera, false);
+    }
+
+    public void SwitchCamera(CinemachineCamera newCamera, bool forceSwitch)
     {
         if (newCamera == null)
         {
@@ -353,6 +378,13 @@ public class CameraManager : MonoBehaviour
         if (newCamera == activeCamera)
         {
             DebugLog($"[CameraManager] Camera {newCamera.name} è già attiva");
+            return;
+        }
+
+        // ✅ PROTEZIONE BLEND: blocca switch se un blend è in corso (a meno che non sia forzato)
+        if (blockSwitchDuringBlend && IsBlending() && !forceSwitch)
+        {
+            DebugLog($"[CameraManager] Switch a {newCamera.name} BLOCCATO - blend in corso. Usa ForceSwitchCamera() per forzare.");
             return;
         }
 
@@ -412,6 +444,99 @@ public class CameraManager : MonoBehaviour
         if (gameObject.activeInHierarchy && enabled)
         {
             StartCoroutine(DelayedControllerNotification(newCamera));
+        }
+    }
+
+    /// <summary>
+    /// Cambia camera con blend style e durata personalizzati (per transizioni specifiche)
+    /// </summary>
+    public void SwitchCameraWithCustomBlend(CinemachineCamera newCamera, CinemachineBlendDefinition.Styles blendStyle, float blendDuration)
+    {
+        if (newCamera == null)
+        {
+            DebugLog("[CameraManager] SwitchCameraWithCustomBlend: newCamera is null!");
+            return;
+        }
+
+        if (newCamera == activeCamera)
+        {
+            DebugLog($"[CameraManager] Camera {newCamera.name} è già attiva");
+            return;
+        }
+
+        // Protezione blend
+        if (blockSwitchDuringBlend && IsBlending())
+        {
+            DebugLog($"[CameraManager] Switch a {newCamera.name} BLOCCATO - blend in corso");
+            return;
+        }
+
+        // Salva le impostazioni originali
+        float originalDuration = defaultTransition != null ? defaultTransition.blendDuration : 1f;
+        CinemachineBlendDefinition.Styles originalStyle = defaultTransition != null ? defaultTransition.blendStyle : CinemachineBlendDefinition.Styles.EaseInOut;
+
+        // Applica le impostazioni custom temporaneamente
+        if (brain != null)
+        {
+            brain.DefaultBlend.Time = blendDuration;
+            brain.DefaultBlend.Style = blendStyle;
+            DebugLog($"[CameraManager] Custom blend applicato: {blendStyle}, {blendDuration}s");
+        }
+
+        // Esegui lo switch (senza passare per SwitchCamera per evitare che sovrascriva il blend)
+        CinemachineCamera previousCam = activeCamera;
+
+        if (!cameras.Contains(newCamera))
+        {
+            Register(newCamera);
+        }
+
+        if (!newCamera.gameObject.activeInHierarchy)
+        {
+            newCamera.gameObject.SetActive(true);
+        }
+
+#if !UNITY_EDITOR
+        foreach (CinemachineCamera cam in cameras.Where(c => c != null && c != newCamera))
+        {
+            cam.Priority = basePriority - 10;
+        }
+        newCamera.Priority = activePriority + PRIORITY_OFFSET_BUILD_INITIAL;
+#else
+        newCamera.Priority = activePriority + PRIORITY_OFFSET_EDITOR;
+        foreach (CinemachineCamera cam in cameras.Where(c => c != null && c != newCamera))
+        {
+            int priority = originalPriorities.ContainsKey(cam) ? originalPriorities[cam] : basePriority;
+            cam.Priority = priority;
+        }
+#endif
+
+        activeCamera = newCamera;
+        DebugLog($"[CameraManager] Cambio camera (custom blend): da {(previousCam != null ? previousCam.name : "nessuna")} a {newCamera.name}");
+
+        OnCameraActivated?.Invoke(newCamera);
+        if (previousCam != null)
+        {
+            OnCameraSwitched?.Invoke(previousCam, newCamera);
+        }
+
+        // Ripristina le impostazioni originali dopo il blend
+        if (gameObject.activeInHierarchy && enabled)
+        {
+            StartCoroutine(RestoreDefaultBlendAfterDelay(originalStyle, originalDuration, blendDuration + 0.1f));
+            StartCoroutine(DelayedControllerNotification(newCamera));
+        }
+    }
+
+    private IEnumerator RestoreDefaultBlendAfterDelay(CinemachineBlendDefinition.Styles originalStyle, float originalDuration, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        if (brain != null && defaultTransition != null)
+        {
+            brain.DefaultBlend.Time = originalDuration;
+            brain.DefaultBlend.Style = originalStyle;
+            DebugLog($"[CameraManager] Blend ripristinato: {originalStyle}, {originalDuration}s");
         }
     }
 
@@ -618,6 +743,35 @@ public class CameraManager : MonoBehaviour
         if (camera != null)
         {
             SwitchCamera(camera);
+        }
+        else
+        {
+            DebugLog($"[CameraManager] Camera '{cameraName}' non trovata!");
+        }
+    }
+
+    /// <summary>
+    /// Forza lo switch della camera anche se un blend è in corso
+    /// </summary>
+    public void ForceSwitchCamera(CinemachineCamera newCamera)
+    {
+        if (!allowForceSwitch)
+        {
+            DebugLog("[CameraManager] ForceSwitchCamera non permesso (allowForceSwitch = false)");
+            return;
+        }
+        SwitchCamera(newCamera, true);
+    }
+
+    /// <summary>
+    /// Forza lo switch della camera per nome anche se un blend è in corso
+    /// </summary>
+    public void ForceSwitchCameraByName(string cameraName)
+    {
+        var camera = GetCameraByName(cameraName);
+        if (camera != null)
+        {
+            ForceSwitchCamera(camera);
         }
         else
         {

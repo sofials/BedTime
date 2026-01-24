@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
+using Unity.Cinemachine;
 
 public class SimpleTriggerZone : MonoBehaviour
 {
@@ -9,16 +10,32 @@ public class SimpleTriggerZone : MonoBehaviour
     [SerializeField] private bool alreadyEntered = false;
     [SerializeField] private bool alreadyExited = false;
     [SerializeField] private bool requireGroundedPlayer = false;
-    
+
     [Header("Filtering")]
     [SerializeField] private string collisionTag = "Player";
     [SerializeField] private LayerMask triggerLayerMask = -1;
-    
+
     [Header("Camera Integration")]
     [SerializeField] private bool triggerCameraSwitch = false;
     [SerializeField] private string targetCameraName = "";
-    [SerializeField] private Unity.Cinemachine.CinemachineCamera targetCamera;
+    [SerializeField] private CinemachineCamera targetCamera;
     [SerializeField] private bool restorePreviousCamera = false;
+
+    [Header("Custom Blend - Entrata")]
+    [Tooltip("Se true, usa un blend style custom per l'ENTRATA nel trigger")]
+    [SerializeField] private bool useCustomBlendEnter = false;
+    [Tooltip("Stile di blend per l'entrata")]
+    [SerializeField] private CinemachineBlendDefinition.Styles customBlendStyleEnter = CinemachineBlendDefinition.Styles.Cut;
+    [Tooltip("Durata del blend in entrata (in secondi)")]
+    [SerializeField] private float customBlendDurationEnter = 0.5f;
+
+    [Header("Custom Blend - Uscita")]
+    [Tooltip("Se true, usa un blend style custom per l'USCITA dal trigger (quando ripristina la camera precedente)")]
+    [SerializeField] private bool useCustomBlendExit = false;
+    [Tooltip("Stile di blend per l'uscita")]
+    [SerializeField] private CinemachineBlendDefinition.Styles customBlendStyleExit = CinemachineBlendDefinition.Styles.EaseInOut;
+    [Tooltip("Durata del blend in uscita (in secondi)")]
+    [SerializeField] private float customBlendDurationExit = 1f;
     
     [Header("Timing & Delays")]
     [SerializeField] private float enterDelay = 0f;
@@ -61,7 +78,7 @@ public class SimpleTriggerZone : MonoBehaviour
     
     private bool isPlayerInside = false;
     private Collider currentPlayerCollider = null;
-    private Unity.Cinemachine.CinemachineCamera previousCamera = null;
+    private CinemachineCamera previousCamera = null;
     private Collider triggerCollider;
     
     private CameraManager cameraManager;
@@ -365,8 +382,17 @@ public class SimpleTriggerZone : MonoBehaviour
         
         if (restorePreviousCamera && previousCamera != null && cameraManager != null)
         {
-            cameraManager.SwitchCamera(previousCamera);
-            DebugLog($"Camera ripristinata: {previousCamera.name}");
+            // ✅ Se usa custom blend per USCITA
+            if (useCustomBlendExit)
+            {
+                cameraManager.SwitchCameraWithCustomBlend(previousCamera, customBlendStyleExit, customBlendDurationExit);
+                DebugLog($"Camera ripristinata: {previousCamera.name} (Custom Blend Exit: {customBlendStyleExit}, {customBlendDurationExit}s)");
+            }
+            else
+            {
+                cameraManager.SwitchCamera(previousCamera);
+                DebugLog($"Camera ripristinata: {previousCamera.name}");
+            }
             previousCamera = null;
         }
         
@@ -384,16 +410,25 @@ public class SimpleTriggerZone : MonoBehaviour
             DebugLog("CameraManager o target camera non disponibili");
             return false;
         }
-        
+
         if (restorePreviousCamera)
         {
             previousCamera = cameraManager.GetActiveCamera();
             DebugLog($"Camera precedente salvata: {previousCamera?.name ?? "null"}");
         }
-        
-        cameraManager.SwitchCamera(targetCamera);
-        DebugLog($"Camera cambiata a: {targetCamera.name}");
-        
+
+        // ✅ Se usa custom blend per ENTRATA
+        if (useCustomBlendEnter)
+        {
+            cameraManager.SwitchCameraWithCustomBlend(targetCamera, customBlendStyleEnter, customBlendDurationEnter);
+            DebugLog($"Camera cambiata a: {targetCamera.name} (Custom Blend Enter: {customBlendStyleEnter}, {customBlendDurationEnter}s)");
+        }
+        else
+        {
+            cameraManager.SwitchCamera(targetCamera);
+            DebugLog($"Camera cambiata a: {targetCamera.name}");
+        }
+
         return true;
     }
     
@@ -518,7 +553,7 @@ public class SimpleTriggerZone : MonoBehaviour
         }
     }
     
-    public void SetTargetCamera(Unity.Cinemachine.CinemachineCamera camera)
+    public void SetTargetCamera(CinemachineCamera camera)
     {
         targetCamera = camera;
         if (camera != null)

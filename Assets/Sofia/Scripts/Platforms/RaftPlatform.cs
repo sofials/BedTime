@@ -1507,6 +1507,11 @@ private void OnTriggerEnter(Collider other)
         controller = other.GetComponent<CharacterController>();
         _controllerCache[other] = controller;
     }
+       ThirdPersonController tpc = other.GetComponent<ThirdPersonController>();
+    if (tpc != null)
+    {
+        tpc.ForceResetJumpCount();
+    }
 
     // FIX: Se la raft sta già muovendo e il player ritorna (da un salto), riconnetti semplicemente
     if (_currentState == RaftState.Moving && wasMovingBeforeExit)
