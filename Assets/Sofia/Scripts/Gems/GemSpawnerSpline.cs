@@ -14,8 +14,8 @@ public class GemSpawnerSpline : MonoBehaviour
     [SerializeField] private bool canSpawn = true;
     
     [Header("Gestione Indipendente")]
-    [SerializeField] private bool listenToGameManager = true; // NUOVO
-    [SerializeField] private bool autoReinitializeOnSceneReady = true; // NUOVO
+    [SerializeField] private bool listenToGameManager = true;
+    [SerializeField] private bool autoReinitializeOnSceneReady = true;
     
     [Header("Debug")]
     [SerializeField] private bool debugMode = false;
@@ -36,6 +36,9 @@ public class GemSpawnerSpline : MonoBehaviour
 
     private GameObject[][] spawnedGems;
     private bool hasInitialized = false;
+    
+    // ✅ NUOVO: Contenitore per organizzare le gemme nella Hierarchy
+    private Transform gemsContainer;
 
     private void Awake()
     {
@@ -44,11 +47,10 @@ public class GemSpawnerSpline : MonoBehaviour
             Debug.Log($"[GemSpawnerSpline] Awake() - GameObject: {gameObject.name}");
         }
 
-      // SEMPLIFICATO: Disabilita l'ascolto del GameManager di default per evitare interferenze
-    if (listenToGameManager && GameManager.Instance != null)
-    {
-        GameManager.Instance.OnSceneReady += OnGameManagerSceneReady;
-    }
+        if (listenToGameManager && GameManager.Instance != null)
+        {
+            GameManager.Instance.OnSceneReady += OnGameManagerSceneReady;
+        }
     }
 
     private void Start()
@@ -63,7 +65,6 @@ public class GemSpawnerSpline : MonoBehaviour
 
     private void OnGameManagerSceneReady(string sceneName)
     {
-        // SEMPLIFICATO: Reinizializza solo se esplicitamente richiesto
         if (!autoReinitializeOnSceneReady) return;
 
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
@@ -75,52 +76,42 @@ public class GemSpawnerSpline : MonoBehaviour
                 Debug.Log($"[GemSpawnerSpline] GameManager pronto - reinizializzazione opzionale");
             }
 
-            // SEMPLIFICATO: Solo reinizializza se non è già stato fatto
             if (!hasInitialized)
             {
                 StartCoroutine(SimpleReinitialize());
             }
         }
     }
-/// <summary>
-/// SEMPLIFICATO: Reinizializzazione più diretta
-/// </summary>
-private IEnumerator SimpleReinitialize()
-{
-    yield return null;
-    
-    if (!hasInitialized)
-    {
-        InitializeSpawner();
-        hasInitialized = true;
-    }
-}
-    /// <summary>
-/// SEMPLIFICATO: Inizializzazione più diretta
-/// </summary>
-private IEnumerator SimpleInitialization()
-{
-    // Un solo frame di delay
-    yield return null;
-    
-    if (!hasInitialized)
-    {
-        if (debugMode)
-        {
-            Debug.Log($"[GemSpawnerSpline] Inizializzazione semplice avviata");
-        }
-        
-        InitializeSpawner();
-        hasInitialized = true;
-    }
-}
 
-    /// <summary>
-    /// NUOVO: Gestisce la reinizializzazione quando il GameManager è pronto
-    /// </summary>
+    private IEnumerator SimpleReinitialize()
+    {
+        yield return null;
+        
+        if (!hasInitialized)
+        {
+            InitializeSpawner();
+            hasInitialized = true;
+        }
+    }
+
+    private IEnumerator SimpleInitialization()
+    {
+        yield return null;
+        
+        if (!hasInitialized)
+        {
+            if (debugMode)
+            {
+                Debug.Log($"[GemSpawnerSpline] Inizializzazione semplice avviata");
+            }
+            
+            InitializeSpawner();
+            hasInitialized = true;
+        }
+    }
+
     private IEnumerator HandleGameManagerReady()
     {
-        // Pulisci gemme esistenti
         var allGems = FindObjectsByType<Gem>(FindObjectsSortMode.None);
         foreach (var gem in allGems)
         {
@@ -130,9 +121,8 @@ private IEnumerator SimpleInitialization()
             }
         }
 
-        yield return null; // Aspetta la distruzione
+        yield return null;
 
-        // Reinizializza
         ForceReinitialize();
     }
 
@@ -148,68 +138,79 @@ private IEnumerator SimpleInitialization()
         }
     }
 
-   /// <summary>
-/// MODIFICATO: InitializeSpawner semplificato
-/// </summary>
-private void InitializeSpawner()
-{
-    if (debugMode)
+    /// <summary>
+    /// ✅ NUOVO: Crea o ottiene il contenitore per le gemme (con scala uniforme)
+    /// </summary>
+    private Transform GetOrCreateGemsContainer()
     {
-        Debug.Log($"[GemSpawnerSpline] InitializeSpawner() - canSpawn: {canSpawn}");
-    }
-
-    // SEMPLIFICATO: Non pulire se non necessario
-    if (spawnedGems != null)
-    {
-        // Solo pulisci se ci sono già gemme spawnnate
-        ClearAllGems();
-    }
-
-    if (splineSettings != null && splineSettings.Length > 0 && canSpawn)
-    {
-        spawnedGems = new GameObject[splineSettings.Length][];
-        
-        for (int i = 0; i < splineSettings.Length; i++)
+        if (gemsContainer == null)
         {
-            if (splineSettings[i] != null)
+            GameObject container = new GameObject($"SpawnedGems_{gameObject.name}");
+            // NON parentare - lascia come root per evitare ereditarietà di scale non uniformi
+            container.transform.position = Vector3.zero;
+            container.transform.rotation = Quaternion.identity;
+            container.transform.localScale = Vector3.one;
+            gemsContainer = container.transform;
+
+            if (debugMode)
             {
-                spawnedGems[i] = new GameObject[splineSettings[i].gemCount];
-                
-                if (ShouldSpawnOnThisSpline(i))
-                {
-                    if (debugMode)
-                    {
-                        Debug.Log($"[GemSpawnerSpline] Spawning su spline {i} - {splineSettings[i].gemCount} gemme");
-                    }
-                    SpawnGemsOnSpecificSpline(i);
-                }
+                Debug.Log($"[GemSpawnerSpline] Contenitore '{container.name}' creato come root con scala (1,1,1)");
             }
         }
+        return gemsContainer;
     }
-    else
+
+    private void InitializeSpawner()
     {
         if (debugMode)
         {
-            Debug.LogWarning($"[GemSpawnerSpline] Spawning saltato - canSpawn: {canSpawn}, splineSettings: {splineSettings?.Length ?? 0}");
+            Debug.Log($"[GemSpawnerSpline] InitializeSpawner() - canSpawn: {canSpawn}");
+        }
+
+        if (spawnedGems != null)
+        {
+            ClearAllGems();
+        }
+
+        if (splineSettings != null && splineSettings.Length > 0 && canSpawn)
+        {
+            spawnedGems = new GameObject[splineSettings.Length][];
+            
+            for (int i = 0; i < splineSettings.Length; i++)
+            {
+                if (splineSettings[i] != null)
+                {
+                    spawnedGems[i] = new GameObject[splineSettings[i].gemCount];
+                    
+                    if (ShouldSpawnOnThisSpline(i))
+                    {
+                        if (debugMode)
+                        {
+                            Debug.Log($"[GemSpawnerSpline] Spawning su spline {i} - {splineSettings[i].gemCount} gemme");
+                        }
+                        SpawnGemsOnSpecificSpline(i);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (debugMode)
+            {
+                Debug.LogWarning($"[GemSpawnerSpline] Spawning saltato - canSpawn: {canSpawn}, splineSettings: {splineSettings?.Length ?? 0}");
+            }
         }
     }
-}
 
-    /// <summary>
-    /// NUOVO: Logica per determinare se spawnnare su una spline
-    /// </summary>
     private bool ShouldSpawnOnThisSpline(int splineIndex)
     {
         var setting = splineSettings[splineIndex];
         if (setting?.splineContainer == null) return false;
 
-        // Se spawnOnStart è true, spawna sempre
         if (setting.spawnOnStart) return true;
 
-        // Logica specifica per scena se necessario
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         
-        // Esempio: spawna sempre nella scena 01
         if (currentScene.Contains("01") || currentScene.Contains("Party"))
         {
             return true;
@@ -241,7 +242,6 @@ private void InitializeSpawner()
         }
     }
 
-    // NUOVO: Metodi per configurazione indipendente
     public void SetGameManagerIntegration(bool enabled)
     {
         if (listenToGameManager != enabled)
@@ -264,8 +264,6 @@ private void InitializeSpawner()
         autoReinitializeOnSceneReady = enabled;
     }
 
-    // [Resto dei metodi esistenti rimane uguale...]
-    
     public void SpawnGemsAlongSplines()
     {
         if (!canSpawn) return;
@@ -282,6 +280,9 @@ private void InitializeSpawner()
         }
     }
 
+    /// <summary>
+    /// ✅ MODIFICATO: Spawna gemme senza parentarle alla spline per evitare problemi di scala
+    /// </summary>
     public void SpawnGemsOnSpecificSpline(int splineIndex)
     {
         if (!canSpawn) return;
@@ -303,6 +304,9 @@ private void InitializeSpawner()
         ClearGemsOnSpecificSpline(splineIndex);
 
         Spline spline = setting.splineContainer.Spline;
+        
+        // ✅ Ottieni il contenitore con scala uniforme
+        Transform container = GetOrCreateGemsContainer();
 
         for (int i = 0; i < setting.gemCount; i++)
         {
@@ -310,26 +314,20 @@ private void InitializeSpawner()
             Vector3 localPos = spline.EvaluatePosition(t);
             Vector3 worldPos = setting.splineContainer.transform.TransformPoint(localPos);
 
-            // ✅ Combina la rotazione del prefab (già X=-90) con quella custom
-            // La customRotation viene applicata IN AGGIUNTA alla rotazione del prefab
+            // Combina rotazioni
             Quaternion prefabRotation = gemPrefab.transform.rotation;
             Quaternion customRotation = Quaternion.Euler(setting.customRotation);
             Quaternion finalRotation = customRotation * prefabRotation;
 
-            // ✅ FORZA SEMPRE scala world uniforme del prefab (ignora parent)
-            // Metodo: istanzia senza parent, imposta scala world, poi ri-parenta
-            GameObject newGem = Instantiate(gemPrefab, worldPos, finalRotation, null);
-
-            // Imposta la scala world del prefab direttamente (senza parent non c'è distorsione)
-            Vector3 prefabWorldScale = gemPrefab.transform.lossyScale;
-            newGem.transform.localScale = prefabWorldScale;
-
-            // Ora ri-parenta alla spline (la scala world rimarrà corretta)
-            newGem.transform.SetParent(setting.splineContainer.transform, true);
+            // ✅ FIX: Parenta al contenitore con scala uniforme invece che alla spline
+            // Questo garantisce che la scala della gemma rimanga corretta
+            GameObject newGem = Instantiate(gemPrefab, worldPos, finalRotation, container);
+            
+            // La scala rimane quella del prefab perché il container ha scala (1,1,1)
 
             if (debugMode)
             {
-                Debug.Log($"[GemSpawner] Spline {splineIndex}: Scala world forzata {prefabWorldScale}");
+                Debug.Log($"[GemSpawner] Spline {splineIndex}, Gem {i}: Pos={worldPos}, Scale={newGem.transform.localScale}");
             }
 
             spawnedGems[splineIndex][i] = newGem;
@@ -363,7 +361,6 @@ private void InitializeSpawner()
 
     public void ImmediateClearAllGems()
     {
-        // Pulisci tutte le gemme nella scena
         Gem[] allGems = FindObjectsByType<Gem>(FindObjectsSortMode.None);
         foreach (var gem in allGems)
         {
@@ -376,7 +373,6 @@ private void InitializeSpawner()
             }
         }
         
-        // Pulisci riferimenti interni
         if (spawnedGems != null)
         {
             for (int splineIndex = 0; splineIndex < spawnedGems.Length; splineIndex++)
@@ -390,6 +386,16 @@ private void InitializeSpawner()
                 }
             }
         }
+        
+        // ✅ Pulisci anche il contenitore
+        if (gemsContainer != null)
+        {
+            if (Application.isPlaying)
+                Destroy(gemsContainer.gameObject);
+            else
+                DestroyImmediate(gemsContainer.gameObject);
+            gemsContainer = null;
+        }
     }
 
     // Getters e utility
@@ -397,21 +403,26 @@ private void InitializeSpawner()
     public void SetSpawningEnabled(bool enabled) => canSpawn = enabled;
     public int GetSplineCount() => splineSettings?.Length ?? 0;
 
+    /// <summary>
+    /// Ottiene il contenitore delle gemme spawnate (utile per muoverle insieme alla spline)
+    /// </summary>
+    public Transform GetGemsContainer() => gemsContainer;
+
     [ContextMenu("Debug State")]
     public void DebugState()
     {
-        Debug.Log($"=== GemSpawnerSpline Debug (Indipendente) ===\n" +
+        Debug.Log($"=== GemSpawnerSpline Debug ===\n" +
                   $"Scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}\n" +
                   $"hasInitialized: {hasInitialized}\n" +
                   $"canSpawn: {canSpawn}\n" +
                   $"listenToGameManager: {listenToGameManager}\n" +
                   $"autoReinitializeOnSceneReady: {autoReinitializeOnSceneReady}\n" +
-                  $"splineSettings: {splineSettings?.Length ?? 0}");
+                  $"splineSettings: {splineSettings?.Length ?? 0}\n" +
+                  $"gemsContainer: {(gemsContainer != null ? gemsContainer.name : "NULL")}");
     }
 
     private void OnDestroy()
     {
-        // Disconnetti eventi
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnSceneReady -= OnGameManagerSceneReady;

@@ -12,7 +12,7 @@ public class TeleportBase : MonoBehaviour
     public UnityEvent OnObjectDisabled;
     
     [Header("Particle System Hover")]
-    [SerializeField] private ParticleSystem particleSystem;
+    [SerializeField] private new ParticleSystem particleSystem;
     [SerializeField] private Color hoverColor = Color.white;
 
     [Header("Hover Detection")]

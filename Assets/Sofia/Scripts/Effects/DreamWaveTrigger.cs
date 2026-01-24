@@ -61,13 +61,18 @@ public class ObjectMovement
     public string spawnedObjectsTag = "Gem";
     [Tooltip("Raggio di ricerca per oggetti spawnati vicino alla spline")]
     public float spawnedObjectsSearchRadius = 50f;
-    
+
+    [Header("GemSpawnerSpline Integration")]
+    [Tooltip("Se true, distrugge le gemme prima del movimento e le respawna dopo")]
+    public bool destroyAndRespawnGems = true;
+
     // Stato interno (non visibile nell'inspector)
     [HideInInspector] public Vector3 startPosition;
     [HideInInspector] public Vector3 calculatedEndPosition;
     [HideInInspector] public bool isMoving = false;
     [HideInInspector] public List<ChildTransformData> savedChildData = new List<ChildTransformData>();
     [HideInInspector] public List<SpawnedObjectData> spawnedObjectsData = new List<SpawnedObjectData>();
+    [HideInInspector] public List<GemSpawnerSpline> gemSpawnersToRespawn = new List<GemSpawnerSpline>();
 }
 
 /// <summary>
@@ -1032,10 +1037,12 @@ private IEnumerator EnableAgentDelayed(GameObject enemy, Vector3 targetPosition,
                 movement.targetObject.transform.localPosition = newPosition;
             }
             
-            // ✅ MUOVI ANCHE GLI OGGETTI SPAWNATI
+            // Calcola il delta del movimento
+            Vector3 delta = newPosition - previousPosition;
+
+            // ✅ MUOVI ANCHE GLI OGGETTI SPAWNATI (se abilitato)
             if (movement.moveSpawnedObjectsWithSpline && movement.spawnedObjectsData.Count > 0)
             {
-                Vector3 delta = newPosition - previousPosition;
                 foreach (var spawnedData in movement.spawnedObjectsData)
                 {
                     if (spawnedData.spawnedObject != null)
@@ -1044,6 +1051,7 @@ private IEnumerator EnableAgentDelayed(GameObject enemy, Vector3 targetPosition,
                     }
                 }
             }
+            // NOTA: Le gemme vengono distrutte prima del movimento e respawnate dopo (destroyAndRespawnGems)
             
             elapsedTime += Time.deltaTime;
             yield return null;
@@ -1084,6 +1092,13 @@ private IEnumerator EnableAgentDelayed(GameObject enemy, Vector3 targetPosition,
     {
         movement.savedChildData.Clear();
         movement.spawnedObjectsData.Clear();
+        movement.gemSpawnersToRespawn.Clear();
+
+        // ✅ DISTRUGGI LE GEMME PRIMA DEL MOVIMENTO (verranno respawnate dopo)
+        if (movement.destroyAndRespawnGems)
+        {
+            DestroyGemsBeforeMovement(movement);
+        }
         
         Transform[] children;
         
@@ -1157,7 +1172,35 @@ private IEnumerator EnableAgentDelayed(GameObject enemy, Vector3 targetPosition,
         }
         
         if (debugMovement)
-            Debug.Log($"[DreamWaveTrigger] Preparati {movement.savedChildData.Count} figli + {movement.spawnedObjectsData.Count} oggetti spawnati per il movimento di '{movement.targetObject.name}'");
+            Debug.Log($"[DreamWaveTrigger] Preparati {movement.savedChildData.Count} figli + {movement.spawnedObjectsData.Count} oggetti spawnati + {movement.gemSpawnersToRespawn.Count} GemSpawnerSpline per il movimento di '{movement.targetObject.name}'");
+    }
+
+    /// <summary>
+    /// Distrugge le gemme prima del movimento e salva i GemSpawnerSpline per il respawn
+    /// </summary>
+    private void DestroyGemsBeforeMovement(ObjectMovement movement)
+    {
+        if (movement.targetObject == null) return;
+
+        // Cerca tutti i GemSpawnerSpline nei figli (e nel target stesso)
+        GemSpawnerSpline[] spawners = movement.targetObject.GetComponentsInChildren<GemSpawnerSpline>(true);
+
+        foreach (GemSpawnerSpline spawner in spawners)
+        {
+            if (spawner == null) continue;
+
+            // Salva il riferimento per il respawn dopo il movimento
+            movement.gemSpawnersToRespawn.Add(spawner);
+
+            // Distruggi immediatamente tutte le gemme
+            spawner.ImmediateClearAllGems();
+
+            if (debugMovement)
+                Debug.Log($"[DreamWaveTrigger] 🗑️ Gemme distrutte per '{spawner.name}' - verranno respawnate dopo il movimento");
+        }
+
+        if (debugMovement && spawners.Length > 0)
+            Debug.Log($"[DreamWaveTrigger] Distrutte gemme di {spawners.Length} GemSpawnerSpline");
     }
     
     /// <summary>
@@ -1272,15 +1315,42 @@ private IEnumerator EnableAgentDelayed(GameObject enemy, Vector3 targetPosition,
         }
         
         movement.savedChildData.Clear();
-        
+
+        // ✅ RESPAWN GEMME dopo il movimento
+        if (movement.destroyAndRespawnGems && movement.gemSpawnersToRespawn.Count > 0)
+        {
+            RespawnGemsAfterMovement(movement);
+        }
+        movement.gemSpawnersToRespawn.Clear();
+
         // ✅ RI-CAMPIONA LA SPLINE SE RICHIESTO (per MovingPlatform)
         if (movement.resampleSplineAfterMove)
         {
             ResampleSplineOnTarget(movement.targetObject);
         }
-        
+
         if (debugMovement)
             Debug.Log($"[DreamWaveTrigger] Figli ripristinati per '{movement.targetObject?.name}'");
+    }
+
+    /// <summary>
+    /// Respawna le gemme dopo che il movimento è completato
+    /// </summary>
+    private void RespawnGemsAfterMovement(ObjectMovement movement)
+    {
+        foreach (GemSpawnerSpline spawner in movement.gemSpawnersToRespawn)
+        {
+            if (spawner == null) continue;
+
+            // Forza la reinizializzazione per spawnare le gemme nella nuova posizione
+            spawner.ForceReinitialize();
+
+            if (debugMovement)
+                Debug.Log($"[DreamWaveTrigger] ✅ Gemme respawnate per '{spawner.name}' nella nuova posizione");
+        }
+
+        if (debugMovement)
+            Debug.Log($"[DreamWaveTrigger] Respawnate gemme per {movement.gemSpawnersToRespawn.Count} GemSpawnerSpline");
     }
     
     /// <summary>

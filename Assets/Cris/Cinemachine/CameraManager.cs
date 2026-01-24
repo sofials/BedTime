@@ -60,6 +60,12 @@ public class CameraManager : MonoBehaviour
     [SerializeField] private bool blockSwitchDuringBlend = true;
     [Tooltip("Se true, permette di forzare lo switch anche durante un blend (solo per casi speciali)")]
     [SerializeField] private bool allowForceSwitch = true;
+    [Tooltip("Se true, salva la camera richiesta durante un blend e la applica quando il blend finisce")]
+    [SerializeField] private bool queuePendingSwitch = true;
+
+    // Sistema pending camera per dialoghi
+    private CinemachineCamera pendingCamera = null;
+    private Coroutine pendingCameraCoroutine = null;
     
     // FIX: Traccia coroutine attive per prevenire duplicati
     private Coroutine initializationCoroutine = null;
@@ -362,6 +368,127 @@ public class CameraManager : MonoBehaviour
         return brain.IsBlending;
     }
 
+    // ========== 🆕 PENDING CAMERA SYSTEM ==========
+
+    /// <summary>
+    /// Imposta una camera pending da applicare quando il blend corrente finisce
+    /// </summary>
+    private void SetPendingCamera(CinemachineCamera camera)
+    {
+        pendingCamera = camera;
+
+        // Avvia coroutine per monitorare quando il blend finisce
+        if (pendingCameraCoroutine != null)
+        {
+            StopCoroutine(pendingCameraCoroutine);
+        }
+
+        if (gameObject.activeInHierarchy && enabled)
+        {
+            pendingCameraCoroutine = StartCoroutine(WaitForBlendAndApplyPending());
+        }
+
+        DebugLog($"[CameraManager] 📋 Pending camera impostata: {camera.name}");
+    }
+
+    /// <summary>
+    /// Cancella la pending camera
+    /// </summary>
+    private void ClearPendingCamera()
+    {
+        if (pendingCamera != null)
+        {
+            DebugLog($"[CameraManager] 🗑️ Pending camera cancellata: {pendingCamera.name}");
+        }
+
+        pendingCamera = null;
+
+        if (pendingCameraCoroutine != null)
+        {
+            StopCoroutine(pendingCameraCoroutine);
+            pendingCameraCoroutine = null;
+        }
+    }
+
+    /// <summary>
+    /// Coroutine che aspetta la fine del blend e applica la pending camera
+    /// </summary>
+    private IEnumerator WaitForBlendAndApplyPending()
+    {
+        DebugLog("[CameraManager] ⏳ Aspettando fine blend per applicare pending camera...");
+
+        // Aspetta che il blend finisca
+        while (IsBlending())
+        {
+            yield return null;
+        }
+
+        // Piccolo delay di sicurezza
+        yield return new WaitForSeconds(0.05f);
+
+        // Applica la pending camera se ancora valida
+        if (pendingCamera != null)
+        {
+            CinemachineCamera cameraToApply = pendingCamera;
+            pendingCamera = null;
+            pendingCameraCoroutine = null;
+
+            DebugLog($"[CameraManager] ✅ Blend finito - applicando pending camera: {cameraToApply.name}");
+
+            // Usa lo switch normale (non force) per rispettare le regole
+            SwitchCamera(cameraToApply, false);
+        }
+        else
+        {
+            pendingCameraCoroutine = null;
+            DebugLog("[CameraManager] ℹ️ Blend finito ma pending camera già cancellata");
+        }
+    }
+
+    /// <summary>
+    /// Controlla se c'è una camera in attesa
+    /// </summary>
+    public bool HasPendingCamera()
+    {
+        return pendingCamera != null;
+    }
+
+    /// <summary>
+    /// Ottiene la camera in attesa (se presente)
+    /// </summary>
+    public CinemachineCamera GetPendingCamera()
+    {
+        return pendingCamera;
+    }
+
+    /// <summary>
+    /// Forza l'applicazione immediata della pending camera (cancella il queue)
+    /// </summary>
+    public void ForceApplyPendingCamera()
+    {
+        if (pendingCamera != null)
+        {
+            CinemachineCamera cameraToApply = pendingCamera;
+            ClearPendingCamera();
+            ForceSwitchCamera(cameraToApply);
+            DebugLog($"[CameraManager] ⚡ Pending camera forzata: {cameraToApply.name}");
+        }
+    }
+
+    /// <summary>
+    /// Abilita/disabilita il sistema di queue per pending camera
+    /// </summary>
+    public void SetQueuePendingSwitchEnabled(bool enabled)
+    {
+        queuePendingSwitch = enabled;
+        DebugLog($"[CameraManager] Queue Pending Switch: {(enabled ? "abilitato" : "disabilitato")}");
+
+        if (!enabled)
+        {
+            ClearPendingCamera();
+        }
+    }
+
     public void SwitchCamera(CinemachineCamera newCamera)
     {
         SwitchCamera(newCamera, false);
@@ -384,9 +511,20 @@ public class CameraManager : MonoBehaviour
         // ✅ PROTEZIONE BLEND: blocca switch se un blend è in corso (a meno che non sia forzato)
         if (blockSwitchDuringBlend && IsBlending() && !forceSwitch)
         {
+            // 🆕 QUEUE SYSTEM: salva la camera e applicala quando il blend finisce
+            if (queuePendingSwitch)
+            {
+                DebugLog($"[CameraManager] Switch a {newCamera.name} QUEUED - blend in corso, verrà applicato dopo.");
+                SetPendingCamera(newCamera);
+                return;
+            }
+
             DebugLog($"[CameraManager] Switch a {newCamera.name} BLOCCATO - blend in corso. Usa ForceSwitchCamera() per forzare.");
             return;
         }
+
+        // Cancella pending camera se stiamo facendo uno switch valido
+        ClearPendingCamera();
 
         CinemachineCamera previousCamera = activeCamera;
         DebugLog($"[CameraManager] Cambio camera: da {(activeCamera != null ? activeCamera.name : "nessuna")} a {newCamera.name}");
@@ -837,6 +975,9 @@ public class CameraManager : MonoBehaviour
                   $"Initializing: {isInitializing}\n" +
                   $"System Ready: {isCameraSystemReady}\n" +
                   $"Active Camera: {(activeCamera != null ? activeCamera.name : "null")}\n" +
+                  $"Pending Camera: {(pendingCamera != null ? pendingCamera.name : "null")}\n" +
+                  $"Is Blending: {IsBlending()}\n" +
+                  $"Queue Pending: {queuePendingSwitch}\n" +
                   $"Registered Cameras: {cameras.Count}\n" +
                   $"Brain: {(brain != null ? brain.name : "null")}");
 
@@ -898,14 +1039,17 @@ public class CameraManager : MonoBehaviour
     void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
-        
+
         // FIX: Ferma tutte le coroutine quando disabilitato
         if (initializationCoroutine != null)
         {
             StopCoroutine(initializationCoroutine);
             initializationCoroutine = null;
         }
-        
+
+        // 🆕 Pulisci pending camera
+        ClearPendingCamera();
+
 #if !UNITY_EDITOR
         if (buildCheckCoroutine != null)
         {
@@ -952,21 +1096,23 @@ public class CameraManager : MonoBehaviour
     void OnDestroy()
     {
         DebugLog($"[CameraManager] {gameObject.name} distrutto - cleanup...");
-        
+
         // FIX: Ferma tutte le coroutine e invocazioni
         StopAllCoroutines();
         CancelInvoke();
-        
+
         if (cameras != null) cameras.Clear();
         if (originalPriorities != null) originalPriorities.Clear();
-        
+
         activeCamera = null;
         brain = null;
-        
+        pendingCamera = null; // 🆕 Pulisci pending camera
+
         isInitialized = false;
         isCameraSystemReady = false;
         isInitializing = false;
-        
+
         initializationCoroutine = null;
+        pendingCameraCoroutine = null; // 🆕
     }
 }

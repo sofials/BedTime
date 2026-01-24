@@ -67,9 +67,18 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.gameObject.SetActive(false);
         }
 
-        // Trova tutte le TeleportBase nella scena
-        allTeleportBases = FindObjectsByType<TeleportBase>(FindObjectsSortMode.None);
-        Debug.Log($"[TeleportAbility] Trovate {allTeleportBases.Length} basi di teletrasporto");
+        // Trova tutte le TeleportBase nella scena (INCLUSE quelle inattive)
+        RefreshTeleportBases();
+    }
+
+    /// <summary>
+    /// Aggiorna la cache delle basi di teletrasporto (include anche quelle inattive)
+    /// Chiamare questo metodo quando vengono attivate nuove basi dinamicamente
+    /// </summary>
+    public void RefreshTeleportBases()
+    {
+        allTeleportBases = FindObjectsByType<TeleportBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Debug.Log($"[TeleportAbility] Trovate {allTeleportBases.Length} basi di teletrasporto (incluse inattive)");
     }
 
  protected override void Update()
