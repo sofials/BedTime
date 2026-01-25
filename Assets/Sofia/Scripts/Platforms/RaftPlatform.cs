@@ -304,43 +304,27 @@ void Update()
         return true;
     }
 
-   private void InitializePositions()
+  private void InitializePositions()
 {
     startDistance = 0f;
     endDistance = GetDistanceAtT(1f / (splineContainer.Spline.Count - 1));
 
-    // NUOVO: Trova la posizione più vicina sulla spline alla posizione attuale della raft
-    // Così non c'è snap visivo - la raft rimane dove l'hai posizionata in scena
-    currentDistance = FindClosestDistanceOnSpline(transform.position);
-
-    // NON muovere la raft - usa la sua posizione attuale
-    lastPosition = transform.position;
-    lastKnownPlayerPosition = transform.position;
+    // ✅ SEMPRE inizia all'inizio della spline (distanza 0)
+    currentDistance = startDistance;
+    
+    // ✅ Posiziona fisicamente la raft all'inizio della spline
+    Vector3 startPosition = GetPositionAtDistance(startDistance);
+    transform.position = startPosition;
+    
+    lastPosition = startPosition;
+    lastKnownPlayerPosition = startPosition;
 
     if (debugRespawnSystem)
     {
-        Debug.Log($"[RaftPlatform] {gameObject.name}: Inizializzato a distanza {currentDistance:F2}m sulla spline (no snap)");
+        Debug.Log($"[RaftPlatform] {gameObject.name}: Posizionata automaticamente all'inizio della spline (distanza: {currentDistance:F2}m)");
     }
 }
 
-// Trova il punto sulla spline più vicino a una posizione world
-private float FindClosestDistanceOnSpline(Vector3 worldPosition)
-{
-    float closestDistance = 0f;
-    float minDistanceSqr = float.MaxValue;
-
-    for (int i = 0; i < sampledPoints.Count; i++)
-    {
-        float distSqr = (sampledPoints[i] - worldPosition).sqrMagnitude;
-        if (distSqr < minDistanceSqr)
-        {
-            minDistanceSqr = distSqr;
-            closestDistance = cumulativeDistances[i];
-        }
-    }
-
-    return closestDistance;
-}
 
     #endregion
 
@@ -1613,7 +1597,7 @@ private void OnTriggerEnter(Collider other)
        ThirdPersonController tpc = other.GetComponent<ThirdPersonController>();
     if (tpc != null)
     {
-        tpc.ForceResetJumpCount();
+         StartCoroutine(ForceResetJumpAfterDelay(tpc, 0.05f));
     }
 
     // FIX: Se la raft sta già muovendo e il player ritorna (da un salto), riconnetti semplicemente
@@ -1734,7 +1718,28 @@ private void OnTriggerStay(Collider other)
     ThirdPersonController tpc = other.GetComponent<ThirdPersonController>();
     if (tpc != null && playerController != null) // Solo se il player è "registrato"
     {
-        tpc.ForceResetJumpCount();
+          if (tpc.IsGrounded())
+        {
+            tpc.ForceResetJumpCount();
+        }
+    }
+}
+private IEnumerator ForceResetJumpAfterDelay(ThirdPersonController tpc, float delay)
+{
+    yield return new WaitForSeconds(delay);
+    
+    if (tpc != null && playerController != null)
+    {
+        // Forza reset quando il player è stabilizzato sulla raft
+        if (tpc.IsGrounded())
+        {
+            tpc.ForceResetJumpCount();
+            
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Jump count resettato dopo delay");
+            }
+        }
     }
 }
    private void OnTriggerExit(Collider other)

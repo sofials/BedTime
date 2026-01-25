@@ -318,25 +318,24 @@ private bool isClimbing = false;
             designatedMaxHealth = value;
         }
     }
-/// <summary>
-/// Forza il reset del contatore salti (per piattaforme con trigger come raft)
-/// </summary>
 public void ForceResetJumpCount()
 {
-    // Reset solo se non stiamo attivamente saltando verso l'alto
-    if (velocity.y <= 1f)
+    // ✅ Reset SOLO se siamo effettivamente a terra
+    // Non resettare se stiamo già saltando verso l'alto
+    if (velocity.y > 1f || jumpCount > 0)
     {
-        jumpCount = 0;
-        _animator.SetBool(JumpHash, false);
-        _animator.SetBool(DoubleJumpHash, false);
-
-        // Imposta coyote time per permettere il salto anche se isGrounded non è attivo
-        // (i trigger collider non attivano isGrounded del CharacterController)
-        coyoteTimeCounter = coyoteTime;
-
         if (debugJumpInBuild)
-            Debug.Log("[Jump] ✅ Reset forzato jumpCount da piattaforma trigger + coyote time");
+            Debug.Log("[Jump] ⏭️ Skip reset - già in salto");
+        return;
     }
+    
+    jumpCount = 0;
+    _animator.SetBool(JumpHash, false);
+    _animator.SetBool(DoubleJumpHash, false);
+    coyoteTimeCounter = coyoteTime;
+
+    if (debugJumpInBuild)
+        Debug.Log("[Jump] ✅ Reset forzato jumpCount da piattaforma trigger");
 }
     public float CurrentHealth 
     { 
@@ -2640,7 +2639,23 @@ private void HandleJump()
             Debug.Log("[Ground] CharacterController.isGrounded = TRUE");
         return true;
     }
-    
+    if (currentRaftPlatform != null)
+    {
+        Collider raftCollider = currentRaftPlatform.GetComponent<Collider>();
+        if (raftCollider != null && raftCollider.isTrigger)
+        {
+            // Per trigger, usa bounds check invece di Physics
+            Bounds raftBounds = raftCollider.bounds;
+            raftBounds.Expand(new Vector3(0.2f, 0.5f, 0.2f)); // Tolleranza
+            
+            if (raftBounds.Contains(transform.position))
+            {
+                if (debugGroundStability && Time.frameCount % 60 == 0)
+                    Debug.Log("[Ground] RaftPlatform trigger - grounded");
+                return true;
+            }
+        }
+    }
     // 2. Multi-point ground detection per piattaforme mobili
     Vector3[] checkPoints = {
         transform.position,
