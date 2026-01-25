@@ -16,8 +16,8 @@ public class TeleportBase : MonoBehaviour
     [SerializeField] private Color hoverColor = Color.white;
 
     [Header("Hover Detection")]
-    [Tooltip("Raggio per rilevare quando il player è sopra questa base (più piccolo del collider principale)")]
-    [SerializeField] private float hoverDetectionRadius = 12f;
+    [Tooltip("Raggio per rilevare quando il player è sopra questa base")]
+    [SerializeField] private float hoverDetectionRadius = 25f;
     [Header("Teleport Connection")]
 [Tooltip("La base gemella a cui teletrasportarsi quando si è sopra questa base")]
 public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezionale
@@ -154,18 +154,21 @@ public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezio
 }
 private IEnumerator CheckForPlayerInside()
 {
-    yield return new WaitForFixedUpdate(); // Aspetta che la fisica si aggiorni
-    
+    yield return new WaitForFixedUpdate();
+
     Collider col = GetComponent<Collider>();
     if (col != null)
     {
-        // Trova tutti i collider dentro il trigger
+        // Usa un'area più grande per essere più permissivi
+        Vector3 expandedExtents = col.bounds.extents * 1.5f; // 50% più grande
+        expandedExtents = Vector3.Max(expandedExtents, Vector3.one * hoverDetectionRadius * 0.5f);
+
         Collider[] overlapping = Physics.OverlapBox(
-            col.bounds.center, 
-            col.bounds.extents, 
+            col.bounds.center,
+            expandedExtents,
             transform.rotation
         );
-        
+
         foreach (var other in overlapping)
         {
             if (other.CompareTag("Player"))

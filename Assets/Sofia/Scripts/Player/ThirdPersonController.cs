@@ -41,6 +41,9 @@ public class ThirdPersonController : MonoBehaviour
     public UIEffectHandler attackEffectUI;
     private float lastCollisionLogTime = 0f;
 private const float COLLISION_LOG_THROTTLE = 0.1f; // Only log every 0.1 seconds
+[Header("Unstuck System")]
+[SerializeField] private KeyCode unstuckKey = KeyCode.U;
+[SerializeField] private bool debugUnstuck = false;
 
     [Header("Movement Settings")]
     public float walkSpeed = 2f;
@@ -108,6 +111,35 @@ public bool debugLedgeGrab = false;
     [Header("Falling Settings")]
     public float fallingTimeThreshold = 1.0f;
     private float fallingTimer = 0f;
+    /// <summary>
+/// Teletrasporta il player all'ultimo checkpoint - Tasto U
+/// </summary>
+private void HandleUnstuckInput()
+{
+    if (Input.GetKeyDown(unstuckKey))
+    {
+        UnstuckToCheckpoint();
+    }
+}
+
+/// <summary>
+/// Riporta il player all'ultimo checkpoint attraversato
+/// </summary>
+public void UnstuckToCheckpoint()
+{
+    if (debugUnstuck)
+        Debug.Log("[Unstuck] 🔓 Tasto U premuto - Teletrasporto al checkpoint...");
+    
+    // Usa il sistema di respawn esistente che già gestisce i checkpoint
+    Respawn();
+    
+    // Ripristina la salute
+    currentHealth = MaxHealth;
+    UpdateHealthUI();
+    
+    if (debugUnstuck)
+        Debug.Log($"[Unstuck] ✅ Teletrasportato a: {transform.position}");
+}
 // AGGIUNGI QUESTE NUOVE VARIABILI:
 [Header("Jump Debug")]
 [SerializeField] private bool debugJumpInBuild = false;
@@ -286,7 +318,25 @@ private bool isClimbing = false;
             designatedMaxHealth = value;
         }
     }
+public void ForceResetJumpCount()
+{
+    // ✅ Reset SOLO se siamo effettivamente a terra
+    // Non resettare se stiamo già saltando verso l'alto
+    if (velocity.y > 1f || jumpCount > 0)
+    {
+        if (debugJumpInBuild)
+            Debug.Log("[Jump] ⏭️ Skip reset - già in salto");
+        return;
+    }
+    
+    jumpCount = 0;
+    _animator.SetBool(JumpHash, false);
+    _animator.SetBool(DoubleJumpHash, false);
+    coyoteTimeCounter = coyoteTime;
 
+    if (debugJumpInBuild)
+        Debug.Log("[Jump] ✅ Reset forzato jumpCount da piattaforma trigger");
+}
     public float CurrentHealth 
     { 
         get => currentHealth; 
@@ -1046,6 +1096,8 @@ public void PlayHitSound()
         HandleFootstepAudio();
         HandleSprintFX();
         CheckAndFixStuckJumpAnimation();
+        HandleUnstuckInput();
+
 
         // Salva l'input per usarlo in FixedUpdate
         cachedMoveInput = moveInput;
@@ -1805,22 +1857,25 @@ private void AttachToPlatform(Transform platform)
     }
 }
 
-    // ✅ SGANCIA IL PLAYER DALLA PIATTAFORMA
     private void DetachFromCurrentPlatform()
-    {
-        if (debugPlatformMovement && currentPlatform != null)
-            Debug.Log($"[Platform] Sganciato da {currentPlatform.name}");
-        
-        currentPlatform = null;
-        currentMovingPlatform = null;
-        currentRaftPlatform = null;
-        currentRotatingObject = null;
-        isOnObstaclePlatform = false;
-        
-        platformDeltaPosition = Vector3.zero;
-        platformDeltaRotation = Quaternion.identity;
-    }
-
+{
+    if (debugPlatformMovement && currentPlatform != null)
+        Debug.Log($"[Platform] Sganciato da {currentPlatform.name}");
+    
+    currentPlatform = null;
+    currentMovingPlatform = null;
+    currentRaftPlatform = null;
+    currentRotatingObject = null;
+    isOnObstaclePlatform = false;
+    
+    // ✅ AGGIUNGI QUESTE RIGHE - Reset completo dei delta
+    platformDeltaPosition = Vector3.zero;
+    platformDeltaRotation = Quaternion.identity;
+    lastPlatformPosition = Vector3.zero;
+    lastPlatformRotation = Quaternion.identity;
+    localPositionOnPlatform = Vector3.zero;
+    platformGripTimer = 0f;
+}
     // ✅ AGGIORNA IL MOVIMENTO DELLA PIATTAFORMA
   private void UpdatePlatformMovement()
 {
@@ -2473,9 +2528,17 @@ float v = processedInput.y;
     float targetSpeed = isSprinting ? sprintSpeed : (smoothInputMagnitude < 0.5f ? walkSpeed : runSpeed);
     playerVelocity = moveDirection * targetSpeed;
 
-    // ✅ AGGIORNA ANIMATORE
+    // ✅ AGGIORNA ANIMATORE - Solo se a terra (evita animazione camminata in aria)
     Vector3 totalVelocity = playerVelocity + attackVelocity;
     float speedNormalized = Mathf.Clamp01(totalVelocity.magnitude / sprintSpeed);
+
+    // Se in aria (saltando o cadendo), non mostrare animazione camminata
+    bool isInAir = !controller.isGrounded && velocity.y != 0f;
+    if (isInAir)
+    {
+        speedNormalized = 0f;
+    }
+
     _animator.SetFloat(SpeedHash, speedNormalized, 0.1f, Time.fixedDeltaTime);
     
     // ⭐ DEBUG MIGLIORATO: Mostra le informazioni più importanti
@@ -2576,7 +2639,23 @@ private void HandleJump()
             Debug.Log("[Ground] CharacterController.isGrounded = TRUE");
         return true;
     }
-    
+    if (currentRaftPlatform != null)
+    {
+        Collider raftCollider = currentRaftPlatform.GetComponent<Collider>();
+        if (raftCollider != null && raftCollider.isTrigger)
+        {
+            // Per trigger, usa bounds check invece di Physics
+            Bounds raftBounds = raftCollider.bounds;
+            raftBounds.Expand(new Vector3(0.2f, 0.5f, 0.2f)); // Tolleranza
+            
+            if (raftBounds.Contains(transform.position))
+            {
+                if (debugGroundStability && Time.frameCount % 60 == 0)
+                    Debug.Log("[Ground] RaftPlatform trigger - grounded");
+                return true;
+            }
+        }
+    }
     // 2. Multi-point ground detection per piattaforme mobili
     Vector3[] checkPoints = {
         transform.position,
@@ -2846,11 +2925,12 @@ private void HandleAirControl()
     public void Respawn()
     {
         // ✅ ANNULLA PIAZZAMENTO PIATTAFORMA IN CORSO
-    PlatformSpawnerForwardAbility platformAbility = GetComponent<PlatformSpawnerForwardAbility>();
-    if (platformAbility != null)
-    {
-        platformAbility.CancelPlacement();
-    }
+        // NOTA: PlatformSpawnerForwardAbility è figlio dello SceneManager, non del player
+        PlatformSpawnerForwardAbility platformAbility = FindFirstObjectByType<PlatformSpawnerForwardAbility>();
+        if (platformAbility != null)
+        {
+            platformAbility.CancelPlacement();
+        }
       isDyingFromLava = false;
     StopAllCoroutines(); 
     // ✅ ASSICURATI CHE IL CHARACTERCONTROLLER SIA ABILITATO
@@ -3093,40 +3173,46 @@ public string GetLedgeGrabInfo()
     private float lastDamageTime = 0f;
     private const float DAMAGE_COOLDOWN = 0.1f;
 
-    public void TakeDamage(float amount)
+   public void TakeDamage(float amount)
+{
+    if (Time.time - lastDamageTime < DAMAGE_COOLDOWN) return;
+    lastDamageTime = Time.time;
+    
+    if (currentHealth <= 0) return;
+
+    float oldHealth = currentHealth;
+    currentHealth = Mathf.Max(0, currentHealth - amount);
+    
+    UpdateHealthUI();
+
+    if (currentHealth <= 0 && oldHealth > 0)
     {
-        if (Time.time - lastDamageTime < DAMAGE_COOLDOWN) return;
-        lastDamageTime = Time.time;
-        
-        if (currentHealth <= 0) return;
-
-        float oldHealth = currentHealth;
-        currentHealth = Mathf.Max(0, currentHealth - amount);
-        
-        UpdateHealthUI();
-
-        if (currentHealth <= 0 && oldHealth > 0)
+        // ⭐ NUOVO: Annulla piazzamento piattaforma alla morte
+        PlatformSpawnerForwardAbility platformAbility = GetComponent<PlatformSpawnerForwardAbility>();
+        if (platformAbility != null)
         {
-            IsMovementLocked = true;
-            _animator.SetFloat(SpeedHash, 0f);
-
-            if (ShouldPlayHitReal())
-                _animator.SetTrigger(HitRealHash);
-            else
-            {
-                _animator.SetTrigger(HitHash);
-                StartCoroutine(QuickRespawn());
-            }
+            platformAbility.CancelPlacement();
         }
-        else if (currentHealth > 0)
+        
+        IsMovementLocked = true;
+        _animator.SetFloat(SpeedHash, 0f);
+
+        if (ShouldPlayHitReal())
+            _animator.SetTrigger(HitRealHash);
+        else
         {
-            PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
-            bool isSwinging = playerAttack != null && playerAttack.isAttacking;
-            if (!isSwinging)
-                _animator.SetTrigger(HitHash);
+            _animator.SetTrigger(HitHash);
+            StartCoroutine(QuickRespawn());
         }
     }
-
+    else if (currentHealth > 0)
+    {
+        PlayerAttack playerAttack = GetComponentInChildren<PlayerAttack>();
+        bool isSwinging = playerAttack != null && playerAttack.isAttacking;
+        if (!isSwinging)
+            _animator.SetTrigger(HitHash);
+    }
+}
     private IEnumerator QuickRespawn()
     {
         yield return new WaitForSeconds(0.1f);

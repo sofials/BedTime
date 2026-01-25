@@ -28,6 +28,7 @@ public class RaftSettings
     [Range(5f, 30f)] public float falseStartReturnRadius = 15f;
     public bool enableAccidentalDetection = true;
     [Range(1f, 10f)] public float accidentalActivationCheckTime = 3f;
+    [Range(0.5f, 10f)] public float falseStartDistanceThreshold = 2f; // Distanza minima per considerare un viaggio "reale"
     
     [Header("Player Movement Checks")]
     public bool requirePlayerVelocityCheck = true;
@@ -149,6 +150,7 @@ private Rigidbody rb;
     private Vector3 lastKnownPlayerPosition;
     private bool playerWasOnBoard = false;
     private float lastMovementStartTime = 0f;
+    private float movementStartDistance = 0f; // Distanza sulla spline quando è partita
 
     // Checkpoint integration
     [Header("Checkpoint Integration")]
@@ -302,27 +304,27 @@ void Update()
         return true;
     }
 
-   private void InitializePositions()
+  private void InitializePositions()
 {
     startDistance = 0f;
     endDistance = GetDistanceAtT(1f / (splineContainer.Spline.Count - 1));
+
+    // ✅ SEMPRE inizia all'inizio della spline (distanza 0)
     currentDistance = startDistance;
     
+    // ✅ Posiziona fisicamente la raft all'inizio della spline
     Vector3 startPosition = GetPositionAtDistance(startDistance);
-    
-    // ✅ USA MovePosition se disponibile
-    if (rb != null)
-    {
-        rb.MovePosition(startPosition);
-    }
-    else
-    {
-        transform.position = startPosition;
-    }
+    transform.position = startPosition;
     
     lastPosition = startPosition;
     lastKnownPlayerPosition = startPosition;
+
+    if (debugRespawnSystem)
+    {
+        Debug.Log($"[RaftPlatform] {gameObject.name}: Posizionata automaticamente all'inizio della spline (distanza: {currentDistance:F2}m)");
+    }
 }
+
 
     #endregion
 
@@ -548,7 +550,15 @@ private void HandleFalseStart()
     private void HandleReturningToTerminal()
     {
         UpdateMovementSmooth();
-        
+
+        // NUOVO: Controlla SEMPRE la posizione del player durante il ritorno (ogni 0.5 secondi)
+        _redirectCheckTimer += Time.fixedDeltaTime;
+        if (_redirectCheckTimer >= 0.5f)
+        {
+            _redirectCheckTimer = 0f;
+            CheckAndRedirectToPlayerTerminal();
+        }
+
         if (direction == 1 && currentDistance >= endDistance)
         {
             ReachTerminal(endDistance);
@@ -556,6 +566,58 @@ private void HandleFalseStart()
         else if (direction == -1 && currentDistance <= startDistance)
         {
             ReachTerminal(startDistance);
+        }
+    }
+
+    // Timer per controllare periodicamente la posizione del player
+    private float _redirectCheckTimer = 0f;
+    private Vector3 _lastKnownPlayerPosForRedirect = Vector3.zero;
+
+    private void CheckAndRedirectToPlayerTerminal()
+    {
+        // Ottieni posizione ATTUALE del player (non cache vecchia)
+        Transform playerTransform = GetCachedPlayerTransform();
+        Vector3 playerPos;
+
+        if (playerTransform != null)
+        {
+            playerPos = playerTransform.position;
+        }
+        else if (hasCheckpointPosition)
+        {
+            playerPos = lastKnownCheckpointPosition;
+        }
+        else
+        {
+            return; // Non possiamo determinare dove sia il player
+        }
+
+        // Se la posizione del player è cambiata significativamente, ricalcola
+        if (Vector3.Distance(playerPos, _lastKnownPlayerPosForRedirect) < 1f)
+        {
+            return; // Player non si è mosso abbastanza
+        }
+
+        _lastKnownPlayerPosForRedirect = playerPos;
+
+        Vector3 startPos = GetPositionAtDistance(startDistance);
+        Vector3 endPos = GetPositionAtDistance(endDistance);
+
+        float distPlayerToStart = Vector3.Distance(playerPos, startPos);
+        float distPlayerToEnd = Vector3.Distance(playerPos, endPos);
+
+        int bestDirection = (distPlayerToStart < distPlayerToEnd) ? -1 : 1;
+
+        // Se stiamo andando al terminal sbagliato, cambia direzione
+        if (bestDirection != direction)
+        {
+            direction = bestDirection;
+
+            if (debugRespawnSystem)
+            {
+                string newTarget = (direction == -1) ? "START" : "END";
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player rilevato più vicino all'altro terminal - cambio direzione verso {newTarget} (distanze: start={distPlayerToStart:F1}m, end={distPlayerToEnd:F1}m)");
+            }
         }
     }
 
@@ -581,6 +643,7 @@ private void HandleFalseStart()
             case RaftState.WaitingAtTerminal:
                 ResetActivationTimer();
                 _targetSpeedRatio = 0f;
+                _redirectCheckTimer = 0f; // Reset timer per il prossimo ritorno
                 break;
                 
             case RaftState.Moving:
@@ -720,33 +783,30 @@ private void ReachTerminal(float terminalDistance)
     currentDistance = terminalDistance;
     _completedTrips++;
 
-    // FIX: Migliore gestione arrivo al terminal
     justArrivedAtTerminal = true;
     terminalArrivalTime = Time.time;
 
-    // FIX: Se arriviamo al terminal, fermiamo sempre
     ChangeState(RaftState.WaitingAtTerminal);
 
-    // FIX: Se player è ancora a bordo al terminal, DEVE scendere e risalire per ripartire
-    if (playerController != null)
+    // FIX: Controlla se player ERA a bordo (non solo se è ancora a bordo ora)
+    if (playerController != null || playerWasOnBoard)
     {
-        // Player ancora a bordo al terminal - NON può ripartire finché non scende e risale
         playerCanActivateRaft = false;
-        playerMustReboardAtTerminal = true; // NEW: Forza il player a scendere e risalire
+        playerMustReboardAtTerminal = true;
 
         if (debugActivationSystem)
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal con player a bordo - DEVE scendere e risalire per ripartire");
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Arrivato al terminal - player deve scendere/risalire");
         }
     }
     else
     {
-        // Arrivato al terminal senza player
         ResetActivationTimer();
         playerMustReboardAtTerminal = false;
     }
 
     wasMovingBeforeExit = false;
+    playerWasOnBoard = false; // Reset per prossimo viaggio
 }
 
   private void CheckForAccidentalActivation()
@@ -796,8 +856,9 @@ void FixedUpdate()
     private void StartMovement()
     {
         DetermineMovementDirection();
-        
+
         lastMovementStartTime = Time.time;
+        movementStartDistance = currentDistance; // Salva dove siamo partiti
         ChangeState(RaftState.Moving);
         
         if (playerEnterTime > 0)
@@ -1015,32 +1076,54 @@ public void OnPlayerRespawnedNotification(Vector3 oldPosition, Vector3 newPositi
 {
     if (debugRespawnSystem)
     {
-        Debug.Log($"[RaftPlatform] {gameObject.name}: Notifica respawn ricevuta - {oldPosition} → {newPosition}");
+        Debug.Log($"[RaftPlatform] {gameObject.name}: 💀 RESPAWN RILEVATO - {oldPosition} → {newPosition}");
     }
-    
-    // Aggiorna posizione checkpoint
+
+    // Aggiorna posizione checkpoint IMMEDIATAMENTE
     lastKnownPlayerPosition = newPosition;
     lastKnownCheckpointPosition = newPosition;
     hasCheckpointPosition = true;
-    
+    _lastKnownPlayerPosForRedirect = newPosition; // Aggiorna anche per il redirect check
+
     // Reset stato player
     playerController = null;
     playerWasOnBoard = false;
     playerJustExited = false;
     playerCanActivateRaft = false;
+    wasMovingBeforeExit = false;
     ResetActivationTimer();
-    
-    // Calcola se dovremmo tornare
-    float distanceToNewPosition = Vector3.Distance(transform.position, newPosition);
-    
-    if (distanceToNewPosition > settings.returnToTerminalRadius && 
-        (_currentState == RaftState.Moving || _currentState == RaftState.CountingActivation))
+
+    // NUOVO: Se stiamo già tornando al terminal, forza un check immediato della direzione
+    if (_currentState == RaftState.ReturningToTerminal)
+    {
+        Vector3 startPos = GetPositionAtDistance(startDistance);
+        Vector3 endPos = GetPositionAtDistance(endDistance);
+
+        float distPlayerToStart = Vector3.Distance(newPosition, startPos);
+        float distPlayerToEnd = Vector3.Distance(newPosition, endPos);
+
+        int bestDirection = (distPlayerToStart < distPlayerToEnd) ? -1 : 1;
+
+        if (bestDirection != direction)
+        {
+            direction = bestDirection;
+            if (debugRespawnSystem)
+            {
+                string newTarget = (direction == -1) ? "START" : "END";
+                Debug.Log($"[RaftPlatform] {gameObject.name}: 🔄 Player respawnato - cambio direzione verso {newTarget}");
+            }
+        }
+        return; // Già in ritorno, non serve cambiare stato
+    }
+
+    // Se stavamo muovendo normalmente, inizia a tornare al terminal più vicino al player
+    if (_currentState == RaftState.Moving || _currentState == RaftState.CountingActivation)
     {
         if (debugRespawnSystem)
         {
-            Debug.Log($"[RaftPlatform] {gameObject.name}: Respawn lontano ({distanceToNewPosition:F1}m), torno al terminal");
+            Debug.Log($"[RaftPlatform] {gameObject.name}: Player morto durante viaggio, torno al terminal vicino a lui");
         }
-        
+
         StartReturningBasedOnMode(newPosition);
     }
 }
@@ -1094,14 +1177,16 @@ public void OnPlayerRespawnedNotification(Vector3 oldPosition, Vector3 newPositi
     {
         Vector3 startPos = GetPositionAtDistance(startDistance);
         Vector3 endPos = GetPositionAtDistance(endDistance);
-        
+
         float distancePlayerToStart = Vector3.Distance(playerPosition, startPos);
         float distancePlayerToEnd = Vector3.Distance(playerPosition, endPos);
-        
+
         direction = (distancePlayerToStart < distancePlayerToEnd) ? -1 : 1;
-        
+        _redirectCheckTimer = 0f; // Reset timer
+        _lastKnownPlayerPosForRedirect = playerPosition;
+
         ChangeState(RaftState.ReturningToTerminal);
-        
+
         if (debugRespawnSystem)
         {
             string targetTerminal = (direction == -1) ? "START" : "END";
@@ -1113,11 +1198,12 @@ public void OnPlayerRespawnedNotification(Vector3 oldPosition, Vector3 newPositi
     {
         float distanceToStart = Mathf.Abs(currentDistance - startDistance);
         float distanceToEnd = Mathf.Abs(currentDistance - endDistance);
-        
+
         direction = (distanceToStart < distanceToEnd) ? -1 : 1;
-        
+        _redirectCheckTimer = 0f; // Reset timer
+
         ChangeState(RaftState.ReturningToTerminal);
-        
+
         if (debugRespawnSystem)
         {
             string targetTerminal = (direction == -1) ? "START" : "END";
@@ -1128,6 +1214,7 @@ public void OnPlayerRespawnedNotification(Vector3 oldPosition, Vector3 newPositi
     private void StartReturningToSpecificTerminal(int targetDirection)
     {
         direction = targetDirection;
+        _redirectCheckTimer = 0f; // Reset timer
         ChangeState(RaftState.ReturningToTerminal);
         
         if (debugRespawnSystem)
@@ -1507,6 +1594,11 @@ private void OnTriggerEnter(Collider other)
         controller = other.GetComponent<CharacterController>();
         _controllerCache[other] = controller;
     }
+       ThirdPersonController tpc = other.GetComponent<ThirdPersonController>();
+    if (tpc != null)
+    {
+         StartCoroutine(ForceResetJumpAfterDelay(tpc, 0.05f));
+    }
 
     // FIX: Se la raft sta già muovendo e il player ritorna (da un salto), riconnetti semplicemente
     if (_currentState == RaftState.Moving && wasMovingBeforeExit)
@@ -1618,6 +1710,38 @@ private void OnTriggerEnter(Collider other)
         Debug.Log($"[RaftPlatform] {gameObject.name}: Prima salita del player - attivazione immediata consentita");
     }
 }
+private void OnTriggerStay(Collider other)
+{
+    if (!other.CompareTag("Player")) return;
+    
+    // Reset continuo del jump count mentre il player è sulla raft
+    ThirdPersonController tpc = other.GetComponent<ThirdPersonController>();
+    if (tpc != null && playerController != null) // Solo se il player è "registrato"
+    {
+          if (tpc.IsGrounded())
+        {
+            tpc.ForceResetJumpCount();
+        }
+    }
+}
+private IEnumerator ForceResetJumpAfterDelay(ThirdPersonController tpc, float delay)
+{
+    yield return new WaitForSeconds(delay);
+    
+    if (tpc != null && playerController != null)
+    {
+        // Forza reset quando il player è stabilizzato sulla raft
+        if (tpc.IsGrounded())
+        {
+            tpc.ForceResetJumpCount();
+            
+            if (debugActivationSystem)
+            {
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Jump count resettato dopo delay");
+            }
+        }
+    }
+}
    private void OnTriggerExit(Collider other)
 {
     if (!other.CompareTag("Player")) return;
@@ -1626,50 +1750,64 @@ private void OnTriggerEnter(Collider other)
     if (_controllerCache.TryGetValue(other, out controller) && playerController == controller)
     {
         lastKnownPlayerPosition = other.transform.position;
-
         playerExitTime = Time.time;
         _exitEvents++;
 
-        // FIX: Se siamo in movimento (player sta saltando), NON fermare la raft
-        // Aspetta che ritorni o che passi troppo tempo
+        // FIX: Se siamo in movimento, controlla se è una falsa partenza o un salto
         if (_currentState == RaftState.Moving)
         {
-            // NON disconnettere il player subito - potrebbe essere un salto
-            // Salva i dati per il possibile ritorno
-            wasMovingBeforeExit = true;
-            wasAtTerminalBeforeExit = false;
+            float distanceTraveled = Mathf.Abs(currentDistance - movementStartDistance);
 
-            if (debugActivationSystem)
+            if (distanceTraveled < settings.falseStartDistanceThreshold)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player uscito durante movimento (probabilmente salto) - raft continua");
-            }
+                // FALSA PARTENZA
+                wasMovingBeforeExit = false;
+                wasAtTerminalBeforeExit = false;
+                playerController = null;
+                playerWasOnBoard = false; // Reset subito per false start
 
-            // NON settare playerController = null qui - lascia che la raft continui
-            // Il player verrà riconnesso in OnTriggerEnter se ritorna
-            // Se non ritorna entro jumpIgnoreTime, HandleRespawnDetection() gestirà il caso
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: FALSA PARTENZA - {distanceTraveled:F2}m");
+                }
+            }
+            else
+            {
+                // SALTO durante viaggio - la raft continua
+                wasMovingBeforeExit = true;
+                wasAtTerminalBeforeExit = false;
+                playerController = null; // Player non più a bordo
+                // NON resettare playerWasOnBoard - serve per ReachTerminal
+
+                if (debugActivationSystem)
+                {
+                    Debug.Log($"[RaftPlatform] {gameObject.name}: Player saltato dopo {distanceTraveled:F2}m - raft continua");
+                }
+            }
         }
         else if (IsAtTerminal())
         {
-            // Player è uscito al terminal - comportamento normale
+            // Player sceso al terminal
             playerController = null;
             playerJustExited = true;
             playerCanActivateRaft = false;
-            playerWasOnBoard = false;
             wasAtTerminalBeforeExit = true;
-            playerMustReboardAtTerminal = false; // Reset - può risalire ora
+            playerMustReboardAtTerminal = false;
+            playerWasOnBoard = false; // Reset - non più in viaggio
             ResetActivationTimer();
 
             if (debugActivationSystem)
             {
-                Debug.Log($"[RaftPlatform] {gameObject.name}: Player sceso al terminal - può risalire per ripartire");
+                Debug.Log($"[RaftPlatform] {gameObject.name}: Player sceso al terminal");
             }
         }
         else
         {
-            // Altri casi (fermo ma non al terminal)
+            // Altri casi
             playerController = null;
             playerJustExited = true;
             playerCanActivateRaft = false;
+            // NON resettare playerWasOnBoard
         }
 
         OnPlayerExit.Invoke();

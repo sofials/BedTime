@@ -8,6 +8,7 @@ public class SlowdownAbility : AbilityBase
     public float slowdownRadius = 50f;
     public float slowdownFactor = 0.5f;
     public float customDuration = 10f;
+    public Color overlayColor = new Color(0.47f, 0.57f, 1f, 1f); // 7791FF
 
     [Header("Audio")]
     public AudioClip effectAudioClip;
