@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.InputSystem;
 using CartoonFX;
 using System.Collections;
@@ -132,11 +132,7 @@ public void UnstuckToCheckpoint()
     
     // Usa il sistema di respawn esistente che già gestisce i checkpoint
     Respawn();
-    
-    // Ripristina la salute
-    currentHealth = MaxHealth;
-    UpdateHealthUI();
-    
+
     if (debugUnstuck)
         Debug.Log($"[Unstuck] ✅ Teletrasportato a: {transform.position}");
 }
@@ -320,15 +316,16 @@ private bool isClimbing = false;
     }
 public void ForceResetJumpCount()
 {
-    // ✅ Reset SOLO se siamo effettivamente a terra
-    // Non resettare se stiamo già saltando verso l'alto
-    if (velocity.y > 1f || jumpCount > 0)
+    // ✅ NUOVO: Permetti reset anche durante discesa (velocity.y < 0)
+    // Previeni reset solo se stiamo ATTIVAMENTE saltando verso l'alto
+    if (velocity.y > 1f)
     {
         if (debugJumpInBuild)
-            Debug.Log("[Jump] ⏭️ Skip reset - già in salto");
+            Debug.Log("[Jump] ⏭️ Skip reset - in fase di salita");
         return;
     }
     
+    // ✅ RESET FORZATO anche se jumpCount > 0 (questo è il fix principale!)
     jumpCount = 0;
     _animator.SetBool(JumpHash, false);
     _animator.SetBool(DoubleJumpHash, false);
@@ -3001,6 +2998,10 @@ private void HandleAirControl()
 
     // ✅ NUOVO: NOTIFICA TUTTE LE RAFT PLATFORMS DIRETTAMENTE
     NotifyAllRaftPlatformsOfRespawn(oldPosition, spawnPoint.position);
+
+    // ✅ RIPRISTINA SEMPRE LA VITA AL RESPAWN
+    currentHealth = MaxHealth;
+    UpdateHealthUI();
 }
 
 
@@ -3217,8 +3218,6 @@ public string GetLedgeGrabInfo()
     {
         yield return new WaitForSeconds(0.1f);
         Respawn();
-        currentHealth = MaxHealth;
-        playerUI.UpdateHealth(currentHealth);
         IsMovementLocked = false;
     }
 
@@ -3232,8 +3231,6 @@ public string GetLedgeGrabInfo()
     public void OnHitRealEnd()
     {
         Respawn();
-        currentHealth = MaxHealth;
-        playerUI.UpdateHealth(currentHealth);
         IsMovementLocked = false;
     }
 
@@ -3633,17 +3630,13 @@ private IEnumerator RespawnAfterLavaDeath()
     {
         Debug.Log($"[Lava] Respawn dopo {deathDelay}s di morte");
     }
-    
+
     // Resetta flag
     isDyingFromLava = false;
-    
-    // Esegui respawn normale
+
+    // Esegui respawn normale (ripristina anche la vita)
     Respawn();
-    
-    // Ripristina salute
-    currentHealth = MaxHealth;
-    UpdateHealthUI();
-    
+
     // Sblocca movimento
     IsMovementLocked = false;
 }
@@ -3656,10 +3649,8 @@ public void ForceRespawnFromLava()
     StopAllCoroutines();
     isDyingFromLava = false;
     Respawn();
-    currentHealth = MaxHealth;
-    UpdateHealthUI();
     IsMovementLocked = false;
-    
+
     if (debugLavaDeath)
         Debug.Log("[Lava] Respawn forzato");
 }

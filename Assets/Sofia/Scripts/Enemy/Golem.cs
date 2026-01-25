@@ -36,8 +36,8 @@ public class Golem : MonoBehaviour
     public LayerMask obstacleMask;
 
     [Header("Death Settings")]
-[Tooltip("DialogueSystem da attivare quando l'animazione di morte è completata")]
-public DialogueSystem deathDialogueSystem;
+    [Tooltip("DialogueSystem da attivare quando l'animazione di morte è completata")]
+    public DialogueSystem deathDialogueSystem;
     
     [Header("Death Events")]
     [Tooltip("Evento invocato quando il Golem muore (inizio animazione morte)")]
@@ -394,6 +394,16 @@ public DialogueSystem deathDialogueSystem;
     
     private void Update()
     {
+        // ============ DEBUG SHORTCUT (F1 = Kill Golem) ============
+        #if UNITY_EDITOR
+        if (Input.GetKeyDown(KeyCode.F1) && !isDead)
+        {
+            Debug.Log("[Golem] Shortcut F1 premuto - Force Death!");
+            TestForceDeath();
+            return;
+        }
+        #endif
+        
         if (isDead || player == null) return;
         if (currentState == GolemState.Dormant || currentState == GolemState.Awakening) return;
         if (!isCombatActive) { if (currentState != GolemState.Idle) ChangeState(GolemState.Idle); return; }
@@ -532,21 +542,21 @@ public DialogueSystem deathDialogueSystem;
     
     // ============ DEATH ANIMATION EVENTS ============
     
- public void OnDeathAnimationComplete()
-{
-    if (!isDead || deathObjectActivated) return;
-    Debug.Log("[Golem] Animazione morte COMPLETATA!");
-    
-    // Attiva il dialogo se configurato
-    if (deathDialogueSystem != null)
+    public void OnDeathAnimationComplete()
     {
-        deathDialogueSystem.TriggerDialogue();
-        Debug.Log($"[Golem] Dialogo '{deathDialogueSystem.name}' attivato!");
+        if (!isDead || deathObjectActivated) return;
+        Debug.Log("[Golem] Animazione morte COMPLETATA!");
+        
+        // Attiva il dialogo se configurato
+        if (deathDialogueSystem != null)
+        {
+            deathDialogueSystem.TriggerDialogue();
+            Debug.Log($"[Golem] Dialogo '{deathDialogueSystem.name}' attivato!");
+        }
+        
+        deathObjectActivated = true;
+        OnGolemDeathAnimationComplete?.Invoke();
     }
-    
-    deathObjectActivated = true;
-    OnGolemDeathAnimationComplete?.Invoke();
-}
     
     public void PlayDeathSound()
     {

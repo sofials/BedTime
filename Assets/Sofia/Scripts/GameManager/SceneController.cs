@@ -7,6 +7,8 @@ public class SceneController : MonoBehaviour
     [SerializeField]
     private float _sceneFadeDuration;
     private SceneFade _sceneFade;
+    [Header("Credits (opzionale)")]
+[SerializeField] private CreditsScroller creditsScroller;
     private void Awake()
     {
         _sceneFade = GetComponentInChildren<SceneFade>();
@@ -15,6 +17,9 @@ public class SceneController : MonoBehaviour
     private IEnumerator Start()
     {
         yield return _sceneFade.FadeInCoroutine(_sceneFadeDuration);
+          // Avvia solo se configurato
+    if (creditsScroller != null)
+        creditsScroller.StartScrolling();
     }
     public void LoadScene(string sceneName)
     {
