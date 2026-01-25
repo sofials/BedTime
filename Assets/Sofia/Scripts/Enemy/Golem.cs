@@ -106,8 +106,8 @@ public DialogueSystem deathDialogueSystem;
     
     [Header("Stats")]
     public float maxHealth = 30f;
-    private float currentHealth;
-    private bool isDead = false;
+    public float currentHealth;
+    public bool isDead = false;
     
     private bool playerVisible = false;
     
