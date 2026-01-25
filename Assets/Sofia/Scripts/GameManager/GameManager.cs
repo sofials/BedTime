@@ -16,6 +16,7 @@ public class GameManager : MonoBehaviour
     [Header("Scene Management")]
     [SerializeField] private SceneController sceneController;
     [SerializeField] private string mainMenuSceneName = "Title Screen"; // Nome della scena del menu principale
+    [SerializeField] private string[] menuScenes = { "Title Screen", "Credits" }; // Scene con cursore visibile (no gameplay)
     
     [Header("Cursor Settings")]
     [SerializeField] private bool debugCursorState = false; // Per debugging
@@ -72,7 +73,7 @@ public class GameManager : MonoBehaviour
         // Trova il menu di pausa
         FindPauseMenuInScene();
         
-        if (currentScene == "Title Screen")
+        if (IsMenuScene())
         {
             HandleTitleScreen();
         }
@@ -317,7 +318,7 @@ public class GameManager : MonoBehaviour
     private void Update()
     {
         // Controllo più aggressivo per trovare il pause menu se mancante
-        if (pauseMenu == null && !IsInMainMenu())
+        if (pauseMenu == null && !IsMenuScene())
         {
             // Riprova ogni secondo circa invece che ogni frame
             if (Time.unscaledTime % 1f < Time.unscaledDeltaTime)
@@ -328,7 +329,7 @@ public class GameManager : MonoBehaviour
         }
 
         // Gestione ESC per menu di pausa CON SUPPORTO LEVELS UI
-        if (Input.GetKeyDown(KeyCode.Escape) && !IsInMainMenu())
+        if (Input.GetKeyDown(KeyCode.Escape) && !IsMenuScene())
         {
             // Prima controlla se il Levels UI è attivo
             if (IsLevelsUIActive())
@@ -357,8 +358,8 @@ public class GameManager : MonoBehaviour
                 Time.timeScale = 1f; // Forza il fix
             }
 
-            // Verifica cursore in gameplay
-            if (!IsInMainMenu() && !isPaused)
+            // Verifica cursore in gameplay (non in scene menu)
+            if (!IsMenuScene() && !isPaused)
             {
                 if (Cursor.visible || Cursor.lockState != CursorLockMode.Locked)
                 {
@@ -465,7 +466,7 @@ private void ExitFromLevelsUI()
         Time.timeScale = 1f;
         SetMenuCursorState();
         
-        Debug.Log("[GameManager] Configurazione Title Screen - Cursore visibile");
+        Debug.Log($"[GameManager] Configurazione scena menu ({SceneManager.GetActiveScene().name}) - Cursore visibile");
     }
 
     private void HandleGameScene()
@@ -491,7 +492,7 @@ private void ExitFromLevelsUI()
     /// </summary>
     public void TogglePause()
     {
-        if (IsInMainMenu()) return; // Non mettere in pausa nel menu principale
+        if (IsMenuScene()) return; // Non mettere in pausa nelle scene menu
         
         // FIX: Se il menu di pausa non è stato trovato, riprova a cercarlo prima di procedere
         if (pauseMenu == null)
@@ -547,7 +548,7 @@ private void ExitFromLevelsUI()
     /// </summary>
     public void PauseGame()
     {
-        if (!isPaused && !IsInMainMenu())
+        if (!isPaused && !IsMenuScene())
         {
             SetGamePaused(true);
         }
@@ -844,7 +845,7 @@ private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     FindAllUIComponents();
 
     // Configurazione immediata senza attesa camera
-    if (sceneName == mainMenuSceneName)
+    if (IsMenuScene())
     {
         ConfigureTitleScreen();
     }
@@ -882,11 +883,11 @@ private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     }
 
     /// <summary>
-    /// Configurazione più robusta per Title Screen
+    /// Configurazione per scene menu (Title Screen, Credits, ecc.)
     /// </summary>
     private void ConfigureTitleScreen()
     {
-        Debug.Log("[GameManager] Configurando Title Screen...");
+        Debug.Log($"[GameManager] Configurando scena menu: {GetCurrentSceneName()}...");
 
         // Attiva il start menu se trovato
         if (startMenu != null)
@@ -903,7 +904,7 @@ private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         Time.timeScale = 1f;
         SetMenuCursorState();
 
-        Debug.Log("[GameManager] Title Screen configurato - Cursore visibile, Time.timeScale = 1");
+        Debug.Log($"[GameManager] Scena menu configurata ({GetCurrentSceneName()}) - Cursore visibile, Time.timeScale = 1");
     }
 
     /// <summary>
@@ -914,14 +915,14 @@ private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         string currentScene = SceneManager.GetActiveScene().name;
         Debug.Log($"[GameManager] Cercando componenti UI in: {currentScene}");
 
-        // Trova il menu di pausa (solo se non siamo nel menu principale)
-        if (currentScene != mainMenuSceneName)
+        // Trova il menu di pausa (solo se non siamo in una scena menu)
+        if (!IsMenuScene())
         {
             FindPauseMenuInScene();
         }
 
-        // Trova il start menu (solo se siamo nel menu principale)
-        if (currentScene == mainMenuSceneName)
+        // Trova il start menu (solo se siamo in una scena menu)
+        if (IsMenuScene())
         {
             FindStartMenuInScene();
         }
@@ -981,14 +982,29 @@ private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     }
 
     /// <summary>
+    /// Controlla se siamo in una scena menu (cursore visibile, no pausa)
+    /// Include Title Screen, Credits, ecc.
+    /// </summary>
+    public bool IsMenuScene()
+    {
+        string currentScene = GetCurrentSceneName();
+        foreach (string menuScene in menuScenes)
+        {
+            if (currentScene == menuScene)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Pausa/Riprendi il gioco - MODIFICATO per gestire meglio il menu di pausa
     /// </summary>
     public void SetGamePaused(bool paused)
     {
-        if (IsInMainMenu()) 
+        if (IsMenuScene())
         {
-            Debug.Log("[GameManager] Tentativo di pausa nel menu principale - ignorato");
-            return; // Non permettere pausa nel menu principale
+            Debug.Log("[GameManager] Tentativo di pausa in scena menu - ignorato");
+            return; // Non permettere pausa nelle scene menu
         }
         
         Debug.Log($"[GameManager] Impostando pausa a: {paused}");
@@ -1028,7 +1044,7 @@ private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     /// </summary>
     public void ForceCursorForGameplay()
     {
-        if (!IsInMainMenu() && !isPaused)
+        if (!IsMenuScene() && !isPaused)
         {
             SetGameCursorState();
             Debug.Log("[GameManager] Cursore forzato per gameplay");
@@ -1052,6 +1068,7 @@ private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         Debug.Log($"=== GameManager State ===\n" +
                   $"Current Scene: {GetCurrentSceneName()}\n" +
+                  $"Is Menu Scene: {IsMenuScene()}\n" +
                   $"Is Main Menu: {IsInMainMenu()}\n" +
                   $"Is Paused: {isPaused}\n" +
                   $"Time Scale: {Time.timeScale}\n" +
