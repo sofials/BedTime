@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 6454925688852177362}
   - component: {fileID: 4058590714942020650}
   - component: {fileID: 534537337231376565}
-  - component: {fileID: 2567233737890376390}
   - component: {fileID: 2430196128935802193}
   m_Layer: 0
   m_Name: PlayerOrbitalCamera
@@ -52,7 +51,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Priority:
     Enabled: 1
-    m_Value: 10
+    m_Value: 100
   OutputChannel: 1
   StandbyUpdate: 2
   m_StreamingVersion: 20241001
@@ -62,10 +61,10 @@ MonoBehaviour:
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
-    FieldOfView: 60.8
+    FieldOfView: 66.7
     OrthographicSize: 5
     NearClipPlane: 0.3
-    FarClipPlane: 1000
+    FarClipPlane: 1700
     Dutch: 0
     ModeOverride: 0
     PhysicalProperties:
@@ -108,10 +107,10 @@ MonoBehaviour:
       Height: 40
     Center:
       Radius: 50
-      Height: 16
+      Height: 24.9
     Bottom:
       Radius: 40
-      Height: 10
+      Height: 24
     SplineCurvature: 1
   RecenteringTarget: 0
   HorizontalAxis:
@@ -127,7 +126,7 @@ MonoBehaviour:
   VerticalAxis:
     Value: 17.5
     Center: 17.5
-    Range: {x: -10, y: 45}
+    Range: {x: -5, y: 45}
     Wrap: 0
     Recentering:
       Enabled: 0
@@ -166,7 +165,7 @@ MonoBehaviour:
       Size: {x: 0.8, y: 0.8}
       Offset: {x: 0, y: 0}
   CenterOnActivate: 1
-  TargetOffset: {x: 0, y: 0, z: 0}
+  TargetOffset: {x: 0, y: 10, z: 0}
   Damping: {x: 0.5, y: 0.5}
   Lookahead:
     Enabled: 0
@@ -254,24 +253,6 @@ MonoBehaviour:
         DecelTime: 0
   PlayerIndex: -1
   AutoEnableInputs: 1
---- !u!114 &2567233737890376390
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3950009083078100798}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 29b72d6bc8399564eb5dac3af639fd26, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  autoRegisterOnEnable: 1
-  autoUnregisterOnDisable: 1
-  forceRegisterOnStart: 1
-  registrationDelay: 0.1
-  maxRegistrationAttempts: 10
-  enableDebugLogs: 0
 --- !u!114 &2430196128935802193
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -291,12 +272,12 @@ MonoBehaviour:
   TransparentLayers:
     serializedVersion: 2
     m_Bits: 64
-  MinimumDistanceFromTarget: 11.43
+  MinimumDistanceFromTarget: 0.01
   AvoidObstacles:
     Enabled: 1
     DistanceLimit: 0
     MinimumOcclusionTime: 0
-    CameraRadius: 0.4
+    CameraRadius: 1
     UseFollowTarget:
       Enabled: 0
       YOffset: 0

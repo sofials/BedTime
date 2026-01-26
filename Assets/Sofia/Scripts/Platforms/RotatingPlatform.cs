@@ -63,7 +63,7 @@ public class RotatingObject : MonoBehaviour
 
     [Header("Slowdown Custom Duration")]
     [Tooltip("Durata personalizzata per lo slowdown (0 = usa durata default dell'abilità)")]
-    public float customSlowdownDuration = 15f;
+    public float customSlowdownDuration = 7f;
 
     [Header("🔄 NUOVA FUNZIONALITÀ: Child Colliders Mode")]
     [SerializeField] private bool useChildColliders = false;
