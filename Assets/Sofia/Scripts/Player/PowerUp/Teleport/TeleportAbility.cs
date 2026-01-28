@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using CartoonFX;
 using System.Collections;
+using Unity.Cinemachine;
 
 public class TeleportAbility : AbilityBase
 {
@@ -18,6 +19,11 @@ public class TeleportAbility : AbilityBase
     [Header("Audio")]
     public AudioClip teleportConfirmSound;
     public AudioClip teleportFailureSound;
+
+    [Header("Fade Settings")]
+    [SerializeField] private float fadeOutDuration = 0.3f;
+    [SerializeField] private float fadeInDuration = 0.3f;
+    [SerializeField] private float holdTime = 0.1f;
     
     [Header("Camera Settings")]
     [SerializeField] private Camera targetCamera;
@@ -28,13 +34,11 @@ public class TeleportAbility : AbilityBase
     private AudioSource teleportConfirmAudioSource;
     private AudioSource teleportFailureAudioSource;
     private bool isTeleporting = false;
-
-    private TeleportBase[] allTeleportBases; // Cache di tutte le basi
+    private TeleportBase[] allTeleportBases;
+    private ScreenFader screenFader;
 
     public override int powerCost => 50;
     protected override bool HasFixedDuration => false;
-    [Header("Distance Settings")]
-[SerializeField] private float minTeleportDistance = 3f; // Distanza minima per il teletrasporto
 
     protected override void Awake()
     {
@@ -58,7 +62,7 @@ public class TeleportAbility : AbilityBase
         {
             teleportEffectController = GetComponentInChildren<CFXR_EffectController>(true);
             if (teleportEffectController == null)
-                Debug.LogError("CFXR_EffectController non trovato tra i figli del player!");
+                Debug.LogError("[TeleportAbility] CFXR_EffectController non trovato!");
         }
 
         if (teleportEffectController != null)
@@ -67,36 +71,56 @@ public class TeleportAbility : AbilityBase
             teleportEffectController.gameObject.SetActive(false);
         }
 
-        // Trova tutte le TeleportBase nella scena (INCLUSE quelle inattive)
+        screenFader = FindFirstObjectByType<ScreenFader>();
+        if (screenFader == null)
+        {
+            Debug.LogWarning("[TeleportAbility] ScreenFader non trovato! Il fade non funzionerà.");
+        }
+
         RefreshTeleportBases();
     }
 
-    /// <summary>
-    /// Aggiorna la cache delle basi di teletrasporto (include anche quelle inattive)
-    /// Chiamare questo metodo quando vengono attivate nuove basi dinamicamente
-    /// </summary>
     public void RefreshTeleportBases()
     {
         allTeleportBases = FindObjectsByType<TeleportBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        Debug.Log($"[TeleportAbility] Trovate {allTeleportBases.Length} basi di teletrasporto (incluse inattive)");
+        Debug.Log($"[TeleportAbility] Trovate {allTeleportBases.Length} basi di teletrasporto");
     }
 
- protected override void Update()
-{
-    base.Update();
-
-    // Aggiorna hover delle basi in base alla distanza
-    UpdateHoverState();
-
-    if (Input.GetKeyDown(directTeleportKey))
+    protected override void Update()
     {
-        TryActivate();
-    }
-}
+        base.Update();
+        UpdateHoverState();
 
-    /// <summary>
-    /// Aggiorna lo stato hover delle basi controllando la distanza
-    /// </summary>
+        if (Input.GetKeyDown(directTeleportKey))
+        {
+            TryActivate();
+        }
+    }
+
+    private TeleportBase GetClosestTeleportableBase()
+    {
+        if (controllerGameObject == null || allTeleportBases == null) return null;
+
+        Vector3 playerPos = controllerGameObject.transform.position;
+        TeleportBase closestBase = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (var baseObj in allTeleportBases)
+        {
+            if (baseObj == null || !baseObj.IsObjectActive) continue;
+            if (baseObj.linkedBase == null) continue;
+
+            float distance = Vector3.Distance(playerPos, baseObj.transform.position);
+            if (distance <= baseObj.TeleportActivationRadius && distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestBase = baseObj;
+            }
+        }
+
+        return closestBase;
+    }
+
     private void UpdateHoverState()
     {
         if (controllerGameObject == null || allTeleportBases == null) return;
@@ -105,7 +129,6 @@ public class TeleportAbility : AbilityBase
         TeleportBase closestBase = null;
         float closestDistance = float.MaxValue;
 
-        // Trova la base più vicina nel range di hover
         foreach (var baseObj in allTeleportBases)
         {
             if (baseObj == null || !baseObj.IsObjectActive) continue;
@@ -121,16 +144,13 @@ public class TeleportAbility : AbilityBase
             }
         }
 
-        // Aggiorna hover: solo la base più vicina è in hover
         if (closestBase != TeleportBase.currentHoveredBase)
         {
-            // Esci dall'hover precedente
             if (TeleportBase.currentHoveredBase != null)
             {
                 TeleportBase.currentHoveredBase.OnCursorExit();
             }
 
-            // Entra in hover sulla nuova base
             if (closestBase != null)
             {
                 closestBase.OnCursorEnter();
@@ -138,49 +158,35 @@ public class TeleportAbility : AbilityBase
         }
     }
     
-public override bool CanActivate()
-{
-    bool baseCanActivate = base.CanActivate();
-    bool notTeleporting = !isTeleporting;
-    
-    // Verifica che ci sia una base inquadrata, che siamo sopra di essa e che abbia una gemella
-    bool canTeleportFromBase = false;
-    
-    if (TeleportBase.currentHoveredBase != null && controllerGameObject != null)
+    public override bool CanActivate()
     {
-        float distanceToTarget = Vector3.Distance(
-            controllerGameObject.transform.position, 
-            TeleportBase.currentHoveredBase.transform.position
-        );
-        
-        // Possiamo teletrasportarci SOLO se siamo sopra la base E ha una gemella
-        if (distanceToTarget <= minTeleportDistance && TeleportBase.currentHoveredBase.linkedBase != null)
-        {
-            canTeleportFromBase = true;
-        }
+        bool baseCanActivate = base.CanActivate();
+        bool notTeleporting = !isTeleporting;
+        TeleportBase closestBase = GetClosestTeleportableBase();
+        bool canTeleportFromBase = closestBase != null;
+
+        return baseCanActivate && notTeleporting && canTeleportFromBase;
     }
-    
-    return baseCanActivate && notTeleporting && canTeleportFromBase;
-}
 
     public override void Activate()
-{
-    if (TeleportBase.currentHoveredBase == null || TeleportBase.currentHoveredBase.linkedBase == null)
     {
-        Debug.LogWarning("Activate() chiamato senza una coppia di basi valida!");
-        return;
+        TeleportBase sourceBase = GetClosestTeleportableBase();
+
+        if (sourceBase == null || sourceBase.linkedBase == null)
+        {
+            Debug.LogWarning("[TeleportAbility] Nessuna coppia di basi valida!");
+            return;
+        }
+
+        TeleportBase targetBase = sourceBase.linkedBase;
+        Debug.Log($"[TeleportAbility] Teletrasporto: {sourceBase.name} → {targetBase.name}");
+
+        powerUpScript.SpendPower(powerCost);
+        PlayTeleportConfirmSound();
+
+        Vector3 targetPosition = targetBase.GetTeleportPosition();
+        StartCoroutine(ExecuteTeleportRoutine(targetPosition, targetBase));
     }
-
-    TeleportBase targetBase = TeleportBase.currentHoveredBase.linkedBase;
-    Debug.Log($"ATTIVAZIONE - Teletrasporto dalla base {TeleportBase.currentHoveredBase.name} alla gemella {targetBase.name}");
-
-    powerUpScript.SpendPower(powerCost);
-    PlayTeleportConfirmSound();
-    SetPlayerVisible(false);
-
-    Vector3 targetPosition = targetBase.GetTeleportPosition();
-    StartCoroutine(ExecuteTeleportRoutine(targetPosition, targetBase));
-}
 
     public override void Deactivate()
     {
@@ -199,102 +205,100 @@ public override bool CanActivate()
                 teleportEffectController.gameObject.SetActive(false);
             }
             
-            Debug.Log("Teletrasporto forzatamente interrotto");
+            if (screenFader != null)
+            {
+                screenFader.SetClear();
+            }
+            
+            Debug.Log("[TeleportAbility] Teletrasporto interrotto");
         }
     }
 
-  public override void TryActivate()
-{
-    Debug.Log("Tentativo teletrasporto...");
-
-    // Usa direttamente CanActivate() che già verifica tutto
-    if (!CanActivate())
+    public override void TryActivate()
     {
-        string reason = GetDisableReason();
-        Debug.Log($"FAILURE - {reason}");
-        
-        // Suono fallimento SOLO se è un problema di energia o gameplay
-        // NON se l'abilità non è permessa nel livello
-        if (!reason.Contains("non permessa in questo livello") && 
-            !reason.Contains("nessuna base") &&
-            !reason.Contains("devi essere sopra"))
+        if (!CanActivate())
         {
-            PlayTeleportFailureSound();
+            string reason = GetDisableReason();
+            Debug.Log($"[TeleportAbility] Fallito: {reason}");
+            
+            if (!reason.Contains("non permessa") && 
+                !reason.Contains("nessuna base") &&
+                !reason.Contains("devi essere sopra"))
+            {
+                PlayTeleportFailureSound();
+            }
+            return;
         }
-        return;
+
+        Activate();
+        IsActive = true;
+
+        if (activationSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(activationSound);
+        }
+
+        if (PlayerUI.Instance != null)
+            PlayerUI.Instance.PulseIconAt(effectIconIndex);
     }
 
-    // Se arriviamo qui, tutto OK - attiva direttamente
-    Activate();
-    IsActive = true;
-
-    if (activationSound != null && audioSource != null)
+    public new string GetDisableReason()
     {
-        audioSource.PlayOneShot(activationSound);
-    }
+        string baseReason = base.GetDisableReason();
+        if (baseReason != "motivo sconosciuto") return baseReason;
 
-    if (PlayerUI.Instance != null)
-        PlayerUI.Instance.PulseIconAt(effectIconIndex);
-}
-public new string GetDisableReason()
-{
-    string baseReason = base.GetDisableReason();
-    if (baseReason != "motivo sconosciuto") return baseReason;
-    
-    if (isTeleporting) return "teletrasporto in corso";
-    if (TeleportBase.currentHoveredBase == null) return "nessuna base nelle vicinanze";
-    
-    if (TeleportBase.currentHoveredBase != null && controllerGameObject != null)
-    {
-        float distanceToTarget = Vector3.Distance(
-            controllerGameObject.transform.position, 
-            TeleportBase.currentHoveredBase.transform.position
-        );
-        
-        // Se siamo troppo lontani dalla base
-        if (distanceToTarget > minTeleportDistance)
+        if (isTeleporting) return "teletrasporto in corso";
+
+        TeleportBase closestBase = GetClosestTeleportableBase();
+        if (closestBase == null)
         {
-            return "devi essere sopra una base di teletrasporto";
+            return "nessuna base di teletrasporto nel range";
         }
-        
-        // Se siamo sopra la base ma non ha una gemella
-        if (TeleportBase.currentHoveredBase.linkedBase == null)
-        {
-            return "questa base non ha una destinazione collegata";
-        }
+
+        return "motivo sconosciuto";
     }
-    
-    return "motivo sconosciuto";
-}
 
     private IEnumerator ExecuteTeleportRoutine(Vector3 targetPosition, TeleportBase targetBase)
     {
         isTeleporting = true;
-        Debug.Log("Inizio routine teletrasporto...");
-
         LockPlayerMovement();
+        SetPlayerVisible(false);
 
+        // FASE 1: FADE OUT
+        if (screenFader != null && fadeOutDuration > 0f)
+        {
+            yield return screenFader.FadeOut(fadeOutDuration);
+        }
+
+        // FASE 2: A SCHERMO NERO - Effetti e teletrasporto
         if (teleportEffectController != null)
         {
             teleportEffectController.gameObject.SetActive(true);
             teleportEffectController.PlayEffect();
-            Debug.Log("Effetti teletrasporto attivati");
         }
 
-        yield return new WaitForSeconds(0.2f);
+        // Attesa a schermo nero
+        if (holdTime > 0f)
+        {
+            yield return new WaitForSeconds(holdTime);
+        }
 
+        // Teletrasporto fisico
         PerformPhysicalTeleport(targetPosition);
 
+        // FASE 3: FADE IN
         SetPlayerVisible(true);
-        Debug.Log("Player mostrato");
 
-        yield return new WaitForSeconds(0.3f);
+        if (screenFader != null && fadeInDuration > 0f)
+        {
+            yield return screenFader.FadeIn(fadeInDuration);
+        }
 
+        // Cleanup
         if (teleportEffectController != null)
         {
             teleportEffectController.StopEffect();
             teleportEffectController.gameObject.SetActive(false);
-            Debug.Log("Effetti teletrasporto fermati");
         }
 
         UnlockPlayerMovement();
@@ -303,7 +307,7 @@ public new string GetDisableReason()
         IsActive = false;
         isTeleporting = false;
 
-        Debug.Log("Teletrasporto completato!");
+        Debug.Log("[TeleportAbility] Teletrasporto completato!");
     }
 
     private void PerformPhysicalTeleport(Vector3 targetPosition)
@@ -317,11 +321,14 @@ public new string GetDisableReason()
             controllerGameObject.transform.position = finalTarget;
             cc.enabled = true;
 
-            Debug.Log($"Player teletrasportato a: {finalTarget}");
+            // Forza la camera a saltare immediatamente
+            CinemachineCore.ResetCameraState();
+
+            Debug.Log($"[TeleportAbility] Player teletrasportato a: {finalTarget}");
         }
         else
         {
-            Debug.LogWarning("CharacterController non trovato!");
+            Debug.LogWarning("[TeleportAbility] CharacterController non trovato!");
         }
     }
 
@@ -331,7 +338,6 @@ public new string GetDisableReason()
         if (controller != null) 
         {
             controller.IsMovementLocked = true;
-            Debug.Log("Movimento player bloccato");
         }
     }
 
@@ -341,7 +347,6 @@ public new string GetDisableReason()
         if (controller != null) 
         {
             controller.IsMovementLocked = false;
-            Debug.Log("Movimento player sbloccato");
         }
     }
 
@@ -361,7 +366,6 @@ public new string GetDisableReason()
         if (teleportConfirmSound != null && teleportConfirmAudioSource != null)
         {
             teleportConfirmAudioSource.PlayOneShot(teleportConfirmSound);
-            Debug.Log("Audio conferma teletrasporto riprodotto");
         }
     }
 
@@ -370,7 +374,6 @@ public new string GetDisableReason()
         if (teleportFailureSound != null && teleportFailureAudioSource != null)
         {
             teleportFailureAudioSource.PlayOneShot(teleportFailureSound);
-            Debug.Log("Audio fallimento teletrasporto riprodotto");
         }
     }
 
@@ -378,15 +381,14 @@ public new string GetDisableReason()
     {
         if (!IsEnabled || isTeleporting)
         {
-            Debug.Log($"Impossibile forzare il teletrasporto: {GetDisableReason()}");
+            Debug.Log($"[TeleportAbility] Impossibile forzare: {GetDisableReason()}");
             return false;
         }
 
-        Debug.Log($"Teletrasporto forzato alla posizione: {targetPosition}");
+        Debug.Log($"[TeleportAbility] Teletrasporto forzato a: {targetPosition}");
         
         IsActive = true;
         PlayTeleportConfirmSound();
-        SetPlayerVisible(false);
         
         GameObject tempBase = new GameObject("TempTeleportBase");
         tempBase.transform.position = targetPosition;
@@ -400,8 +402,8 @@ public new string GetDisableReason()
 
     private IEnumerator DestroyTempBase(GameObject tempBase)
     {
-        yield return null;
+        yield return new WaitForSeconds(2f);
         if (tempBase != null)
-            DestroyImmediate(tempBase);
+            Destroy(tempBase);
     }
 }

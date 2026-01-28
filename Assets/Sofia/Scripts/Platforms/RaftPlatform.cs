@@ -176,13 +176,40 @@ private Rigidbody rb;
     private const float VALIDATION_INTERVAL = 1f;
     private float _lastValidationTime;
     private bool _isValidConfiguration = true;
-    
+
     // Telemetry data
     private List<float> _activationTimes = new List<float>();
     private int _completedTrips = 0;
     private int _boardEvents = 0;
     private int _exitEvents = 0;
     private List<float> _speedSamples = new List<float>(60);
+
+    [Header("Inizializzazione Posizione")]
+    [Tooltip("Se attivo, sincronizza automaticamente la posizione con la spline")]
+    [SerializeField] private bool autoSyncWithSpline = true;
+
+    void Awake()
+    {
+        // Posiziona subito sulla spline per evitare scatti visivi al caricamento
+        if (autoSyncWithSpline)
+        {
+            SnapToSplineStart();
+        }
+    }
+
+    /// <summary>
+    /// Posiziona immediatamente la raft all'inizio della spline.
+    /// </summary>
+    private void SnapToSplineStart()
+    {
+        if (splineContainer == null || splineContainer.Spline == null) return;
+
+        // Posiziona all'inizio della spline (t=0)
+        Vector3 startPosition = splineContainer.EvaluatePosition(0f);
+        transform.position = startPosition;
+        lastPosition = startPosition;
+        currentDistance = 0f;
+    }
 
   void Start()
 {
@@ -1848,17 +1875,46 @@ if (playerController != null)
             settings.respawnDetectionTime = Mathf.Max(1f, settings.respawnDetectionTime);
             settings.returnToTerminalRadius = Mathf.Max(1f, settings.returnToTerminalRadius);
             settings.sampleResolution = Mathf.Max(10, settings.sampleResolution);
-            
+
             speed = settings.speed;
             minimumTriggerTime = settings.quickStartTime;
             returnToTerminalRadius = settings.returnToTerminalRadius;
             jumpIgnoreTime = settings.respawnDetectionTime;
             sampleResolution = settings.sampleResolution;
         }
-        
+
         if (splineContainer?.Spline != null && splineContainer.Spline.Count < 2)
         {
             Debug.LogWarning($"[RaftPlatform] {gameObject.name}: La spline deve avere almeno 2 punti di controllo!");
+        }
+
+        // ✅ Sincronizza posizione con spline in editor (evita scatti al caricamento)
+        if (!Application.isPlaying && autoSyncWithSpline && splineContainer != null && splineContainer.Spline != null)
+        {
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (this != null && splineContainer != null && splineContainer.Spline != null)
+                {
+                    Vector3 startPosition = splineContainer.EvaluatePosition(0f);
+                    transform.position = startPosition;
+                }
+            };
+        }
+    }
+
+    [ContextMenu("🔄 Sincronizza Posizione con Spline")]
+    private void EditorSyncPosition()
+    {
+        if (splineContainer != null && splineContainer.Spline != null)
+        {
+            Vector3 startPosition = splineContainer.EvaluatePosition(0f);
+            UnityEditor.Undo.RecordObject(transform, "Sync Raft to Spline");
+            transform.position = startPosition;
+            Debug.Log($"[RaftPlatform] {gameObject.name}: ✅ Posizione sincronizzata - {startPosition}");
+        }
+        else
+        {
+            Debug.LogWarning($"[RaftPlatform] {gameObject.name}: SplineContainer non assegnato!");
         }
     }
 

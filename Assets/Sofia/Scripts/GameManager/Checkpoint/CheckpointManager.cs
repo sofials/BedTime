@@ -45,7 +45,11 @@ public class CheckpointManager : MonoBehaviour
         public Quaternion rotation;
         public string description;
         public bool isActive;
-        
+
+        // Riferimento al Transform per posizione dinamica
+        [System.NonSerialized]
+        public Transform checkpointTransform;
+
         public CheckpointData(string name, Vector3 pos, Quaternion rot, string desc = "")
         {
             checkpointName = name;
@@ -53,6 +57,38 @@ public class CheckpointManager : MonoBehaviour
             rotation = rot;
             description = desc;
             isActive = true;
+            checkpointTransform = null;
+        }
+
+        public CheckpointData(string name, Transform transform, string desc = "")
+        {
+            checkpointName = name;
+            checkpointTransform = transform;
+            // Salva anche posizione statica come fallback
+            position = transform != null ? transform.position : Vector3.zero;
+            rotation = transform != null ? transform.rotation : Quaternion.identity;
+            description = desc;
+            isActive = true;
+        }
+
+        /// <summary>
+        /// Ottiene la posizione corrente (dinamica se Transform disponibile, altrimenti statica)
+        /// </summary>
+        public Vector3 GetCurrentPosition()
+        {
+            if (checkpointTransform != null)
+                return checkpointTransform.position;
+            return position;
+        }
+
+        /// <summary>
+        /// Ottiene la rotazione corrente (dinamica se Transform disponibile, altrimenti statica)
+        /// </summary>
+        public Quaternion GetCurrentRotation()
+        {
+            if (checkpointTransform != null)
+                return checkpointTransform.rotation;
+            return rotation;
         }
     }
     
@@ -115,7 +151,7 @@ public class CheckpointManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Registra un checkpoint usando un Transform
+    /// Registra un checkpoint usando un Transform (mantiene riferimento per posizione dinamica)
     /// </summary>
     public void RegisterCheckpoint(string checkpointName, Transform checkpointTransform, string description = "")
     {
@@ -124,8 +160,18 @@ public class CheckpointManager : MonoBehaviour
             DebugLog("[CheckpointManager] ⚠️ Transform checkpoint nullo, ignorato");
             return;
         }
-        
-        RegisterCheckpoint(checkpointName, checkpointTransform.position, checkpointTransform.rotation, description);
+
+        if (string.IsNullOrEmpty(checkpointName))
+        {
+            DebugLog("[CheckpointManager] ⚠️ Nome checkpoint vuoto, ignorato");
+            return;
+        }
+
+        // Usa il costruttore che salva il riferimento al Transform
+        CheckpointData data = new CheckpointData(checkpointName, checkpointTransform, description);
+        registeredCheckpoints[checkpointName] = data;
+
+        DebugLog($"[CheckpointManager] ✅ Checkpoint registrato con Transform: '{checkpointName}' at {checkpointTransform.position}");
     }
     
     /// <summary>
@@ -171,10 +217,10 @@ public class CheckpointManager : MonoBehaviour
         if (registeredCheckpoints.ContainsKey(checkpointName))
         {
             var data = registeredCheckpoints[checkpointName];
-            OnSpawnPointChanged?.Invoke(data.position, data.rotation);
-            
+            OnSpawnPointChanged?.Invoke(data.GetCurrentPosition(), data.GetCurrentRotation());
+
             // ✅ NUOVO: Notifica alle zattere la nuova posizione del player
-            OnPlayerCheckpointChanged?.Invoke(data.position);
+            OnPlayerCheckpointChanged?.Invoke(data.GetCurrentPosition());
         }
         
         return true;
@@ -246,15 +292,16 @@ public class CheckpointManager : MonoBehaviour
         // Se c'è un checkpoint attivo, usa quello
         if (HasActiveCheckpoint() && registeredCheckpoints.ContainsKey(currentCheckpoint))
         {
-            return registeredCheckpoints[currentCheckpoint].position;
+            // Usa GetCurrentPosition() per ottenere posizione dinamica dal Transform
+            return registeredCheckpoints[currentCheckpoint].GetCurrentPosition();
         }
-        
+
         // Altrimenti usa il default spawn point
         if (defaultSpawnPoint != null)
         {
             return defaultSpawnPoint.position;
         }
-        
+
         // Ultimo fallback
         return Vector3.zero;
     }
@@ -267,15 +314,16 @@ public class CheckpointManager : MonoBehaviour
         // Se c'è un checkpoint attivo, usa quello
         if (HasActiveCheckpoint() && registeredCheckpoints.ContainsKey(currentCheckpoint))
         {
-            return registeredCheckpoints[currentCheckpoint].rotation;
+            // Usa GetCurrentRotation() per ottenere rotazione dinamica dal Transform
+            return registeredCheckpoints[currentCheckpoint].GetCurrentRotation();
         }
-        
+
         // Altrimenti usa il default spawn point
         if (defaultSpawnPoint != null)
         {
             return defaultSpawnPoint.rotation;
         }
-        
+
         // Ultimo fallback
         return Quaternion.identity;
     }
@@ -541,7 +589,8 @@ public class CheckpointManager : MonoBehaviour
             foreach (var kvp in registeredCheckpoints)
             {
                 var data = kvp.Value;
-                Debug.Log($"'{kvp.Key}': {data.position} | {data.description} | Active: {data.isActive}");
+                bool hasDynamicTransform = data.checkpointTransform != null;
+                Debug.Log($"'{kvp.Key}': {data.GetCurrentPosition()} | {data.description} | Active: {data.isActive} | Dynamic: {hasDynamicTransform}");
             }
         }
     }

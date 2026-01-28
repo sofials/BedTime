@@ -115,7 +115,88 @@ private int currentCustomAudioIndex = 0;
         ForceResetAllWarningVariables();
         InitializeMaterialSystem();
     }
-public void PlayCustomAudio()
+
+    private void OnEnable()
+    {
+        // Reinizializza il NavMeshAgent quando il nemico viene riattivato
+        // Questo è necessario per il respawn dopo DreamWave o altri sistemi che disattivano/riattivano i nemici
+        StartCoroutine(ReinitializeAgentOnEnable());
+    }
+
+    /// <summary>
+    /// Reinizializza il NavMeshAgent quando il nemico viene riattivato
+    /// </summary>
+    private IEnumerator ReinitializeAgentOnEnable()
+    {
+        // Attendi un frame per permettere alla posizione di stabilizzarsi
+        yield return null;
+
+        if (agent == null)
+            agent = GetComponent<NavMeshAgent>();
+
+        if (agent == null) yield break;
+
+        // Se l'agent non è sulla NavMesh, prova a warparci
+        if (!agent.isOnNavMesh)
+        {
+            // Disabilita e riabilita l'agent per forzare il reset
+            agent.enabled = false;
+            yield return null;
+            agent.enabled = true;
+            yield return null;
+
+            // Prova a warpare sulla NavMesh
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(transform.position, out hit, 10f, NavMesh.AllAreas))
+            {
+                agent.Warp(hit.position);
+            }
+        }
+
+        yield return null;
+
+        // Imposta la destinazione al waypoint più vicino
+        if (agent.isOnNavMesh && waypoints != null && waypoints.Length > 0)
+        {
+            Transform closestWaypoint = FindClosestWaypointTransform();
+            if (closestWaypoint != null)
+            {
+                agent.SetDestination(closestWaypoint.position);
+            }
+        }
+
+        // Reset dello stato per tornare in patrol
+        isPatrolling = true;
+        isAttacking = false;
+        playerVisible = false;
+        player = null;
+    }
+
+    /// <summary>
+    /// Trova il waypoint più vicino alla posizione attuale
+    /// </summary>
+    private Transform FindClosestWaypointTransform()
+    {
+        if (waypoints == null || waypoints.Length == 0) return null;
+
+        Transform closest = null;
+        float minDistance = float.MaxValue;
+
+        foreach (Transform wp in waypoints)
+        {
+            if (wp == null) continue;
+            float dist = Vector3.Distance(transform.position, wp.position);
+            if (dist < minDistance)
+            {
+                minDistance = dist;
+                closest = wp;
+            }
+        }
+
+        return closest;
+    }
+
+    public void PlayCustomAudio()
 {
     if (isDead) return;
 
@@ -709,7 +790,7 @@ public void PlayCustomAudio()
         if (playerHurtBox != null)
         {
             Vector3 pushDir = (player.position - transform.position).normalized;
-            float damageToApply = isSlow ? 0f : slowedAttackDamage;
+            float damageToApply = isSlow ? 0f : attackDamage;
             playerHurtBox.OnHit(pushDir, pushForce, damageToApply);
         }
         else

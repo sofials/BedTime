@@ -70,6 +70,18 @@ public class RotatingObject : MonoBehaviour
     [Tooltip("Se attivo, l'oggetto padre usa i collider dei figli per le collisioni")]
     private List<ChildColliderHandler> childColliderHandlers = new List<ChildColliderHandler>();
 
+    [Header("🧱 BOX COLLIDER WALL MODE")]
+    [Tooltip("Se attivo, il wallCollider viene disattivato solo quando l'oggetto è rallentato")]
+    [SerializeField] private bool useBoxColliderWallMode = false;
+    [Tooltip("Il BoxCollider che funge da 'muro' - attivo normalmente, disattivato durante slowdown")]
+    [SerializeField] private BoxCollider wallCollider;
+    [Tooltip("Danno inflitto al player quando tocca il wall collider")]
+    [SerializeField] private float wallDamageAmount = 10f;
+    [Tooltip("Forza della spinta quando il player tocca il wall")]
+    [SerializeField] private float wallPushForce = 8f;
+
+    private WallColliderHandler wallHandler;
+
     // Overlay materials
     private MeshRenderer[] meshRenderers;
     private Dictionary<MeshRenderer, Material[]> rendererOriginalMaterials = new Dictionary<MeshRenderer, Material[]>();
@@ -94,6 +106,22 @@ public class RotatingObject : MonoBehaviour
         if (slowdownEffect != null)
         {
             slowdownEffect.gameObject.SetActive(false);
+        }
+
+        // 🧱 BOX COLLIDER WALL MODE: assicura che il muro parta attivo e aggiungi handler per danno
+        if (useBoxColliderWallMode && wallCollider != null)
+        {
+            wallCollider.enabled = true;
+
+            // Aggiungi il handler per gestire le collisioni col player
+            wallHandler = wallCollider.GetComponent<WallColliderHandler>();
+            if (wallHandler == null)
+            {
+                wallHandler = wallCollider.gameObject.AddComponent<WallColliderHandler>();
+            }
+            wallHandler.Initialize(this, wallDamageAmount, wallPushForce);
+
+            Debug.Log($"[RotatingObject] {gameObject.name} - Wall collider inizializzato come ATTIVO con danno {wallDamageAmount}");
         }
 
         if (usePendulumMode)
@@ -430,12 +458,27 @@ public class RotatingObject : MonoBehaviour
                 currentRotationSpeed = originalRotationSpeed * 0.5f; // Fallback
             }
 
+            // 🧱 BOX COLLIDER WALL MODE: disattiva il muro durante slowdown
+            if (useBoxColliderWallMode && wallCollider != null)
+            {
+                wallCollider.enabled = false;
+                Debug.Log($"[RotatingObject] {gameObject.name} - Wall collider DISATTIVATO (slowdown)");
+            }
+
             Debug.Log($"[RotatingObject] {gameObject.name} - SLOWDOWN ATTIVATO: {originalRotationSpeed} → {currentRotationSpeed}");
         }
         else
         {
             isSlowdownActive = false;
             currentRotationSpeed = originalRotationSpeed;
+
+            // 🧱 BOX COLLIDER WALL MODE: riattiva il muro quando slowdown finisce
+            if (useBoxColliderWallMode && wallCollider != null)
+            {
+                wallCollider.enabled = true;
+                Debug.Log($"[RotatingObject] {gameObject.name} - Wall collider RIATTIVATO");
+            }
+
             Debug.Log($"[RotatingObject] {gameObject.name} - SLOWDOWN DISATTIVATO: velocità ripristinata a {currentRotationSpeed}");
         }
     }
@@ -444,6 +487,14 @@ public class RotatingObject : MonoBehaviour
     {
         isSlowdownActive = false;
         currentRotationSpeed = originalRotationSpeed;
+
+        // 🧱 BOX COLLIDER WALL MODE: riattiva il muro
+        if (useBoxColliderWallMode && wallCollider != null)
+        {
+            wallCollider.enabled = true;
+            Debug.Log($"[RotatingObject] {gameObject.name} - Wall collider RIATTIVATO (restore)");
+        }
+
         Debug.Log($"[RotatingObject] {gameObject.name} - velocità ripristinata a {originalRotationSpeed}");
     }
 
@@ -605,6 +656,24 @@ public class RotatingObject : MonoBehaviour
         pendulumSpeed = speed;
     }
 
+    // 🧱 SETTER PER BOX COLLIDER WALL MODE
+    public void SetBoxColliderWallMode(bool enabled, BoxCollider collider = null)
+    {
+        useBoxColliderWallMode = enabled;
+
+        if (collider != null)
+        {
+            wallCollider = collider;
+        }
+
+        if (useBoxColliderWallMode && wallCollider != null)
+        {
+            // Se siamo in slowdown, il muro deve essere disattivato
+            wallCollider.enabled = !isSlowdownActive;
+            Debug.Log($"[RotatingObject] {gameObject.name} - Box Collider Wall Mode: {enabled}, collider: {(wallCollider.enabled ? "ATTIVO" : "DISATTIVATO")}");
+        }
+    }
+
     // ✅ NUOVI METODI PER CHILD COLLIDERS
     public void SetUseChildColliders(bool enabled)
     {
@@ -686,6 +755,60 @@ public class ChildColliderHandler : MonoBehaviour
     void OnDestroy()
     {
         // Cleanup quando il componente viene distrutto
+        parentRotatingObject = null;
+    }
+}
+
+// 🧱 COMPONENTE: WallColliderHandler - Gestisce danno quando il player tocca il wall collider
+public class WallColliderHandler : MonoBehaviour
+{
+    private RotatingObject parentRotatingObject;
+    private float damageAmount;
+    private float pushForce;
+
+    public void Initialize(RotatingObject parent, float damage, float push)
+    {
+        parentRotatingObject = parent;
+        damageAmount = damage;
+        pushForce = push;
+        Debug.Log($"[WallColliderHandler] Inizializzato su {gameObject.name} - Danno: {damage}, Spinta: {push}");
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        HandleCollision(collision.gameObject, collision.contacts[0].point);
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        HandleCollision(other.gameObject, other.ClosestPoint(transform.position));
+    }
+
+    private void HandleCollision(GameObject obj, Vector3 contactPoint)
+    {
+        ThirdPersonController player = obj.GetComponent<ThirdPersonController>();
+        if (player == null) return;
+
+        // Infliggi danno
+        if (damageAmount > 0)
+        {
+            player.TakeDamage(damageAmount);
+            player.PlayHitSound();
+            Debug.Log($"[WallColliderHandler] Player ha subito {damageAmount} danni dal wall {gameObject.name}");
+        }
+
+        // Applica spinta
+        if (pushForce > 0)
+        {
+            Vector3 pushDirection = (player.transform.position - contactPoint).normalized;
+            pushDirection.y = Mathf.Max(pushDirection.y, 0.2f); // Leggera spinta verso l'alto
+            player.ApplyExternalPush(pushDirection * pushForce);
+            Debug.Log($"[WallColliderHandler] Applicata spinta {pushForce} al player");
+        }
+    }
+
+    void OnDestroy()
+    {
         parentRotatingObject = null;
     }
 }

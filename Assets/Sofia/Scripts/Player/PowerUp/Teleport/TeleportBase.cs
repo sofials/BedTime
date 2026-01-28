@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.Events;
- using System.Collections;
+using System.Collections;
 
 public class TeleportBase : MonoBehaviour
 {
@@ -16,31 +16,33 @@ public class TeleportBase : MonoBehaviour
     [SerializeField] private Color hoverColor = Color.white;
 
     [Header("Hover Detection")]
-    [Tooltip("Raggio per rilevare quando il player è sopra questa base")]
+    [Tooltip("Raggio per rilevare quando il player è vicino a questa base")]
     [SerializeField] private float hoverDetectionRadius = 25f;
+
+    [Header("Teleport Activation")]
+    [Tooltip("Distanza massima entro cui il player può attivare il teletrasporto")]
+    [SerializeField] private float teleportActivationRadius = 50f;
+
     [Header("Teleport Connection")]
-[Tooltip("La base gemella a cui teletrasportarsi quando si è sopra questa base")]
-public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezionale
+    [Tooltip("La base gemella a cui teletrasportarsi")]
+    public TeleportBase linkedBase;
+
+    // Proprietà pubbliche
+    public float TeleportActivationRadius => teleportActivationRadius;
+    
     private Color originalStartColor;
     private bool isHovering = false;
     
-    // Riferimento statico alla base attualmente inquadrata dalla camera
     public static TeleportBase currentHoveredBase = null;
     
     private void Start()
     {
-        // Verifica che l'oggetto abbia un collider per il raycast
         Collider col = GetComponent<Collider>();
         if (col == null)
         {
-            Debug.LogWarning($"TeleportBase '{gameObject.name}' non ha un Collider! Aggiungi un Collider per il funzionamento del teletrasporto.");
-        }
-        else if (showDebugLogs)
-        {
-            Debug.Log($"TeleportBase '{gameObject.name}' - Collider: {col.GetType().Name}, Enabled: {col.enabled}");
+            Debug.LogWarning($"[TeleportBase] '{gameObject.name}' non ha un Collider!");
         }
         
-        // Setup particle system
         if (particleSystem == null)
         {
             particleSystem = GetComponent<ParticleSystem>();
@@ -50,21 +52,9 @@ public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezio
         {
             var main = particleSystem.main;
             originalStartColor = main.startColor.color;
-            
-            if (showDebugLogs)
-            {
-                Debug.Log($"TeleportBase '{gameObject.name}' - Particle System trovato. Colore originale: {originalStartColor}");
-            }
-        }
-        else if (showDebugLogs)
-        {
-            Debug.LogWarning($"TeleportBase '{gameObject.name}' - Nessun Particle System trovato!");
         }
     }
 
-    /// <summary>
-    /// Chiamato quando la camera inquadra questa base (dal sistema TeleportAbility)
-    /// </summary>
     public void OnCursorEnter()
     {
         if (!isHovering)
@@ -79,14 +69,11 @@ public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezio
             
             if (showDebugLogs)
             {
-                Debug.Log($"Camera INQUADRA '{gameObject.name}' - Colore particelle cambiato a hover");
+                Debug.Log($"[TeleportBase] Player vicino a '{gameObject.name}'");
             }
         }
     }
     
-    /// <summary>
-    /// Chiamato quando la camera smette di inquadrare questa base (dal sistema TeleportAbility)
-    /// </summary>
     public void OnCursorExit()
     {
         if (isHovering)
@@ -102,7 +89,7 @@ public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezio
             
             if (showDebugLogs)
             {
-                Debug.Log($"Camera NON INQUADRA PIU' '{gameObject.name}' - Colore particelle ripristinato");
+                Debug.Log($"[TeleportBase] Player lontano da '{gameObject.name}'");
             }
         }
     }
@@ -116,80 +103,65 @@ public TeleportBase linkedBase; // Base collegata per il teletrasporto bidirezio
         }
     }
 
-    /// <summary>
-    /// Controlla se il player è nel raggio di hover
-    /// </summary>
     public bool IsPlayerInHoverRange(Vector3 playerPosition)
     {
         float distance = Vector3.Distance(transform.position, playerPosition);
         return distance <= hoverDetectionRadius;
     }
     
-    /// <summary>
-    /// Ottieni la posizione di teletrasporto per questa base
-    /// </summary>
     public Vector3 GetTeleportPosition()
     {
         return transform.position;
     }
     
-    /// <summary>
-    /// Attiva l'intero GameObject del teleport dall'esterno
-    /// </summary>
-   public void EnableObject()
-{
-    if (!gameObject.activeInHierarchy)
+    public void EnableObject()
     {
-        gameObject.SetActive(true);
-        OnObjectEnabled?.Invoke();
-        
-        // NUOVO: Controlla se il player è già dentro il trigger
-        StartCoroutine(CheckForPlayerInside());
-        
-        if (showDebugLogs)
+        if (!gameObject.activeInHierarchy)
         {
-            Debug.Log($"TeleportBase GameObject '{gameObject.name}' attivato");
-        }
-    }
-}
-private IEnumerator CheckForPlayerInside()
-{
-    yield return new WaitForFixedUpdate();
-
-    Collider col = GetComponent<Collider>();
-    if (col != null)
-    {
-        // Usa un'area più grande per essere più permissivi
-        Vector3 expandedExtents = col.bounds.extents * 1.5f; // 50% più grande
-        expandedExtents = Vector3.Max(expandedExtents, Vector3.one * hoverDetectionRadius * 0.5f);
-
-        Collider[] overlapping = Physics.OverlapBox(
-            col.bounds.center,
-            expandedExtents,
-            transform.rotation
-        );
-
-        foreach (var other in overlapping)
-        {
-            if (other.CompareTag("Player"))
+            gameObject.SetActive(true);
+            OnObjectEnabled?.Invoke();
+            StartCoroutine(CheckForPlayerInside());
+            
+            if (showDebugLogs)
             {
-                OnCursorEnter();
-                if (showDebugLogs)
-                    Debug.Log($"Player trovato già dentro '{gameObject.name}' dopo attivazione!");
-                break;
+                Debug.Log($"[TeleportBase] '{gameObject.name}' attivato");
             }
         }
     }
-}
+
+    private IEnumerator CheckForPlayerInside()
+    {
+        yield return new WaitForFixedUpdate();
+
+        Collider col = GetComponent<Collider>();
+        if (col != null)
+        {
+            Vector3 expandedExtents = col.bounds.extents * 1.5f;
+            expandedExtents = Vector3.Max(expandedExtents, Vector3.one * hoverDetectionRadius * 0.5f);
+
+            Collider[] overlapping = Physics.OverlapBox(
+                col.bounds.center,
+                expandedExtents,
+                transform.rotation
+            );
+
+            foreach (var other in overlapping)
+            {
+                if (other.CompareTag("Player"))
+                {
+                    OnCursorEnter();
+                    if (showDebugLogs)
+                        Debug.Log($"[TeleportBase] Player già dentro '{gameObject.name}'");
+                    break;
+                }
+            }
+        }
+    }
     
-    /// <summary>
-    /// Disattiva l'intero GameObject del teleport dall'esterno
-    /// </summary>
     public void DisableObject()
     {
         if (gameObject.activeInHierarchy)
         {
-            // Rimuovi riferimento se stiamo disattivando questa base
             if (currentHoveredBase == this)
                 currentHoveredBase = null;
                 
@@ -198,14 +170,11 @@ private IEnumerator CheckForPlayerInside()
             
             if (showDebugLogs)
             {
-                Debug.Log($"TeleportBase GameObject '{gameObject.name}' disattivato");
+                Debug.Log($"[TeleportBase] '{gameObject.name}' disattivato");
             }
         }
     }
     
-    /// <summary>
-    /// Toggle dello stato dell'oggetto
-    /// </summary>
     public void ToggleObject()
     {
         if (gameObject.activeInHierarchy)
@@ -214,9 +183,6 @@ private IEnumerator CheckForPlayerInside()
             EnableObject();
     }
     
-    /// <summary>
-    /// Imposta lo stato dell'oggetto
-    /// </summary>
     public void SetObjectActive(bool active)
     {
         if (active)
@@ -225,29 +191,20 @@ private IEnumerator CheckForPlayerInside()
             DisableObject();
     }
     
-    /// <summary>
-    /// Controlla se l'oggetto è attivo
-    /// </summary>
     public bool IsObjectActive
     {
         get { return gameObject.activeInHierarchy; }
         set { SetObjectActive(value); }
     }
     
-    /// <summary>
-    /// Metodo chiamato quando il player si teletrasporta su questa base
-    /// </summary>
     public virtual void OnPlayerTeleported()
     {
         if (showDebugLogs)
         {
-            Debug.Log($"Player si è teletrasportato su: {gameObject.name}");
+            Debug.Log($"[TeleportBase] Player arrivato su '{gameObject.name}'");
         }
     }
     
-    /// <summary>
-    /// Imposta manualmente il riferimento al particle system
-    /// </summary>
     public void SetParticleSystem(ParticleSystem ps)
     {
         particleSystem = ps;
@@ -258,9 +215,6 @@ private IEnumerator CheckForPlayerInside()
         }
     }
 
-    /// <summary>
-    /// Imposta il colore hover personalizzato
-    /// </summary>
     public void SetHoverColor(Color color)
     {
         hoverColor = color;
@@ -268,15 +222,19 @@ private IEnumerator CheckForPlayerInside()
 
     private void OnDrawGizmosSelected()
     {
-        // Mostra il raggio di hover detection
-        Gizmos.color = isHovering ? Color.green : new Color(1f, 0.5f, 0f, 0.5f); // Arancione semi-trasparente o verde se hovering
+        // Raggio hover (arancione)
+        Gizmos.color = isHovering ? Color.green : new Color(1f, 0.5f, 0f, 0.5f);
         Gizmos.DrawWireSphere(transform.position, hoverDetectionRadius);
 
-        // Mostra anche una sfera più piccola al centro
+        // Raggio attivazione (rosso)
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, teleportActivationRadius);
+
+        // Centro
         Gizmos.color = isHovering ? Color.green : Color.yellow;
         Gizmos.DrawSphere(transform.position, 0.2f);
 
-        // Se ha una base collegata, mostra una linea
+        // Linea verso base collegata
         if (linkedBase != null)
         {
             Gizmos.color = Color.cyan;

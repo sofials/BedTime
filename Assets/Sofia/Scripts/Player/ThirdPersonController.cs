@@ -2636,6 +2636,22 @@ private void HandleJump()
             Debug.Log("[Ground] CharacterController.isGrounded = TRUE");
         return true;
     }
+       if (currentPlatform != null && currentPlatform.CompareTag("FallBlock"))
+    {
+        Collider fallBlockCollider = currentPlatform.GetComponent<Collider>();
+        if (fallBlockCollider != null && fallBlockCollider.isTrigger)
+        {
+            Bounds bounds = fallBlockCollider.bounds;
+            bounds.Expand(new Vector3(0.2f, 0.5f, 0.2f));
+            
+            if (bounds.Contains(transform.position))
+            {
+                if (debugGroundStability && Time.frameCount % 60 == 0)
+                    Debug.Log("[Ground] FallBlock trigger - grounded");
+                return true;
+            }
+        }
+    }
     if (currentRaftPlatform != null)
     {
         Collider raftCollider = currentRaftPlatform.GetComponent<Collider>();

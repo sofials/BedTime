@@ -79,10 +79,16 @@ public class PlatformSpawnerForwardAbility : AbilityBase
             // ⭐ Previeni input multipli
             if (isProcessingInput) return;
             
+            // ⭐ FIX: Resetta ignoreNextConfirm SOLO se siamo in placing mode
+            // Altrimenti i press di F quando non abbiamo energia "consumano" il flag
             if (!ignoreNextConfirm)
+            {
                 confirmPressed = true;
-            else
-                ignoreNextConfirm = false; // Resetta dopo averlo ignorato
+            }
+            else if (placing) // Solo se siamo effettivamente in placing mode
+            {
+                ignoreNextConfirm = false;
+            }
         };
         controls.Enable();
 
@@ -424,6 +430,7 @@ public class PlatformSpawnerForwardAbility : AbilityBase
         IsActive = true;
         ignoreNextConfirm = true; // ⭐ Ignora il primo F che ha attivato il ghost
         isProcessingInput = false; // ⭐ Reset del flag
+        confirmPressed = false; // ⭐ FIX: Reset per evitare che un press precedente (senza energia) attivi subito la conferma
 
         // ✅ Salva l'altezza base al momento dell'attivazione (non cambia se il player salta)
         Vector3 basePos = footTarget ? footTarget.position : transform.position;

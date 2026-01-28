@@ -53,14 +53,38 @@ public class HurtBox : MonoBehaviour
         {
             Vector3 pushDirection = (playerController.transform.position - other.transform.position).normalized;
             OnHit(pushDirection, damageDealer.pushForce, damageDealer.damage);
-            
+
             if (enableDebugLogs)
             {
                 Debug.Log($"[HurtBox] ✅ DamageDealer generico - danno {damageDealer.damage}");
             }
             return;
         }
-        
+
+        // Controlla se è una TurtleShell (danno da contatto)
+        TurtleShell turtleShell = other.GetComponentInParent<TurtleShell>();
+        if (turtleShell != null)
+        {
+            // Se la tartaruga è in slow state, non fa danno da contatto
+            if (turtleShell.isSlow)
+            {
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"[HurtBox] ⚪ TurtleShell {turtleShell.gameObject.name} in SLOW state - nessun danno da contatto");
+                }
+                return;
+            }
+
+            Vector3 pushDirection = (playerController.transform.position - other.transform.position).normalized;
+            OnHit(pushDirection, turtleShell.pushForce, turtleShell.attackDamage);
+
+            if (enableDebugLogs)
+            {
+                Debug.Log($"[HurtBox] ✅ TurtleShell contatto - danno {turtleShell.attackDamage}");
+            }
+            return;
+        }
+
         if (enableDebugLogs)
         {
             Debug.Log($"[HurtBox] Oggetto {other.gameObject.name} non riconosciuto come fonte di danno");
