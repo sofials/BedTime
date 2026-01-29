@@ -30871,17 +30871,26 @@ MonoBehaviour:
   playerCamera: {fileID: 0}
   playerUI: {fileID: 0}
   attackEffectUI: {fileID: 0}
+  unstuckKey: 117
+  debugUnstuck: 0
   walkSpeed: 10
   runSpeed: 25
   sprintSpeed: 30
   rotationSmoothTime: 0.1
+  groundStabilityFrames: 3
+  debugGroundStability: 0
+  disableVerticalFollowing: 0
   autoDetectActiveCamera: 1
-  cameraCheckInterval: 0.1
   useCameraManagerIntegration: 1
   debugCameraChanges: 0
+  enableMovementInversion: 1
+  cameraSettings: []
+  debugMovementInversion: 0
   jumpHeight: 13
   gravity: -40
   maxJumps: 2
+  jumpBufferTime: 0.2
+  coyoteTime: 0.15
   ledgeGrabEnabled: 1
   ledgeDetectionDistance: 2
   ledgeLayerMask:
@@ -30894,9 +30903,8 @@ MonoBehaviour:
   hangStabilizationForce: 14.8
   hangPositionTolerance: 0.1
   debugLedgeGrab: 0
-  coyoteTime: 0.15
-  jumpBufferTime: 0.2
   fallingTimeThreshold: 1
+  debugJumpInBuild: 0
   airControlStrength: 0.5
   airControlSpeed: 5
   airRotationSmoothTime: 0.3
@@ -30931,18 +30939,18 @@ MonoBehaviour:
   protectMaxHealth: 1
   designatedMaxHealth: 300
   footstepAudioSource: {fileID: 8905953896649756250}
-  walkFootsteps:
-  - {fileID: 8300000, guid: 1f77c3fcd86b6ca44ab5373a6c6e0213, type: 3}
-  - {fileID: 8300000, guid: 2740e00e904dd4d4c828efefd028d498, type: 3}
-  - {fileID: 8300000, guid: 7cee4b9cd4cd86a499db253e3497bbd5, type: 3}
-  runFootsteps:
-  - {fileID: 8300000, guid: 1f77c3fcd86b6ca44ab5373a6c6e0213, type: 3}
-  - {fileID: 8300000, guid: 2740e00e904dd4d4c828efefd028d498, type: 3}
-  - {fileID: 8300000, guid: 7cee4b9cd4cd86a499db253e3497bbd5, type: 3}
-  sprintFootsteps:
-  - {fileID: 8300000, guid: 1f77c3fcd86b6ca44ab5373a6c6e0213, type: 3}
-  - {fileID: 8300000, guid: 2740e00e904dd4d4c828efefd028d498, type: 3}
-  - {fileID: 8300000, guid: 7cee4b9cd4cd86a499db253e3497bbd5, type: 3}
+  lavaLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  enableLavaDeath: 0
+  lavaCheckRadius: 0.6
+  debugLavaDeath: 0
+  terrainLayerName: SquareVillage
+  grassTextureIndices: 00000000
+  groundTextureIndices: 01000000
+  debugTerrainTexture: 0
+  grassFootsteps: []
+  groundFootsteps: []
   walkStepInterval: 0.5
   runStepInterval: 0.4
   sprintStepInterval: 0.2
@@ -30998,32 +31006,18 @@ MonoBehaviour:
   isAttacking: 0
   attackDuration: 0.3
   attackCooldown: 1
-  attackAdvanceDistance: 0.4
-  attackAdvanceCurve:
+  enableAutoTargeting: 1
+  targetDetectionRange: 5
+  targetDetectionAngle: 120
+  enemyLayerMask:
     serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  attackAdvanceDuration: 0.4
+    m_Bits: 64
+  enemyTags:
+  - Enemy
+  - EnemyHurtbox
+  rotationSpeed: 720
+  instantRotation: 0
+  debugTargeting: 0
   teleportAbility: {fileID: 0}
 --- !u!114 &328773549392567367
 MonoBehaviour:
@@ -31038,7 +31032,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerUI: {fileID: 0}
-  maxPower: 200
+  maxPower: 400
   currentPower: 0
   startWithZeroPower: 0
   debugPowerAmount: 10
