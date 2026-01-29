@@ -57,6 +57,20 @@ private bool lastGroundCheckResult = false;
     [Header("Ground Stability")]
 [SerializeField] private int groundStabilityFrames = 3; // Numero di frame da mantenere grounded
 [SerializeField] private bool debugGroundStability = false;
+
+[Header("Slope Handling - Discese")]
+[SerializeField] private float slopeStickForce = 30f; // Per discese smooth
+[SerializeField] private float slopeRayDistance = 1.5f;
+[SerializeField] private float maxSlopeAngle = 50f;
+[SerializeField] private float slopeSmoothTime = 0.15f;
+[SerializeField] private float minSlopeAngleForStick = 5f;
+[SerializeField] private bool debugSlopeHandling = false;
+private bool isOnSlope = false;
+private Vector3 slopeNormal = Vector3.up;
+private float currentSlopeVelocity = 0f; // NUOVO: per smooth damp
+private float slopeAngle = 0f; // NUOVO: cache angolo corrente
+private bool wasOnSlopeLastFrame = false; // NUOVO: tracking transizioni
+
 // ✅ AGGIUNGI QUESTI NUOVI PARAMETRI PER CONTROLLO FINE
 [Header("Platform Vertical Control")]
 [SerializeField] private bool disableVerticalFollowing = false; // NUOVO: Disabilita completamente
@@ -1960,6 +1974,9 @@ private void ExecuteJump(bool isFirstJump)
     // Reset velocità verticale se negativa
     if (velocity.y < 0) velocity.y = 0f;
     
+    // ✅ FIX: Reset della variabile SmoothDamp per evitare caduta lenta
+    currentSlopeVelocity = 0f;
+    
     // Calcola velocità di salto
     velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
     
@@ -2005,7 +2022,6 @@ private void ExecuteJump(bool isFirstJump)
     }
     StopFootstepAudio();
 }
-
 private Vector3 ApplyPlatformMovement()
 {
       if (debugPlatformMovement && currentPlatform != null)
@@ -2548,9 +2564,6 @@ float v = processedInput.y;
 }
 
 
-/// <summary>
-/// Esegue il salto da ledge grab
-/// </summary>
 private void ExecuteJumpFromHang()
 {   
     if (debugLedgeGrab)
@@ -2562,18 +2575,20 @@ private void ExecuteJumpFromHang()
     hangStabilityTimer = 0f;
     _animator.SetBool(HangingHash, false);
     
-    // ✅ SALVA TEMPO DI RILASCIO PER COOLDOWN
-        lastLedgeGrabTime = Time.time;
+    // Salva tempo di rilascio per cooldown
+    lastLedgeGrabTime = Time.time;
     
-    // ✅ MOVIMENTO VERSO L'ESTERNO DAL MURO
-    // hangForward punta verso il muro, quindi -hangForward ci allontana
+    // Movimento verso l'esterno dal muro
     Vector3 jumpOffset = -hangForward * 0.4f + Vector3.up * 0.1f;
     controller.Move(jumpOffset);
+    
+    // ✅ FIX: Reset della variabile SmoothDamp per evitare caduta lenta
+    currentSlopeVelocity = 0f;
     
     // Salto normale verso l'alto
     velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
     
-    // ✅ IMPULSO IN DIREZIONE OPPOSTA AL MURO (allontanandosi)
+    // Impulso in direzione opposta al muro
     Vector3 jumpDirection = -hangForward * 3f;
     playerVelocity = new Vector3(jumpDirection.x, 0f, jumpDirection.z);
     
@@ -2609,24 +2624,169 @@ private IEnumerator EnableMovementAfterHangJump()
 private void HandleJump()
 {
     bool grounded = controller.isGrounded;
-    
+
     if (hanging || isClimbing)
     {
         velocity = Vector3.zero;
         return;
     }
-    
-    // VALORE FISSO PER GROUNDED
-    if (grounded && velocity.y < 0)
+
+    // Rileva slope
+    DetectSlope();
+
+    // ✅ FIX: GROUNDED - Sistema discese SOLO se effettivamente a terra
+    if (grounded && velocity.y < 0.1f)
     {
-        velocity.y = -2f; // VALORE FISSO INVECE DI VARIABILE
+        float targetVelocityY;
+        
+        if (isOnSlope)
+        {
+            // Calcola forza proporzionale per discese smooth
+            float normalizedAngle = slopeAngle / maxSlopeAngle;
+            float speedFactor = Mathf.Clamp01(playerVelocity.magnitude / runSpeed);
+            float dynamicStickForce = slopeStickForce * normalizedAngle * (0.5f + speedFactor * 0.5f);
+            targetVelocityY = -dynamicStickForce;
+            
+            if (debugSlopeHandling && Time.frameCount % 30 == 0)
+            {
+                Debug.Log($"[Slope] Stick: {dynamicStickForce:F2}, Angle: {slopeAngle:F1}°");
+            }
+        }
+        else
+        {
+            // Non su slope - velocità standard
+            targetVelocityY = -2f;
+        }
+        
+        // SMOOTH TRANSITION tra slope e non-slope
+        if (wasOnSlopeLastFrame != isOnSlope)
+        {
+            velocity.y = Mathf.SmoothDamp(velocity.y, targetVelocityY, ref currentSlopeVelocity, slopeSmoothTime * 2f);
+        }
+        else
+        {
+            velocity.y = Mathf.SmoothDamp(velocity.y, targetVelocityY, ref currentSlopeVelocity, slopeSmoothTime);
+        }
     }
 
     ApplyGravity();
     UpdateJumpAnimations();
 }
 
+private void ApplyGravity()
+{
+    float dt = Time.fixedDeltaTime;
 
+    // ✅ FIX CRITICO: Applica gravità SOLO se:
+    // 1. NON sei grounded, OPPURE
+    // 2. Sei grounded ma stai saltando via (velocity.y > 0.1f)
+    bool shouldApplyGravity = !controller.isGrounded || velocity.y > 0.1f;
+    
+    if (!shouldApplyGravity)
+    {
+        // Se sei grounded e non stai saltando, la gravità è gestita da HandleJump()
+        return;
+    }
+
+    // ⚠️ IMPORTANTE: Usa i valori del CODICE 1 per gravità veloce!
+    
+    // In aria - caduta (Velocity Y < 0)
+    if (velocity.y < 0)
+    {
+        velocity.y += gravity * 2.5f * dt; // ✅ CODICE 1: gravità pesante
+    }
+    // Salto interrotto (rilasciato tasto mentre si sale)
+    else if (velocity.y > 0 && !isHoldingJump)
+    {
+        velocity.y += gravity * 2f * dt; // ✅ CODICE 1: taglio salto reattivo
+    }
+    // Salto normale in salita
+    else
+    {
+        velocity.y += gravity * dt;
+    }
+
+    // Terminal velocity alta per cadute lunghe
+    velocity.y = Mathf.Max(velocity.y, -120f);
+}
+
+/// <summary>
+/// Rileva se il player è su una discesa e calcola la normale - VERSIONE MIGLIORATA
+/// </summary>
+private void DetectSlope()
+{
+    wasOnSlopeLastFrame = isOnSlope;
+    isOnSlope = false;
+    slopeNormal = Vector3.up;
+    slopeAngle = 0f;
+
+    // Non controllare se stiamo saltando attivamente
+    if (velocity.y > 2f) return;
+    
+    // Multi-point raycast per rilevamento più stabile
+    Vector3[] checkPoints = {
+        transform.position,
+        transform.position + transform.forward * 0.3f,
+        transform.position - transform.forward * 0.3f,
+        transform.position + transform.right * 0.2f,
+        transform.position - transform.right * 0.2f
+    };
+    
+    Vector3 averageNormal = Vector3.zero;
+    int validHits = 0;
+    float maxAngleFound = 0f;
+    
+    foreach (Vector3 point in checkPoints)
+    {
+        Vector3 rayStart = point + Vector3.up * 0.2f;
+        
+        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, slopeRayDistance))
+        {
+            float angle = Vector3.Angle(Vector3.up, hit.normal);
+            
+            if (angle > minSlopeAngleForStick && angle < maxSlopeAngle)
+            {
+                averageNormal += hit.normal;
+                validHits++;
+                maxAngleFound = Mathf.Max(maxAngleFound, angle);
+            }
+            
+            if (debugSlopeHandling)
+            {
+                Debug.DrawLine(rayStart, hit.point, angle > minSlopeAngleForStick ? Color.yellow : Color.green, 0.1f);
+            }
+        }
+    }
+    
+    // Se abbiamo hit validi, calcola la media
+    if (validHits > 0)
+    {
+        slopeNormal = (averageNormal / validHits).normalized;
+        slopeAngle = maxAngleFound;
+        
+        // Verifica direzione movimento rispetto alla pendenza
+        if (playerVelocity.sqrMagnitude > 0.01f)
+        {
+            Vector3 slopeDirection = Vector3.ProjectOnPlane(Vector3.down, slopeNormal).normalized;
+            Vector3 moveDirection = playerVelocity.normalized;
+            float dotProduct = Vector3.Dot(moveDirection, slopeDirection);
+            
+            // Siamo su una slope se ci muoviamo in discesa O siamo fermi su pendenza
+            isOnSlope = dotProduct > -0.3f; // Più permissivo: anche movimento laterale
+        }
+        else if (controller.isGrounded)
+        {
+            // Se fermi su pendenza, considera comunque slope per evitare scivolamento
+            isOnSlope = true;
+        }
+        
+        if (debugSlopeHandling && Time.frameCount % 30 == 0)
+        {
+            Debug.Log($"[Slope] Angolo: {slopeAngle:F1}°, isOnSlope: {isOnSlope}, Hits: {validHits}");
+            Debug.DrawRay(transform.position, slopeNormal * 2f, Color.cyan, 0.5f);
+        }
+    }
+}
   private bool IsGroundedAccurate()
 {
     // 1. Controlla prima il built-in isGrounded
@@ -2809,24 +2969,6 @@ private void UpdateGroundedStateForPlatforms()
         _animator.SetFloat(VerticalVelocityHash, velocity.y);
     }
 
-    private void ApplyGravity()
-{
-    // ✅ USA fixedDeltaTime invece di deltaTime
-    float dt = Time.fixedDeltaTime;
-    
-    if (velocity.y < 0)
-    {
-        velocity.y += gravity * 2.5f * dt;
-    }
-    else if (velocity.y > 0 && !isHoldingJump)
-    {
-        velocity.y += gravity * 2f * dt;
-    }
-    else
-    {
-        velocity.y += gravity * dt;
-    }
-}
 
     private void HandleSprintFX()
     {
@@ -3256,28 +3398,36 @@ public string GetLedgeGrabInfo()
     private const float GROUND_NORMAL_CHECK_INTERVAL = 0.2f;
 
     private Vector3 GetGroundNormal()
+{
+    // Se siamo su una slope rilevata, usa quella normale (più accurata)
+    if (isOnSlope && slopeNormal != Vector3.up)
     {
-        if (controller.isGrounded)
+        return slopeNormal;
+    }
+    
+    // Altrimenti usa il sistema di cache esistente
+    if (controller.isGrounded)
+    {
+        if (Time.time - lastGroundNormalCheck > GROUND_NORMAL_CHECK_INTERVAL)
         {
-            if (Time.time - lastGroundNormalCheck > GROUND_NORMAL_CHECK_INTERVAL)
+            lastGroundNormalCheck = Time.time;
+            
+            tempVector3.Set(transform.position.x, transform.position.y + 0.1f, transform.position.z);
+            int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 1.5f);
+            
+            if (hitCount > 0)
             {
-                lastGroundNormalCheck = Time.time;
-                
-                tempVector3.Set(transform.position.x, transform.position.y + 0.1f, transform.position.z);
-                int hitCount = Physics.RaycastNonAlloc(tempVector3, Vector3.down, raycastHits, 1.5f);
-                
-                if (hitCount > 0)
-                {
-                    cachedGroundNormal = raycastHits[0].normal;
-                }
-                else
-                {
-                    cachedGroundNormal = Vector3.up;
-                }
+                cachedGroundNormal = raycastHits[0].normal;
+            }
+            else
+            {
+                cachedGroundNormal = Vector3.up;
             }
         }
-        return cachedGroundNormal;
     }
+    return cachedGroundNormal;
+}
+
 
     // ✅ METODI PUBBLICI PER GESTIONE PIATTAFORME
     
