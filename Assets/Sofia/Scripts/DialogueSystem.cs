@@ -17,6 +17,7 @@ public class LineEvent
     [Header("Timing")]
     [Tooltip("Quando attivare l'evento")]
     public LineEventTiming timing = LineEventTiming.OnLineStart;
+    
 
     [Tooltip("Ritardo prima di attivare l'evento (secondi)")]
     [Range(0f, 10f)]
@@ -123,6 +124,16 @@ public class DialogueSystem : MonoBehaviour
     public bool autoCloseOnExit = false; // Se true, chiude il dialogo quando esci dalla zona
     public bool autoFinishLastLine = true; // Se true, l'ultima battuta finisce automaticamente
     public float autoFinishDelay = 2f; // Tempo di attesa per ultima battuta senza audio
+    [Header("🎨 Custom UI During Dialogue")]
+[Tooltip("Se true, mantiene attiva una UI personalizzata per tutta la durata del dialogo")]
+[SerializeField] private bool enableCustomUIControl = false;
+[Tooltip("UI da attivare all'inizio del dialogo e disattivare alla fine")]
+[SerializeField] private GameObject customUIToShow;
+[Tooltip("Se true, disattiva la UI custom anche se il dialogo viene forzatamente chiuso")]
+[SerializeField] private bool hideUIOnForceClose = true;
+
+// Variabili private
+private bool customUIWasActive = false;
     // NUOVI GETTERS/SETTERS
 public bool IsPreDialogueEventsEnabled() => enablePreDialogueEvents;
 public bool IsPostDialogueEventsEnabled() => enablePostDialogueEvents;
@@ -297,6 +308,7 @@ public bool WasTriggeredByCollectiblesManager() => wasTriggeredByCollectiblesMan
         {
             InitializeDissolveValues();
         }
+        ValidateCustomUISetup(); 
     }
     /// <summary>
 /// 🌟 Valida e configura l'integrazione con CollectiblesManager
@@ -334,6 +346,122 @@ void ValidateCollectiblesManagerIntegration()
         RegisterAsFirstMemoryDialogue();
     }
 }
+/// <summary>
+/// 🎨 Valida il setup della Custom UI
+/// </summary>
+void ValidateCustomUISetup()
+{
+    if (!enableCustomUIControl)
+    {
+        Debug.Log("[DialogueSystem] Custom UI Control disabilitato");
+        return;
+    }
+    
+    if (customUIToShow == null)
+    {
+        Debug.LogWarning("[DialogueSystem] ⚠️ Custom UI Control abilitato ma nessuna UI assegnata!");
+        enableCustomUIControl = false;
+        return;
+    }
+    
+    Debug.Log($"[DialogueSystem] ✅ Custom UI setup: '{customUIToShow.name}' (attualmente {(customUIToShow.activeInHierarchy ? "attiva" : "disattiva")})");
+}
+
+/// <summary>
+/// 🎨 Attiva la Custom UI all'inizio del dialogo
+/// </summary>
+void ShowCustomUI()
+{
+    if (!enableCustomUIControl || customUIToShow == null)
+        return;
+    
+    // Salva lo stato precedente
+    customUIWasActive = customUIToShow.activeInHierarchy;
+    
+    // Attiva la UI
+    customUIToShow.SetActive(true);
+    
+    Debug.Log($"[DialogueSystem] 🎨 Custom UI '{customUIToShow.name}' attivata (era attiva: {customUIWasActive})");
+}
+
+/// <summary>
+/// 🎨 Disattiva la Custom UI alla fine del dialogo
+/// </summary>
+void HideCustomUI()
+{
+    if (!enableCustomUIControl || customUIToShow == null)
+        return;
+    
+    // Ripristina lo stato precedente (o forza disattivazione se era già disattiva)
+    if (!customUIWasActive)
+    {
+        customUIToShow.SetActive(false);
+        Debug.Log($"[DialogueSystem] 🎨 Custom UI '{customUIToShow.name}' disattivata (ripristino stato precedente)");
+    }
+    else
+    {
+        Debug.Log($"[DialogueSystem] 🎨 Custom UI '{customUIToShow.name}' mantenuta attiva (era già attiva prima)");
+    }
+}
+
+// ========== GETTERS/SETTERS CUSTOM UI ==========
+
+/// <summary>
+/// 🎨 Abilita/disabilita il controllo Custom UI
+/// </summary>
+public void SetCustomUIControlEnabled(bool enabled)
+{
+    enableCustomUIControl = enabled;
+    Debug.Log($"[DialogueSystem] Custom UI Control {(enabled ? "abilitato" : "disabilitato")}");
+}
+
+/// <summary>
+/// 🎨 Imposta la Custom UI da mostrare
+/// </summary>
+public void SetCustomUIToShow(GameObject ui)
+{
+    customUIToShow = ui;
+    Debug.Log($"[DialogueSystem] Custom UI impostata: {(ui != null ? ui.name : "NULL")}");
+}
+
+/// <summary>
+/// 🎨 Imposta se nascondere la UI anche in caso di chiusura forzata
+/// </summary>
+public void SetHideUIOnForceClose(bool hide)
+{
+    hideUIOnForceClose = hide;
+    Debug.Log($"[DialogueSystem] Nascondi UI su chiusura forzata: {hide}");
+}
+
+/// <summary>
+/// 🎨 Forza la visibilità della Custom UI (per test)
+/// </summary>
+public void ForceShowCustomUI()
+{
+    if (customUIToShow != null)
+    {
+        customUIToShow.SetActive(true);
+        Debug.Log($"[DialogueSystem] 🧪 Custom UI '{customUIToShow.name}' forzata attiva");
+    }
+}
+
+/// <summary>
+/// 🎨 Forza il nascondimento della Custom UI (per test)
+/// </summary>
+public void ForceHideCustomUI()
+{
+    if (customUIToShow != null)
+    {
+        customUIToShow.SetActive(false);
+        Debug.Log($"[DialogueSystem] 🧪 Custom UI '{customUIToShow.name}' forzata disattiva");
+    }
+}
+
+// Getters
+public bool IsCustomUIControlEnabled() => enableCustomUIControl;
+public GameObject GetCustomUIToShow() => customUIToShow;
+public bool GetHideUIOnForceClose() => hideUIOnForceClose;
+public bool WasCustomUIActive() => customUIWasActive;
 // <summary>
 /// 🌟 Registra questo DialogueSystem come FirstMemoryDialogue nel CollectiblesManager
 /// </summary>
@@ -813,11 +941,15 @@ public void StartDialogue()
     movementLockApplied = false;
     preDialogueEventsCompleted = false;
     isWaitingForPreEvents = false;
+    
     if (dialogueText != null)
     {
-        dialogueText.text = ""; // Pulisce il testo del dialogo precedente
+        dialogueText.text = "";
         Debug.Log("[DialogueSystem] 🧹 Testo UI pulito prima dell'attivazione");
     }
+    
+    // 🎨 CORREZIONE: Attiva Custom UI PRIMA dell'UI principale
+    ShowCustomUI();
     
     // Attiva l'UI del dialogo
     if (dialogueUI != null)
@@ -825,7 +957,7 @@ public void StartDialogue()
         dialogueUI.SetActive(true);
         Debug.Log("[DEBUG] DialogueUI attivato");
     }
-    
+
     // 🎮 BLOCCA MOVIMENTO DEL PLAYER SE ABILITATO
     if (lockMovementDuringDialogue)
     {
@@ -843,19 +975,16 @@ public void StartDialogue()
     OnDialogueStarted?.Invoke();
     OnAnyDialogueStarted?.Invoke(this);
     
-    // 🆕 NUOVO: Triggera eventi pre-dialogo PRIMA di mostrare la prima linea
+    // 🆕 Eventi pre-dialogo
     if (enablePreDialogueEvents && preDialogueEvents != null && preDialogueEvents.Length > 0)
     {
         Debug.Log("[DialogueSystem] 🎬 Triggerando eventi pre-dialogo...");
         isWaitingForPreEvents = true;
         TriggerPreDialogueEvents();
-        
-        // Avvia timeout per evitare blocchi infiniti
         StartCoroutine(PreDialogueTimeout());
     }
     else
     {
-        // Nessun evento pre-dialogo, mostra immediatamente la prima linea
         DisplayLine();
     }
 }
@@ -1279,6 +1408,8 @@ void ExecutePostDialogueEventImmediate(LineEvent postEvent)
         if (dialogueUI != null)
             dialogueUI.SetActive(false);
         
+        
+        HideCustomUI();
         // Ferma le coroutine se attive
         if (audioCoroutine != null)
         {
