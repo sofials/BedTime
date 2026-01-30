@@ -856,8 +856,8 @@ public class PlayerCollectiblesUI : MonoBehaviour
         {
             Debug.Log($"[PlayerCollectiblesUI] Updating present display: {currentScenePresents}/{totalScenePresents}");
 
-            // 🔥 ALWAYS use standardized format: "presents X/Y"
-            string updatedText = $"presents {currentScenePresents}/{totalScenePresents}";
+            // 🔥 ALWAYS use standardized format: "X/Y"
+            string updatedText = $"{currentScenePresents}/{totalScenePresents}";
             presentCounterText.text = updatedText;
 
             // 🎯 Color logic: White for all, GREEN only when ALL presents are collected
