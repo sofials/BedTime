@@ -1,0 +1,1476 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &403380823861136899
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 859149312460608026}
+  - component: {fileID: 2859182397396638557}
+  - component: {fileID: 78918860282814194}
+  m_Layer: 0
+  m_Name: D12
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &859149312460608026
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 403380823861136899}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 6.1, y: -21.5, z: 49.32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &2859182397396638557
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 403380823861136899}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 100, y: 10, z: 5}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &78918860282814194
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 403380823861136899}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: Happy birthday Dreamer!
+    audioClip: {fileID: 8300000, guid: c6921ccc75d94284192258ea0cece562, type: 3}
+  - text: "Woah, thank you guys! But\u2026 why are you all so rushed?"
+    audioClip: {fileID: 8300000, guid: 9473990b9b7719347b2db15c43cad946, type: 3}
+  - text: "We\u2019ve been trying to get everyting ready before your arrival! "
+    audioClip: {fileID: 8300000, guid: 0a944ebcb1c71d24fa6df8dec22943f8, type: 3}
+  - text: "But\u2026 we\u2019re still working on your third gift!"
+    audioClip: {fileID: 8300000, guid: 007e5f6aaf9eb6048aa3ed5fcfa55d4e, type: 3}
+  - text: "Why don\u2019t you go find the first two? They are hidden in the Playground
+      Arena and Sweet Plaza!"
+    audioClip: {fileID: 8300000, guid: f452a938c2bab6c4abef4172e9c7ae2d, type: 3}
+  - text: "Wait, so this whole chaotic dream mess was\u2026 a party? You people are
+      dangerously enthusiastic!"
+    audioClip: {fileID: 8300000, guid: c8fb9f95887b25c43a5fc4bb170b01f0, type: 3}
+  - text: "They celebrate you as their guardian, Luke. Accept their joy\u2026 and
+      face their trials."
+    audioClip: {fileID: 8300000, guid: 1435aaced83fc484a92e7bac524c0a6a, type: 3}
+  - text: "Yeah, yeah\u2026 party trials. Do I get cake after all this?"
+    audioClip: {fileID: 8300000, guid: aa6d95df6b19ba3488fd632b54feea0c, type: 3}
+  - text: Only if you survive.
+    audioClip: {fileID: 8300000, guid: 46117ce70001c3348b422bdfa63b378a, type: 3}
+  - text: "Ugh\u2026"
+    audioClip: {fileID: 8300000, guid: 22eb305805f77cf40bc92510d4a8a41f, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &1737304818570246458
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7388511657566969307}
+  - component: {fileID: 1861583423037569963}
+  - component: {fileID: 3849632405029258613}
+  m_Layer: 0
+  m_Name: D11
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7388511657566969307
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1737304818570246458}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 3.945633, y: -16.472778, z: 2.74823}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &1861583423037569963
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1737304818570246458}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 40, y: 10, z: 5}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &3849632405029258613
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1737304818570246458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Whoa\u2026 what\u2019s going on here?"
+    audioClip: {fileID: 8300000, guid: 04260505d6e84d64ab14dd8793478746, type: 3}
+  - text: '(high-pitched, sped-up gibberish)  '
+    audioClip: {fileID: 8300000, guid: 605e5e2958e66b34388b43eba466e11f, type: 3}
+  - text: 'Hey! Can someone tell me- wait, slow down guys!!
+
+      Lady, did I miss
+      something or is everyone stuck on fast-forward??'
+    audioClip: {fileID: 8300000, guid: 4163cc4b9f47826439cc4b558839af69, type: 3}
+  - text: "The Dreamworld reflects energy, emotions\u2026 even anxiety. Calm the
+      current, you know how, Luke\r\n"
+    audioClip: {fileID: 8300000, guid: 51141ff057450bc4b8c8463d57984556, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 403380823861136899}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &2412637542922776739
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6035004195753705596}
+  - component: {fileID: 2570871187428365959}
+  - component: {fileID: 558625518293677526}
+  m_Layer: 0
+  m_Name: D17
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &6035004195753705596
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2412637542922776739}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.8242754, z: -0, w: -0.5661891}
+  m_LocalPosition: {x: -61.6, y: -17.5, z: 118.79999}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 248.97, z: 0}
+--- !u!65 &2570871187428365959
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2412637542922776739}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 180, y: 20, z: 20}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &558625518293677526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2412637542922776739}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Whoa\u2026 WHAT? Did they seriously build me a full-on dream level? Like\u2026
+      jumping, blocks, coins, fake lava and everything?"
+    audioClip: {fileID: 8300000, guid: 75309ce5e38cbb94aa1ef133b59b1706, type: 3}
+  - text: "Okay\u2026 this is officially the best birthday ever. I love those crazy
+      little weirdoes!"
+    audioClip: {fileID: 8300000, guid: 36cca3e1e338eb146a95c100ce362dad, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &4648023620009953573
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7496732024274269747}
+  - component: {fileID: 5451081017552572861}
+  - component: {fileID: 5243522428433470683}
+  m_Layer: 0
+  m_Name: D13
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &7496732024274269747
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4648023620009953573}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: -73.9, y: -21.5, z: 115.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+--- !u!65 &5451081017552572861
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4648023620009953573}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 60, y: 10, z: 10}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &5243522428433470683
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4648023620009953573}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Hey hey hey! You can\u2019t go this way yet!"
+    audioClip: {fileID: 8300000, guid: 32fa4524ea09f8f44a0c10b32d9bd9f3, type: 3}
+  - text: Still wrapping things up over there, NO PEEKING!
+    audioClip: {fileID: 8300000, guid: 5ef3f2a72a735d8408e189dfb8b6fa47, type: 3}
+  - text: Go enjoy Playground Arena and Sweet Plaza for now!
+    audioClip: {fileID: 8300000, guid: 9386761eddbf05f45a3964f88bc7efc5, type: 3}
+  - text: "Alright, alright, I\u2019ll stay out of your top-secret birthday zone\u2026
+      for now.\r\n"
+    audioClip: {fileID: 8300000, guid: ab4f3af7e55aac348a15595dc8334895, type: 3}
+  canRepeatDialogue: 1
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: 
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 0
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 0
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &4879514681715759102
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3713791230672101895}
+  - component: {fileID: 6757056431222544423}
+  - component: {fileID: 8497028082235698533}
+  m_Layer: 0
+  m_Name: D15
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &3713791230672101895
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4879514681715759102}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.9468533, z: -0, w: -0.3216657}
+  m_LocalPosition: {x: -276.7, y: 96.9, z: 974}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 217.527, z: 0}
+--- !u!65 &6757056431222544423
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4879514681715759102}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 60, y: 20, z: 10}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &8497028082235698533
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4879514681715759102}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: Okay, fighting in my kindergarden playground was not on my birthday bingo
+      card.
+    audioClip: {fileID: 8300000, guid: 678183ffe051c8b4d965ae7aa569e1d8, type: 3}
+  - text: "And yet, you emerged victorious\u2014playground champion."
+    audioClip: {fileID: 8300000, guid: 36511a903ffb6214b8ac8a434489d7f4, type: 3}
+  - text: "Can we call it \u201Cbarely survived with style\u201D?"
+    audioClip: {fileID: 8300000, guid: d603eac22696cd147b16035090e03aea, type: 3}
+  - text: You earned this gift, Luke.
+    audioClip: {fileID: 8300000, guid: ca94b05e08c6d9e41aa31144fa265110, type: 3}
+  - text: "Let\u2019s hope this one isn\u2019t just confetti and drama."
+    audioClip: {fileID: 8300000, guid: 05c05fed7b187b6478e61407cbfea4f1, type: 3}
+  - text: No promises.
+    audioClip: {fileID: 8300000, guid: 06c963340532f834fa33a729045a0b27, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &5300421244781776624
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7594718117421647608}
+  m_Layer: 0
+  m_Name: Dialogues01
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7594718117421647608
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5300421244781776624}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 362.77582, y: -9.683838, z: -106.5813}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7388511657566969307}
+  - {fileID: 859149312460608026}
+  - {fileID: 7496732024274269747}
+  - {fileID: 4039528115468084861}
+  - {fileID: 3713791230672101895}
+  - {fileID: 792704761763021447}
+  - {fileID: 6035004195753705596}
+  - {fileID: 3291219604975717511}
+  - {fileID: 1325564117840065172}
+  - {fileID: 5695026301721285574}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5774026673729277336
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1325564117840065172}
+  - component: {fileID: 1807025659638950324}
+  - component: {fileID: 6258320056589190259}
+  m_Layer: 0
+  m_Name: D19
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1325564117840065172
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5774026673729277336}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.8242754, z: -0, w: -0.5661891}
+  m_LocalPosition: {x: -51.7, y: -1.8, z: 38.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 248.97, z: 0}
+--- !u!65 &1807025659638950324
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5774026673729277336}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 30, y: 30, z: 30}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &6258320056589190259
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5774026673729277336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: 'Teleporting dream magic: saving boys since five minutes ago!'
+    audioClip: {fileID: 8300000, guid: 41793084567ecbd479950c5545cf2d67, type: 3}
+  - text: "What\u2026? No no no\u2026 what happened? Who is that guy?!\r"
+    audioClip: {fileID: 8300000, guid: 45d177298954a84468e504b6d73a759f, type: 3}
+  - text: "Luke\u2026 I can\u2019t understand\u2026"
+    audioClip: {fileID: 8300000, guid: 6504c0bb320ff4347af82a719dda14ca, type: 3}
+  - text: "He\u2019s running away! I don\u2019t care what it is, I\u2019m not letting
+      it get away."
+    audioClip: {fileID: 8300000, guid: 4f20d10b4fc65c04ba00f3b5ede7f91b, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 1
+  subDialogueSystem: {fileID: 4524189022493185358}
+  subDialogueDelay: 0.5
+  subDialogueMessage: 
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 5988298971079125821}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: GolemVillaggio, Assembly-CSharp
+        m_MethodName: ShowGolem
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: SceneTrigger, Assembly-CSharp
+        m_MethodName: ActivateSceneTriggerWithCheck
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: GolemVillaggio, Assembly-CSharp
+        m_MethodName: StartWalking
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &5817521589565730226
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3291219604975717511}
+  - component: {fileID: 557641401577887774}
+  - component: {fileID: 4533144519476887682}
+  m_Layer: 0
+  m_Name: D18
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &3291219604975717511
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5817521589565730226}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.8242754, z: -0, w: -0.5661891}
+  m_LocalPosition: {x: -195.2, y: 142.9, z: -37.8}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 248.97, z: 0}
+--- !u!65 &557641401577887774
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5817521589565730226}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 30, y: 40, z: 100}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &4533144519476887682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5817521589565730226}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Uh\u2026 Lady? What\u2019s going on here?!"
+    audioClip: {fileID: 8300000, guid: e76fc74d32b99de46a554404cabd8e63, type: 3}
+  - text: "This is\u2026 unexpected\u2026 I sensed no shift, no disruption\u2026\r\nBe
+      careful Luke, let\u2019s go back in town."
+    audioClip: {fileID: 8300000, guid: 2dbcf95d003e1df4ca5f047690377d4e, type: 3}
+  - text: "But\u2026 how? I can\u2019t go anywhere!"
+    audioClip: {fileID: 8300000, guid: 2fc9c6523d2c3ca4b8edc3fecbd59d35, type: 3}
+  - text: "Don\u2019t worry, I have another trick for you: see that purple spot?\r\nIf
+      you focus on it, you can teleport!"
+    audioClip: {fileID: 8300000, guid: 284eab97c0199e446bff3a65b53e9d1e, type: 3}
+  - text: "Wow and you just\u2026 kept it for yourself until now?"
+    audioClip: {fileID: 8300000, guid: 98c3c6e6af0ffd34dbb55641fd9f659b, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 1
+  lockMovementDuringDialogue: 1
+  movementLockDelay: 0
+  lockCameraRotation: 1
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable:
+  - {fileID: 5774026673729277336}
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: TeleportBase, Assembly-CSharp
+        m_MethodName: EnableObject
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: AbilityBase, Assembly-CSharp
+        m_MethodName: SetLevelAllowed
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &5988298971079125821
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5695026301721285574}
+  - component: {fileID: 4524189022493185358}
+  m_Layer: 0
+  m_Name: D20
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &5695026301721285574
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5988298971079125821}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.71049, z: -0, w: -0.7037073}
+  m_LocalPosition: {x: 3, y: -5.8, z: 7}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 269.45, z: 0}
+--- !u!114 &4524189022493185358
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5988298971079125821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Be careful, Luke. This is no dream you\u2019ve ever shaped before."
+    audioClip: {fileID: 8300000, guid: 56ec90184205518488c4e74e5886341f, type: 3}
+  - text: "Then maybe it\u2019s time I learned how to fight a nightmare."
+    audioClip: {fileID: 8300000, guid: 3b3ec858da137094ab50885ea4d249a5, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: 
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 0
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &8791715544879469874
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 792704761763021447}
+  - component: {fileID: 97692691324927072}
+  - component: {fileID: 4223677908283967491}
+  m_Layer: 0
+  m_Name: D16
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &792704761763021447
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8791715544879469874}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.9468533, z: -0, w: -0.3216657}
+  m_LocalPosition: {x: 3.5, y: -17.5, z: 184}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 217.527, z: 0}
+--- !u!65 &97692691324927072
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8791715544879469874}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 200, y: 20, z: 40}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &4223677908283967491
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8791715544879469874}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Luke\u2026 your third gift is ready.\r \r\nI\u2019ve been looking forward
+      to this one.\r\n"
+    audioClip: {fileID: 8300000, guid: 512f37074f511f041acb2c60de193e30, type: 3}
+  - text: Oh? What is it? Giant cupcake? Flying llama? Talking plant that gives life
+      advice?
+    audioClip: {fileID: 8300000, guid: 7075d490cb37b8645882462089b53b78, type: 3}
+  - text: "Patience, hero.\r\r\nI won\u2019t spoil the surprise\u2014\r \r                                           
+      but I can\u2019t wait to see your face.\r"
+    audioClip: {fileID: 8300000, guid: 59085363c1e4b5144b361fee206cf0ee, type: 3}
+  - text: "That\u2019s either very exciting\u2026 or very concerning.\r \r\nBut alright.
+      Let\u2019s see what they got me.\r"
+    audioClip: {fileID: 8300000, guid: 03238547e61a83542906c1d7293b627a, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 1
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable:
+  - {fileID: 2412637542922776739}
+  objectsToDisable: []
+  activationMessage: Oggetti attivati dal dialogo!
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &8954546998698578497
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4039528115468084861}
+  - component: {fileID: 8447334792416299200}
+  - component: {fileID: 2469029923895776729}
+  m_Layer: 0
+  m_Name: D14
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &4039528115468084861
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8954546998698578497}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.9999017, z: -0, w: 0.014021011}
+  m_LocalPosition: {x: 611.3, y: -15, z: -114.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7594718117421647608}
+  m_LocalEulerAnglesHint: {x: 0, y: 178.393, z: 0}
+--- !u!65 &8447334792416299200
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8954546998698578497}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 60, y: 20, z: 10}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &2469029923895776729
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8954546998698578497}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00cdb08e973d2641ac897726687ff00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueUI: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueLines:
+  - text: "Whew\u2026 that place was intense.\r\r\nPretty sure I almost got hit in
+      the face by a flying jellybean.\r"
+    audioClip: {fileID: 8300000, guid: c968ea6c9ef878f4786f685daae4897b, type: 3}
+  - text: You handled it well Dreamer.
+    audioClip: {fileID: 8300000, guid: b56c80b79c3d82747a212c0c534c2817, type: 3}
+  - text: "Still\u2014that pancake tower? Total distraction.\r\r\n I\u2019m starving
+      now.\r\n"
+    audioClip: {fileID: 8300000, guid: f2a12cc17939d61408e5396b50b87cdc, type: 3}
+  - text: "You\u2019re lucky this gift isn\u2019t edible."
+    audioClip: {fileID: 8300000, guid: 17c54409b5d291b41808cb08504e12c8, type: 3}
+  - text: "Don\u2019t say that unless you\u2019re completely sure.\r\r\nI can\u2019t
+      wait to unwrap it.\r"
+    audioClip: {fileID: 8300000, guid: 4cb8e41e496b76c47829a02139ccd336, type: 3}
+  canRepeatDialogue: 0
+  autoCloseOnExit: 0
+  autoFinishLastLine: 1
+  autoFinishDelay: 2
+  enableSubDialogue: 0
+  subDialogueSystem: {fileID: 0}
+  subDialogueDelay: 0.5
+  subDialogueMessage: Attivando sottodialogo...
+  enableDissolveEffect: 0
+  dissolveObjects: []
+  dissolveWithSubDialogue: 1
+  enableDissolveAudio: 0
+  dissolveAudioSource: {fileID: 0}
+  dissolveAudioClip: {fileID: 0}
+  stopAudioOnDissolveComplete: 1
+  dissolveAudioFadeTime: 0.5
+  lockPlayerMovement: 0
+  lockMovementDuringDialogue: 0
+  movementLockDelay: 0
+  lockCameraRotation: 0
+  targetPlayerController: {fileID: 0}
+  forceInitializeDissolveValues: 1
+  initialDissolveValue: 1
+  enableObjectActivation: 0
+  objectToEnable: {fileID: 0}
+  objectToDisable: {fileID: 0}
+  objectsToEnable: []
+  objectsToDisable: []
+  activationMessage: 
+  activationDelay: 0
+  audioSource: {fileID: 0}
+  audioFadeOutTime: 0.2
+  nextLineKey: 13
+  cancelDialogueKey: 27
+  playerController: {fileID: 0}
+  OnDialogueStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDialogueEnded:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineReached:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLastLineFinished:
+    m_PersistentCalls:
+      m_Calls: []
+  OnObjectsActivated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSubDialogueTriggered:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDissolveCompleted:
+    m_PersistentCalls:
+      m_Calls: []

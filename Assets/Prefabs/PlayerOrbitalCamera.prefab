@@ -90,25 +90,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3b5d7c088409d9a40b7b09aa707777f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  TargetOffset: {x: 3.57, y: 1, z: 0}
+  TargetOffset: {x: 0, y: 0, z: 0}
   TrackerSettings:
     BindingMode: 4
     PositionDamping: {x: 1, y: 1, z: 1}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
-  OrbitStyle: 0
-  Radius: 10
+  OrbitStyle: 1
+  Radius: 18.51
   Orbits:
     Top:
-      Radius: 2
-      Height: 5
+      Radius: 30
+      Height: 30.4
     Center:
-      Radius: 4
-      Height: 2.25
+      Radius: 42.1
+      Height: 17.7
     Bottom:
-      Radius: 2.5
-      Height: 0.1
+      Radius: 30
+      Height: 0.48
     SplineCurvature: 0.5
   RecenteringTarget: 2
   HorizontalAxis:
@@ -137,7 +137,7 @@ MonoBehaviour:
     Range: {x: 1, y: 1}
     Wrap: 0
     Recentering:
-      Enabled: 0
+      Enabled: 1
       Wait: 1
       Time: 2
     Restrictions: 0
